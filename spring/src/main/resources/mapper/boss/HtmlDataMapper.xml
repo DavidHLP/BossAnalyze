@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.david.hlp.Spring.boss.mapper.HtmlDataMapper">
+    <resultMap id="BaseResultMap" type="com.david.hlp.Spring.boss.entity.HTMLData">
+        <id column="id" property="id"/>
+        <result column="url" property="url"/>
+        <result column="html_content" property="htmlContent"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="base_city" property="baseCity"/>
+        <result column="base_position" property="basePosition"/>
+        <result column="base_city_code" property="baseCityCode"/>
+        <result column="base_position_code" property="basePositionCode"/>
+        <result column="status" property="status"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, url, html_content, created_at, updated_at, base_city, base_position, 
+        base_city_code, base_position_code, status
+    </sql>
+
+    <insert id="insert" parameterType="com.david.hlp.Spring.boss.entity.HTMLData" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO html_data (
+            url, html_content, base_city, base_position, base_city_code, 
+            base_position_code, status
+        ) VALUES (
+            #{url}, #{htmlContent}, #{baseCity}, #{basePosition}, #{baseCityCode}, 
+            #{basePositionCode}, #{status}
+        )
+    </insert>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO html_data (
+            url, html_content, base_city, base_position, base_city_code, 
+            base_position_code, status
+        ) VALUES 
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.url}, #{item.htmlContent}, #{item.baseCity}, #{item.basePosition}, #{item.baseCityCode}, 
+            #{item.basePositionCode}, #{item.status}
+            )
+        </foreach>
+    </insert>
+
+    <select id="getById" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM html_data
+        WHERE id = #{id}
+    </select>
+
+    <select id="getByUrl" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM html_data
+        WHERE url = #{url}
+        LIMIT 1
+    </select>
+
+    <select id="listByCondition" parameterType="com.david.hlp.Spring.boss.entity.HTMLData" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM html_data
+        <where>
+            <if test="url != null and url != ''">
+                AND url = #{url}
+            </if>
+            <if test="baseCity != null and baseCity != ''">
+                AND base_city = #{baseCity}
+            </if>
+            <if test="basePosition != null and basePosition != ''">
+                AND base_position = #{basePosition}
+            </if>
+            <if test="baseCityCode != null and baseCityCode != ''">
+                AND base_city_code = #{baseCityCode}
+            </if>
+            <if test="basePositionCode != null and basePositionCode != ''">
+                AND base_position_code = #{basePositionCode}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <select id="listByStatus" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM html_data
+        WHERE status = #{status}
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
+    <update id="update" parameterType="com.david.hlp.Spring.boss.entity.HTMLData">
+        UPDATE html_data
+        <set>
+            <if test="url != null">
+                url = #{url},
+            </if>
+            <if test="htmlContent != null">
+                html_content = #{htmlContent},
+            </if>
+            <if test="baseCity != null">
+                base_city = #{baseCity},
+            </if>
+            <if test="basePosition != null">
+                base_position = #{basePosition},
+            </if>
+            <if test="baseCityCode != null">
+                base_city_code = #{baseCityCode},
+            </if>
+            <if test="basePositionCode != null">
+                base_position_code = #{basePositionCode},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE html_data
+        SET status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM html_data
+        WHERE id = #{id}
+    </delete>
+</mapper>

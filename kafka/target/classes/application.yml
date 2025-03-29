@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: kafka-springboot
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # 发生错误后，消息重发的次数
+      retries: 3
+      # 当有多个消息需要被发送到同一个分区时，生产者会把它们放在同一个批次里
+      batch-size: 16384
+      # 设置生产者内存缓冲区的大小
+      buffer-memory: 33554432
+      # 键的序列化方式
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # 值的序列化方式
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # acks=0：生产者在成功写入消息之前不会等待任何来自服务器的响应
+      # acks=1：只要集群的首领节点收到消息，生产者就会收到一个来自服务器的成功响应
+      # acks=all：只有当所有参与复制的节点全部收到消息时，生产者才会收到一个来自服务器的成功响应
+      acks: 1
+    consumer:
+      # 自动提交的时间间隔，单位毫秒
+      auto-commit-interval: 1000
+      # 该属性指定了消费者在读取一个没有偏移量的分区或者偏移量无效的情况下该作何处理
+      # latest（默认值）：在偏移量无效的情况下，消费者将从最新的记录开始读取数据
+      # earliest：在偏移量无效的情况下，消费者将从起始位置读取分区的记录
+      auto-offset-reset: earliest
+      # 是否自动提交偏移量，默认值是true，为了避免出现重复数据和数据丢失，可以把它设置为false，然后手动提交偏移量
+      enable-auto-commit: false
+      # 键的反序列化方式
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # 值的反序列化方式
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # 设置一次拉取请求最大拉取的消息数
+      max-poll-records: 500
+    listener:
+      # 在侦听器容器中运行的线程数
+      concurrency: 5
+      # listener负责ack，手动提交
+      ack-mode: manual_immediate
+      # 消费者监听主题不存在时，项目启动会报错，设置为false可忽略错误
+      missing-topics-fatal: false
