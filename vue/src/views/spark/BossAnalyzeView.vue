@@ -4,7 +4,7 @@
       <h1 class="page-title">职位数据分析看板</h1>
       <div v-if="dataReady && !loading" class="data-summary">
         <div class="summary-item">
-          <div class="summary-value">{{ originalJobsData.length }}</div>
+          <div class="summary-value">{{ originalJobsData.reduce((sum, item) => sum + (item.职位数量 || 0), 0) }}</div>
           <div class="summary-label">数据总量</div>
         </div>
         <div class="summary-item">
@@ -265,6 +265,9 @@ const processData = () => {
     };
     return;
   }
+
+  // 按职位数量从大到小排序
+  originalJobsData.value.sort((a, b) => (b['职位数量'] || 0) - (a['职位数量'] || 0));
 
   // 设置分页总数
   total.value = originalJobsData.value.length;
