@@ -224,24 +224,154 @@ public class BossSpark {
                     col("job.data.detail_data.jobTags").alias("职位标签")
             );
 
+            // 清理旧的checkpoint位置，避免潜在的文件不存在问题
+            String checkpointLocation = sparkConfig.getDataStoragePath("kafka-checkpoint");
+            try {
+                // 使用Java NIO API检查并删除旧的checkpoint目录
+                java.nio.file.Path checkpointPath = java.nio.file.Paths.get(checkpointLocation);
+                if (java.nio.file.Files.exists(checkpointPath)) {
+                    // 递归删除目录中的所有文件和子目录
+                    java.nio.file.Files.walk(checkpointPath)
+                            .sorted(java.util.Comparator.reverseOrder())
+                            .forEach(path -> {
+                                try {
+                                    java.nio.file.Files.delete(path);
+                                } catch (Exception e) {
+                                    log.warn("无法删除checkpoint路径: {}, 错误: {}", path, e.getMessage());
+                                }
+                            });
+                    log.info("已清理旧的checkpoint数据: {}", checkpointLocation);
+                }
+            } catch (Exception e) {
+                log.warn("清理checkpoint目录时出错: {}", e.getMessage());
+            }
+
             // 处理每批次数据
             query = jobDf.writeStream()
                     .outputMode("append")
-                    .option("checkpointLocation", sparkConfig.getDataStoragePath("kafka-checkpoint"))
+                    .option("checkpointLocation", checkpointLocation)
                     .foreachBatch(new JobBatchProcessor())
                     .start();
 
-            // 在单独的线程中等待查询终止
+            // 在单独的线程中等待查询终止，添加恢复机制
             new Thread(() -> {
-                try {
-                    query.awaitTermination();
-                } catch (StreamingQueryException e) {
-                    log.error("Spark流处理异常: {}", e.getMessage(), e);
+                boolean shouldRestart = true;
+                int restartAttempts = 0;
+                int maxRestartAttempts = 5;
+                long waitTimeMs = 5000; // 初始等待时间5秒
+                
+                while (shouldRestart && restartAttempts < maxRestartAttempts) {
+                    try {
+                        query.awaitTermination();
+                        // 如果正常终止，不需要重启
+                        shouldRestart = false;
+                        log.info("Spark流处理正常终止");
+                    } catch (StreamingQueryException e) {
+                        restartAttempts++;
+                        log.error("Spark流处理异常(尝试 {}/{}): {}", 
+                                restartAttempts, maxRestartAttempts, e.getMessage());
+                        
+                        // 检查是否是文件不存在错误
+                        if (e.getMessage().contains("SparkFileNotFoundException") ||
+                            e.getMessage().contains("does not exist")) {
+                            log.info("检测到文件不存在错误，正在尝试恢复...");
+                            
+                            try {
+                                // 先停止当前查询
+                                if (query != null && query.isActive()) {
+                                    query.stop();
+                                    log.info("已停止当前流查询");
+                                }
+                                
+                                // 清理所有缓存的数据集
+                                clearAllPersistence();
+                                
+                                // 删除损坏的checkpoint和累积数据
+                                cleanupCorruptedData();
+                                
+                                // 等待一段时间后重启
+                                log.info("等待{}ms后将重启流处理...", waitTimeMs);
+                                Thread.sleep(waitTimeMs);
+                                
+                                // 重启流处理
+                                log.info("正在重启流处理...");
+                                processStreamingData();
+                                shouldRestart = false; // 重启成功，退出循环
+                                log.info("流处理已成功重启");
+                            } catch (Exception ex) {
+                                log.error("尝试恢复流处理时出错: {}", ex.getMessage(), ex);
+                                // 增加等待时间，避免频繁重启
+                                waitTimeMs = Math.min(waitTimeMs * 2, 60000); // 最多等待60秒
+                            }
+                        } else {
+                            // 其他类型的错误，等待后重试
+                            try {
+                                log.info("等待{}ms后将重试...", waitTimeMs);
+                                Thread.sleep(waitTimeMs);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                shouldRestart = false;
+                            }
+                        }
+                    }
+                }
+                
+                if (restartAttempts >= maxRestartAttempts) {
+                    log.error("Spark流处理在{}次尝试后仍然失败，放弃重启", maxRestartAttempts);
                 }
             }, "spark-streaming-job").start();
 
         } catch (Exception e) {
             log.error("创建Spark流处理时出错: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 清理损坏的数据文件
+     */
+    private void cleanupCorruptedData() {
+        try {
+            // 清理accumulated_data
+            String accumulatedDataPath = sparkConfig.getDataStoragePath("accumulated_data");
+            deleteDirectory(accumulatedDataPath);
+            
+            // 清理final_result
+            String finalResultPath = sparkConfig.getDataStoragePath("final_result"); 
+            deleteDirectory(finalResultPath);
+            
+            // 清理kafka-checkpoint
+            String checkpointPath = sparkConfig.getDataStoragePath("kafka-checkpoint");
+            deleteDirectory(checkpointPath);
+            
+            // 重置累积数据
+            accumulatedData = null;
+            
+            log.info("已清理所有可能损坏的数据文件");
+        } catch (Exception e) {
+            log.error("清理损坏数据时出错: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 递归删除目录
+     */
+    private void deleteDirectory(String directoryPath) {
+        try {
+            java.nio.file.Path pathToDelete = java.nio.file.Paths.get(directoryPath);
+            if (java.nio.file.Files.exists(pathToDelete)) {
+                java.nio.file.Files.walk(pathToDelete)
+                    .sorted(java.util.Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            java.nio.file.Files.delete(path);
+                        } catch (Exception e) {
+                            log.warn("删除路径失败: {}, 错误: {}", path, e.getMessage());
+                        }
+                    });
+                log.info("已删除目录: {}", directoryPath);
+            }
+        } catch (Exception e) {
+            log.warn("删除目录时出错: {}, 错误: {}", directoryPath, e.getMessage());
         }
     }
 
@@ -479,6 +609,30 @@ public class BossSpark {
 
                 // 处理学历，将null值转为"不限"
                 df = df.withColumn("学历", when(col("学历").isNull(), "不限").otherwise(col("学历")));
+                
+                // 添加过滤：移除任意必要列包含null值的记录
+                // 先列出统计分析需要的所有关键列
+                String[] essentialColumns = new String[]{"职位名称", "有效时间年月", "城市", "薪资", "学历", "行业"};
+                
+                // 构建不包含null值的条件
+                org.apache.spark.sql.Column filterCondition = col("职位名称").isNotNull();
+                for (String colName : essentialColumns) {
+                    if (!colName.equals("职位名称")) {  // 已经添加了第一列条件
+                        filterCondition = filterCondition.and(col(colName).isNotNull());
+                    }
+                }
+                
+                // 应用过滤条件，只保留所有必要字段都不为null的记录
+                Dataset<Row> filteredDf = df.filter(filterCondition);
+                long filteredCount = filteredDf.count();
+                long removedCount = df.count() - filteredCount;
+                
+                if (removedCount > 0) {
+                    log.info("移除了{}条包含空值的记录，剩余{}条有效记录", removedCount, filteredCount);
+                }
+                
+                // 使用过滤后的数据
+                df = filteredDf;
 
                 // 预处理后的数据进行持久化
                 df = persistDataset(df, "preprocessed_data_" + epochId);
@@ -670,21 +824,49 @@ public class BossSpark {
                 return;
             }
             
-            Dataset<Row> checkpointData = sparkSession.read().parquet(dataPath);
+            // 使用refreshByPath刷新Spark对Parquet文件的缓存
+            try {
+                sparkSession.catalog().refreshByPath(dataPath);
+                log.info("已刷新数据路径的缓存: {}", dataPath);
+            } catch (Exception e) {
+                log.warn("刷新缓存时出错: {}", e.getMessage());
+            }
             
-            if (checkpointData != null && checkpointData.count() > 0) {
-                // 集群模式下需要重新分区
-                if (sparkConfig.isClusterMode()) {
-                    long rowCount = checkpointData.count();
-                    int partitions = (int)Math.min(Math.max(rowCount / 10000, 2), sparkConfig.getDefaultParallelism());
-                    checkpointData = checkpointData.repartition(partitions);
-                    log.info("集群模式：从checkpoint恢复累积数据并重分区，记录数: {}, 分区数: {}", 
-                            rowCount, partitions);
-                }
+            // 尝试读取数据
+            Dataset<Row> checkpointData = null;
+            try {
+                checkpointData = sparkSession.read().parquet(dataPath);
+                // 立即触发一次计算，检查数据是否可访问
+                long count = checkpointData.count();
+                log.info("成功读取checkpoint数据，记录数: {}", count);
                 
-                accumulatedData = checkpointData;
-                persistDataset(accumulatedData, "recovered_accumulated_data");
-                log.info("已从checkpoint恢复累积数据，记录数: {}", accumulatedData.count());
+                if (count > 0) {
+                    // 集群模式下需要重新分区
+                    if (sparkConfig.isClusterMode()) {
+                        int partitions = (int)Math.min(Math.max(count / 10000, 2), sparkConfig.getDefaultParallelism());
+                        checkpointData = checkpointData.repartition(partitions);
+                        log.info("集群模式：从checkpoint恢复累积数据并重分区，记录数: {}, 分区数: {}", 
+                                count, partitions);
+                    }
+                    
+                    accumulatedData = checkpointData;
+                    persistDataset(accumulatedData, "recovered_accumulated_data");
+                    log.info("已从checkpoint恢复累积数据，记录数: {}", accumulatedData.count());
+                } else {
+                    log.info("checkpoint数据为空，将创建新的数据集");
+                }
+            } catch (Exception e) {
+                log.error("读取checkpoint数据失败: {}", e.getMessage(), e);
+                log.info("检测到checkpoint数据可能已损坏，将删除并创建新的数据集");
+                
+                // 删除损坏的checkpoint数据
+                try {
+                    // 在生产环境中，建议使用更安全的方式删除文件，这里简化处理
+                    java.nio.file.Paths.get(dataPath).toFile().delete();
+                    log.info("已删除损坏的checkpoint数据: {}", dataPath);
+                } catch (Exception ex) {
+                    log.warn("无法删除损坏的checkpoint数据: {}", ex.getMessage());
+                }
             }
         } catch (Exception e) {
             log.warn("从checkpoint恢复数据时出错: {}", e.getMessage());

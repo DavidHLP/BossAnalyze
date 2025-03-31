@@ -31,12 +31,12 @@ public class KafkaConfig {
         return new KafkaAdmin(configs);
     }
     
-    /**
-     * 创建主题示例
-     */
-    @Bean
-    public NewTopic exampleTopic() {
-        // 主题名称，分区数，副本因子
-        return new NewTopic("example-topic", 3, (short) 1);
-    }
+    // /**
+    //  * 创建主题示例
+    //  */
+    // @Bean
+    // public NewTopic exampleTopic() {
+    //     // 主题名称，分区数，副本因子
+    //     return new NewTopic("example-topic", 3, (short) 1);
+    // }
 } 

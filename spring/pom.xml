@@ -17,7 +17,7 @@
 		<java.version>17</java.version>
 		<lombok.version>1.18.30</lombok.version>
 		<!--  <spring-cloud.version>2024.0.0</spring-cloud.version>  -->
-		<selenium.version>4.8.3</selenium.version>
+		<selenium.version>4.15.0</selenium.version>
 	</properties>
 	<dependencies>
 		<!--  Lombok  -->
@@ -191,6 +191,12 @@
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 			<version>2.10</version>
+		</dependency>
+		<!--  OpenCSV  -->
+		<dependency>
+			<groupId>com.opencsv</groupId>
+			<artifactId>opencsv</artifactId>
+			<version>5.7.1</version>
 		</dependency>
 	</dependencies>
 	<build>

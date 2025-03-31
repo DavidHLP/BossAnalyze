@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.david.hlp.Spring.boss.mapper.HtmlDataMapper">
-    <resultMap id="BaseResultMap" type="com.david.hlp.Spring.boss.entity.HTMLData">
+<mapper namespace="com.david.hlp.Spring.crawler.boss.mapper.HtmlDataMapper">
+    <resultMap id="BaseResultMap" type="com.david.hlp.Spring.crawler.boss.entity.HTMLData">
         <id column="id" property="id"/>
         <result column="url" property="url"/>
         <result column="html_content" property="htmlContent"/>
@@ -15,11 +15,11 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, url, html_content, created_at, updated_at, base_city, base_position, 
+        id, url, html_content, created_at, updated_at, base_city, base_position,
         base_city_code, base_position_code, status
     </sql>
 
-    <insert id="insert" parameterType="com.david.hlp.Spring.boss.entity.HTMLData" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insert" parameterType="com.david.hlp.Spring.crawler.boss.entity.HTMLData" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO html_data (
             url, html_content, base_city, base_position, base_city_code, 
             base_position_code, status
@@ -57,7 +57,7 @@
         LIMIT 1
     </select>
 
-    <select id="listByCondition" parameterType="com.david.hlp.Spring.boss.entity.HTMLData" resultMap="BaseResultMap">
+    <select id="listByCondition" parameterType="com.david.hlp.Spring.crawler.boss.entity.HTMLData" resultMap="BaseResultMap">
         SELECT
         <include refid="Base_Column_List"/>
         FROM html_data
@@ -93,7 +93,7 @@
         LIMIT #{limit}
     </select>
 
-    <update id="update" parameterType="com.david.hlp.Spring.boss.entity.HTMLData">
+    <update id="update" parameterType="com.david.hlp.Spring.crawler.boss.entity.HTMLData">
         UPDATE html_data
         <set>
             <if test="url != null">

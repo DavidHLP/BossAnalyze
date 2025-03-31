@@ -5,7 +5,11 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-
+import lombok.RequiredArgsConstructor;
+import com.david.hlp.kafka.service.BossDataJobsService;
+import com.david.hlp.kafka.entity.Degree;
+import com.david.hlp.kafka.producer.KafkaProducer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Kafka消息消费者
  *
@@ -13,7 +17,14 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class KafkaConsumer {
+
+    private final BossDataJobsService bossDataJobsService;
+    private final KafkaProducer kafkaProducer;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private String PRODUCER_TOPIC = "analyzer_degree";
 
     /**
      * 消费示例主题消息
@@ -21,40 +32,29 @@ public class KafkaConsumer {
      * @param record 消费者记录
      * @param ack    确认对象
      */
-    @KafkaListener(topics = "example-topic", groupId = "example-group")
+    @KafkaListener(topics = "boss_data_jobs", groupId = "analyzer-degree-group-test")
     public void consumeMessage(ConsumerRecord<String, String> record, Acknowledgment ack) {
         String key = record.key();
         String value = record.value();
         int partition = record.partition();
         long offset = record.offset();
-        
+
         log.info("接收到消息: topic = {}, partition = {}, offset = {}, key = {}, value = {}",
                 record.topic(), partition, offset, key, value);
-        
+
         try {
-            // 在这里处理消息
-            log.info("处理消息: {}", value);
-            
+            // 处理JSON数据
+            Degree degreeInfo = bossDataJobsService.processJobData(value);
+            if (degreeInfo != null) {
+                log.info("处理后的数据: {}", degreeInfo);
+                kafkaProducer.sendMessage(PRODUCER_TOPIC, objectMapper.writeValueAsString(degreeInfo));
+            }
             // 手动确认消息已消费
             ack.acknowledge();
+            log.info("消息处理成功");
         } catch (Exception e) {
             log.error("消息处理失败: {}", e.getMessage());
             // 异常处理，可以选择不确认或重试
         }
     }
-    
-    /**
-     * 消费其他主题的消息（示例）
-     *
-     * @param record 消费者记录
-     * @param ack    确认对象
-     */
-    @KafkaListener(topics = "another-topic", groupId = "another-group")
-    public void consumeAnotherTopic(ConsumerRecord<String, String> record, Acknowledgment ack) {
-        log.info("接收到另一个主题的消息: topic = {}, partition = {}, offset = {}, value = {}",
-                record.topic(), record.partition(), record.offset(), record.value());
-        
-        // 处理消息并确认
-        ack.acknowledge();
-    }
-} 
+}

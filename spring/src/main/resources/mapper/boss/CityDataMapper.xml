@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.david.hlp.Spring.boss.mapper.CityDataMapper">
+<mapper namespace="com.david.hlp.Spring.crawler.boss.mapper.CityDataMapper">
 
     <!-- 基础列映射 -->
-    <resultMap id="BaseResultMap" type="com.david.hlp.Spring.boss.entity.CityData">
+    <resultMap id="BaseResultMap" type="com.david.hlp.Spring.crawler.boss.entity.CityData">
         <id column="id" property="id"/>
         <result column="name" property="name"/>
         <result column="code" property="code"/>
@@ -39,13 +39,13 @@
     </select>
 
     <!-- 插入城市数据 -->
-    <insert id="insert" parameterType="com.david.hlp.Spring.boss.entity.CityData" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insert" parameterType="com.david.hlp.Spring.crawler.boss.entity.CityData" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO city_data (name, code, url)
         VALUES (#{name}, #{code}, #{url})
     </insert>
 
     <!-- 更新城市数据 -->
-    <update id="update" parameterType="com.david.hlp.Spring.boss.entity.CityData">
+    <update id="update" parameterType="com.david.hlp.Spring.crawler.boss.entity.CityData">
         UPDATE city_data
         <set>
             <if test="name != null">name = #{name},</if>

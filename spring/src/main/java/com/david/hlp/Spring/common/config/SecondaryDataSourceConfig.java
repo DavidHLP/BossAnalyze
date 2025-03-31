@@ -15,7 +15,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 @Configuration
 @MapperScan(
-    basePackages = "com.david.hlp.Spring.boss.mapper",
+    basePackages = "com.david.hlp.Spring.crawler.boss.mapper",
     sqlSessionFactoryRef = "secondarySqlSessionFactory"
 )
 @EnableTransactionManagement

@@ -43,3 +43,26 @@ spring:
       ack-mode: manual_immediate
       # 消费者监听主题不存在时，项目启动会报错，设置为false可忽略错误
       missing-topics-fatal: false
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/boss_data?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: Alone117
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 10
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: auto
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath*:/mapper/**/*.xml
