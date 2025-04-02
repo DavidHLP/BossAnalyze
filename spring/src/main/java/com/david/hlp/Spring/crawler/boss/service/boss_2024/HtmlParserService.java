@@ -1,4 +1,4 @@
-package com.david.hlp.Spring.crawler.boss.service;
+package com.david.hlp.Spring.crawler.boss.service.boss_2024;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -356,8 +356,6 @@ public class HtmlParserService {
                         tags.add(element.text());
                     }
                 }
-            } else {
-                log.warn("未找到职位福利标签元素");
             }
         } catch (Exception e) {
             log.error("解析职位福利标签时发生错误: {}", e.getMessage(), e);
@@ -429,6 +427,7 @@ public class HtmlParserService {
             }
         } catch (Exception e) {
             log.error("清洗数据时发生错误: {}", e.getMessage(), e);
+            log.error("清洗数据结构为: {}", data);
         }
     }
 
@@ -476,7 +475,7 @@ public class HtmlParserService {
             // 设置更新时间
             String updateTime = (String) data.get("updateTime");
             if (updateTime != null) {
-                jobDetailData.setUpdateTime(updateTime);
+                jobDetailData.setUpdateTime(convertEmptyToNull(updateTime));
                 log.debug("设置更新时间: {}", updateTime);
             }
 
@@ -486,12 +485,12 @@ public class HtmlParserService {
                 @SuppressWarnings("unchecked")
                 Map<String, String> basicInfoMap = (Map<String, String>) basicInfoObj;
                 BasicJobInfo basicInfo = new BasicJobInfo();
-                basicInfo.setPositionName(basicInfoMap.get("positionName"));
-                basicInfo.setSalary(basicInfoMap.get("salary"));
-                basicInfo.setCity(basicInfoMap.get("city"));
-                basicInfo.setExperience(basicInfoMap.get("experience"));
-                basicInfo.setDegree(basicInfoMap.get("degree"));
-                basicInfo.setAddress(basicInfoMap.get("address"));
+                basicInfo.setPositionName(convertEmptyToNull(basicInfoMap.get("positionName")));
+                basicInfo.setSalary(convertEmptyToNull(basicInfoMap.get("salary")));
+                basicInfo.setCity(convertEmptyToNull(basicInfoMap.get("city")));
+                basicInfo.setExperience(convertEmptyToNull(basicInfoMap.get("experience")));
+                basicInfo.setDegree(convertEmptyToNull(basicInfoMap.get("degree")));
+                basicInfo.setAddress(convertEmptyToNull(basicInfoMap.get("address")));
                 jobDetailData.setBasicInfo(basicInfo);
                 log.debug("基本信息转换完成: 职位名称={}", basicInfo.getPositionName());
             } else {
@@ -505,14 +504,14 @@ public class HtmlParserService {
                 Map<String, Object> jobDescMap = (Map<String, Object>) jobDescObj;
                 if (jobDescMap != null) {
                     JobDescriptionInfo jobDesc = new JobDescriptionInfo();
-                    jobDesc.setRequirements((String) jobDescMap.get("requirements"));
-                    jobDesc.setResponsibilities((String) jobDescMap.get("responsibilities"));
-                    jobDesc.setFullDescription((String) jobDescMap.get("fullDescription"));
+                    jobDesc.setRequirements(convertEmptyToNull((String) jobDescMap.get("requirements")));
+                    jobDesc.setResponsibilities(convertEmptyToNull((String) jobDescMap.get("responsibilities")));
+                    jobDesc.setFullDescription(convertEmptyToNull((String) jobDescMap.get("fullDescription")));
                     Object keywordsObj = jobDescMap.get("keywords");
                     if (keywordsObj instanceof List) {
                         @SuppressWarnings("unchecked")
                         List<String> keywords = (List<String>) keywordsObj;
-                        jobDesc.setKeywords(keywords);
+                        jobDesc.setKeywords(keywords.isEmpty() ? null : keywords);
                     }
                     jobDetailData.setJobDescription(jobDesc);
                     log.debug("职位描述转换完成");
@@ -526,17 +525,17 @@ public class HtmlParserService {
                 Map<String, String> companyInfoMap = (Map<String, String>) companyInfoObj;
                 if (companyInfoMap != null) {
                     CompanyInfo companyInfo = new CompanyInfo();
-                    companyInfo.setCompanyName(companyInfoMap.get("companyName"));
-                    companyInfo.setFinancingStage(companyInfoMap.get("financingStage"));
-                    companyInfo.setCompanySize(companyInfoMap.get("companySize"));
-                    companyInfo.setIndustry(companyInfoMap.get("industry"));
-                    companyInfo.setCompanyIntro(companyInfoMap.get("companyIntro"));
-                    companyInfo.setLegalCompanyName(companyInfoMap.get("legalCompanyName"));
-                    companyInfo.setLegalRepresentative(companyInfoMap.get("legalRepresentative"));
-                    companyInfo.setEstablishDate(companyInfoMap.get("establishDate"));
-                    companyInfo.setCompanyType(companyInfoMap.get("companyType"));
-                    companyInfo.setOperationStatus(companyInfoMap.get("operationStatus"));
-                    companyInfo.setRegisteredCapital(companyInfoMap.get("registeredCapital"));
+                    companyInfo.setCompanyName(convertEmptyToNull(companyInfoMap.get("companyName")));
+                    companyInfo.setFinancingStage(convertEmptyToNull(companyInfoMap.get("financingStage")));
+                    companyInfo.setCompanySize(convertEmptyToNull(companyInfoMap.get("companySize")));
+                    companyInfo.setIndustry(convertEmptyToNull(companyInfoMap.get("industry")));
+                    companyInfo.setCompanyIntro(convertEmptyToNull(companyInfoMap.get("companyIntro")));
+                    companyInfo.setLegalCompanyName(convertEmptyToNull(companyInfoMap.get("legalCompanyName")));
+                    companyInfo.setLegalRepresentative(convertEmptyToNull(companyInfoMap.get("legalRepresentative")));
+                    companyInfo.setEstablishDate(convertEmptyToNull(companyInfoMap.get("establishDate")));
+                    companyInfo.setCompanyType(convertEmptyToNull(companyInfoMap.get("companyType")));
+                    companyInfo.setOperationStatus(convertEmptyToNull(companyInfoMap.get("operationStatus")));
+                    companyInfo.setRegisteredCapital(convertEmptyToNull(companyInfoMap.get("registeredCapital")));
                     jobDetailData.setCompanyInfo(companyInfo);
                     log.debug("公司信息转换完成: 公司名称={}", companyInfo.getCompanyName());
                 }
@@ -548,7 +547,7 @@ public class HtmlParserService {
                 @SuppressWarnings("unchecked")
                 List<String> jobTags = (List<String>) jobTagsObj;
                 if (jobTags != null) {
-                    jobDetailData.setJobTags(jobTags);
+                    jobDetailData.setJobTags(jobTags.isEmpty() ? null : jobTags);
                     log.debug("职位标签设置完成: {}个标签", jobTags.size());
                 }
             }
@@ -556,6 +555,19 @@ public class HtmlParserService {
             log.error("转换JobDetailData对象时发生错误: {}", e.getMessage(), e);
         }
         return jobDetailData;
+    }
+
+    /**
+     * 将空字符串或默认值转换为null
+     *
+     * @param value 需要转换的字符串
+     * @return 转换后的结果，如果是空字符串或默认值则返回null
+     */
+    private String convertEmptyToNull(String value) {
+        if (value == null || value.trim().isEmpty() || "不限".equals(value) || "无".equals(value) || "暂无".equals(value)) {
+            return null;
+        }
+        return value;
     }
 
     /**

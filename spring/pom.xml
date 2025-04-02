@@ -18,6 +18,7 @@
 		<lombok.version>1.18.30</lombok.version>
 		<!--  <spring-cloud.version>2024.0.0</spring-cloud.version>  -->
 		<selenium.version>4.15.0</selenium.version>
+		<playwright.version>1.39.0</playwright.version>
 	</properties>
 	<dependencies>
 		<!--  Lombok  -->
@@ -131,6 +132,12 @@
 			<groupId>io.github.bonigarcia</groupId>
 			<artifactId>webdrivermanager</artifactId>
 			<version>5.3.2</version>
+		</dependency>
+		<!--  Playwright  -->
+		<dependency>
+			<groupId>com.microsoft.playwright</groupId>
+			<artifactId>playwright</artifactId>
+			<version>${playwright.version}</version>
 		</dependency>
 		<!--  Test  -->
 		<dependency>

@@ -21,9 +21,9 @@
 
     <insert id="insert" parameterType="com.david.hlp.Spring.crawler.boss.entity.JobDetailEntity" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO t_job_detail (
-            position_id, position_name, company_id, company_name, detail_data
+            position_id, position_name, company_id, company_name, detail_data , html_url
         ) VALUES (
-            #{positionId}, #{positionName}, #{companyId}, #{companyName}, #{detailData}
+            #{positionId}, #{positionName}, #{companyId}, #{companyName}, #{detailData} , #{htmlUrl}
         )
     </insert>
 

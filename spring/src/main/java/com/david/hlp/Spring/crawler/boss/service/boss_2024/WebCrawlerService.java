@@ -1,4 +1,4 @@
-package com.david.hlp.Spring.crawler.boss.service;
+package com.david.hlp.Spring.crawler.boss.service.boss_2024;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

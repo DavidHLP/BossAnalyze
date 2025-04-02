@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "JsonScrapingService",
+            "request": "launch",
+            "mainClass": "com.david.hlp.Spring.crawler.boss.service.boss_2025.JsonScrapingService",
+            "projectName": "spring-springboot"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-SpringSparkBootAplication<spark-springboot>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.david.hlp.spark.SpringSparkBootAplication",
+            "projectName": "spark-springboot",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

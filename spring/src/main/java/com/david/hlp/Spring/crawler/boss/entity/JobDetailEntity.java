@@ -48,4 +48,9 @@ public class JobDetailEntity implements Serializable{
      * 是否删除
      */
     private Boolean isDeleted;
+
+    /**
+     * HTML页面URL
+     */
+    private String htmlUrl;
 }

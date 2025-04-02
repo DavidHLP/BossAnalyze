@@ -1,5 +1,8 @@
 {
     "java.configuration.updateBuildConfiguration": "automatic",
     "java.compile.nullAnalysis.mode": "automatic",
-    "java.project.sourcePaths": ["src/main/java"]
+    "java.project.sourcePaths": [
+        "src/main/java"
+    ],
+    "java.debug.settings.onBuildFailureProceed": true
 }
