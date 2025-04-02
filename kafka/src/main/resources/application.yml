@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8087
 
 spring:
   application:
@@ -40,7 +40,7 @@ spring:
       # 在侦听器容器中运行的线程数
       concurrency: 5
       # listener负责ack，手动提交
-      ack-mode: manual_immediate
+      ack-mode: manual
       # 消费者监听主题不存在时，项目启动会报错，设置为false可忽略错误
       missing-topics-fatal: false
 

@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Arrays;
 // Playwright导入
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
@@ -382,11 +381,16 @@ public class JsonScrapingService {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode jsonNode = objectMapper.readTree(jsonData);
         JsonNode jobsNode = jsonNode.get("zpData").get("jobList");
-        
+
+        if (jobsNode == null) {
+            log.error("未能获取到职位列表数据");
+            throw new RuntimeException("未能获取到职位列表数据");
+        }
+
         Map<String, List<String>> result = new HashMap<>();
         result.put("urls", new ArrayList<>());
         result.put("json", new ArrayList<>());
-        
+
         for (JsonNode jobNode : jobsNode) {
             String url = BASE_URL_JOB.replace("{}", jobNode.get("encryptJobId").asText());
             result.get("urls").add(url);
@@ -405,45 +409,46 @@ public class JsonScrapingService {
         Map<String, Object> tokenData = getToken(isHeadless,cityCode, positionCode);
         if (tokenData == null) {
             log.error("获取token失败，任务中止");
-            return null;
+            throw new RuntimeException("获取token失败，任务中止");
         }
-        
+
         // 使用token请求API
         String jsonData = requestApi(tokenData, page, cityCode, positionCode);
         if (jsonData != null) {
             log.info("成功获取API数据");
-            
+
             // 检查是否返回访问异常
             if (jsonData.contains("您的访问行为异常")) {
                 log.warn("检测到访问行为异常，切换到非无头模式重试");
                 // 如果当前已经是非无头模式，则不再重试，避免无限循环
                 if (!isHeadless) {
-                    log.error("即使在非无头模式下仍然检测到访问行为异常，任务终止，等待10分钟");
-                    try {
-                        Thread.sleep(1000 * 60 * 10);
-                        log.info("等待10分钟结束，继续执行");
-                        executeScrapingTask(false, page, cityCode, positionCode);
-                    } catch (InterruptedException e) {
-                        log.error("等待期间发生中断", e);
-                    }
+                    log.error("即使在非无头模式下仍然检测到访问行为异常，任务终止，等待5分钟");
                     return null;
                 }
-                
+
+                log.info("等待5分钟结束，继续执行");
+                try {
+                    Thread.sleep(1000 * 60 * 5);
+                } catch (InterruptedException e) {
+                    log.error("等待期间发生中断", e);
+                    throw new RuntimeException("等待期间发生中断");
+                }
+
                 // 使用非无头模式重新执行
                 String jsonData2 = executeScrapingTask(false, page, cityCode, positionCode);
                 return jsonData2;
             }
-            
+
             // 记录API响应结果
             logJsonResponse(jsonData);
-            
+
             return jsonData;
         } else {
             log.error("未能获取API数据");
             return null;
         }
     }
-    
+
     /**
      * 记录JSON响应
      * @param jsonData JSON响应数据
@@ -452,7 +457,7 @@ public class JsonScrapingService {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(jsonData);
-            log.info("API响应结果:\n{}", objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode).substring(0, 200));
+            log.info("API响应结果:\n{}", objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode).substring(0, 50));
         } catch (Exception e) {
             log.error("JSON解析失败", e);
         }

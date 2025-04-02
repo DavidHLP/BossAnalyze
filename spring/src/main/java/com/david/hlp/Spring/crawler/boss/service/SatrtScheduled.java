@@ -8,6 +8,7 @@ import com.david.hlp.Spring.common.threadpool.ScrapeBossUrlThreadPool;
 import org.springframework.beans.factory.annotation.Qualifier;
 import com.david.hlp.Spring.common.threadpool.ParseBossHtmlDataThreadPool;
 import lombok.extern.slf4j.Slf4j;
+import com.david.hlp.Spring.common.threadpool.ScrapeBossDataThreadPool;
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -30,17 +31,17 @@ public class SatrtScheduled {
             dataScrapingService.parseBossHtmlData();
         });
     }
-    // @Scheduled(fixedDelay = 1000 * 60 * 1)
-    // public void startScrapeBossData() {
-    //     ScrapeBossUrlThreadPool.executeWithSpringContext(() -> {
-    //         dataScrapingService.scrapeBossData();
-    //     });
-    // }
+    @Scheduled(fixedDelay = 1000 * 60 * 1)
+    public void startScrapeBossData() {
+        ScrapeBossDataThreadPool.executeWithSpringContext(() -> {
+            dataScrapingService.scrapeBossData();
+        });
+    }
 
-    // @Scheduled(fixedDelay = 1000 * 60 * 1)
-    // public void startScrapeBossData2025() {
-    //     ScrapeBossUrlThreadPool.executeWithSpringContext(() -> {
-    //         boss2025DataScrapingService.scrapeBossUrl();
-    //     });
-    // }
+    @Scheduled(fixedDelay = 1000 * 60 * 1)
+    public void startScrapeBossData2025() {
+        ScrapeBossUrlThreadPool.executeWithSpringContext(() -> {
+            boss2025DataScrapingService.scrapeBossUrl();
+        });
+    }
 }

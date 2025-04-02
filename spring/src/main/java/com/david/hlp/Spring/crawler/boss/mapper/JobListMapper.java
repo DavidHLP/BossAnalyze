@@ -6,4 +6,5 @@ import com.david.hlp.Spring.crawler.boss.model.JobList;
 @Mapper
 public interface JobListMapper {
     void insert(JobList jobList);
+    JobList selectByUrl(String url);
 }

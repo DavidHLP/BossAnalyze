@@ -5,4 +5,10 @@
         INSERT INTO job_list (html_url, json_data, created_at, updated_at)
         VALUES (#{htmlUrl}, #{jsonData}, NOW(), NOW())
     </insert>
+
+    <!-- selectByUrl --> 
+
+    <select id="selectByUrl" resultType="com.david.hlp.Spring.crawler.boss.model.JobList">
+        SELECT * FROM job_list WHERE html_url = #{url}
+    </select>
 </mapper>

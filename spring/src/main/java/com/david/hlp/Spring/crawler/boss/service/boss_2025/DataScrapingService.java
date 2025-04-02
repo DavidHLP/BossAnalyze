@@ -40,7 +40,6 @@ public class DataScrapingService {
         log.info("开始初始化数据爬取服务");
     }
 
-    @Transactional
     public void scrapeBossUrl() {
         try {
             List<CityData> cityDataList = cityDataMapper.listAll();
@@ -56,7 +55,7 @@ public class DataScrapingService {
                         Map<String, List<String>> result = jsonScrapingService.scrapeJobListJson(i, randomCity.getCode().toString(), randomPosition.getCode().toString());
                         List<String> bossIdList = result.get("urls");
                         List<String> jobListJson = result.get("json");
-                        processJobList(bossIdList, jobListJson , randomCity.getCode().toString(), randomPosition.getCode().toString());
+                        processJobList(bossIdList, jobListJson , randomCity.getCode().toString(), randomPosition.getCode().toString() , randomCity.getName() , randomPosition.getName());
                         randomSleep();
                     }
                 } catch (Exception e) {
@@ -73,11 +72,12 @@ public class DataScrapingService {
      * @param bossIdList Boss ID列表
      * @param jobListJson 职位数据JSON列表
      */
-    private void processJobList(List<String> bossIdList, List<String> jobListJson , String cityCode, String positionCode) {
+    @Transactional
+    private void processJobList(List<String> bossIdList, List<String> jobListJson , String cityCode, String positionCode , String cityName , String positionName) {
         for (int j = 0; j < bossIdList.size(); j++) {
             try {
                 saveJobList(bossIdList.get(j), jobListJson.get(j));
-                saveHtmlUrl(bossIdList.get(j), cityCode, positionCode);
+                saveHtmlUrl(bossIdList.get(j), cityCode, positionCode , cityName , positionName);
             } catch (DuplicateKeyException e) {
                 log.info("URL重复，跳过插入: {}", bossIdList.get(j));
             } catch (Exception e) {
@@ -97,16 +97,26 @@ public class DataScrapingService {
             .htmlUrl(htmlUrl)
             .jsonData(jsonData)
             .build();
-        jobListMapper.insert(jobList);
+        if (jobListMapper.selectByUrl(htmlUrl) == null) {
+            jobListMapper.insert(jobList);
+        }else{
+            log.info("URL已存在，跳过插入: {}", htmlUrl);
+        }
     }
 
-    private void saveHtmlUrl(String bossId, String cityCode, String positionCode) {
+    private void saveHtmlUrl(String bossId, String cityCode, String positionCode , String cityName , String positionName) {
         HTMLData htmlUrl = HTMLData.builder()
             .url(bossId)
-            .baseCity(cityCode)
-            .basePosition(positionCode)
+            .baseCityCode(cityCode)
+            .basePositionCode(positionCode)
+            .baseCity(cityName)
+            .basePosition(positionName)
             .build();
-        htmlDataMapper.insert(htmlUrl);
+        if (htmlDataMapper.getByUrl(bossId) == null) {
+            htmlDataMapper.insert(htmlUrl);
+        }else{
+            log.info("URL已存在，跳过插入: {}", bossId);
+        }
     }
 
     /**
