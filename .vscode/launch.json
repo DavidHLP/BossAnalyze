@@ -2,6 +2,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "SpringBootStarter",
+            "request": "launch",
+            "mainClass": "com.david.hlp.Spring.SpringBootStarter",
+            "projectName": "spring-springboot"
+        },
+        {
+            "type": "java",
             "name": "JsonScrapingService",
             "request": "launch",
             "mainClass": "com.david.hlp.Spring.crawler.boss.service.boss_2025.JsonScrapingService",
