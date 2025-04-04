@@ -12,12 +12,12 @@ import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 // 使用完全限定名称以避免冲突
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+// import org.apache.http.HttpEntity;
+// import org.apache.http.client.methods.CloseableHttpResponse;
+// import org.apache.http.client.methods.HttpGet;
+// import org.apache.http.impl.client.CloseableHttpClient;
+// import org.apache.http.impl.client.HttpClients;
+// import org.apache.http.util.EntityUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.nio.file.Paths;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import java.util.Arrays;
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -60,9 +61,13 @@ public class JsonScrapingService {
             Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
                     .setHeadless(isHeadless));
 
+            // 随机设置浏览器窗口大小
+            int width = 1100 + (int)(Math.random() * 400); // 1100-1500
+            int height = 800 + (int)(Math.random() * 400); // 800-1200
+                
             BrowserContext context = browser.newContext(new Browser.NewContextOptions()
                     .setUserAgent(getRandomUserAgent())
-                    .setViewportSize(1280, 1024)
+                    .setViewportSize(width, height)
                     .setLocale("zh-CN")
                     .setTimezoneId("Asia/Shanghai"));
 
@@ -81,6 +86,9 @@ public class JsonScrapingService {
                 // 等待页面加载完成
                 log.info("等待页面加载...");
                 page.waitForLoadState();
+                
+                // 随机等待一段时间，模拟用户阅读页面
+                randomWait(page, 2000, 5000);
 
                 // 检查验证码页面
                 if (page.url().contains("verify")) {
@@ -89,13 +97,24 @@ public class JsonScrapingService {
 
                 // 等待页面稳定
                 log.info("等待页面稳定...");
-                page.waitForTimeout(5000);
+                randomWait(page, 3000, 7000);
 
                 // 检查页面URL，确保在正确的页面上
                 log.info("当前页面URL: {}", page.url());
 
+                // 模拟用户滚动前的随机操作
+                if (Math.random() < 0.7) {
+                    performRandomUserAction(page);
+                }
+
                 // 模拟用户滚动
                 simulateUserScrolling(page);
+                
+                // 滚动后再执行一些随机操作
+                if (Math.random() < 0.8) {
+                    performRandomUserAction(page);
+                    randomWait(page, 1000, 4000);
+                }
 
                 // 使用waitForFunction确保cookie已设置
                 log.info("检查cookie是否已设置...");
@@ -155,24 +174,250 @@ public class JsonScrapingService {
      */
     private void simulateUserScrolling(Page page) {
         log.info("模拟用户滚动行为...");
+        
+        // 随机等待一段时间后再开始滚动
+        randomWait(page, 1000, 3000);
+        
+        // 随机决定滚动次数 (3-8次)
+        int scrollTimes = 3 + (int)(Math.random() * 6);
+        log.info("将进行{}次随机滚动", scrollTimes);
+        
+        // 随机滚动位置列表
+        List<Integer> scrollPositions = new ArrayList<>();
+        for (int i = 0; i < scrollTimes; i++) {
+            // 生成递增但有随机性的滚动位置
+            int basePosition = 300 * (i + 1);
+            int randomOffset = (int)(Math.random() * 200) - 100; // -100到+100的随机偏移
+            scrollPositions.add(Math.max(100, basePosition + randomOffset));
+        }
+        
+        // 执行滚动并在每次滚动间执行随机用户操作
+        for (int i = 0; i < scrollPositions.size(); i++) {
+            int position = scrollPositions.get(i);
+            
+            // 滚动到随机位置
+            scrollToPosition(page, position, 1500 + (int)(Math.random() * 1500));
+            
+            // 随机执行额外操作
+            if (Math.random() < 0.7) {
+                performRandomUserAction(page);
+            }
+        }
+        
+        // 最后随机回到某个位置
+        int finalPosition = scrollPositions.get((int)(Math.random() * scrollPositions.size()));
+        scrollToPosition(page, finalPosition / 2, 2000 + (int)(Math.random() * 2000));
+    }
 
-        // 滑动1：缓慢滚动到300
-        scrollToPosition(page, 300, 2000);
+    /**
+     * 执行随机用户操作
+     * @param page Playwright页面对象
+     */
+    private void performRandomUserAction(Page page) {
+        double actionRandom = Math.random();
+        try {
+            if (actionRandom < 0.3) {
+                // 随机鼠标移动
+                log.debug("执行随机鼠标移动");
+                randomMouseMovement(page);
+            } else if (actionRandom < 0.5) {
+                // 随机暂停
+                log.debug("执行随机暂停");
+                randomWait(page, 1000, 5000);
+            } else if (actionRandom < 0.7) {
+                // 随机点击某个元素后返回
+                log.debug("尝试随机点击链接");
+                attemptRandomElementClick(page);
+            } else if (actionRandom < 0.8) {
+                // 随机调整窗口大小
+                log.debug("随机调整窗口大小");
+                randomWindowResize(page);
+            } else {
+                // 模拟查看详情
+                log.debug("模拟查看职位详情");
+                simulateJobDetailView(page);
+            }
+        } catch (Exception e) {
+            log.warn("执行随机用户操作时出错: {}", e.getMessage());
+        }
+    }
 
-        // 滑动2：继续滚动到600
-        scrollToPosition(page, 600, 1500);
+    /**
+     * 随机鼠标移动
+     * @param page Playwright页面对象
+     */
+    private void randomMouseMovement(Page page) {
+        try {
+            // 获取页面尺寸
+            int pageWidth = (int)page.evaluate("window.innerWidth");
+            int pageHeight = (int)page.evaluate("window.innerHeight");
+            
+            // 执行3-6次随机鼠标移动
+            int movements = 3 + (int)(Math.random() * 4);
+            for (int i = 0; i < movements; i++) {
+                int x = (int)(Math.random() * pageWidth);
+                int y = (int)(Math.random() * pageHeight);
+                
+                // 使用鼠标移动到随机位置
+                page.mouse().move(x, y);
+                
+                // 随机小暂停
+                page.waitForTimeout(200 + (int)(Math.random() * 800));
+            }
+        } catch (Exception e) {
+            log.warn("随机鼠标移动失败: {}", e.getMessage());
+        }
+    }
 
-        // 滑动3：滚动到900
-        scrollToPosition(page, 900, 2500);
+    /**
+     * 随机等待
+     * @param page Playwright页面对象
+     * @param minMs 最小等待时间(毫秒)
+     * @param maxMs 最大等待时间(毫秒)
+     */
+    private void randomWait(Page page, int minMs, int maxMs) {
+        int waitTime = minMs + (int)(Math.random() * (maxMs - minMs));
+        page.waitForTimeout(waitTime);
+    }
 
-        // 滑动4：滚动到1200
-        scrollToPosition(page, 1200, 1800);
+    /**
+     * 尝试随机点击元素
+     * @param page Playwright页面对象
+     */
+    private void attemptRandomElementClick(Page page) {
+        try {
+            // 尝试获取所有可能的链接元素
+            List<String> selectors = Arrays.asList(
+                ".job-card", 
+                ".filter-select", 
+                ".dorpdown-menu",
+                ".search-box",
+                ".city-sel",
+                ".search-condition-wrapper a"
+            );
+            
+            // 随机选择一个选择器
+            String selector = selectors.get((int)(Math.random() * selectors.size()));
+            
+            // 检查元素是否存在
+            boolean hasElement = (boolean)page.evaluate("!!document.querySelector('" + selector + "')");
+            
+            if (hasElement) {
+                // 获取元素数量
+                int count = (int)page.evaluate("document.querySelectorAll('" + selector + "').length");
+                
+                if (count > 0) {
+                    // 随机选择一个元素索引
+                    int index = (int)(Math.random() * Math.min(count, 5)); // 限制在前5个元素中选择
+                    
+                    // 点击前保存当前URL
+                    String currentUrl = page.url();
+                    
+                    // 滚动到元素并点击
+                    page.evaluate("document.querySelectorAll('" + selector + "')[" + index + "].scrollIntoView({behavior: 'smooth', block: 'center'})");
+                    randomWait(page, 500, 1500);
+                    page.evaluate("document.querySelectorAll('" + selector + "')[" + index + "].click()");
+                    
+                    // 等待新页面可能加载
+                    randomWait(page, 2000, 5000);
+                    
+                    // 如果URL改变，返回原页面
+                    if (!page.url().equals(currentUrl)) {
+                        log.info("URL已改变，返回原页面");
+                        page.goBack();
+                        page.waitForLoadState();
+                        randomWait(page, 1000, 3000);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("尝试随机点击元素失败: {}", e.getMessage());
+        }
+    }
 
-        // 滑动5：滚动到1500
-        scrollToPosition(page, 1500, 2200);
+    /**
+     * 随机调整窗口大小
+     * @param page Playwright页面对象
+     */
+    private void randomWindowResize(Page page) {
+        try {
+            // 获取当前窗口大小
+            int currentWidth = (int)page.evaluate("window.innerWidth");
+            int currentHeight = (int)page.evaluate("window.innerHeight");
+            
+            // 计算新的窗口大小 (变化范围±10%)
+            int widthDelta = (int)(currentWidth * 0.1);
+            int heightDelta = (int)(currentHeight * 0.1);
+            
+            int newWidth = currentWidth + (int)(Math.random() * widthDelta * 2) - widthDelta;
+            int newHeight = currentHeight + (int)(Math.random() * heightDelta * 2) - heightDelta;
+            
+            // 确保窗口尺寸在合理范围内
+            newWidth = Math.max(800, Math.min(1600, newWidth));
+            newHeight = Math.max(600, Math.min(1200, newHeight));
+            
+            // 设置新窗口大小
+            page.setViewportSize(newWidth, newHeight);
+            
+            // 等待一段时间
+            randomWait(page, 1000, 3000);
+            
+            // 有50%的概率恢复原窗口大小
+            if (Math.random() < 0.5) {
+                page.setViewportSize(currentWidth, currentHeight);
+            }
+        } catch (Exception e) {
+            log.warn("随机调整窗口大小失败: {}", e.getMessage());
+        }
+    }
 
-        // 滑动6：回到中间位置
-        scrollToPosition(page, 800, 3000);
+    /**
+     * 模拟查看职位详情
+     * @param page Playwright页面对象
+     */
+    private void simulateJobDetailView(Page page) {
+        try {
+            // 尝试找到职位卡片
+            boolean hasJobCards = (boolean)page.evaluate("!!document.querySelector('.job-card')");
+            
+            if (hasJobCards) {
+                // 获取职位卡片数量
+                int count = (int)page.evaluate("document.querySelectorAll('.job-card').length");
+                
+                if (count > 0) {
+                    // 随机选择一个职位卡片
+                    int index = (int)(Math.random() * Math.min(count, 10)); // 限制在前10个卡片中选择
+                    
+                    // 滚动到职位卡片
+                    page.evaluate("document.querySelectorAll('.job-card')[" + index + "].scrollIntoView({behavior: 'smooth', block: 'center'})");
+                    randomWait(page, 800, 2000);
+                    
+                    // 鼠标悬停在卡片上
+                    page.evaluate("document.querySelectorAll('.job-card')[" + index + "].dispatchEvent(new MouseEvent('mouseover', {bubbles: true}))");
+                    randomWait(page, 500, 1500);
+                    
+                    // 模拟查看详情（不实际点击，避免页面跳转）
+                    // 可以通过滚动模拟阅读行为
+                    page.evaluate(
+                        "const card = document.querySelectorAll('.job-card')[" + index + "];" +
+                        "let top = card.offsetTop;" +
+                        "const height = card.offsetHeight;" +
+                        "const smallScroll = height / 4;" +
+                        "window.scrollTo({top: top, behavior: 'smooth'});" +
+                        "setTimeout(() => {" +
+                        "  window.scrollTo({top: top + smallScroll, behavior: 'smooth'});" +
+                        "}, 800);" +
+                        "setTimeout(() => {" +
+                        "  window.scrollTo({top: top + smallScroll * 2, behavior: 'smooth'});" +
+                        "}, 1600);"
+                    );
+                    
+                    randomWait(page, 2000, 4000);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("模拟查看职位详情失败: {}", e.getMessage());
+        }
     }
 
     /**
@@ -182,8 +427,25 @@ public class JsonScrapingService {
      * @param waitTime 等待时间(毫秒)
      */
     private void scrollToPosition(Page page, int position, int waitTime) {
-        log.info("滑动到{}px位置", position);
-        page.evaluate("window.scrollTo({top: " + position + ", behavior: 'smooth'})");
+        log.debug("滑动到{}px位置", position);
+        
+        // 使用更自然的滚动方式，有时使用平滑滚动，有时使用分段滚动
+        if (Math.random() < 0.7) {
+            // 平滑滚动
+            page.evaluate("window.scrollTo({top: " + position + ", behavior: 'smooth'})");
+        } else {
+            // 分段滚动，更像人类
+            int currentPosition = (int)page.evaluate("window.scrollY");
+            int distance = position - currentPosition;
+            int steps = 5 + (int)(Math.random() * 10); // 5-15步
+            
+            for (int i = 1; i <= steps; i++) {
+                int stepPosition = currentPosition + (distance * i / steps);
+                page.evaluate("window.scrollTo(0, " + stepPosition + ")");
+                page.waitForTimeout(50 + (int)(Math.random() * 150)); // 短暂停顿
+            }
+        }
+        
         page.waitForTimeout(waitTime);
     }
 
@@ -256,8 +518,11 @@ public class JsonScrapingService {
     }
 
     /**
-     * 使用请求API
+     * 使用Playwright请求API获取数据
      * @param tokenData 包含token和cookies的数据
+     * @param page 页码
+     * @param cityCode 城市代码
+     * @param positionCode 职位代码
      * @return API返回的JSON数据
      */
     public String requestApi(Map<String, Object> tokenData, Integer page, String cityCode, String positionCode) {
@@ -270,15 +535,151 @@ public class JsonScrapingService {
         @SuppressWarnings("unchecked")
         Map<String, String> cookies = (Map<String, String>) tokenData.get("cookies");
         String url = buildApiUrl(page, cityCode, positionCode);
-        log.info("正在请求API: {}", url);
+        log.info("正在使用Playwright请求API: {}", url);
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpGet httpGet = createHttpRequest(url, token, cookies);
-
-            return executeHttpRequest(httpClient, httpGet);
+        try (Playwright playwright = Playwright.create()) {
+            // 使用无头模式启动浏览器，API请求不需要UI
+            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
+                    .setHeadless(true));
+            
+            // 创建新的浏览器上下文
+            BrowserContext context = browser.newContext(new Browser.NewContextOptions()
+                    .setUserAgent(getRandomUserAgent())
+                    // 设置较小的视口，因为这只是API请求
+                    .setViewportSize(1024, 768)
+                    .setLocale("zh-CN")
+                    .setTimezoneId("Asia/Shanghai"));
+            
+            // 添加所有cookies
+            addCookiesToContext(context, cookies, token);
+            
+            // 创建新页面
+            Page apiPage = context.newPage();
+            
+            try {
+                // 设置请求超时时间
+                apiPage.setDefaultTimeout(30000);
+                apiPage.setDefaultNavigationTimeout(30000);
+                
+                // 添加请求头
+                apiPage.setExtraHTTPHeaders(createApiHeaders());
+                
+                // 发起请求
+                log.info("正在请求API: {}", url);
+                apiPage.navigate(url);
+                
+                // 等待页面加载
+                apiPage.waitForLoadState();
+                
+                // 随机等待一段时间
+                randomWait(apiPage, 500, 1500);
+                
+                // 获取页面内容
+                String content = apiPage.content();
+                
+                // 从页面中提取JSON数据
+                String jsonResult = extractJsonFromPage(apiPage);
+                
+                // 检查是否有访问异常
+                if (jsonResult != null && jsonResult.contains("您的访问行为异常")) {
+                    log.warn("API返回访问行为异常信息");
+                }
+                
+                return jsonResult;
+            } finally {
+                apiPage.close();
+                context.close();
+                browser.close();
+            }
         } catch (Exception e) {
-            log.error("API请求失败: {}", e.getMessage(), e);
+            log.error("使用Playwright请求API失败: {}", e.getMessage(), e);
             return null;
+        }
+    }
+    
+    /**
+     * 向浏览器上下文添加cookies
+     * @param context 浏览器上下文
+     * @param cookies cookies映射
+     * @param token API token
+     */
+    private void addCookiesToContext(BrowserContext context, Map<String, String> cookies, String token) {
+        List<com.microsoft.playwright.options.Cookie> playwrightCookies = new ArrayList<>();
+        
+        // 添加token cookie
+        playwrightCookies.add(createCookie("__zp_stoken__", token));
+        
+        // 添加其他cookies
+        for (Map.Entry<String, String> entry : cookies.entrySet()) {
+            playwrightCookies.add(createCookie(entry.getKey(), entry.getValue()));
+        }
+        
+        // 将cookies添加到上下文
+        context.addCookies(playwrightCookies);
+    }
+    
+    /**
+     * 创建Playwright cookie对象
+     * @param name cookie名称
+     * @param value cookie值
+     * @return Playwright cookie对象
+     */
+    private com.microsoft.playwright.options.Cookie createCookie(String name, String value) {
+        com.microsoft.playwright.options.Cookie cookie = new com.microsoft.playwright.options.Cookie(name, value);
+        cookie.setDomain("www.zhipin.com");
+        cookie.setPath("/");
+        cookie.setSecure(true);
+        return cookie;
+    }
+    
+    /**
+     * 创建API请求头
+     * @return 请求头映射
+     */
+    private Map<String, String> createApiHeaders() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Accept", "application/json, text/plain, */*");
+        headers.put("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        headers.put("Referer", "https://www.zhipin.com/web/geek/jobs");
+        headers.put("Sec-Fetch-Dest", "empty");
+        headers.put("Sec-Fetch-Mode", "cors");
+        headers.put("Sec-Fetch-Site", "same-origin");
+        headers.put("Cache-Control", "no-cache");
+        headers.put("Pragma", "no-cache");
+        return headers;
+    }
+    
+    /**
+     * 从页面中提取JSON数据
+     * @param page Playwright页面对象
+     * @return 提取的JSON字符串
+     */
+    private String extractJsonFromPage(Page page) {
+        try {
+            // 首先尝试获取预渲染的JSON
+            String json = page.evaluate("() => {" +
+                "try {" +
+                "  const pre = document.querySelector('pre');" +
+                "  if (pre) return pre.textContent;" +
+                "  return document.body.textContent;" +
+                "} catch (e) {" +
+                "  return document.body.textContent;" +
+                "}" +
+            "}").toString();
+            
+            // 验证是否是有效的JSON
+            new ObjectMapper().readTree(json);
+            return json;
+        } catch (Exception e) {
+            log.warn("无法从页面提取有效JSON: {}", e.getMessage());
+            
+            // 回退方案：获取整个页面内容
+            try {
+                return page.content();
+            } catch (Exception ex) {
+                log.error("无法获取页面内容: {}", ex.getMessage());
+                return null;
+            }
         }
     }
 
@@ -292,72 +693,6 @@ public class JsonScrapingService {
     private String buildApiUrl(Integer page, String cityCode, String positionCode) {
         return API_URL + "page=" + page + "&pageSize=" + PAGE_SIZE + 
                "&city=" + cityCode + "&position=" + positionCode;
-    }
-
-    /**
-     * 创建HTTP请求对象
-     * @param url 请求URL
-     * @param token API Token
-     * @param cookies Cookies
-     * @return 配置好的HttpGet对象
-     */
-    private HttpGet createHttpRequest(String url, String token, Map<String, String> cookies) {
-        HttpGet httpGet = new HttpGet(url);
-
-        // 设置请求头
-        httpGet.addHeader("Accept", "application/json");
-        httpGet.addHeader("User-Agent", getRandomUserAgent());
-        httpGet.addHeader("Referer", "https://www.zhipin.com/web/geek/jobs");
-
-        // 添加所有cookies到请求
-        httpGet.addHeader("Cookie", buildCookieString(token, cookies));
-
-        return httpGet;
-    }
-
-    /**
-     * 构建Cookie字符串
-     * @param token API Token
-     * @param cookies Cookies Map
-     * @return 格式化的Cookie字符串
-     */
-    private String buildCookieString(String token, Map<String, String> cookies) {
-        StringBuilder cookiesStr = new StringBuilder();
-        cookiesStr.append("__zp_stoken__=").append(token);
-
-        for (Map.Entry<String, String> entry : cookies.entrySet()) {
-            cookiesStr.append("; ").append(entry.getKey()).append("=").append(entry.getValue());
-        }
-
-        return cookiesStr.toString();
-    }
-
-    /**
-     * 执行HTTP请求
-     * @param httpClient HTTP客户端
-     * @param httpGet HTTP请求对象
-     * @return 响应JSON字符串
-     */
-    private String executeHttpRequest(CloseableHttpClient httpClient, HttpGet httpGet) throws Exception {
-        try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-            if (response.getStatusLine().getStatusCode() != 200) {
-                log.error("API请求失败: HTTP状态码 {}", response.getStatusLine().getStatusCode());
-                return null;
-            }
-
-            HttpEntity entity = response.getEntity();
-            String jsonResult = EntityUtils.toString(entity, "UTF-8");
-
-            // 记录响应数据，便于排查问题
-            log.debug("API响应内容: {}", jsonResult);
-
-            // 检查是否有访问异常
-            if (jsonResult.contains("您的访问行为异常")) {
-                log.warn("API返回访问行为异常信息");
-            }
-
-            return jsonResult;
-        }
     }
 
     /**
