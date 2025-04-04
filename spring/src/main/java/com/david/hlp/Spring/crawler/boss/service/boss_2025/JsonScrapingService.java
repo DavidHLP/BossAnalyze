@@ -11,13 +11,6 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
-// 使用完全限定名称以避免冲突
-// import org.apache.http.HttpEntity;
-// import org.apache.http.client.methods.CloseableHttpResponse;
-// import org.apache.http.client.methods.HttpGet;
-// import org.apache.http.impl.client.CloseableHttpClient;
-// import org.apache.http.impl.client.HttpClients;
-// import org.apache.http.util.EntityUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -64,7 +57,7 @@ public class JsonScrapingService {
             // 随机设置浏览器窗口大小
             int width = 1100 + (int)(Math.random() * 400); // 1100-1500
             int height = 800 + (int)(Math.random() * 400); // 800-1200
-                
+
             BrowserContext context = browser.newContext(new Browser.NewContextOptions()
                     .setUserAgent(getRandomUserAgent())
                     .setViewportSize(width, height)
@@ -86,7 +79,7 @@ public class JsonScrapingService {
                 // 等待页面加载完成
                 log.info("等待页面加载...");
                 page.waitForLoadState();
-                
+
                 // 随机等待一段时间，模拟用户阅读页面
                 randomWait(page, 2000, 5000);
 
@@ -109,7 +102,7 @@ public class JsonScrapingService {
 
                 // 模拟用户滚动
                 simulateUserScrolling(page);
-                
+
                 // 滚动后再执行一些随机操作
                 if (Math.random() < 0.8) {
                     performRandomUserAction(page);
@@ -174,14 +167,14 @@ public class JsonScrapingService {
      */
     private void simulateUserScrolling(Page page) {
         log.info("模拟用户滚动行为...");
-        
+
         // 随机等待一段时间后再开始滚动
         randomWait(page, 1000, 3000);
-        
+
         // 随机决定滚动次数 (3-8次)
         int scrollTimes = 3 + (int)(Math.random() * 6);
         log.info("将进行{}次随机滚动", scrollTimes);
-        
+
         // 随机滚动位置列表
         List<Integer> scrollPositions = new ArrayList<>();
         for (int i = 0; i < scrollTimes; i++) {
@@ -190,20 +183,20 @@ public class JsonScrapingService {
             int randomOffset = (int)(Math.random() * 200) - 100; // -100到+100的随机偏移
             scrollPositions.add(Math.max(100, basePosition + randomOffset));
         }
-        
+
         // 执行滚动并在每次滚动间执行随机用户操作
         for (int i = 0; i < scrollPositions.size(); i++) {
             int position = scrollPositions.get(i);
-            
+
             // 滚动到随机位置
             scrollToPosition(page, position, 1500 + (int)(Math.random() * 1500));
-            
+
             // 随机执行额外操作
             if (Math.random() < 0.7) {
                 performRandomUserAction(page);
             }
         }
-        
+
         // 最后随机回到某个位置
         int finalPosition = scrollPositions.get((int)(Math.random() * scrollPositions.size()));
         scrollToPosition(page, finalPosition / 2, 2000 + (int)(Math.random() * 2000));
@@ -717,7 +710,7 @@ public class JsonScrapingService {
         JsonNode jsonNode = objectMapper.readTree(jsonData);
         JsonNode jobsNode = jsonNode.get("zpData").get("jobList");
 
-        if (jobsNode == null) {
+        if (jobsNode == null || jobsNode.isEmpty()) {
             log.error("未能获取到职位列表数据");
             throw new RuntimeException("未能获取到职位列表数据");
         }
@@ -731,10 +724,10 @@ public class JsonScrapingService {
             result.get("urls").add(url);
             result.get("json").add(jobNode.toString());
         }
-        
+
         return result;
     }
-    
+
     /**
      * 执行爬取任务的主方法
      * @param isHeadless 是否使用无头模式
