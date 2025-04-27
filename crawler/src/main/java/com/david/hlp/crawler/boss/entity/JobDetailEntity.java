@@ -25,13 +25,13 @@ public class JobDetailEntity implements Serializable{
      */
     private String positionName;
     /**
-     * 公司唯一标识
+     * 城市唯一标识
      */
-    private String companyId;
+    private String cityId;
     /**
      * 公司名称
      */
-    private String companyName;
+    private String cityName;
     /**
      * JobDetailData完整数据(JSON格式)
      */

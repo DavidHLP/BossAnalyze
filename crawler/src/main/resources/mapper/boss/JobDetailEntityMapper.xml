@@ -6,8 +6,8 @@
         <id column="id" property="id"/>
         <result column="position_id" property="positionId"/>
         <result column="position_name" property="positionName"/>
-        <result column="company_id" property="companyId"/>
-        <result column="company_name" property="companyName"/>
+        <result column="city_id" property="cityId"/>
+        <result column="city_name" property="cityName"/>
         <result column="detail_data" property="detailData"/>
         <result column="gmt_create" property="gmtCreate"/>
         <result column="gmt_modified" property="gmtModified"/>
@@ -15,15 +15,15 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, position_id, position_name, company_id, company_name, detail_data,
+        id, position_id, position_name, city_id, city_name, detail_data,
         gmt_create, gmt_modified, is_deleted
     </sql>
 
     <insert id="insert" parameterType="com.david.hlp.crawler.boss.entity.JobDetailEntity" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO t_job_detail (
-            position_id, position_name, company_id, company_name, detail_data , html_url
+            position_id, position_name, city_id, city_name, detail_data , html_url
         ) VALUES (
-            #{positionId}, #{positionName}, #{companyId}, #{companyName}, #{detailData} , #{htmlUrl}
+            #{positionId}, #{positionName}, #{cityId}, #{cityName}, #{detailData} , #{htmlUrl}
         )
     </insert>
 
@@ -33,8 +33,8 @@
             <if test="positionName != null">
                 position_name = #{positionName},
             </if>
-            <if test="companyName != null">
-                company_name = #{companyName},
+            <if test="cityName != null">
+                city_name = #{cityName},
             </if>
             <if test="detailData != null">
                 detail_data = #{detailData},
@@ -63,11 +63,11 @@
         WHERE position_id = #{positionId} AND is_deleted = 0
     </select>
 
-    <select id="listByCompanyId" resultMap="BaseResultMap">
+    <select id="listByCityId" resultMap="BaseResultMap">
         SELECT
         <include refid="Base_Column_List"/>
         FROM t_job_detail
-        WHERE company_id = #{companyId} AND is_deleted = 0
+        WHERE city_id = #{cityId} AND is_deleted = 0
         ORDER BY gmt_create DESC
     </select>
 

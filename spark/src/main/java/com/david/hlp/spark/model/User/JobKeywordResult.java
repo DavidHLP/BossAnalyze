@@ -1,4 +1,4 @@
-package com.david.hlp.spark.model;
+package com.david.hlp.spark.model.User;
 
 import java.io.Serializable;
 import java.util.Map;

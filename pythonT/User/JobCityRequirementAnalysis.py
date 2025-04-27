@@ -4,7 +4,7 @@ from pyspark.sql.types import StructType, StructField, StringType, ArrayType
 
 # 可以从命令行接收参数，如果没提供，使用默认值
 final_position_name = '统计员'
-company_name = '拉萨'
+city_name = '拉萨'
 
 # 增加 Spark 配置，优化性能
 spark = SparkSession.builder.appName("UserAnalyze")\
@@ -22,7 +22,7 @@ df = spark.read.format("jdbc")\
     .option("dbtable", "t_job_detail")\
     .option("fetchsize", "10000") \
     .load()\
-    .select("id", "position_name", "detail_data", "company_name")  # 只选择需要的列
+    .select("id", "position_name", "detail_data", "city_name")  # 只选择需要的列
 
 # 定义 detail_data 中 JSON 的部分结构 (只需要到 keywords)
 json_schema = StructType([
@@ -36,16 +36,16 @@ keywords_df = df.withColumn("jsonData", from_json(col("detail_data"), json_schem
                 .select(
                     col("id"), 
                     col("position_name"),
-                    col("company_name"),
+                    col("city_name"),
                     col("jsonData.jobDescription.keywords").alias("keywords")
                 )\
                 .cache()  # 缓存频繁使用的中间结果
 
 # 缩小范围：首先进行过滤，减少后续处理的数据量
-if final_position_name != 'ALL' and company_name != 'ALL':
+if final_position_name != 'ALL' and city_name != 'ALL':
     filtered_keywords_df = keywords_df.filter(
         (col("position_name") == final_position_name) & 
-        (col("company_name") == company_name) &
+        (col("city_name") == city_name) &
         col("keywords").isNotNull()  # 同时过滤掉 keywords 为 NULL 的记录
     )
 elif final_position_name != 'ALL':
@@ -53,9 +53,9 @@ elif final_position_name != 'ALL':
         (col("position_name") == final_position_name) & 
         col("keywords").isNotNull()  # 同时过滤掉 keywords 为 NULL 的记录
     )
-elif company_name != 'ALL':
+elif city_name != 'ALL':
     filtered_keywords_df = keywords_df.filter(
-        (col("company_name") == company_name) &
+        (col("city_name") == city_name) &
         col("keywords").isNotNull()  # 同时过滤掉 keywords 为 NULL 的记录
     )
 else:
@@ -64,7 +64,7 @@ else:
     )
 
 # 显示过滤后的原始数据（已排除 NULL）
-print(f"Keywords for position '{final_position_name}' at company '{company_name}' (NULL values excluded):")
+print(f"Keywords for position '{final_position_name}' at company '{city_name}' (NULL values excluded):")
 filtered_keywords_df.show(truncate=False)
 
 # 注册 DataFrame 为临时视图
@@ -75,7 +75,7 @@ final_sql = f"""
 WITH exploded_data AS (
   SELECT
     position_name,
-    company_name,
+    city_name,
     keyword
   FROM
     filtered_keywords_view
@@ -86,26 +86,26 @@ WITH exploded_data AS (
 counted_data AS (
   SELECT
     position_name,
-    company_name,
+    city_name,
     keyword,
     COUNT(*) as keyword_count
   FROM
     exploded_data
   GROUP BY
-    position_name, company_name, keyword
+    position_name, city_name, keyword
 ),
 structured_data AS (
   SELECT
     position_name,
-    company_name,
+    city_name,
     collect_list(struct(keyword_count as count, keyword)) as kw_structs
   FROM
     counted_data
   GROUP BY
-    position_name, company_name
+    position_name, city_name
 )
 SELECT
-  company_name,
+  city_name,
   position_name,
   to_json(
     transform(
@@ -121,7 +121,7 @@ FROM
 result_df = spark.sql(final_sql)
 
 # 显示结果
-print(f"Aggregated and sorted keyword counts for position '{final_position_name}' at company '{company_name}':")
+print(f"Aggregated and sorted keyword counts for position '{final_position_name}' at company '{city_name}':")
 result_df.show()
 
 # 清理缓存，释放内存

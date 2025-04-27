@@ -25,7 +25,7 @@ public class SatrtScheduled {
     //     });
     // }
 
-    @Scheduled(fixedDelay = 1000 * 60 * 1)
+    @Scheduled(fixedDelay = 1000 * 30 * 1)
     public void startParseBossHtmlData() {
         ParseBossHtmlDataThreadPool.executeWithSpringContext(() -> {
             dataScrapingService.parseBossHtmlData();

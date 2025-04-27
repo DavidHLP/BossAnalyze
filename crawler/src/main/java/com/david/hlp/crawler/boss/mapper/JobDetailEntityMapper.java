@@ -56,7 +56,7 @@ public interface JobDetailEntityMapper {
      * @param companyId 公司ID
      * @return 职位详情列表
      */
-    List<JobDetailEntity> listByCompanyId(@Param("companyId") String companyId);
+    List<JobDetailEntity> listByCityId(@Param("cityId") String cityId);
     
     /**
      * 根据职位名称模糊查询职位列表

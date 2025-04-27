@@ -363,9 +363,9 @@ public class DataScrapingService {
     private JobDetailEntity createJobDetailEntity(HtmlData htmlData, String detailDataJson) {
         return JobDetailEntity.builder()
             .positionId(htmlData.getBasePositionCode())
-            .companyId(htmlData.getBaseCityCode())
+            .cityId(htmlData.getBaseCityCode())
             .positionName(htmlData.getBasePosition())
-            .companyName(htmlData.getBaseCity())
+            .cityName(htmlData.getBaseCity())
             .detailData(detailDataJson)
             .build();
     }

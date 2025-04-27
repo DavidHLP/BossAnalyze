@@ -1,7 +1,6 @@
 from pyspark.sql import SparkSession
 
-inputdata = '数据分析师'
-limitdata = 10
+inputdata = '拉萨'
 
 # 增加 Spark 配置，优化性能
 spark = SparkSession.builder.appName("UserAnalyze")\
@@ -19,20 +18,18 @@ df = spark.read.format("jdbc")\
     .option("dbtable", "t_job_detail")\
     .option("fetchsize", "10000") \
     .load()\
-    .select("id", "position_name","company_name")  # 只选择需要的列
+    .select("id", "position_name","city_name")  # 只选择需要的列
 
-df.createOrReplaceTempView("JobCityRecommender")
+df.createOrReplaceTempView("JobHeatCalculator")
 
 # 使用Spark SQL查询数据
 result = spark.sql(f"""
-                   SELECT company_name , count(company_name) as count 
-                   FROM JobCityRecommender 
-                   where position_name like '%{inputdata}%' 
-                   group by company_name 
-                   order by count(company_name) desc 
-                   limit {limitdata}
-                   """)
+    SELECT city_name, position_name,count(*) as city_count
+    FROM JobHeatCalculator
+    WHERE city_name = '{inputdata}'
+    GROUP BY city_name,position_name
+    ORDER BY city_count DESC
+    LIMIT 10
+    """)
 
 result.show()
-
-spark.stop()
