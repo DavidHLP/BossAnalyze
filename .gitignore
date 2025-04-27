@@ -15,8 +15,6 @@
 
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
-*.venv
-
 # Package Files #
 *.jar
 *.war
@@ -46,3 +44,11 @@ replay_pid*
 .nfs*
 
 # End of https://www.toptal.com/developers/gitignore/api/java,linux
+*.venv
+*.venv/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
