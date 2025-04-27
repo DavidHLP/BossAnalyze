@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.david.hlp</groupId>
-	<artifactId>spring-springboot</artifactId>
+	<artifactId>spring-web</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>spring-springboot</name>
-	<description>spring-springboot</description>
+	<name>spring-web</name>
+	<description>spring-web</description>
 	<properties>
 		<java.version>17</java.version>
 		<lombok.version>1.18.30</lombok.version>

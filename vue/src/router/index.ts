@@ -48,16 +48,6 @@ const baseRoutes: RouteRecordRaw[] = [
       requiresAuth: true
     },
     component: () => import('@/views/front/about/AboutView.vue'),
-  },
-  {
-    path: '/boss',
-    name: 'boss',
-    meta: {
-      type: 'M',
-      title: 'Boss数据分析',
-      requiresAuth: true
-    },
-    component: () => import('@/views/spark/BossAnalyzeView.vue'),
   }
 ]
 

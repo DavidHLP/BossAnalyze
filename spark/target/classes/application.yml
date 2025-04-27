@@ -17,7 +17,7 @@ server:
   error:
     whitelabel:
       enabled: false # 禁用 Spring 默认错误页面
-  port: 8089
+  port: 8082
 
 logging:
   level:

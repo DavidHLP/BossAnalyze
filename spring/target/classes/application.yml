@@ -2,32 +2,18 @@ spring:
   application:
     name: SpringBootWork
   datasource:
-    primary:
-      driver-class-name: com.mysql.cj.jdbc.Driver
-      jdbc-url: jdbc:mysql://localhost:3306/blog_data?useSSL=false&characterEncoding=UTF-8
-      username: root
-      password: Alone117
-      type: com.zaxxer.hikari.HikariDataSource
-      hikari:
-        minimum-idle: 5
-        maximum-pool-size: 20
-        auto-commit: true
-        connection-timeout: 30000
-        idle-timeout: 600000
-        max-lifetime: 1800000
-    secondary:
-      driver-class-name: com.mysql.cj.jdbc.Driver
-      jdbc-url: jdbc:mysql://localhost:3306/boss_data?useSSL=false&characterEncoding=UTF-8
-      username: root
-      password: Alone117
-      type: com.zaxxer.hikari.HikariDataSource
-      hikari:
-        minimum-idle: 5
-        maximum-pool-size: 20
-        auto-commit: true
-        connection-timeout: 30000
-        idle-timeout: 600000
-        max-lifetime: 1800000
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/blog_data?useSSL=false&characterEncoding=UTF-8
+    username: root
+    password: Alone117
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      auto-commit: true
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   mail:
     outTime: 15
     host: smtp.163.com # 你邮箱的smtp地址
@@ -102,26 +88,3 @@ jackson:
     write-dates-as-timestamps: false
   deserialization:
     fail-on-unknown-properties: false
-
-# WebDriver配置
-webdriver:
-  chrome:
-    driver: /home/david/Driver/chromedriver-linux64/chromedriver
-    headless: true
-    disable-gpu: true
-    no-sandbox: true
-    disable-dev-shm-usage: true
-
-spark:
-  redis:
-    key-prefix: "spark:job:"
-    host: localhost
-    port: 6379
-    password: Alone117
-    timeout: 2000
-    pool:
-      max-total: 10
-      max-idle: 5
-      min-idle: 1
-    data:
-      expire-days: 7
