@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.david.hlp.Spring.analyzer.mapper.SalaryAnalyzerMapper">
-    <insert id="insertAnalyzerResult" parameterType="com.david.hlp.Spring.analyzer.entity.AnalyzerEntity">
-        INSERT INTO analyzer_result (url, city, position, city_code, position_code, degree, boss_address, salary, experience, company_benefits, job_keywords, job_requirements, company_intro, company_name, company_size, company_type, establish_date, financing_stage, operation_status, legal_company_name)
-        VALUES (#{url}, #{city}, #{position}, #{cityCode}, #{positionCode}, #{degree}, #{bossAddress}, #{salary, typeHandler=com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler}, #{experience, typeHandler=com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler}, #{companyBenefits, typeHandler=com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler}, #{jobKeywords, typeHandler=com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler}, #{jobRequirements}, #{companyIntro}, #{companyName}, #{companySize}, #{companyType}, #{establishDate}, #{financingStage}, #{operationStatus}, #{legalCompanyName})
-    </insert>
-</mapper> 

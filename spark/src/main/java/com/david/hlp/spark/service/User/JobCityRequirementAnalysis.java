@@ -76,9 +76,6 @@ public class JobCityRequirementAnalysis {
             );
         }
 
-        // 显示过滤后的原始数据（已排除 NULL）
-        System.out.println(String.format("Keywords for position '%s' at city '%s' (NULL values excluded):", positionName, cityName));
-        filteredKeywordsDf.show(false); // truncate=False 对应 Java 的 false
 
         // 注册 DataFrame 为临时视图
         filteredKeywordsDf.createOrReplaceTempView("filtered_keywords_view");

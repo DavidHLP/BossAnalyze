@@ -28,7 +28,6 @@ export interface Meta {
   metaTitle: string;
   redirect: null;
   type: string | 'M' | 'C' | 'F';
-  [property: string];
 }
 
 export interface Router {
@@ -43,5 +42,5 @@ export interface Router {
   pid: null;
   remark: string;
   status: number;
-  [property: string];
+  redirect: null;
 }

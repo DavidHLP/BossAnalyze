@@ -6,7 +6,6 @@ export interface Token {
   token?: string
   tokenType?: string
   userId?: number
-  [property: string]
 }
 
 export interface Permissions {

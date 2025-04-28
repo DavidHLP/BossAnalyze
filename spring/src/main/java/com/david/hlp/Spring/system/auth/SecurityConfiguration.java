@@ -38,7 +38,8 @@ public class SecurityConfiguration {
                     "/swagger-resources/**",
                     "/api/repeater/**",
                     "/api/boss/**",
-                    "/api/proxy/**"
+                    "/api/proxy/**",
+                    "/api/boss/spark/**"
                 ).permitAll()
                 .requestMatchers("/api/user/**").hasRole("ADMIN")
                 .requestMatchers("/api/role/**").hasRole("ADMIN")
