@@ -18,6 +18,8 @@ import com.david.hlp.spark.model.User.CityHotJob;
 import com.david.hlp.spark.service.User.JobRequirementAnalysis;
 import com.david.hlp.spark.model.User.JobRequirement;
 import lombok.RequiredArgsConstructor;
+import com.david.hlp.spark.service.User.HotJobAnalyzer;
+import com.david.hlp.spark.model.User.HotJob;
 
 @RestController
 @RequestMapping("/api/v1/boss/user")
@@ -57,5 +59,12 @@ public class CityAndPositonController {
     @GetMapping("/job-requirement-analysis")
     public JobRequirement getJobRequirementAnalysis(@RequestParam String positionName) {
         return jobRequirementAnalysis.analyzeJobRequirements(positionName);
+    }
+
+    private final HotJobAnalyzer hotJobAnalyzer;
+
+    @GetMapping("/hot-jobs")
+    public List<HotJob> getHotJobs(@RequestParam(defaultValue = "10") Long limit) {
+        return hotJobAnalyzer.listHotJobs(limit);
     }
 }

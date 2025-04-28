@@ -19,6 +19,7 @@ import com.david.hlp.Spring.boss.model.CityJobAnalysis;
 import com.david.hlp.Spring.boss.model.CityJobRecommendation;
 import com.david.hlp.Spring.boss.model.CityHotJob;
 import com.david.hlp.Spring.boss.model.JobRequirement;
+import com.david.hlp.Spring.boss.model.HotJob;
 
 @RestController
 @RequestMapping("/api/boss/spark/user")
@@ -106,6 +107,22 @@ public class BossController {
                 new ParameterizedTypeReference<JobRequirement>() {}
         );
         JobRequirement response = responseEntity.getBody();
+        return Result.success(response);
+    }
+
+    @GetMapping("/hot-jobs")
+    public Result<List<HotJob>> getHotJobs(@RequestParam(defaultValue = "10") Long limit) {
+        URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
+                                         .path("/hot-jobs")
+                                         .queryParam("limit", limit)
+                                         .build().encode().toUri();
+        ResponseEntity<List<HotJob>> responseEntity = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<HotJob>>() {}
+        );
+        List<HotJob> response = responseEntity.getBody();
         return Result.success(response);
     }
 }
