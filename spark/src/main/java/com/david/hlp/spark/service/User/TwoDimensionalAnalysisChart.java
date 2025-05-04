@@ -60,13 +60,14 @@ public class TwoDimensionalAnalysisChart {
                 .option("dbtable", "t_job_detail")
                 .option("fetchsize", "10000")
                 .load()
-                .select("position_id", "position_name", "detail_data", "city_name")
+                .select("position_id", "position_name", "detail_data", "city_name", "html_url")
                 .withColumn("jsonData", from_json(col("detail_data"), jsonSchema))
                 .select(
                         col("position_id"),
                         col("position_name"),
                         col("city_name"),
                         col("position_name"),
+                        col("html_url").alias("jobUrl"),
                         col("jsonData.basicInfo.salary").alias("salary"),
                         col("jsonData.basicInfo.degree").alias("degree"),
                         col("jsonData.basicInfo.experience").alias("experience"),
@@ -204,7 +205,8 @@ public class TwoDimensionalAnalysisChart {
                 "companySize",
                 "position_name",
                 "financingStage",
-                "companyUrl");
+                "companyUrl",
+                "jobUrl");
 
         // 排序数据
         echartsDf = echartsDf.orderBy(col(xAxis), col(yAxis));
@@ -239,7 +241,7 @@ public class TwoDimensionalAnalysisChart {
                     data.setPositionName(row.getString(row.fieldIndex("position_name")));
                     data.setFinancingStage(row.getString(row.fieldIndex("financingStage")));
                     data.setCompanyUrl(row.getString(row.fieldIndex("companyUrl")));
-
+                    data.setJobUrl(row.getString(row.fieldIndex("jobUrl")));
                     return data;
                 },
                 Encoders.bean(JobAnalysisData.class)).collectAsList();

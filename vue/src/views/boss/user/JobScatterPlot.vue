@@ -1,8 +1,8 @@
 <template>
-  <el-card class="container">
+  <el-card class="container" :body-style="{ backgroundColor: '#1a1a1a', color: '#e0e0e0' }">
     <el-page-header>
       <template #title>
-        <h1>职位二维分析散点图</h1>
+        <h1 class="page-title">职位二维分析散点图</h1>
       </template>
     </el-page-header>
     <el-row class="controls">
@@ -53,20 +53,69 @@
       title="公司详情"
       direction="rtl"
       size="30%"
+      custom-class="company-details-drawer"
+      :modal-class="'dark-modal'"
+      :with-header="false"
     >
-      <el-descriptions :column="1" border>
-        <el-descriptions-item label="公司名称">{{ companyInfo.companyName }}</el-descriptions-item>
-        <el-descriptions-item label="职位名称">{{ companyInfo.positionName }}</el-descriptions-item>
-        <el-descriptions-item label="城市">{{ companyInfo.cityName }}</el-descriptions-item>
-        <el-descriptions-item label="薪资">{{ companyInfo.salary }}</el-descriptions-item>
-        <el-descriptions-item label="学历要求">{{ companyInfo.degree }}</el-descriptions-item>
-        <el-descriptions-item label="经验要求">{{ companyInfo.experience }}</el-descriptions-item>
-        <el-descriptions-item label="公司规模">{{ companyInfo.companySize }}</el-descriptions-item>
-        <el-descriptions-item label="融资阶段">{{ companyInfo.financingStage }}</el-descriptions-item>
-      </el-descriptions>
-      <el-button v-if="companyInfo.companyUrl" type="primary" @click="openCompanyUrl">
-        查看公司详情
-      </el-button>
+      <div class="drawer-content dark">
+        <div class="drawer-header">
+          <h2 class="drawer-title">{{ companyInfo.companyName }}</h2>
+          <el-tag type="success" effect="dark" class="position-tag">{{ companyInfo.positionName }}</el-tag>
+          <div class="drawer-subtitle">
+            <el-icon><Location /></el-icon>
+            <span>{{ companyInfo.cityName }}</span>
+          </div>
+        </div>
+
+        <div class="drawer-body">
+          <div class="info-section">
+            <div class="section-title">
+              <el-icon><Money /></el-icon>
+              <span>薪资与要求</span>
+            </div>
+            <div class="info-grid">
+              <div class="info-item">
+                <div class="info-label">薪资</div>
+                <div class="info-value salary">{{ companyInfo.salary }}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">学历要求</div>
+                <div class="info-value">{{ companyInfo.degree }}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">经验要求</div>
+                <div class="info-value">{{ companyInfo.experience }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <div class="section-title">
+              <el-icon><OfficeBuilding /></el-icon>
+              <span>公司信息</span>
+            </div>
+            <div class="info-grid">
+              <div class="info-item">
+                <div class="info-label">公司规模</div>
+                <div class="info-value">{{ companyInfo.companySize }}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">融资阶段</div>
+                <div class="info-value">{{ companyInfo.financingStage }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-footer">
+          <el-button v-if="companyInfo.companyUrl" type="primary" @click="openCompanyUrl" class="detail-button">
+            <el-icon><Link /></el-icon> 查看公司详情
+          </el-button>
+          <el-button v-if="companyInfo.jobUrl" type="success" @click="openJobUrl" class="detail-button">
+            <el-icon><View /></el-icon> 查看职位详情
+          </el-button>
+        </div>
+      </div>
     </el-drawer>
   </el-card>
 </template>
@@ -85,12 +134,19 @@ import {
   ElOption,
   ElFormItem,
   ElAlert,
-  ElDescriptions,
-  ElDescriptionsItem,
   ElDrawer,
   ElButton,
-  ElPageHeader
+  ElPageHeader,
+  ElTag,
+  ElIcon
 } from 'element-plus';
+import {
+  Location,
+  Money,
+  OfficeBuilding,
+  Link,
+  View
+} from '@element-plus/icons-vue';
 
 // 组件状态
 const jobData = ref<JobData[]>([]);
@@ -116,7 +172,8 @@ const companyInfo = reactive<CompanyInfo>({
   experience: '',
   companySize: '',
   financingStage: '',
-  companyUrl: ''
+  companyUrl: '',
+  jobUrl: ''
 });
 
 // 全局常量
@@ -134,6 +191,12 @@ const openCompanyUrl = () => {
   }
 };
 
+// 打开职位URL
+const openJobUrl = () => {
+  if (companyInfo.jobUrl) {
+    window.open(companyInfo.jobUrl, '_blank');
+  }
+};
 // 解析学历要求文本为数值
 const getDegreeValue = (degreeStr: string): number => {
   if (!degreeStr) return 0;
@@ -383,6 +446,8 @@ const fetchData = async () => {
       yAxis.value
     );
 
+    positions.value = await getPositionNameList(cityFilter.value);
+
     // 如果图表已初始化，更新图表
     if (chartInstance.value) {
       updateChart();
@@ -433,7 +498,10 @@ const getVisualMap = (xAxisValue: string, yAxisValue: string): echarts.VisualMap
     top: 'center',
     calculable: true,
     text: ['高', '低'],
-    orient: 'vertical'
+    orient: 'vertical',
+    textStyle: {
+      color: '#e0e0e0'
+    }
   };
 
   // 根据轴类型决定视觉映射
@@ -664,7 +732,7 @@ const prepareChartData = (): ChartDataPoint[] => {
         jitterX = formatDataValue(jitterX);
       } else {
         // 为每个数据点单独获取随机抖动因子
-        const jitterFactor = (xAxis.value === 'degree_value' || xAxis.value === 'experience_value') 
+        const jitterFactor = (xAxis.value === 'degree_value' || xAxis.value === 'experience_value')
           ? getRandomJitterFactor() // 每次调用都获取一个新的随机因子
           : 0.3;
         jitterX = xValue + Math.random() * jitterFactor;
@@ -672,7 +740,7 @@ const prepareChartData = (): ChartDataPoint[] => {
         jitterX = formatDataValue(jitterX);
       }
 
-      // Y轴抖动计算  
+      // Y轴抖动计算
       let jitterY: number;
       if (yRange.min !== yRange.max) {
         // 如果有范围，则在范围内抖动，只向正方向抖动
@@ -713,27 +781,30 @@ const updateChart = () => {
     title: {
       text: '职位二维分析(薪资为月工资)',
       left: 'center',
-      top: 0
+      top: 0,
+      textStyle: {
+        color: '#e0e0e0'
+      }
     },
     tooltip: {
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      backgroundColor: 'rgba(25, 25, 25, 0.95)',
       borderWidth: 0,
       textStyle: {
-        color: '#333',
+        color: '#e0e0e0',
         fontSize: 14
       },
-      padding: [12, 16],
-      extraCssText: 'box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border-radius: 8px;',
+      padding: [16, 20],
+      extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); border-radius: 12px;',
       formatter: function(params) {
         // 确保params是单个数据点
         const param = Array.isArray(params) ? params[0] : params;
         // 现在可以安全地访问data属性
         const pointData = param.data as unknown as ChartDataPoint;
-        
+
         // 格式化X和Y坐标值
         const xCoord = formatDataValue(pointData[0]);
         const yCoord = formatDataValue(pointData[1]);
-        
+
         // 坐标信息文本
         const coordInfo = `X: ${xCoord}, Y: ${yCoord}`;
 
@@ -743,40 +814,42 @@ const updateChart = () => {
           const count = indices.length;
           const job = filteredData.value[indices[0]];
           return `
-              <div style="padding: 10px;">
-                <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #1a1a1a;">${job.positionName || '未知职位'}</div>
-                
-                <div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">
-                  <div style="color: #666; margin-bottom: 4px;">${coordInfo}</div>
-                  <span style="color: #ff6b6b; font-size: 16px; font-weight: bold;">此位置有 ${count} 个职位</span>
+              <div style="padding: 16px; color: #e0e0e0;">
+                <div style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #fff;">${job.positionName || '未知职位'}</div>
+
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #333;">
+                  <div style="color: #999; margin-bottom: 8px; font-size: 12px;">${coordInfo}</div>
+                  <span style="color: #ff7875; font-size: 16px; font-weight: bold; background: rgba(255, 120, 117, 0.1); padding: 4px 8px; border-radius: 4px;">此位置有 ${count} 个职位</span>
                 </div>
-                
-                <div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">
-                  <div style="color: #666; margin-bottom: 4px;">公司信息</div>
-                  <div style="color: #333; font-weight: bold;">${job.companyName || '未知公司'}</div>
+
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #333;">
+                  <div style="color: #999; margin-bottom: 8px; font-size: 13px;">公司信息</div>
+                  <div style="color: #fff; font-weight: 500; font-size: 15px;">${job.companyName || '未知公司'}</div>
                 </div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: #666;">薪资</span>
-                    <span style="color: #333;">${job.salary || '未知'}</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: #666;">学历</span>
-                    <span style="color: #333;">${job.degree || '未知'}</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: #666;">经验</span>
-                    <span style="color: #333;">${job.experience || '未知'}</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between;">
-                    <span style="color: #666;">城市</span>
-                    <span style="color: #333;">${job.cityName || '未知'}</span>
+
+                <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    <div>
+                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">薪资</div>
+                      <div style="color: #ff7875; font-weight: 500;">${job.salary || '未知'}</div>
+                    </div>
+                    <div>
+                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">学历</div>
+                      <div style="color: #e0e0e0; font-weight: 500;">${job.degree || '未知'}</div>
+                    </div>
+                    <div>
+                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">经验</div>
+                      <div style="color: #e0e0e0; font-weight: 500;">${job.experience || '未知'}</div>
+                    </div>
+                    <div>
+                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">城市</div>
+                      <div style="color: #e0e0e0; font-weight: 500;">${job.cityName || '未知'}</div>
+                    </div>
                   </div>
                 </div>
-                
-                <div style="text-align: center; margin-top: 10px;">
-                  <span style="color:#409EFF; font-weight: bold; cursor: pointer;">点击查看详情</span>
+
+                <div style="text-align: center; margin-top: 12px;">
+                  <span style="color:#409EFF; font-weight: 500; cursor: pointer; background: rgba(64, 158, 255, 0.1); padding: 4px 10px; border-radius: 4px;">点击查看详情</span>
                 </div>
               </div>
             </div>
@@ -786,34 +859,36 @@ const updateChart = () => {
           const jobIndex = pointData[3] as number;
           const job = filteredData.value[jobIndex];
           return `
-              <div style="padding: 10px;">
-                <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #1a1a1a;">${job.positionName || '未知职位'}</div>
-                
-                <div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">
-                  <div style="color: #666; margin-bottom: 4px;">${coordInfo}</div>
+              <div style="padding: 16px; color: #e0e0e0;">
+                <div style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #fff;">${job.positionName || '未知职位'}</div>
+
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #333;">
+                  <div style="color: #999; margin-bottom: 8px; font-size: 12px;">${coordInfo}</div>
                 </div>
-                
-                <div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">
-                  <div style="color: #666; margin-bottom: 4px;">公司信息</div>
-                  <div style="color: #333; font-weight: bold;">${job.companyName || '未知公司'}</div>
+
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #333;">
+                  <div style="color: #999; margin-bottom: 8px; font-size: 13px;">公司信息</div>
+                  <div style="color: #fff; font-weight: 500; font-size: 15px;">${job.companyName || '未知公司'}</div>
                 </div>
-                
-                <div style="margin-bottom: 8px;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: #666;">薪资</span>
-                    <span style="color: #333;">${job.salary || '未知'}</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: #666;">学历</span>
-                    <span style="color: #333;">${job.degree || '未知'}</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: #666;">经验</span>
-                    <span style="color: #333;">${job.experience || '未知'}</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between;">
-                    <span style="color: #666;">城市</span>
-                    <span style="color: #333;">${job.cityName || '未知'}</span>
+
+                <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    <div>
+                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">薪资</div>
+                      <div style="color: #ff7875; font-weight: 500;">${job.salary || '未知'}</div>
+                    </div>
+                    <div>
+                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">学历</div>
+                      <div style="color: #e0e0e0; font-weight: 500;">${job.degree || '未知'}</div>
+                    </div>
+                    <div>
+                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">经验</div>
+                      <div style="color: #e0e0e0; font-weight: 500;">${job.experience || '未知'}</div>
+                    </div>
+                    <div>
+                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">城市</div>
+                      <div style="color: #e0e0e0; font-weight: 500;">${job.cityName || '未知'}</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -836,10 +911,11 @@ const updateChart = () => {
       nameGap: 30,
       type: 'value',
       axisLabel: {
+        color: '#e0e0e0',
         formatter: function(value: number) {
           // 格式化轴上的数值为整数或.5结尾
           const formattedValue = formatDataValue(value);
-          
+
           if (xAxisValue === 'salary_value') {
             if (formattedValue >= 10) {
               return (formattedValue/10).toFixed(1) + '万';
@@ -858,6 +934,19 @@ const updateChart = () => {
           }
           return formattedValue.toFixed(1);
         }
+      },
+      axisLine: {
+        lineStyle: {
+          color: '#555'
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#333'
+        }
+      },
+      nameTextStyle: {
+        color: '#e0e0e0'
       },
       min: function(value: {min: number; max: number}) {
         if (xAxisValue === 'salary_value') {
@@ -880,10 +969,11 @@ const updateChart = () => {
       nameGap: 55,
       type: 'value',
       axisLabel: {
+        color: '#e0e0e0',
         formatter: function(value: number) {
           // 格式化轴上的数值为整数或.5结尾
           const formattedValue = formatDataValue(value);
-          
+
           if (yAxisValue === 'salary_value') {
             if (formattedValue >= 10) {
               return (formattedValue/10).toFixed(1) + '万';
@@ -902,6 +992,19 @@ const updateChart = () => {
           }
           return formattedValue.toFixed(1);
         }
+      },
+      axisLine: {
+        lineStyle: {
+          color: '#555'
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#333'
+        }
+      },
+      nameTextStyle: {
+        color: '#e0e0e0'
       },
       min: function(value: {min: number; max: number}) {
         if (yAxisValue === 'salary_value') {
@@ -995,7 +1098,7 @@ const handleChartClick = (params: echarts.ECElementEvent) => {
   companyInfo.companySize = String(job.companySize || '未知');
   companyInfo.financingStage = String(job.financingStage || '未知');
   companyInfo.companyUrl = String(job.companyUrl || '');
-
+  companyInfo.jobUrl = String(job.jobUrl || '');
   // 显示公司详情区域
   showDetails.value = true;
 };
@@ -1008,6 +1111,7 @@ const handleChartClick = (params: echarts.ECElementEvent) => {
 }
 .controls {
   margin-bottom: 20px;
+  color: #e0e0e0;
 }
 #chart {
   height: 700px;
@@ -1015,5 +1119,139 @@ const handleChartClick = (params: echarts.ECElementEvent) => {
 }
 .data-status {
   margin-bottom: 15px;
+}
+
+.page-title {
+  color: #e0e0e0;
+}
+
+:deep(.el-form-item__label) {
+  color: #e0e0e0;
+}
+
+:deep(.el-select) {
+  --el-select-input-color: #e0e0e0;
+  --el-fill-color-blank: #242424;
+  --el-border-color: #555;
+}
+
+:deep(.el-card) {
+  --el-card-bg-color: #1a1a1a;
+  border-color: #333;
+}
+
+:deep(.el-alert) {
+  --el-alert-bg-color: #242424;
+  --el-alert-title-color: #e0e0e0;
+}
+
+/* 抽屉暗色主题样式 */
+:deep(.company-details-drawer) {
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.drawer-content.dark {
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.drawer-header {
+  padding-bottom: 20px;
+  border-bottom: 1px solid #333;
+  margin-bottom: 20px;
+}
+
+.drawer-title {
+  font-size: 22px;
+  margin: 0 0 10px 0;
+  color: #fff;
+}
+
+.position-tag {
+  margin-bottom: 15px;
+}
+
+.drawer-subtitle {
+  display: flex;
+  align-items: center;
+  color: #bbb;
+  font-size: 14px;
+}
+
+.drawer-subtitle .el-icon {
+  margin-right: 8px;
+  color: #409EFF;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.info-section {
+  margin-bottom: 24px;
+  background-color: #242424;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.section-title .el-icon {
+  margin-right: 8px;
+  color: #67c23a;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.info-item {
+  padding: 8px 0;
+}
+
+.info-label {
+  color: #909090;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.info-value {
+  color: #e0e0e0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.info-value.salary {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+.drawer-footer {
+  margin-top: 24px;
+  display: flex;
+  gap: 12px;
+}
+
+.detail-button {
+  flex: 1;
+}
+
+:deep(.dark-modal) {
+  background-color: rgba(0, 0, 0, 0.7);
 }
 </style>

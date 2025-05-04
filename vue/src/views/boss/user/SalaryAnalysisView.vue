@@ -91,51 +91,51 @@ const baseOption = {
     trigger: 'axis',
     axisPointer: {
       type: 'cross',
-      crossStyle: { color: 'rgba(0, 0, 0, 0.5)' },
+      crossStyle: { color: 'rgba(255, 255, 255, 0.5)' },
       label: {
-        backgroundColor: '#6a7985'
+        backgroundColor: '#303030'
       }
     },
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(33, 33, 33, 0.95)',
     borderWidth: 0,
     textStyle: {
-      color: '#333',
+      color: '#f5f5f5',
       fontSize: 14
     },
     padding: [12, 16],
-    extraCssText: 'box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border-radius: 8px;',
+    extraCssText: 'box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); border-radius: 8px;',
     formatter: function(params: echarts.DefaultLabelFormatterCallbackParams[]) {
       const item = salaryJobList.value[params[0].dataIndex];
-      let result = `<div style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #1a1a1a;">${item.positionName}</div>`;
+      let result = `<div style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #f5f5f5;">${item.positionName}</div>`;
 
       // 主要指标
-      result += `<div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">`;
-      result += `<span style="color: #2196F3; font-size: 24px; font-weight: bold;">${item.avgSalary}k</span>`;
-      result += `<span style="color: #666; margin-left: 8px;">平均薪资</span>`;
+      result += `<div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #555;">`;
+      result += `<span style="color: #64b5f6; font-size: 24px; font-weight: bold;">${item.avgSalary}k</span>`;
+      result += `<span style="color: #bdbdbd; margin-left: 8px;">平均薪资</span>`;
       result += '</div>';
 
       // 薪资范围
       result += `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">`;
-      result += `<span style="color: #666;">薪资范围</span>`;
-      result += `<span style="color: #333;">${item.minSalary}k - ${item.maxSalary}k</span>`;
+      result += `<span style="color: #bdbdbd;">薪资范围</span>`;
+      result += `<span style="color: #e0e0e0;">${item.minSalary}k - ${item.maxSalary}k</span>`;
       result += '</div>';
 
       // 职位数量
       result += `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">`;
-      result += `<span style="color: #666;">职位数量</span>`;
-      result += `<span style="color: #333;">${item.jobCount}个</span>`;
+      result += `<span style="color: #bdbdbd;">职位数量</span>`;
+      result += `<span style="color: #e0e0e0;">${item.jobCount}个</span>`;
       result += '</div>';
 
       // 推荐城市信息
-      result += `<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">`;
-      result += `<div style="color: #666; margin-bottom: 4px;">推荐城市: <span style="color: #333; font-weight: bold;">${item.recommendedCity}</span></div>`;
+      result += `<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #555;">`;
+      result += `<div style="color: #bdbdbd; margin-bottom: 4px;">推荐城市: <span style="color: #e0e0e0; font-weight: bold;">${item.recommendedCity}</span></div>`;
       result += `<div style="display: flex; justify-content: space-between;">`;
-      result += `<span style="color: #666;">城市薪资</span>`;
-      result += `<span style="color: #333;">${item.recommendedCitySalary}k</span>`;
+      result += `<span style="color: #bdbdbd;">城市薪资</span>`;
+      result += `<span style="color: #e0e0e0;">${item.recommendedCitySalary}k</span>`;
       result += '</div>';
       result += `<div style="display: flex; justify-content: space-between;">`;
-      result += `<span style="color: #666;">城市职位数</span>`;
-      result += `<span style="color: #333;">${item.recommendedCityJobCount}个</span>`;
+      result += `<span style="color: #bdbdbd;">城市职位数</span>`;
+      result += `<span style="color: #e0e0e0;">${item.recommendedCityJobCount}个</span>`;
       result += '</div>';
       result += '</div>';
 
@@ -148,23 +148,53 @@ const baseOption = {
       magicType: { show: true, type: ['line', 'bar'] },
       restore: { show: true },
       saveAsImage: { show: true }
+    },
+    textStyle: {
+      color: '#e0e0e0'
     }
   },
   legend: {
     type: 'scroll',
-    top: '5%'
+    top: '5%',
+    textStyle: {
+      color: '#e0e0e0'
+    }
   },
   grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
   xAxis: [
     {
       type: 'category',
       axisPointer: { type: 'shadow' },
-      axisLabel: { interval: 0, rotate: 45 }
+      axisLabel: {
+        interval: 0,
+        rotate: 45,
+        color: '#e0e0e0'
+      }
     }
   ],
   yAxis: [
-    { type: 'value', name: '薪资 (k)', axisLabel: { formatter: '{value} k' } },
-    { type: 'value', name: '职位数量', axisLabel: { formatter: '{value}' } }
+    {
+      type: 'value',
+      name: '薪资 (k)',
+      axisLabel: {
+        formatter: '{value} k',
+        color: '#e0e0e0'
+      },
+      nameTextStyle: {
+        color: '#e0e0e0'
+      }
+    },
+    {
+      type: 'value',
+      name: '职位数量',
+      axisLabel: {
+        formatter: '{value}',
+        color: '#e0e0e0'
+      },
+      nameTextStyle: {
+        color: '#e0e0e0'
+      }
+    }
   ],
   // 系列结构定义，data 将在 updateChart 函数中设置
   series: [

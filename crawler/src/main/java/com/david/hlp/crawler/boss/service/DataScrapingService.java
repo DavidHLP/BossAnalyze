@@ -183,6 +183,14 @@ public class DataScrapingService {
         for (HtmlData htmlData : htmlDataList) {
             processHtmlData(htmlData);
         }
+        List<HtmlData> errorHtmlDataList = htmlDataMapper.listByStatus(3, 10);
+        for (HtmlData htmlData : errorHtmlDataList) {
+            processHtmlData(htmlData);
+        }
+        List<HtmlData> successHtmlDataList = htmlDataMapper.listByStatus(4, 10);
+        for (HtmlData htmlData : successHtmlDataList) {
+            processHtmlData(htmlData);
+        }
     }
 
     /**

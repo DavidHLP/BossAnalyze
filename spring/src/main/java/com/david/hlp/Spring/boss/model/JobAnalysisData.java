@@ -27,4 +27,5 @@ public class JobAnalysisData {
     private String industry;
     private String financingStage;
     private String companyUrl;
+    private String jobUrl;
 }

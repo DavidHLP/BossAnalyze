@@ -30,8 +30,8 @@ const { snackbar, hideSnackbar } = useSnackbar()
 
 <style scoped lang="scss">
 #app {
-   height: 100vh; /* 视口高度 */
-   width: 100vw;  /* 视口宽度 */
+   height: 95vh; /* 视口高度 */
+   width: 99vw;  /* 视口宽度 */
    display: flex;
    justify-content: center; /* 水平居中 */
    align-items: flex-start; /* 垂直顶部对齐 */

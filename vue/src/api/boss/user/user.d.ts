@@ -24,6 +24,7 @@ export interface JobData {
   industry: string;
   financingStage: string;
   companyUrl: string;
+  jobUrl: string;
   [key: string]: string | number; // 添加索引签名以允许使用字符串索引
 }
 
@@ -37,4 +38,5 @@ export interface CompanyInfo {
   companySize: string;
   financingStage: string;
   companyUrl?: string;
+  jobUrl?: string;
 }

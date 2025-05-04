@@ -14,6 +14,14 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+  ai:
+    ollama:
+      base-url: http://localhost:11434 # Ollama 服务地址
+      chat:
+        options:
+          model: qwen3:4b # 指定使用 qwen3:4b 模型
+          format: json # 建议模型返回 JSON 格式
+
 server:
   port: 8081
 logging:

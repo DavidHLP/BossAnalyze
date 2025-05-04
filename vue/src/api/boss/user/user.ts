@@ -10,5 +10,5 @@ export const getTwoDimensionalAnalysisChart = (cityName: string, positionName: s
 export const getCityNameList = (): Promise<string[]> =>
   request.get('/api/boss/basic/city-name-list');
 
-export const getPositionNameList = (): Promise<string[]> =>
-  request.get('/api/boss/basic/position-name-list');
+export const getPositionNameList = (cityName?: string): Promise<string[]> =>
+  request.get('/api/boss/basic/position-name-list', { params: { cityName } });
