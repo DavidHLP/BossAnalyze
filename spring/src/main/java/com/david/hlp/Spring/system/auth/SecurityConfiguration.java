@@ -39,7 +39,8 @@ public class SecurityConfiguration {
                     "/api/repeater/**",
                     "/api/boss/**",
                     "/api/proxy/**",
-                    "/api/boss/spark/**"
+                    "/api/boss/basic/**",
+                    "/api/boss/user/**"
                 ).permitAll()
                 .requestMatchers("/api/user/**").hasRole("ADMIN")
                 .requestMatchers("/api/role/**").hasRole("ADMIN")

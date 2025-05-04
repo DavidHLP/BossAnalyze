@@ -1,4 +1,4 @@
-package com.david.hlp.crawler.boss.service.boss_2025;
+package com.david.hlp.crawler.boss.service;
 
 import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +18,13 @@ import org.springframework.dao.DuplicateKeyException;
 import jakarta.annotation.PostConstruct;
 import com.david.hlp.crawler.boss.entity.HtmlData;
 import com.david.hlp.crawler.boss.mapper.HtmlDataMapper;
+import com.david.hlp.crawler.common.threadpool.ScrapeBossDataThreadPool;
+import com.david.hlp.crawler.boss.entity.JobDetailEntity;
+import com.david.hlp.crawler.boss.mapper.JobDetailEntityMapper;
+import com.david.hlp.crawler.boss.model.JobDetailData;
+import java.io.IOException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @Slf4j
 @Component("boss_2025")
@@ -29,6 +36,10 @@ public class DataScrapingService {
     private final JsonScrapingService jsonScrapingService;
     private final JobListMapper jobListMapper;
     private final HtmlDataMapper htmlDataMapper;
+    private final HtmlParserService htmlParserService;
+    private final WebCrawlerService webCrawlerService;
+    private final JobDetailEntityMapper jobDetailEntityMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostConstruct
     public void init() {
@@ -156,6 +167,142 @@ public class DataScrapingService {
     }
 
     /**
+     * 使用线程池爬取Boss网站的数据
+     */
+    public void scrapeBossData() {
+        ScrapeBossDataThreadPool.executeWithSpringContext(() -> {
+            doScrapeBossData();
+        });
+    }
+
+    /**
+     * 执行Boss网站数据爬取逻辑
+     */
+    private void doScrapeBossData() {
+        List<HtmlData> htmlDataList = htmlDataMapper.listByStatus(0, 10);
+        for (HtmlData htmlData : htmlDataList) {
+            processHtmlData(htmlData);
+        }
+    }
+
+    /**
+     * 处理单个HTML数据
+     *
+     * @param htmlData HTML数据
+     */
+    private void processHtmlData(HtmlData htmlData) {
+        try {
+            log.info("开始爬取Boss网站数据: {}", htmlData.getUrl());
+            htmlData = webCrawlerService.getHtmlContent(htmlData);
+            htmlDataMapper.update(htmlData);
+            randomSleep();
+        } catch (Exception e) {
+            handleHtmlDataException(e, htmlData, "爬取Boss网站数据");
+        }
+    }
+
+    /**
+     * 使用线程池解析Boss HTML数据
+     */
+    public void parseBossHtmlData() {
+        doParseBossHtmlData();
+    }
+
+    /**
+     * 执行Boss HTML数据解析逻辑
+     */
+    private void doParseBossHtmlData() {
+        List<HtmlData> htmlDataList = htmlDataMapper.listByStatus(1, 10);
+        for (HtmlData htmlData : htmlDataList) {
+            processAndSaveJobDetail(htmlData);
+        }
+    }
+
+    /**
+     * 处理并保存职位详情
+     *
+     * @param htmlData HTML数据
+     */
+    private void processAndSaveJobDetail(HtmlData htmlData) {
+        try {
+            JobDetailData jobDetailData = parseJobDetail(htmlData);
+            if (jobDetailData == null) {
+                return;
+            }
+            String detailDataJson = convertToJson(jobDetailData);
+            JobDetailEntity jobDetailEntity = createJobDetailEntity(htmlData, detailDataJson);
+            saveJobDetailAndUpdateStatus(jobDetailEntity, htmlData);
+        } catch (DataIntegrityViolationException e) {
+            log.error("数据完整性错误，无法保存职位详情: {}", e.getMessage());
+            updateHtmlDataStatus(htmlData, 4);
+        } catch (Exception e) {
+            handleHtmlDataException(e, htmlData, "处理HTML数据");
+        }
+    }
+
+    /**
+     * 解析职位详情
+     *
+     * @param htmlData HTML数据
+     * @return 职位详情数据，解析失败则返回null
+     */
+    private JobDetailData parseJobDetail(HtmlData htmlData) {
+        try {
+            log.info("开始解析HTML内容: {}", htmlData.getUrl());
+            return htmlParserService.parseJobDetail(htmlData.getHtmlContent());
+        } catch (IOException e) {
+            handleHtmlDataException(e, htmlData, "解析HTML内容");
+            return null;
+        }
+    }
+
+    /**
+     * 将职位详情数据转换为JSON字符串
+     *
+     * @param jobDetailData 职位详情数据
+     * @return JSON字符串
+     */
+    private String convertToJson(JobDetailData jobDetailData) {
+        try {
+            return objectMapper.writeValueAsString(jobDetailData);
+        } catch (Exception e) {
+            log.error("无法将JobDetailData转换为JSON: {}", e.getMessage());
+            // 设置为有效的JSON对象，避免插入失败
+            return "{}";
+        }
+    }
+
+    /**
+     * 创建职位详情实体
+     *
+     * @param htmlData HTML数据
+     * @param detailDataJson 详情数据JSON
+     * @return 职位详情实体
+     */
+    private JobDetailEntity createJobDetailEntity(HtmlData htmlData, String detailDataJson) {
+        return JobDetailEntity.builder()
+            .positionId(htmlData.getBasePositionCode())
+            .cityId(htmlData.getBaseCityCode())
+            .positionName(htmlData.getBasePosition())
+            .cityName(htmlData.getBaseCity())
+            .detailData(detailDataJson)
+            .build();
+    }
+
+    /**
+     * 保存职位详情并更新HTML数据状态
+     *
+     * @param jobDetailEntity 职位详情实体
+     * @param htmlData HTML数据
+     */
+    private void saveJobDetailAndUpdateStatus(JobDetailEntity jobDetailEntity, HtmlData htmlData) {
+        jobDetailEntity.setHtmlUrl(htmlData.getUrl());
+        jobDetailEntityMapper.insert(jobDetailEntity);
+        updateHtmlDataStatus(htmlData, 2);
+        log.info("成功处理HTML数据，URL: {}", htmlData.getUrl());
+    }
+
+    /**
      * 处理异常情况
      *
      * @param e 捕获的异常
@@ -166,6 +313,70 @@ public class DataScrapingService {
             handleIpBlockException(e);
         } else {
             handleGenericException(e, operation);
+        }
+    }
+
+    /**
+     * 处理HTML数据相关的异常情况
+     *
+     * @param e 捕获的异常
+     * @param htmlData HTML数据对象
+     * @param operation 当前执行的操作描述
+     */
+    private void handleHtmlDataException(Exception e, HtmlData htmlData, String operation) {
+        if (isIpBlockException(e)) {
+            handleIpBlockExceptionWithHtmlData(e, htmlData);
+        } else {
+            handleGenericExceptionWithHtmlData(e, htmlData, operation);
+        }
+    }
+
+    /**
+     * 处理带有HTML数据的IP访问受限异常
+     *
+     * @param e 捕获的异常
+     * @param htmlData HTML数据对象
+     */
+    private void handleIpBlockExceptionWithHtmlData(Exception e, HtmlData htmlData) {
+        log.error("代理IP被限制访问，需要处理异常代理并重新爬取: {}, URL: {}", e.getMessage(), htmlData.getUrl());
+
+        // 将任务标记为需要重新爬取
+        updateHtmlDataStatus(htmlData, 0);
+
+        // 延长休眠时间
+        sleep(1000 * 60 * 10); // 休眠10分钟
+    }
+
+    /**
+     * 处理带有HTML数据的一般性异常
+     *
+     * @param e 捕获的异常
+     * @param htmlData HTML数据对象
+     * @param operation 当前执行的操作描述
+     */
+    private void handleGenericExceptionWithHtmlData(Exception e, HtmlData htmlData, String operation) {
+        log.error("{}时发生错误: {}", operation, e.getMessage());
+        // 记录异常详情
+        if (log.isDebugEnabled()) {
+            log.debug("{}时发生错误详情:", operation, e);
+        }
+
+        // 将此记录标记为处理失败
+        updateHtmlDataStatus(htmlData, 4);
+    }
+
+    /**
+     * 更新HTML数据状态
+     *
+     * @param htmlData HTML数据对象
+     * @param status 新状态
+     */
+    private void updateHtmlDataStatus(HtmlData htmlData, int status) {
+        try {
+            htmlData.setStatus(status);
+            htmlDataMapper.update(htmlData);
+        } catch (Exception e) {
+            log.error("更新HTML数据状态失败: {}", e.getMessage());
         }
     }
 

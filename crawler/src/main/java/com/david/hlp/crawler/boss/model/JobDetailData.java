@@ -33,6 +33,10 @@ public class JobDetailData implements Serializable {
      */
     private CompanyInfo companyInfo;
     /**
+     * 公司链接
+     */
+    private String companyUrl;
+    /**
      * 职位福利标签
      */
     private List<String> jobTags;
@@ -40,4 +44,5 @@ public class JobDetailData implements Serializable {
      * 职业分析报告
      */
     private JobAnalysisReport analysisReport;
+
 }

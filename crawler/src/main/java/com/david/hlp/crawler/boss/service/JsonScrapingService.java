@@ -1,4 +1,4 @@
-package com.david.hlp.crawler.boss.service.boss_2025;
+package com.david.hlp.crawler.boss.service;
 
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;

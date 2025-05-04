@@ -9,8 +9,13 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class CityHotJob {
-    private String cityName;
+public class SalaryJob {
     private String positionName;
     private Long jobCount;
+    private Long minSalary;
+    private Long maxSalary;
+    private Double avgSalary;
+    private String recommendedCity;
+    private Double recommendedCitySalary;
+    private Long recommendedCityJobCount;
 }

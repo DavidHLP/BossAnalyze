@@ -1,4 +1,4 @@
-package com.david.hlp.crawler.boss.service.boss_2024;
+package com.david.hlp.crawler.boss.service;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -253,6 +253,13 @@ public class HtmlParserService {
             Element companyNameElement = doc.selectFirst(".sider-company .company-info a");
             if (companyNameElement != null) {
                 companyInfo.put("companyName", companyNameElement.text());
+                
+                // 提取公司URL
+                String href = companyNameElement.attr("href");
+                if (href != null && !href.isEmpty()) {
+                    companyInfo.put("companyUrl", href);
+                    log.debug("成功提取公司URL: {}", href);
+                }
             } else {
                 // 尝试从其他位置获取公司名称
                 Element altCompanyNameElement = doc.selectFirst(".job-detail-company .level-list .company-name");
@@ -264,6 +271,16 @@ public class HtmlParserService {
                     Element titleCompanyElement = doc.selectFirst(".company-info");
                     if (titleCompanyElement != null) {
                         companyInfo.put("companyName", titleCompanyElement.text().trim());
+                        
+                        // 尝试从标题区域提取公司URL
+                        Element companyLinkElement = titleCompanyElement.selectFirst("a[ka=job-detail-company_custompage]");
+                        if (companyLinkElement != null) {
+                            String href = companyLinkElement.attr("href");
+                            if (href != null && !href.isEmpty()) {
+                                companyInfo.put("companyUrl", href);
+                                log.debug("从标题区域提取公司URL: {}", href);
+                            }
+                        }
                     } else {
                         log.warn("未能从任何位置找到公司名称");
                     }
@@ -538,6 +555,11 @@ public class HtmlParserService {
                     companyInfo.setRegisteredCapital(convertEmptyToNull(companyInfoMap.get("registeredCapital")));
                     jobDetailData.setCompanyInfo(companyInfo);
                     log.debug("公司信息转换完成: 公司名称={}", companyInfo.getCompanyName());
+                    
+                    // 设置公司URL
+                    String companyUrl = companyInfoMap.get("companyUrl");
+                    jobDetailData.setCompanyUrl(convertEmptyToNull("https://www.zhipin.com" + companyUrl));
+                    log.debug("公司URL设置完成: {}", companyUrl);
                 }
             }
 

@@ -1,0 +1,38 @@
+{
+    "jobTags": null,
+    "basicInfo": {
+        "city": "北京",
+        "degree": "本科",
+        "salary": "20-40K",
+        "address": "北京海淀区大通成府公馆150号楼3-311",
+        "experience": "3-5年",
+        "positionName": "数字ic验证工程师"
+    },
+    "updateTime": "2025-04-21",
+    "companyInfo": {
+        "industry": "人力资源服务",
+        "companyName": "上海元宇智寻咨询管理有限公司",
+        "companySize": "0-20人",
+        "companyType": "有限责任公司（自然人投资或控股）",
+        "companyIntro": null,
+        "establishDate": "2023-06-12",
+        "financingStage": null,
+        "operationStatus": "存续",
+        "legalCompanyName": "上海元宇智寻咨询管理有限公司",
+        "registeredCapital": "100万人民币",
+        "legalRepresentative": "李大捷"
+    },
+    "analysisReport": null,
+    "jobDescription": {
+        "keywords": [
+            "Python",
+            "Verilog",
+            "Perl",
+            "IC验证",
+            "电路设计"
+        ],
+        "requirements": null,
+        "fullDescription": null,
+        "responsibilities": "： 1) SoC级验证工作 2) 验证计划，环境搭建等文档撰写 任职要求： 1) 扎实的数字电路设计基础，有模拟电路设计知识尤佳 2) 电子、微电子、计算机、自动化等相关专业本科以上学历 3) 了解verilog, SystemVerilog, UVM, Assertion, Formal等, 熟悉常用的EDA工具等 4) 有python/perl/tcl/makefile等脚本开发经验尤佳 经验：毕业后至少3-5年以上，薪资可谈"
+    }
+}

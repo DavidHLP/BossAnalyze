@@ -30,11 +30,13 @@ const { snackbar, hideSnackbar } = useSnackbar()
 
 <style scoped lang="scss">
 #app {
-   height: 98vh; /* 视口高度 */
-   width: 98vw;  /* 视口宽度 */
+   height: 100vh; /* 视口高度 */
+   width: 100vw;  /* 视口宽度 */
    display: flex;
    justify-content: center; /* 水平居中 */
-   align-items: center;     /* 垂直居中 */
-   overflow: hidden; /* 隐藏下拉条 */
+   align-items: flex-start; /* 垂直顶部对齐 */
+   overflow-y: auto; /* 允许垂直滚动 */
+   overflow-x: hidden; /* 隐藏水平滚动条 */
+   padding: 10px 0; /* 添加上下内边距 */
  }
 </style>
