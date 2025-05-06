@@ -103,6 +103,51 @@
                 <div class="info-label">融资阶段</div>
                 <div class="info-value">{{ companyInfo.financingStage }}</div>
               </div>
+              <div class="info-item full-width">
+                <div class="info-label">公司地址</div>
+                <div class="info-value address-link" @click="openGoogleMaps">
+                  <el-icon><Location /></el-icon>
+                  <span>{{ companyInfo.address || '暂无地址信息' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <div class="section-title">
+              <el-icon><Present /></el-icon>
+              <span>员工福利</span>
+            </div>
+            <div class="info-content">
+              <div class="info-value benefits">
+                <template v-if="companyInfo.employeeBenefits && companyInfo.employeeBenefits.length > 0">
+                  <div v-for="(benefit, index) in companyInfo.employeeBenefits" :key="index" class="benefit-item">
+                    {{ benefit }}
+                  </div>
+                </template>
+                <template v-else>
+                  暂无福利信息
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <div class="section-title">
+              <el-icon><Document /></el-icon>
+              <span>职位要求</span>
+            </div>
+            <div class="info-content">
+              <div class="info-value requirements">
+                <template v-if="companyInfo.jobRequirements && companyInfo.jobRequirements.length > 0">
+                  <div v-for="(requirement, index) in companyInfo.jobRequirements" :key="index" class="requirement-item">
+                    {{ requirement }}
+                  </div>
+                </template>
+                <template v-else>
+                  暂无要求信息
+                </template>
+              </div>
             </div>
           </div>
         </div>
@@ -145,7 +190,9 @@ import {
   Money,
   OfficeBuilding,
   Link,
-  View
+  View,
+  Present,
+  Document
 } from '@element-plus/icons-vue';
 
 // 组件状态
@@ -173,7 +220,10 @@ const companyInfo = reactive<CompanyInfo>({
   companySize: '',
   financingStage: '',
   companyUrl: '',
-  jobUrl: ''
+  jobUrl: '',
+  employeeBenefits: [],
+  jobRequirements: [],
+  address: ''
 });
 
 // 全局常量
@@ -197,6 +247,7 @@ const openJobUrl = () => {
     window.open(companyInfo.jobUrl, '_blank');
   }
 };
+
 // 解析学历要求文本为数值
 const getDegreeValue = (degreeStr: string): number => {
   if (!degreeStr) return 0;
@@ -404,6 +455,14 @@ const formatDataValue = (value: number): number => {
   const roundedValue = Math.round(value * 10) / 10;
   // 否则返回整数
   return roundedValue;
+};
+
+// 添加打开地图的方法
+const openGoogleMaps = () => {
+  if (companyInfo.address) {
+    const searchQuery = encodeURIComponent(companyInfo.address);
+    window.open(`https://www.google.com.hk/maps/search/${searchQuery}`, '_blank');
+  }
 };
 
 // 生命周期钩子
@@ -1090,8 +1149,8 @@ const handleChartClick = (params: echarts.ECElementEvent) => {
 
   // 更新公司详情
   companyInfo.companyName = String(job.companyName || '未知');
-  companyInfo.positionName = String(job.position_name || '未知');
-  companyInfo.cityName = String(job.city_name || '未知');
+  companyInfo.positionName = String(job.positionName || '未知');
+  companyInfo.cityName = String(job.cityName || '未知');
   companyInfo.salary = String(job.salary || '未知');
   companyInfo.degree = String(job.degree || '未知');
   companyInfo.experience = String(job.experience || '未知');
@@ -1099,6 +1158,9 @@ const handleChartClick = (params: echarts.ECElementEvent) => {
   companyInfo.financingStage = String(job.financingStage || '未知');
   companyInfo.companyUrl = String(job.companyUrl || '');
   companyInfo.jobUrl = String(job.jobUrl || '');
+  companyInfo.employeeBenefits = Array.isArray(job.employeeBenefits) ? job.employeeBenefits : [];
+  companyInfo.jobRequirements = Array.isArray(job.jobRequirements) ? job.jobRequirements : [];
+  companyInfo.address = String(job.address || '');
   // 显示公司详情区域
   showDetails.value = true;
 };
@@ -1224,6 +1286,10 @@ const handleChartClick = (params: echarts.ECElementEvent) => {
   padding: 8px 0;
 }
 
+.info-item.full-width {
+  grid-column: 1 / -1;
+}
+
 .info-label {
   color: #909090;
   font-size: 13px;
@@ -1253,5 +1319,57 @@ const handleChartClick = (params: echarts.ECElementEvent) => {
 
 :deep(.dark-modal) {
   background-color: rgba(0, 0, 0, 0.7);
+}
+
+.info-content {
+  padding: 8px 0;
+}
+
+.info-value.benefits,
+.info-value.requirements {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: #e0e0e0;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.benefit-item,
+.requirement-item {
+  margin-bottom: 8px;
+  padding-left: 16px;
+  position: relative;
+}
+
+.benefit-item:before,
+.requirement-item:before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #409EFF;
+}
+
+.benefit-item:last-child,
+.requirement-item:last-child {
+  margin-bottom: 0;
+}
+
+.info-value.address-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #409EFF;
+  transition: color 0.3s ease;
+}
+
+.info-value.address-link:hover {
+  color: #66b1ff;
+}
+
+.info-value.address-link .el-icon {
+  font-size: 16px;
 }
 </style>

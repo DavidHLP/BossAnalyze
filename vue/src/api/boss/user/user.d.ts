@@ -25,7 +25,10 @@ export interface JobData {
   financingStage: string;
   companyUrl: string;
   jobUrl: string;
-  [key: string]: string | number; // 添加索引签名以允许使用字符串索引
+  address: string;
+  employeeBenefits: string[];
+  jobRequirements: string[];
+  [key: string]: string | number | string[] | number[]; // 添加索引签名以允许使用字符串索引
 }
 
 export interface CompanyInfo {
@@ -39,4 +42,7 @@ export interface CompanyInfo {
   financingStage: string;
   companyUrl?: string;
   jobUrl?: string;
+  address?: string;
+  employeeBenefits?: string[];
+  jobRequirements?: string[];
 }

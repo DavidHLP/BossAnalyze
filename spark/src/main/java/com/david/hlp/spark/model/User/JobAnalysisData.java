@@ -1,5 +1,7 @@
 package com.david.hlp.spark.model.User;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,4 +29,7 @@ public class JobAnalysisData {
     private String financingStage;
     private String companyUrl;
     private String JobUrl;
+    private String address;
+    private List<String> employeeBenefits;
+    private List<String> jobRequirements;
 }

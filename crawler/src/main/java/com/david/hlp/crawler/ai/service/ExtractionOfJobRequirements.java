@@ -1,61 +1,47 @@
 package com.david.hlp.crawler.ai.service;
 
-import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
 import org.springframework.stereotype.Service;
 
-import com.david.hlp.crawler.ai.entity.MiniJobDetail;
-import com.david.hlp.crawler.ai.mapper.TJobDetailMapper;
+import com.david.hlp.crawler.ai.executor.TaskExecutorService;
+import com.david.hlp.crawler.ai.lock.DistributedLockService;
+import com.david.hlp.crawler.ai.task.EmployeeBenefitsExtractionTask;
+import com.david.hlp.crawler.ai.task.JobRequirementsExtractionTask;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 
+/**
+ * 职位信息提取服务
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExtractionOfJobRequirements {
-    private final TJobDetailMapper tJobDetailMapper;
-    private final AIExtractionOfJobRequirements aiExtractionOfJobRequirements;
+    private final DistributedLockService lockService;
+    private final TaskExecutorService taskExecutorService;
+    private final EmployeeBenefitsExtractionTask employeeBenefitsTask;
+    private final JobRequirementsExtractionTask jobRequirementsTask;
 
-    private final Lock employeeBenefitsLock = new ReentrantLock();
-    private final Lock jobRequirementsLock = new ReentrantLock();
-
+    /**
+     * 定时提取职位福利信息
+     */
     @Scheduled(cron = "0 0/5 * * * ?")
     public void extractionOfEmployeeBenefits() {
-        if (employeeBenefitsLock.tryLock()) {
-            try {
-                List<MiniJobDetail> miniJobDetails = tJobDetailMapper.selectEmployeeBenefitsJobDetailIsNull();
-                for (MiniJobDetail miniJobDetail : miniJobDetails) {
-                    List<String> jobBenefits = aiExtractionOfJobRequirements.extractJobBenefits(miniJobDetail.getDetailData());
-                    if (jobBenefits != null && !jobBenefits.isEmpty()) {
-                        miniJobDetail.setEmployeeBenefits(jobBenefits.toString());
-                        tJobDetailMapper.updateEmployeeBenefits(miniJobDetail);
-                    }
-                }
-            } finally {
-                employeeBenefitsLock.unlock();
-            }
-        }
+        lockService.executeWithLock("职位福利提取", () -> {
+            taskExecutorService.executeAsync("职位福利提取任务", employeeBenefitsTask::execute);
+            return null;
+        });
     }
 
-    @Scheduled(cron = "0 0/10 * * * ?")
+    /**
+     * 定时提取职位要求信息
+     */
+    @Scheduled(cron = "0 0/5 * * * ?")
     public void extractionOfJobRequirements() {
-        if (jobRequirementsLock.tryLock()) {
-            try {
-                List<MiniJobDetail> miniJobDetails = tJobDetailMapper.selectJobRequirementsJobDetailIsNull();
-                for (MiniJobDetail miniJobDetail : miniJobDetails) {
-                    List<String> jobRequirements = aiExtractionOfJobRequirements.extractJobRequirements(miniJobDetail.getDetailData());
-                    if (jobRequirements != null && !jobRequirements.isEmpty()) {
-                        miniJobDetail.setJobRequirements(jobRequirements.toString());
-                        tJobDetailMapper.updateJobRequirements(miniJobDetail);
-                    }
-                }
-            } finally {
-                jobRequirementsLock.unlock();
-            }
-        }
+        lockService.executeWithLock("职位要求提取", () -> {
+            taskExecutorService.executeAsync("职位要求提取任务", jobRequirementsTask::execute);
+            return null;
+        });
     }
 }

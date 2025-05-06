@@ -53,4 +53,9 @@ public class JobDetailEntity implements Serializable{
      * HTML页面URL
      */
     private String htmlUrl;
+
+    /**
+     * 工作地点
+     */
+    private String locationAddress;
 }
