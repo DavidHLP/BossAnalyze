@@ -18,22 +18,20 @@
 
 ## 📚 在线文档
 
-我们提供了两种方式查看详细文档：
+### 快速访问
 
-1. **直接访问**：[点击这里查看完整文档](https://deepwiki.com/DavidHLP/BossAnalyze)
-2. **在线预览**：在下方直接查看文档内容
+🔗 [完整文档](https://deepwiki.com/DavidHLP/BossAnalyze)
 
-<div style="border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; margin: 16px 0;">
-    <iframe 
-        src="https://deepwiki.com/DavidHLP/BossAnalyze" 
-        width="100%" 
-        height="600px" 
-        style="border: none;"
-        title="BossAnalyze详细文档">
-    </iframe>
-</div>
+### 文档概览
 
-> 💡 提示：如果加载较慢，建议直接点击上方链接查看完整文档。
+> 📖 **文档包含以下主要内容：**
+> - 详细的系统架构说明
+> - 完整的API接口文档
+> - 部署和配置指南
+> - 常见问题解答
+> - 开发者指南
+
+💡 **提示：** 建议访问在线文档以获取最新的文档内容和完整的交互体验。
 
 ## 📌 项目概述
 
