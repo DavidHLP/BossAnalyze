@@ -18,20 +18,40 @@
 
 ## 📚 在线文档
 
-### 快速访问
+### DeepWiki 文档中心
 
-🔗 [完整文档](https://deepwiki.com/DavidHLP/BossAnalyze)
+<div align="center">
 
-### 文档概览
+[![访问 DeepWiki 文档中心](https://img.shields.io/badge/DeepWiki-文档中心-blue?style=for-the-badge)](https://deepwiki.com/DavidHLP/BossAnalyze)
 
-> 📖 **文档包含以下主要内容：**
-> - 详细的系统架构说明
-> - 完整的API接口文档
-> - 部署和配置指南
+</div>
+
+<div align="center">
+
+![预览截图](./image/DeepWikiHome.png)
+
+</div>
+
+> 📖 **DeepWiki 文档特点：**
+>
+> - 🎯 结构化知识库：系统化的文档组织
+> - 🔄 实时更新：保持文档与代码同步
+> - 🔍 智能搜索：快速定位所需信息
+> - 📱 响应式设计：支持多端访问
+> - 🤝 协作编辑：支持多人实时协作
+
+### 文档内容
+
+> 📚 **主要章节：**
+>
+> - 系统架构详解
+> - API 接口文档
+> - 部署配置指南
+> - 开发指南
 > - 常见问题解答
-> - 开发者指南
+> - 最佳实践
 
-💡 **提示：** 建议访问在线文档以获取最新的文档内容和完整的交互体验。
+💡 **提示：** DeepWiki 提供了更好的阅读体验和协作功能，建议访问在线文档获取完整内容。
 
 ## 📌 项目概述
 
