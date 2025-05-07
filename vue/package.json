@@ -29,6 +29,7 @@
     "echarts-wordcloud": "^2.1.0",
     "element-plus": "^2.9.4",
     "md-editor-v3": "^5.3.2",
+    "node-modules-inspector": "^0.6.8",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
     "sanitize-html": "^2.14.0",
@@ -55,5 +56,11 @@
     "vite-plugin-vue-devtools": "^7.7.2",
     "vite-plugin-vue-setup-extend": "^0.4.0",
     "vue-tsc": "^2.2.2"
-  }
+  },
+  "description": "This template should help get you started developing with Vue 3 in Vite.",
+  "main": "eslint.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "types": "./eslint.config.d.ts"
 }

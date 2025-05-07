@@ -20,7 +20,7 @@
     </sql>
 
     <insert id="insert" parameterType="com.david.hlp.crawler.boss.entity.JobDetailEntity" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO t_job_detail (
+        INSERT IGNORE INTO t_job_detail (
             position_id, position_name, city_id, city_name, detail_data , html_url
         ) VALUES (
             #{positionId}, #{positionName}, #{cityId}, #{cityName}, #{detailData} , #{htmlUrl}

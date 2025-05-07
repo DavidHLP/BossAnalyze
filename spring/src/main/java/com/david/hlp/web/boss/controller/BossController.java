@@ -26,7 +26,7 @@ public class BossController {
 
 
     @GetMapping("/salary-hot-job")
-    public Result<List<SalaryJob>> getSalaryJobAnalysis(@RequestParam(defaultValue = "20") Long limit) {
+    public Result<List<SalaryJob>> getSalaryJobAnalysis(@RequestParam(required = false, defaultValue = "20") Long limit) {
         URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
                                          .path("/salary-hot-job")
                                          .queryParam("limit", limit)

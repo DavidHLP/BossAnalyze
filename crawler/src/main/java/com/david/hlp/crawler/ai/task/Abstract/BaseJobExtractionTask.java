@@ -1,4 +1,4 @@
-package com.david.hlp.crawler.ai.task;
+package com.david.hlp.crawler.ai.task.Abstract;
 
 import java.util.List;
 
@@ -44,7 +44,7 @@ public abstract class BaseJobExtractionTask {
 
     /**
      * 执行提取任务
-     * 
+     *
      * @return 更新成功的记录数
      */
     public int execute() {

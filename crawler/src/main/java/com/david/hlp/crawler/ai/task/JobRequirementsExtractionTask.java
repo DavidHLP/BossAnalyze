@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import com.david.hlp.crawler.ai.entity.MiniJobDetail;
 import com.david.hlp.crawler.ai.mapper.TJobDetailMapper;
 import com.david.hlp.crawler.ai.service.AIExtractionOfJobRequirements;
+import com.david.hlp.crawler.ai.task.Abstract.BaseJobExtractionTask;
 
 import lombok.extern.slf4j.Slf4j;
 
