@@ -15,6 +15,7 @@ import com.david.hlp.web.system.mapper.UserMapper;
 @RequiredArgsConstructor
 public class UserServiceImp {
     private final UserMapper userMapper;
+    private final PasswordService passwordService;
 
     public User getUserBaseInfo(Long userId) {
         User user = userMapper.getByUserIdToUser(userId);
@@ -47,5 +48,10 @@ public class UserServiceImp {
 
     public void updateUser(User user) {
         userMapper.updateById(user);
+    }
+
+    public void addUser(User user) {
+        user.setPassword(passwordService.encodePassword(user.getPassword()));
+        userMapper.insert(user);
     }
 }

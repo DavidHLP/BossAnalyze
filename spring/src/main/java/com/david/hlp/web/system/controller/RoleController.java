@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.david.hlp.web.common.result.Result;
-import com.david.hlp.web.common.util.annotation.validatestring.ValidateString;
 import com.david.hlp.web.system.entity.role.Role;
 import com.david.hlp.web.system.service.imp.RoleServiceImp;
 
@@ -33,7 +32,7 @@ public class RoleController {
      * @return 角色列表结果
      */
     @GetMapping("/getRoleList")
-    public Result<List<Role>> getRoleList(@RequestParam(required = false) @ValidateString String roleName) {
+    public Result<List<Role>> getRoleList(@RequestParam(required = false)String roleName) {
         return Result.success(roleService.getRoleList(roleName));
     }
 }

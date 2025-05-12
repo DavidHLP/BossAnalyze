@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="app" class="app-container">
     <router-view></router-view>
 
     <!-- 全局Snackbar消息提示 -->
@@ -8,7 +8,7 @@
       :color="snackbar.color"
       :timeout="snackbar.timeout"
     >
-      {{ snackbar.text }}
+      <span class="snackbar-text">{{ snackbar.text }}</span>
       <template v-slot:actions>
         <v-btn
           variant="text"
@@ -28,15 +28,5 @@ import { useSnackbar } from '@/composables/useSnackbar'
 const { snackbar, hideSnackbar } = useSnackbar()
 </script>
 
-<style scoped lang="scss">
-#app {
-   height: 95vh; /* 视口高度 */
-   width: 99vw;  /* 视口宽度 */
-   display: flex;
-   justify-content: center; /* 水平居中 */
-   align-items: flex-start; /* 垂直顶部对齐 */
-   overflow-y: auto; /* 允许垂直滚动 */
-   overflow-x: hidden; /* 隐藏水平滚动条 */
-   padding: 10px 0; /* 添加上下内边距 */
- }
+<style lang="scss">
 </style>

@@ -1,4 +1,3 @@
-import 'element-plus/theme-chalk/dark/css-vars.css'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
@@ -13,6 +12,12 @@ import App from './App.vue'
 import router from './router'
 import { useUserStore } from '@/stores/user/userStore'
 import { setupAsyncRoutes, startPermissionMonitor, hasPermission } from '@/router'
+
+import {createBootstrap} from 'bootstrap-vue-next'
+
+// Add the necessary CSS
+import 'bootstrap/dist/css/bootstrap.css'
+import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 
 const app = createApp(App)
 
@@ -32,6 +37,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 app.use(ElementPlus, {
   locale: zhCn, // 一定要加上，不然无效
 })
+
+app.use(createBootstrap())
 
 // 全局注册hasPermission方法
 app.config.globalProperties.$hasPermission = hasPermission

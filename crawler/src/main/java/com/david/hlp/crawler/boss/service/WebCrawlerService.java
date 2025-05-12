@@ -72,12 +72,12 @@ public class WebCrawlerService {
     /**
      * 默认等待时间最小值(毫秒)
      */
-    private static final long WAIT_TIME_MIN = 5000;
+    private static final long WAIT_TIME_MIN = 8000;
 
     /**
      * 默认等待时间最大值(毫秒)
      */
-    private static final long WAIT_TIME_MAX = 6000;
+    private static final long WAIT_TIME_MAX = 10000;
 
     /**
      * 验证等待超时时间(秒)

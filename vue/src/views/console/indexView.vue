@@ -1,39 +1,79 @@
 <template>
-  <div class="console-container">
+  <div class="dashboard-container">
     <!-- 侧边栏区域 -->
-    <aside :class="['sidebar', { 'is-collapse': isCollapse }]">
-      <el-menu :default-active="$route.path" :collapse="isCollapse" router class="sidebar-menu">
+    <aside class="sidebar" :class="{ 'sidebar-collapsed': isCollapse }">
+      <div class="logo-container">
+        <img v-if="!isCollapse" src="@/assets/logo.png" alt="Logo" class="logo" />
+        <img v-else src="@/assets/logo.png" alt="Logo" class="logo" />
+        <span v-if="!isCollapse" class="logo-text">管理系统</span>
+      </div>
+      <el-menu
+        :default-active="$route.path"
+        :collapse="isCollapse"
+        router
+        class="sidebar-menu"
+        background-color="#ffffff"
+        text-color="#67748e"
+        active-text-color="#3b82f6">
         <SidebarMenuLinks :links="filteredLinks" />
       </el-menu>
     </aside>
 
     <!-- 主内容区域 -->
-    <main :class="['main-content', { 'content-collapse': isCollapse }]">
+    <main class="main-content">
       <!-- 顶部操作栏 -->
-      <div class="top-bar">
-        <div class="left-actions">
-          <el-button
-            :icon="isCollapse ? 'Expand' : 'Fold'"
-            circle
-            @click="toggleCollapse"
-            class="collapse-btn"
-          />
+      <div class="header">
+        <div class="header-left">
           <el-breadcrumb separator="/" class="breadcrumb">
+            <el-button
+              :icon="isCollapse ? 'Expand' : 'Fold'"
+              circle
+              class="collapse-btn"
+              @click="toggleCollapse"
+            />
             <el-breadcrumb-item :to="{ path: '/console' }">控制台</el-breadcrumb-item>
             <el-breadcrumb-item v-for="(item, index) in breadcrumbList" :key="index">
               {{ item.meta?.title || item.name }}
             </el-breadcrumb-item>
           </el-breadcrumb>
         </div>
+        <div class="header-right">
+          <div class="header-search">
+            <el-input
+              placeholder="搜索..."
+              prefix-icon="Search"
+              clearable
+            />
+          </div>
+          <el-button type="text" class="icon-button">
+            <el-icon><Setting /></el-icon>
+          </el-button>
+          <el-button type="text" class="icon-button">
+            <el-badge :value="1" class="notification-badge">
+              <el-icon><Bell /></el-icon>
+            </el-badge>
+          </el-button>
+          <el-dropdown>
+            <span class="user-dropdown">
+              <el-avatar size="small" icon="UserFilled" />
+              <span class="username">管理员</span>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item>个人信息</el-dropdown-item>
+                <el-dropdown-item>修改密码</el-dropdown-item>
+                <el-dropdown-item divided>退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </div>
 
       <!-- 页面内容 -->
-      <div class="content-wrapper">
+      <div class="content-container">
         <router-view v-slot="{ Component }">
           <transition name="fade-scale" mode="out-in">
-            <div class="transition-wrapper" v-if="true">
-              <component :is="Component" />
-            </div>
+            <component :is="Component" />
           </transition>
         </router-view>
       </div>
@@ -44,7 +84,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import SidebarMenuLinks from '@/components/SidebarMenuLinks.vue'
+import SidebarMenuLinks from '@/views/console/system/components/SidebarMenuLinks.vue'
 import type { RouteRecordRaw } from 'vue-router'
 import { useRouterStore } from '@/stores/router/routerStore'
 import type { Permissions } from '@/api/auth/auth.d'
@@ -103,204 +143,251 @@ const breadcrumbList = computed(() => {
 const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value
 }
-
-const handleRefresh = () => {
-  window.location.reload()
-}
 </script>
 
 <style scoped lang="scss">
-@import '@/styles/variables.scss';
-
-.console-container {
+.dashboard-container {
   display: flex;
-  height: 95vh;
-  width: 95vw;
+  height: 100vh;
+  width: 100%;
   overflow: hidden;
-  margin: auto;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: var(--vt-c-bg);
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background-color: var(--background-color);
+}
 
-  .sidebar {
-    width: $sidebar-width;
-    height: 100%;
-    position: fixed;
-    left: 0;
-    top: 0;
-    background: var(--vt-c-indigo);
-    transition: width 0.3s;
-    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
+.sidebar {
+  height: 100%;
+  background-color: var(--sidebar-bg);
+  transition: all 0.3s;
+  width: var(--sidebar-width);
+  position: relative;
+  z-index: 10;
+  box-shadow: var(--box-shadow);
 
-    &.is-collapse {
-      width: $sidebar-collapse-width;
+  &-collapsed {
+    width: var(--sidebar-width-collapsed);
+  }
+
+  .logo-container {
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-color);
+
+    .logo {
+      width: 32px;
+      height: 32px;
     }
 
-    .logo-container {
-      height: $header-height;
+    .logo-text {
+      margin-left: 12px;
+      font-size: 18px;
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      color: var(--logo-text-color);
+    }
+  }
+
+  .sidebar-menu {
+    border-right: none;
+    height: calc(100% - var(--header-height));
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    :deep(.el-menu-item) {
+      height: 50px;
+      line-height: 50px;
+      margin: 5px 10px;
+      border-radius: 8px;
+      padding: 0 15px !important;
+
+      .el-icon {
+        margin-right: 10px;
+        width: 20px;
+        text-align: center;
+        font-size: 18px;
+        vertical-align: middle;
+      }
+
+      span {
+        vertical-align: middle;
+      }
+
+      &.is-active {
+        background-color: var(--menu-active-bg);
+        color: var(--menu-active-text-color);
+      }
+
+      &:hover {
+        background-color: var(--menu-hover-bg);
+      }
+    }
+
+    :deep(.el-sub-menu__title) {
+      height: 50px;
+      line-height: 50px;
+      margin: 5px 10px;
+      border-radius: 8px;
+      padding: 0 15px !important;
+
+      .el-icon {
+        margin-right: 10px;
+        width: 20px;
+        text-align: center;
+        font-size: 18px;
+        vertical-align: middle;
+      }
+
+      span {
+        vertical-align: middle;
+      }
+
+      &:hover {
+        background-color: var(--menu-hover-bg);
+      }
+    }
+
+    :deep(.el-sub-menu .el-menu-item) {
+      padding-left: 45px !important;
+
+      &.is-active {
+        padding-left: 42px !important;
+        border-left: 3px solid var(--menu-active-text-color);
+      }
+    }
+  }
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--background-color);
+}
+
+.header {
+  height: var(--header-height);
+  padding: 0 20px;
+  background-color: var(--header-bg);
+  box-shadow: var(--box-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  &-left {
+    display: flex;
+    align-items: center;
+
+    .collapse-btn {
+      margin-right: 16px;
+      background-color: transparent;
+      color: var(--menu-text-color);
+      border: none;
+      width: 36px;
+      height: 36px;
+      padding: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 
-      .logo {
-        width: 32px;
-        height: 32px;
-        transition: all 0.3s;
+      .el-icon {
+        font-size: 18px;
+      }
+
+      &:hover {
+        color: var(--primary-color);
+        background-color: rgba(59, 130, 246, 0.1);
       }
     }
 
-    .sidebar-menu {
-      --el-menu-active-color: var(--vue-green);
-      --el-menu-hover-bg-color: rgba(255, 255, 255, 0.05);
-      border-right: none;
-      height: calc(100% - $header-height);
-      background-color: transparent;
+    .breadcrumb {
+      font-size: 14px;
+      color: var(--breadcrumb-text-color);
 
-      .menu-item {
-        transition: all 0.3s;
-
-        &:hover {
-          background-color: var(--el-menu-hover-bg-color) !important;
-        }
+      :deep(.el-breadcrumb__item) {
+        display: inline-flex;
+        align-items: center;
+        line-height: normal;
       }
     }
   }
 
-  .main-content {
-    flex: 1;
-    overflow: hidden visible;
-    transition: margin-left 0.3s;
-    margin-left: $sidebar-width;
-    min-width: calc(100% - $sidebar-width);
+  &-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
 
-    &.content-collapse {
-      margin-left: $sidebar-collapse-width;
-      min-width: calc(100% - $sidebar-collapse-width);
+    .header-search {
+      width: 220px;
+
+      :deep(.el-input__wrapper) {
+        padding: 0 8px;
+      }
+
+      :deep(.el-input__inner) {
+        height: 36px;
+      }
     }
 
-    .top-bar {
-      height: $header-height;
+    .icon-button {
+      font-size: 18px;
+      color: var(--menu-text-color);
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      padding: 0;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0 20px;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-      background-color: var(--vt-c-bg);
-      border-bottom: 1px solid var(--vt-c-divider-light);
+      justify-content: center;
 
-      .left-actions {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-
-        .collapse-btn {
-          font-size: 18px;
-          color: var(--el-text-color-primary);
-        }
-
-        .breadcrumb {
-          font-size: 14px;
-        }
-      }
-
-      .right-actions {
-        display: flex;
-        gap: 10px;
-
-        .refresh-btn {
-          color: var(--vt-c-green) !important;
-        }
+      &:hover {
+        color: var(--primary-color);
       }
     }
 
-    .content-wrapper {
-      position: relative;
-      overflow: hidden;
-      height: auto;
-      min-height: calc(100% - $header-height);
-      padding: 20px;
-      background: var(--vt-c-bg);
-      box-sizing: border-box;
+    .notification-badge :deep(.el-badge__content) {
+      top: 5px;
+      right: 5px;
+    }
 
-      .transition-wrapper {
-        position: relative;
-        width: 100%;
-        min-height: 100%;
+    .user-dropdown {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 5px 10px;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+      }
+
+      .username {
+        margin-left: 8px;
+        font-size: 14px;
+        color: var(--menu-text-color);
       }
     }
   }
 }
 
-// 优化后的过渡动画
+.content-container {
+  flex: 1;
+  padding: var(--content-padding);
+  overflow-y: auto;
+}
+
 .fade-scale-enter-active,
 .fade-scale-leave-active {
-  transition: all 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: all 0.3s ease;
 }
 
-.fade-scale-enter-from {
-  opacity: 0;
-  transform: scale(0.98);
-}
-
+.fade-scale-enter-from,
 .fade-scale-leave-to {
   opacity: 0;
-  transform: scale(1.02);
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    width: $sidebar-width !important;
-
-    &.is-collapse {
-      left: -$sidebar-width;
-    }
-  }
-
-  .main-content {
-    margin-left: 0 !important;
-    min-width: 100% !important;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .console-container {
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-
-    .sidebar {
-      background-color: rgba(25, 25, 25, 0.95);
-      border-right: 1px solid rgba(66, 184, 131, 0.2);
-
-      .sidebar-menu {
-        --el-menu-text-color: #{$vue-dark-text-secondary};
-
-        .el-menu-item.is-active {
-          color: var(--vt-c-green);
-          background-color: rgba(66, 184, 131, 0.1);
-          border-right: 3px solid var(--vt-c-green);
-        }
-      }
-    }
-
-    .main-content {
-      .top-bar {
-        background-color: $vue-dark-surface;
-        border-bottom: 1px solid $vue-dark-border;
-
-        .collapse-btn {
-          color: $vue-dark-text;
-        }
-      }
-
-      .content-wrapper {
-        background-color: $vue-dark-bg;
-      }
-    }
-  }
+  transform: scale(0.98);
 }
 </style>

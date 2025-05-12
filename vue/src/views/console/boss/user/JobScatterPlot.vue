@@ -1,12 +1,12 @@
 <template>
-  <el-card class="container" :body-style="{ backgroundColor: '#1a1a1a', color: '#e0e0e0' }">
-    <el-page-header>
+  <el-card class="scatter-plot-card">
+    <el-page-header class="scatter-header">
       <template #title>
-        <h1 class="page-title">职位二维分析散点图</h1>
+        <h1 class="scatter-title">职位分析散点图</h1>
       </template>
     </el-page-header>
-    <el-row class="controls">
-      <el-col :xs="24" :sm="12" :md="6" :lg="6">
+    <el-row :gutter="10" class="filter-row">
+      <el-col :span="6" :xs="6">
         <el-form-item label="X轴:">
           <el-select v-model="xAxis" @change="fetchData">
             <el-option value="salary_value" label="薪资"></el-option>
@@ -15,7 +15,7 @@
           </el-select>
         </el-form-item>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6" :lg="6">
+      <el-col :span="6" :xs="6">
         <el-form-item label="Y轴:">
           <el-select v-model="yAxis" @change="fetchData">
             <el-option value="degree_value" label="学历要求"></el-option>
@@ -24,7 +24,7 @@
           </el-select>
         </el-form-item>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6" :lg="6">
+      <el-col :span="6" :xs="6">
         <el-form-item label="城市筛选:">
           <el-select v-model="cityFilter" @change="fetchData">
             <el-option value="all" label="全部城市"></el-option>
@@ -32,7 +32,7 @@
           </el-select>
         </el-form-item>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6" :lg="6">
+      <el-col :span="6" :xs="6">
         <el-form-item label="行业筛选:">
           <el-select v-model="positionFilter" @change="fetchData">
             <el-option value="all" label="全部职位"></el-option>
@@ -45,122 +45,25 @@
       :title="loading ? '加载数据中...' : `已加载 ${jobData.length} 条数据`"
       :type="loading ? 'info' : 'success'"
       :closable="false"
-      class="data-status"
+      class="data-status-alert"
     />
-    <div id="chart" ref="chartRef"></div>
+    <div class="chart-container">
+      <div id="chart" ref="chartRef" class="chart-content"></div>
+    </div>
     <el-drawer
       v-model="showDetails"
       title="公司详情"
       direction="rtl"
-      size="30%"
-      custom-class="company-details-drawer"
-      :modal-class="'dark-modal'"
+      size="35%"
       :with-header="false"
+      :append-to-body="true"
     >
-      <div class="drawer-content dark">
-        <div class="drawer-header">
-          <h2 class="drawer-title">{{ companyInfo.companyName }}</h2>
-          <el-tag type="success" effect="dark" class="position-tag">{{ companyInfo.positionName }}</el-tag>
-          <div class="drawer-subtitle">
-            <el-icon><Location /></el-icon>
-            <span>{{ companyInfo.cityName }}</span>
-          </div>
-        </div>
-
-        <div class="drawer-body">
-          <div class="info-section">
-            <div class="section-title">
-              <el-icon><Money /></el-icon>
-              <span>薪资与要求</span>
-            </div>
-            <div class="info-grid">
-              <div class="info-item">
-                <div class="info-label">薪资</div>
-                <div class="info-value salary">{{ companyInfo.salary }}</div>
-              </div>
-              <div class="info-item">
-                <div class="info-label">学历要求</div>
-                <div class="info-value">{{ companyInfo.degree }}</div>
-              </div>
-              <div class="info-item">
-                <div class="info-label">经验要求</div>
-                <div class="info-value">{{ companyInfo.experience }}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="info-section">
-            <div class="section-title">
-              <el-icon><OfficeBuilding /></el-icon>
-              <span>公司信息</span>
-            </div>
-            <div class="info-grid">
-              <div class="info-item">
-                <div class="info-label">公司规模</div>
-                <div class="info-value">{{ companyInfo.companySize }}</div>
-              </div>
-              <div class="info-item">
-                <div class="info-label">融资阶段</div>
-                <div class="info-value">{{ companyInfo.financingStage }}</div>
-              </div>
-              <div class="info-item full-width">
-                <div class="info-label">公司地址</div>
-                <div class="info-value address-link" @click="openGoogleMaps">
-                  <el-icon><Location /></el-icon>
-                  <span>{{ companyInfo.address || '暂无地址信息' }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="info-section">
-            <div class="section-title">
-              <el-icon><Present /></el-icon>
-              <span>员工福利</span>
-            </div>
-            <div class="info-content">
-              <div class="info-value benefits">
-                <template v-if="companyInfo.employeeBenefits && companyInfo.employeeBenefits.length > 0">
-                  <div v-for="(benefit, index) in companyInfo.employeeBenefits" :key="index" class="benefit-item">
-                    {{ benefit }}
-                  </div>
-                </template>
-                <template v-else>
-                  暂无福利信息
-                </template>
-              </div>
-            </div>
-          </div>
-
-          <div class="info-section">
-            <div class="section-title">
-              <el-icon><Document /></el-icon>
-              <span>职位要求</span>
-            </div>
-            <div class="info-content">
-              <div class="info-value requirements">
-                <template v-if="companyInfo.jobRequirements && companyInfo.jobRequirements.length > 0">
-                  <div v-for="(requirement, index) in companyInfo.jobRequirements" :key="index" class="requirement-item">
-                    {{ requirement }}
-                  </div>
-                </template>
-                <template v-else>
-                  暂无要求信息
-                </template>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="drawer-footer">
-          <el-button v-if="companyInfo.companyUrl" type="primary" @click="openCompanyUrl" class="detail-button">
-            <el-icon><Link /></el-icon> 查看公司详情
-          </el-button>
-          <el-button v-if="companyInfo.jobUrl" type="success" @click="openJobUrl" class="detail-button">
-            <el-icon><View /></el-icon> 查看职位详情
-          </el-button>
-        </div>
-      </div>
+      <company-details-card
+        :company-info="companyInfo"
+        @open-company-url="openCompanyUrl"
+        @open-job-url="openJobUrl"
+        @open-google-maps="openGoogleMaps"
+      />
     </el-drawer>
   </el-card>
 </template>
@@ -180,20 +83,10 @@ import {
   ElFormItem,
   ElAlert,
   ElDrawer,
-  ElButton,
   ElPageHeader,
-  ElTag,
-  ElIcon
 } from 'element-plus';
-import {
-  Location,
-  Money,
-  OfficeBuilding,
-  Link,
-  View,
-  Present,
-  Document
-} from '@element-plus/icons-vue';
+// 导入公司详情卡组件
+import CompanyDetailsCard from './components/CompanyDetailsCard.vue';
 
 // 组件状态
 const jobData = ref<JobData[]>([]);
@@ -559,28 +452,28 @@ const getVisualMap = (xAxisValue: string, yAxisValue: string): echarts.VisualMap
     text: ['高', '低'],
     orient: 'vertical',
     textStyle: {
-      color: '#e0e0e0'
+      color: '#344767'
     }
   };
 
   // 根据轴类型决定视觉映射
   if (xAxisValue === 'salary_value' || yAxisValue === 'salary_value') {
-    // 薪资视觉映射，红色系
+    // 薪资视觉映射，蓝色系
     return {
       ...defaultVisualMap,
       text: ['月薪高', '月薪低'],
       inRange: {
-        color: ['#ffd0bf', '#ff4500']
+        color: ['#93C5FD', '#2563EB']
       }
     };
   } else if (xAxisValue === 'experience_value' || yAxisValue === 'experience_value') {
-    // 经验视觉映射，蓝色系
+    // 经验视觉映射，青色系
     return {
       ...defaultVisualMap,
       max: 10,
       text: ['经验丰富', '经验较少'],
       inRange: {
-        color: ['#bae7ff', '#1890ff']
+        color: ['#0EA5E9', '#38BDF8']
       }
     };
   } else {
@@ -590,7 +483,7 @@ const getVisualMap = (xAxisValue: string, yAxisValue: string): echarts.VisualMap
       max: 6,
       text: ['学历高', '学历低'],
       inRange: {
-        color: ['#d9f7be', '#52c41a']
+        color: ['#10B981', '#A7F3D0']
       }
     };
   }
@@ -709,7 +602,7 @@ const prepareChartData = (): ChartDataPoint[] => {
       data.push([
         xValue,
         yValue,
-        job.position_name,
+        job.positionName,
         index
       ]);
     });
@@ -820,7 +713,7 @@ const prepareChartData = (): ChartDataPoint[] => {
       data.push([
         jitterX,
         jitterY,
-        job.position_name,
+        job.positionName,
         index
       ]);
     });
@@ -838,22 +731,24 @@ const updateChart = () => {
 
   const option: EChartsOption = {
     title: {
-      text: '职位二维分析(薪资为月工资)',
+      text: '职位分析(薪资为月工资)',
       left: 'center',
       top: 0,
       textStyle: {
-        color: '#e0e0e0'
+        color: '#344767'
       }
     },
     tooltip: {
-      backgroundColor: 'rgba(25, 25, 25, 0.95)',
-      borderWidth: 0,
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
       textStyle: {
-        color: '#e0e0e0',
+        color: '#344767',
         fontSize: 14
       },
       padding: [16, 20],
-      extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); border-radius: 12px;',
+      extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1); border-radius: 12px;',
+      appendToBody: true,
       formatter: function(params) {
         // 确保params是单个数据点
         const param = Array.isArray(params) ? params[0] : params;
@@ -873,42 +768,42 @@ const updateChart = () => {
           const count = indices.length;
           const job = filteredData.value[indices[0]];
           return `
-              <div style="padding: 16px; color: #e0e0e0;">
-                <div style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #fff;">${job.positionName || '未知职位'}</div>
+              <div style="padding: 16px; color: #344767;">
+                <div style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #344767;">${job.positionName || '未知职位'}</div>
 
-                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #333;">
-                  <div style="color: #999; margin-bottom: 8px; font-size: 12px;">${coordInfo}</div>
-                  <span style="color: #ff7875; font-size: 16px; font-weight: bold; background: rgba(255, 120, 117, 0.1); padding: 4px 8px; border-radius: 4px;">此位置有 ${count} 个职位</span>
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #E5E7EB;">
+                  <div style="color: #67748E; margin-bottom: 8px; font-size: 12px;">${coordInfo}</div>
+                  <span style="color: #3B82F6; font-size: 16px; font-weight: bold; background: rgba(59, 130, 246, 0.1); padding: 4px 8px; border-radius: 4px;">此位置有 ${count} 个职位</span>
                 </div>
 
-                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #333;">
-                  <div style="color: #999; margin-bottom: 8px; font-size: 13px;">公司信息</div>
-                  <div style="color: #fff; font-weight: 500; font-size: 15px;">${job.companyName || '未知公司'}</div>
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #E5E7EB;">
+                  <div style="color: #67748E; margin-bottom: 8px; font-size: 13px;">公司信息</div>
+                  <div style="color: #344767; font-weight: 500; font-size: 15px;">${job.companyName || '未知公司'}</div>
                 </div>
 
-                <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                <div style="background: rgba(243, 244, 246, 0.5); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
                   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
                     <div>
-                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">薪资</div>
-                      <div style="color: #ff7875; font-weight: 500;">${job.salary || '未知'}</div>
+                      <div style="color: #67748E; font-size: 12px; margin-bottom: 4px;">薪资</div>
+                      <div style="color: #3B82F6; font-weight: 500;">${job.salary || '未知'}</div>
                     </div>
                     <div>
-                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">学历</div>
-                      <div style="color: #e0e0e0; font-weight: 500;">${job.degree || '未知'}</div>
+                      <div style="color: #67748E; font-size: 12px; margin-bottom: 4px;">学历</div>
+                      <div style="color: #344767; font-weight: 500;">${job.degree || '未知'}</div>
                     </div>
                     <div>
-                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">经验</div>
-                      <div style="color: #e0e0e0; font-weight: 500;">${job.experience || '未知'}</div>
+                      <div style="color: #67748E; font-size: 12px; margin-bottom: 4px;">经验</div>
+                      <div style="color: #344767; font-weight: 500;">${job.experience || '未知'}</div>
                     </div>
                     <div>
-                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">城市</div>
-                      <div style="color: #e0e0e0; font-weight: 500;">${job.cityName || '未知'}</div>
+                      <div style="color: #67748E; font-size: 12px; margin-bottom: 4px;">城市</div>
+                      <div style="color: #344767; font-weight: 500;">${job.cityName || '未知'}</div>
                     </div>
                   </div>
                 </div>
 
                 <div style="text-align: center; margin-top: 12px;">
-                  <span style="color:#409EFF; font-weight: 500; cursor: pointer; background: rgba(64, 158, 255, 0.1); padding: 4px 10px; border-radius: 4px;">点击查看详情</span>
+                  <span style="color:#3B82F6; font-weight: 500; cursor: pointer; background: rgba(59, 130, 246, 0.1); padding: 4px 10px; border-radius: 4px;">点击查看详情</span>
                 </div>
               </div>
             </div>
@@ -918,35 +813,35 @@ const updateChart = () => {
           const jobIndex = pointData[3] as number;
           const job = filteredData.value[jobIndex];
           return `
-              <div style="padding: 16px; color: #e0e0e0;">
-                <div style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #fff;">${job.positionName || '未知职位'}</div>
+              <div style="padding: 16px; color: #344767;">
+                <div style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: #344767;">${job.positionName || '未知职位'}</div>
 
-                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #333;">
-                  <div style="color: #999; margin-bottom: 8px; font-size: 12px;">${coordInfo}</div>
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #E5E7EB;">
+                  <div style="color: #67748E; margin-bottom: 8px; font-size: 12px;">${coordInfo}</div>
                 </div>
 
-                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #333;">
-                  <div style="color: #999; margin-bottom: 8px; font-size: 13px;">公司信息</div>
-                  <div style="color: #fff; font-weight: 500; font-size: 15px;">${job.companyName || '未知公司'}</div>
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #E5E7EB;">
+                  <div style="color: #67748E; margin-bottom: 8px; font-size: 13px;">公司信息</div>
+                  <div style="color: #344767; font-weight: 500; font-size: 15px;">${job.companyName || '未知公司'}</div>
                 </div>
 
-                <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                <div style="background: rgba(243, 244, 246, 0.5); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
                   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
                     <div>
-                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">薪资</div>
-                      <div style="color: #ff7875; font-weight: 500;">${job.salary || '未知'}</div>
+                      <div style="color: #67748E; font-size: 12px; margin-bottom: 4px;">薪资</div>
+                      <div style="color: #3B82F6; font-weight: 500;">${job.salary || '未知'}</div>
                     </div>
                     <div>
-                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">学历</div>
-                      <div style="color: #e0e0e0; font-weight: 500;">${job.degree || '未知'}</div>
+                      <div style="color: #67748E; font-size: 12px; margin-bottom: 4px;">学历</div>
+                      <div style="color: #344767; font-weight: 500;">${job.degree || '未知'}</div>
                     </div>
                     <div>
-                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">经验</div>
-                      <div style="color: #e0e0e0; font-weight: 500;">${job.experience || '未知'}</div>
+                      <div style="color: #67748E; font-size: 12px; margin-bottom: 4px;">经验</div>
+                      <div style="color: #344767; font-weight: 500;">${job.experience || '未知'}</div>
                     </div>
                     <div>
-                      <div style="color: #999; font-size: 12px; margin-bottom: 4px;">城市</div>
-                      <div style="color: #e0e0e0; font-weight: 500;">${job.cityName || '未知'}</div>
+                      <div style="color: #67748E; font-size: 12px; margin-bottom: 4px;">城市</div>
+                      <div style="color: #344767; font-weight: 500;">${job.cityName || '未知'}</div>
                     </div>
                   </div>
                 </div>
@@ -970,7 +865,7 @@ const updateChart = () => {
       nameGap: 30,
       type: 'value',
       axisLabel: {
-        color: '#e0e0e0',
+        color: '#67748E',
         formatter: function(value: number) {
           // 格式化轴上的数值为整数或.5结尾
           const formattedValue = formatDataValue(value);
@@ -996,16 +891,17 @@ const updateChart = () => {
       },
       axisLine: {
         lineStyle: {
-          color: '#555'
+          color: '#E5E7EB'
         }
       },
       splitLine: {
         lineStyle: {
-          color: '#333'
+          type: 'dashed',
+          color: '#E5E7EB'
         }
       },
       nameTextStyle: {
-        color: '#e0e0e0'
+        color: '#344767'
       },
       min: function(value: {min: number; max: number}) {
         if (xAxisValue === 'salary_value') {
@@ -1028,7 +924,7 @@ const updateChart = () => {
       nameGap: 55,
       type: 'value',
       axisLabel: {
-        color: '#e0e0e0',
+        color: '#67748E',
         formatter: function(value: number) {
           // 格式化轴上的数值为整数或.5结尾
           const formattedValue = formatDataValue(value);
@@ -1054,16 +950,17 @@ const updateChart = () => {
       },
       axisLine: {
         lineStyle: {
-          color: '#555'
+          color: '#E5E7EB'
         }
       },
       splitLine: {
         lineStyle: {
-          color: '#333'
+          type: 'dashed',
+          color: '#E5E7EB'
         }
       },
       nameTextStyle: {
-        color: '#e0e0e0'
+        color: '#344767'
       },
       min: function(value: {min: number; max: number}) {
         if (yAxisValue === 'salary_value') {
@@ -1105,13 +1002,13 @@ const updateChart = () => {
               value = xAxisValue === 'salary_value' ? x : y;
               const intensity = Math.min(1, value / 50);
               // 设置透明度
-              const opacity = overlapMethod.value === 'opacity' ? 0.5 : 0.8;
-              return `rgba(${200 + 55 * intensity}, ${100 - 50 * intensity}, ${100 - 50 * intensity}, ${opacity})`;
+              const opacity = overlapMethod.value === 'opacity' ? 0.7 : 0.9;
+              return `rgba(${59 + 50 * intensity}, ${130 + 30 * intensity}, ${246 - 20 * intensity}, ${opacity})`;
             } else {
               value = (x + y) / 2;
               // 设置透明度
-              const opacity = overlapMethod.value === 'opacity' ? 0.5 : 0.8;
-              return `rgba(${80 - 30 * value/10}, ${120 + 80 * value/10}, ${180 + 75 * value/10}, ${opacity})`;
+              const opacity = overlapMethod.value === 'opacity' ? 0.7 : 0.9;
+              return `rgba(${96 + 40 * value/10}, ${165 + 30 * value/10}, ${250 - 10 * value/10}, ${opacity})`;
             }
           },
           borderColor: '#fff',
@@ -1119,8 +1016,10 @@ const updateChart = () => {
         },
         emphasis: {
           itemStyle: {
+            borderColor: '#fff',
+            borderWidth: 2,
             shadowBlur: 10,
-            shadowColor: 'rgba(0, 0, 0, 0.5)'
+            shadowColor: 'rgba(59, 130, 246, 0.3)'
           }
         }
       } as echarts.ScatterSeriesOption
@@ -1166,210 +1065,158 @@ const handleChartClick = (params: echarts.ECElementEvent) => {
 };
 </script>
 
-<style scoped>
-.container {
-  width: 95%;
-  margin: 20px auto;
-}
-.controls {
-  margin-bottom: 20px;
-  color: #e0e0e0;
-}
-#chart {
-  height: 700px;
-  margin-top: 20px;
-}
-.data-status {
-  margin-bottom: 15px;
+<style lang="scss" scoped>
+.scatter-plot-card {
+  margin: var(--spacing-md);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--box-shadow);
+  background-color: var(--card-color);
+  transition: box-shadow 0.3s ease;
+  overflow: hidden;
+
+  &:hover {
+    box-shadow: var(--box-shadow-lg);
+  }
 }
 
-.page-title {
-  color: #e0e0e0;
+.scatter-header {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-md);
+
+  .scatter-title {
+    font-size: var(--font-size-xl);
+    color: var(--text-primary);
+    margin: 0;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: var(--gradient-primary, linear-gradient(45deg, #3B82F6, #60A5FA));
+      margin-right: var(--spacing-sm);
+      border-radius: 2px;
+    }
+  }
 }
 
-:deep(.el-form-item__label) {
-  color: #e0e0e0;
-}
-
-:deep(.el-select) {
-  --el-select-input-color: #e0e0e0;
-  --el-fill-color-blank: #242424;
-  --el-border-color: #555;
-}
-
-:deep(.el-card) {
-  --el-card-bg-color: #1a1a1a;
-  border-color: #333;
-}
-
-:deep(.el-alert) {
-  --el-alert-bg-color: #242424;
-  --el-alert-title-color: #e0e0e0;
-}
-
-/* 抽屉暗色主题样式 */
-:deep(.company-details-drawer) {
-  background-color: #1a1a1a;
-  color: #e0e0e0;
-}
-
-.drawer-content.dark {
-  background-color: #1a1a1a;
-  color: #e0e0e0;
-  height: 100%;
+.filter-row {
+  margin-top: var(--spacing-md);
+  padding: 0 var(--spacing-lg);
   display: flex;
-  flex-direction: column;
-  padding: 20px;
+  flex-wrap: nowrap;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+  justify-content: space-between;
+
+  @media (max-width: 768px) {
+    padding: 0 var(--spacing-sm);
+    gap: 5px;
+
+    :deep(.el-form-item__label) {
+      font-size: 12px;
+      padding-right: 5px;
+    }
+
+    :deep(.el-select) {
+      width: 100%;
+    }
+
+    :deep(.el-input__wrapper) {
+      padding: 0 6px;
+    }
+  }
 }
 
-.drawer-header {
-  padding-bottom: 20px;
-  border-bottom: 1px solid #333;
-  margin-bottom: 20px;
+.el-col {
+  transition: all 0.3s ease;
+  padding: 0 5px;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  :deep(.el-form-item__label) {
+    white-space: nowrap;
+  }
 }
 
-.drawer-title {
-  font-size: 22px;
-  margin: 0 0 10px 0;
-  color: #fff;
+.el-form-item {
+  margin-bottom: var(--spacing-md);
+
+  :deep(.el-form-item__label) {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
 }
 
-.position-tag {
-  margin-bottom: 15px;
+.el-select {
+  width: 100%;
+
+  :deep(.el-input__wrapper) {
+    box-shadow: 0 0 0 1px var(--border-color) inset;
+    transition: all 0.3s ease;
+
+    &:hover {
+      box-shadow: 0 0 0 1px var(--primary-color) inset;
+    }
+
+    &.is-focus {
+      box-shadow: 0 0 0 1px var(--primary-color) inset;
+    }
+  }
 }
 
-.drawer-subtitle {
-  display: flex;
-  align-items: center;
-  color: #bbb;
-  font-size: 14px;
+.data-status-alert {
+  margin: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
-.drawer-subtitle .el-icon {
-  margin-right: 8px;
-  color: #409EFF;
+.chart-container {
+  padding: var(--spacing-md);
+
+  .chart-content {
+    height: 550px;
+    width: 100%;
+    border-radius: var(--border-radius-md);
+    background-color: #FFFFFF;
+    padding: var(--spacing-md);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(to right, var(--primary-light), var(--primary-color), var(--primary-light));
+      z-index: 1;
+    }
+  }
 }
 
-.drawer-body {
-  flex: 1;
-  overflow-y: auto;
-}
+// 打印样式优化
+@media print {
+  .scatter-plot-card {
+    box-shadow: none !important;
+    margin: 0 !important;
 
-.info-section {
-  margin-bottom: 24px;
-  background-color: #242424;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  font-size: 16px;
-  font-weight: 500;
-  margin-bottom: 16px;
-  color: #fff;
-}
-
-.section-title .el-icon {
-  margin-right: 8px;
-  color: #67c23a;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.info-item {
-  padding: 8px 0;
-}
-
-.info-item.full-width {
-  grid-column: 1 / -1;
-}
-
-.info-label {
-  color: #909090;
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-
-.info-value {
-  color: #e0e0e0;
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.info-value.salary {
-  color: #f56c6c;
-  font-weight: 600;
-}
-
-.drawer-footer {
-  margin-top: 24px;
-  display: flex;
-  gap: 12px;
-}
-
-.detail-button {
-  flex: 1;
-}
-
-:deep(.dark-modal) {
-  background-color: rgba(0, 0, 0, 0.7);
-}
-
-.info-content {
-  padding: 8px 0;
-}
-
-.info-value.benefits,
-.info-value.requirements {
-  white-space: pre-wrap;
-  line-height: 1.6;
-  color: #e0e0e0;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 12px;
-  border-radius: 6px;
-}
-
-.benefit-item,
-.requirement-item {
-  margin-bottom: 8px;
-  padding-left: 16px;
-  position: relative;
-}
-
-.benefit-item:before,
-.requirement-item:before {
-  content: "•";
-  position: absolute;
-  left: 0;
-  color: #409EFF;
-}
-
-.benefit-item:last-child,
-.requirement-item:last-child {
-  margin-bottom: 0;
-}
-
-.info-value.address-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  color: #409EFF;
-  transition: color 0.3s ease;
-}
-
-.info-value.address-link:hover {
-  color: #66b1ff;
-}
-
-.info-value.address-link .el-icon {
-  font-size: 16px;
+    .chart-container .chart-content {
+      height: 100% !important;
+      page-break-inside: avoid;
+    }
+  }
 }
 </style>
+
+
+
+

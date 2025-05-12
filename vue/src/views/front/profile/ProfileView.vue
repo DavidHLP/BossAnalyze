@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-view">
+  <div>
     <h1>个人中心</h1>
     <!-- 添加个人页面内容 -->
   </div>

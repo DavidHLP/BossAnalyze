@@ -100,6 +100,7 @@ public interface UserMapper extends BaseMapper<User> {
             "<if test='user.name != null'>`name` = #{user.name}, </if> " +
             "<if test='user.email != null'>`email` = #{user.email}, </if> " +
             "<if test='user.password != null'>`password` = #{user.password}, </if> " +
+            "<if test='user.status != null'>`status` = #{user.status}, </if> " +
             "<if test='user.roleId != null'>`role_id` = #{user.roleId}, </if> " +
             "<if test='user.address != null'>`address` = #{user.address}, </if> " +
             "<if test='user.introduction != null'>`introduction` = #{user.introduction}, </if> " +

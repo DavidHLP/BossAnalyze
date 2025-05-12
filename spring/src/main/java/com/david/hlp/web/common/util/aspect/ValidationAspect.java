@@ -15,7 +15,7 @@ import java.lang.reflect.Parameter;
 @Component
 public class ValidationAspect {
 
-    @Around("execution(* com.david.hlp.Spring.**.controller..*(..))")
+    @Around("execution(* com.david.hlp.web.**.controller..*(..))")
     public Object validateStringParameters(ProceedingJoinPoint joinPoint) throws Throwable {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();

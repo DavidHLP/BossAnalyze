@@ -41,13 +41,13 @@ public interface RoleMapper extends BaseMapper<Role> {
      * @return 角色列表
      */
     @Select(
-    "<script> " +
-    "SELECT id, role_name, remark, status FROM role " +
-    "<where> " +
-        "<if test='roleName != null and roleName != \"\"'> " +
-            "AND role_name LIKE CONCAT('%', #{roleName}, '%') " +
-        "</if> " +
-    "</where> " +
+    "<script>" +
+    "SELECT id, role_name, remark, status FROM role" +
+    "<where>" +
+        "<if test='roleName != null and roleName != \"\"'>" +
+            "AND role_name LIKE CONCAT('%', #{roleName}, '%')" +
+        "</if>" +
+    "</where>" +
     "</script>")
     @Results(
         id = "roleResultMap",

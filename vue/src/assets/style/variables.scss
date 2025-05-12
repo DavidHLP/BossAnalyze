@@ -1,0 +1,59 @@
+// 全局颜色变量
+:root {
+  // 主题颜色
+  --primary-color: #3B82F6; // 主蓝色
+  --primary-dark: #2563EB; // 深色蓝色
+  --primary-light: #E0F2FE; // 激活背景色
+  
+  // 文本颜色
+  --text-primary: #344767; // 主要文本
+  --text-secondary: #67748E; // 次要文本
+  
+  // 状态颜色
+  --success-color: #10B981; // 成功/正值
+  --danger-color: #EF4444; // 危险/负值
+  --warning-color: #F59E0B; // 警告
+  --info-color: #3B82F6; // 信息
+  
+  // 背景颜色
+  --background-color: #F9FAFB; // 主背景
+  --card-color: #FFFFFF; // 卡片背景
+  
+  // 边框颜色
+  --border-color: #E5E7EB;
+  
+  // 阴影
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --box-shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.12);
+  
+  // 间距
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 20px;
+  --spacing-xl: 24px;
+  
+  // 边框圆角
+  --border-radius-sm: 6px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  
+  // 字体大小
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-xxl: 24px;
+  
+  // 渐变
+  --gradient-primary: linear-gradient(45deg, #3B82F6, #60A5FA, #93C5FD);
+  --gradient-success: linear-gradient(45deg, #10B981, #34D399);
+  --gradient-info: linear-gradient(45deg, #3B82F6, #60A5FA);
+}
+
+// 响应式断点
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;

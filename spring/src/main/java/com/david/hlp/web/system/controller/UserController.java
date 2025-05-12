@@ -69,4 +69,10 @@ public class UserController extends BaseController {
         userService.updateUser(user);
         return Result.success("更新成功");
     }
+
+    @PostMapping("/addUser")
+    public Result<Void> addUser(@RequestBody User user) {
+        userService.addUser(user);
+        return Result.success("添加成功");
+    }
 }

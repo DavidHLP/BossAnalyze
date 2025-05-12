@@ -62,4 +62,22 @@ public class BossController {
         List<JobAnalysisData> response = responseEntity.getBody();
         return Result.success(response);
     }
+
+    @GetMapping("/three-dimensional-analysis-chart")
+    public Result<List<JobAnalysisData>> getThreeDimensionalAnalysisChart(@RequestParam(required = false, defaultValue = "all") String cityName,
+                                                                         @RequestParam(required = false, defaultValue = "all") String positionName) {
+        URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
+                                         .path("/three-dimensional-analysis-chart")
+                                         .queryParam("cityName", cityName)
+                                         .queryParam("positionName", positionName)
+                                         .build().encode().toUri();
+        ResponseEntity<List<JobAnalysisData>> responseEntity = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<JobAnalysisData>>() {}
+        );
+        List<JobAnalysisData> response = responseEntity.getBody();
+        return Result.success(response);
+    }
 }

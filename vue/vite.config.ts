@@ -1,16 +1,14 @@
-import path from 'path'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import vueSetupName from 'vite-plugin-vue-setup-extend'
-
+import { fileURLToPath } from 'url'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), vueDevTools(), vueSetupName()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
+      '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
   server: {
@@ -30,7 +28,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@use "@/styles/variables.scss" as *; @import '@vue-flow/core/dist/style.css'; @import '@vue-flow/core/dist/theme-default.css';`,
+        additionalData: `@use "@/assets/style/variables.scss" as *; @use "@/assets/style/theme.scss" as *;`,
       },
     },
   },

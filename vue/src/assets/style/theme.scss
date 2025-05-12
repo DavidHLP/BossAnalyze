@@ -1,0 +1,153 @@
+// 亮蓝色主题方案
+:root {
+  --spacing-xl: 24px;
+  --spacing-lg: 16px;
+  --spacing-md: 12px;
+  --spacing-sm: 8px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+}
+
+
+// 主色变量
+$primary-color: #3B82F6; // 主要亮蓝色
+$primary-dark: #2563EB;  // 深蓝色
+$primary-light: #E0F2FE; // 浅蓝色
+
+$primary-color: var(--primary-color, #3B82F6);
+$primary-dark: #2563EB;
+$primary-light: #93C5FD;
+$success-color: #4CAF50;
+$error-color: #F44336;
+$warning-color: #FFA000;
+
+// 辅助色变量
+$secondary-color: #64748B; // 深灰色作为辅助色
+$accent-color: #38BDF8;    // 天蓝色作为强调色
+
+// 功能色变量
+$success-color: #10B981;   // 成功色
+$warning-color: #F59E0B;   // 警告色
+$error-color: #EF4444;     // 错误色
+$info-color: #3B82F6;      // 信息色
+
+// 背景色变量
+$background-color: #F9FAFB; // 浅灰色背景
+$card-background: #FFFFFF;  // 卡片背景为白色
+$navbar-color: $primary-color; // 导航栏使用主色
+
+// 文字颜色变量
+$text-primary: #344767;    // 主要文字颜色（深灰）
+$text-secondary: #67748E;  // 次要文字颜色（中灰）
+$text-disabled: #9CA3AF;   // 禁用状态文字颜色
+$text-on-primary: #FFFFFF; // 在主色背景上的文字颜色
+
+// 边框颜色
+$border-color: #E5E7EB;
+
+// 阴影效果
+$box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+$box-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
+
+// Logo相关颜色
+$logo-icon-color: #3B82F6;
+
+// 表单元素样式
+$form-radius: 8px;
+$input-height: 40px;
+$button-height: 40px;
+$button-font-size: 14px;
+$input-font-size: 14px;
+$border-width: 1px;
+
+// 透明度
+$secondary-opacity: 0.7;
+
+// 控制台布局相关变量
+$sidebar-width: 250px;
+$sidebar-width-collapsed: 64px;
+$header-height: 70px;
+$content-padding: 24px;
+
+// 控制台颜色变量
+$sidebar-bg: #ffffff;
+$header-bg: #ffffff;
+$menu-text-color: #67748E;
+$menu-active-text-color: #3B82F6;
+$menu-active-bg: #E0F2FE;
+$menu-hover-bg: #F1F5F9;
+$breadcrumb-text-color: #67748E;
+$logo-text-color: #344767;
+
+// 应用全局样式
+:root {
+  --primary-color: #{$primary-color};
+  --primary-dark: #{$primary-dark};
+  --primary-light: #{$primary-light};
+  --secondary-color: #{$secondary-color};
+  --accent-color: #{$accent-color};
+  --success-color: #{$success-color};
+  --warning-color: #{$warning-color};
+  --error-color: #{$error-color};
+  --info-color: #{$info-color};
+  --background-color: #{$background-color};
+  --text-primary: #{$text-primary};
+  --text-secondary: #{$text-secondary};
+  --logo-icon-color: #{$logo-icon-color};
+  --border-color: #{$border-color};
+  --form-radius: #{$form-radius};
+  --input-height: #{$input-height};
+  --button-height: #{$button-height};
+  --button-font-size: #{$button-font-size};
+  --input-font-size: #{$input-font-size};
+  --border-width: #{$border-width};
+  --secondary-opacity: #{$secondary-opacity};
+  --sidebar-width: #{$sidebar-width};
+  --sidebar-width-collapsed: #{$sidebar-width-collapsed};
+  --header-height: #{$header-height};
+  --content-padding: #{$content-padding};
+  --sidebar-bg: #{$sidebar-bg};
+  --header-bg: #{$header-bg};
+  --menu-text-color: #{$menu-text-color};
+  --menu-active-text-color: #{$menu-active-text-color};
+  --menu-active-bg: #{$menu-active-bg};
+  --menu-hover-bg: #{$menu-hover-bg};
+  --breadcrumb-text-color: #{$breadcrumb-text-color};
+  --logo-text-color: #{$logo-text-color};
+  --box-shadow: #{$box-shadow};
+  --box-shadow-hover: #{$box-shadow-hover};
+}
+
+// 菜单折叠状态全局样式优化
+.el-menu--collapse {
+  .el-sub-menu__title,
+  .el-menu-item {
+    justify-content: center !important;
+    
+    .el-icon {
+      margin-right: 0 !important;
+    }
+  }
+}
+
+// 弹出菜单全局样式
+.el-menu--popup {
+  min-width: 180px;
+  
+  .el-menu-item {
+    height: 40px !important;
+    line-height: 40px !important;
+    margin: 4px 8px !important;
+    border-radius: 6px !important;
+    
+    &.is-active {
+      background-color: var(--menu-active-bg);
+      color: var(--menu-active-text-color);
+    }
+    
+    &:hover {
+      background-color: var(--menu-hover-bg);
+    }
+  }
+}

@@ -10,7 +10,7 @@ import java.util.List;
 @Mapper
 public interface RouterMapper extends BaseMapper<Router> {
 
-    @Select("SELECT id, pid, menu_order, status, remark, permission, path, name, icon, " +
+    @Select("SELECT id, pid, menu_order, status, remark, permission, path, name," +
            "type, component, redirect, always_show, meta_title, meta_icon, meta_hidden, " +
            "meta_roles, meta_keep_alive, hidden FROM router")
     @Results(id = "routerResultMap", value = {
@@ -22,7 +22,6 @@ public interface RouterMapper extends BaseMapper<Router> {
         @Result(property = "permission", column = "permission"),
         @Result(property = "path", column = "path"),
         @Result(property = "name", column = "name"),
-        @Result(property = "icon", column = "icon"),
         @Result(property = "meta.type", column = "type"),
         @Result(property = "meta.component", column = "component"),
         @Result(property = "meta.redirect", column = "redirect"),
@@ -36,7 +35,7 @@ public interface RouterMapper extends BaseMapper<Router> {
     })
     List<Router> listAll();
 
-    @Select("SELECT id, pid, menu_order, status, remark, permission, path, name, icon, " +
+    @Select("SELECT id, pid, menu_order, status, remark, permission, path, name, " +
            "type, component, redirect, always_show, meta_title, meta_icon, meta_hidden, " +
            "meta_roles, meta_keep_alive, hidden FROM router WHERE id = #{id}")
     @ResultMap("routerResultMap")
@@ -50,7 +49,6 @@ public interface RouterMapper extends BaseMapper<Router> {
             "<if test='permission != null'>permission = #{permission},</if> " +
             "path = #{path}, " +
             "name = #{name}, " +
-            "<if test='icon != null'>icon = #{icon},</if> " +
             "type = #{meta.type}, " +
             "<if test='meta.component != null'>component = #{meta.component},</if> " +
             "<if test='meta.redirect != null'>redirect = #{meta.redirect},</if> " +
@@ -73,7 +71,6 @@ public interface RouterMapper extends BaseMapper<Router> {
             "<if test='remark != null'>remark,</if> " +
             "<if test='permission != null'>permission,</if> " +
             "path, name, " +
-            "<if test='icon != null'>icon,</if> " +
             "type, " +
             "<if test='meta.component != null'>component,</if> " +
             "<if test='meta.redirect != null'>redirect,</if> " +
@@ -89,7 +86,6 @@ public interface RouterMapper extends BaseMapper<Router> {
             "<if test='remark != null'>#{remark},</if> " +
             "<if test='permission != null'>#{permission},</if> " +
             "#{path}, #{name}, " +
-            "<if test='icon != null'>#{icon},</if> " +
             "#{meta.type}, " +
             "<if test='meta.component != null'>#{meta.component},</if> " +
             "<if test='meta.redirect != null'>#{meta.redirect},</if> " +
@@ -106,7 +102,7 @@ public interface RouterMapper extends BaseMapper<Router> {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void save(Router router);
 
-    @Select("<script>SELECT id, pid, menu_order, status, remark, permission, path, name, icon, " +
+    @Select("<script>SELECT id, pid, menu_order, status, remark, permission, path, name, " +
             "type, component, redirect, always_show, meta_title, meta_icon, meta_hidden, " +
             "meta_roles, meta_keep_alive, hidden FROM router " +
             "<where>" +

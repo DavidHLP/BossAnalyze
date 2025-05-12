@@ -1,6 +1,7 @@
 import request from '@/utils/request/request'
 import type { PageInfo } from '@/utils/types/common'
 import type { UserBaseInfo as User } from '@/api/auth/auth.d'
+
 export const getUserManageInfo = (
   pageNum: number,
   pageSize: number,
@@ -26,6 +27,13 @@ export const deleteUser = (id: number, password: string) =>
 export const updateUser = (data: User) =>
   request({
     url: `/api/user/updateUser`,
+    method: 'POST',
+    data,
+  })
+
+export const addUser = (data: User) =>
+  request({
+    url: `/api/user/addUser`,
     method: 'POST',
     data,
   })

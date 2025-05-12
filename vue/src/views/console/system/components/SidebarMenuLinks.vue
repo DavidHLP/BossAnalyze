@@ -4,23 +4,27 @@
     <template v-if="link.meta?.type !== 'F'">
       <el-sub-menu v-if="link.meta?.type === 'M'" :index="link.path">
         <template #title>
-          <el-icon><component :is="link.meta?.icon || (link as any).icon" /></el-icon>
-          <span>{{ link.name }}</span>
+          <div class="menu-item-content">
+            <el-icon><component :is="link.meta?.metaIcon || (link as any).icon || 'Document'" /></el-icon>
+            <span>{{ link.name }}</span>
+          </div>
         </template>
         <SidebarMenuLinks :links="link.children || []" />
       </el-sub-menu>
       <el-sub-menu v-if="link.meta?.type === 'C' && (link.children?.length || 0) > 0 && link.children?.some(child => child.meta?.type !== 'F')" :index="link.path">
         <template #title>
-          <el-icon><component :is="link.meta?.icon || (link as any).icon" /></el-icon>
-          <span>{{ link.name }}</span>
+          <div class="menu-item-content">
+            <el-icon><component :is="link.meta?.metaIcon || (link as any).icon || 'Document'" /></el-icon>
+            <span>{{ link.name }}</span>
+          </div>
         </template>
         <SidebarMenuLinks :links="link.children || []" />
       </el-sub-menu>
       <el-menu-item v-else-if="link.meta?.type === 'C'" :index="link.path">
-        <el-icon><component :is="link.meta?.icon || (link as any).icon" /></el-icon>
-        <template #title>
+        <div class="menu-item-content">
+          <el-icon><component :is="link.meta?.metaIcon || (link as any).icon || 'Document'" /></el-icon>
           <span>{{ link.name }}</span>
-        </template>
+        </div>
       </el-menu-item>
     </template>
   </template>
@@ -31,21 +35,43 @@ import type { RouteRecordRaw } from 'vue-router';
 import type { Router } from '@/router/index.d';
 
 // 定义接受的props类型为RouteRecordRaw数组或后端返回的Router数组
-const props = defineProps<{
+defineProps<{
   links: (RouteRecordRaw | Router)[]
 }>();
 </script>
 
 <style lang="scss">
-// 导航菜单项样式
-.el-menu-item {
-  &.is-active {
-    color: var(--vt-c-green);
-    background-color: rgba(66, 184, 131, 0.1);
+.menu-item-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+
+  .el-icon {
+    margin-right: 10px;
+    width: 20px;
+    text-align: center;
+    font-size: 18px;
   }
 
-  &:hover {
-    background-color: var(--el-menu-hover-bg-color);
+  span {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+:deep(.el-menu-item) {
+  &.is-active {
+    color: var(--menu-active-text-color);
+
+    .menu-item-content {
+      .el-icon {
+        color: var(--menu-active-text-color);
+      }
+    }
   }
 }
 </style>

@@ -10,15 +10,15 @@ export interface SalaryJob {
 }
 
 export interface JobData {
-  position_id: string;
-  position_name: string;
-  city_name: string;
+  positionId: string;
+  positionName: string;
+  cityName: string;
   salary: string;
-  salary_value: number;
+  salaryValue: number;
   degree: string;
-  degree_value: number;
+  degreeValue: number;
   experience: string;
-  experience_value: number;
+  experienceValue: number;
   companyName: string;
   companySize: string;
   industry: string;

@@ -66,11 +66,6 @@ public class Router implements Serializable {
     private String name;        // 路由名称
 
     /**
-     * 图标
-     */
-    private String icon;        // 图标
-
-    /**
      * 路由元数据
      */
     private Meta meta;
