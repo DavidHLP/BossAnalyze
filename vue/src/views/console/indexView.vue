@@ -1,15 +1,15 @@
 <template>
   <div class="dashboard-container">
     <!-- 侧边栏区域 -->
-    <aside class="sidebar" :class="{ 'sidebar-collapsed': isCollapse }">
+    <aside class="sidebar" :class="{ 'sidebar-collapsed': layoutStore.isCollapse }">
       <div class="logo-container">
-        <img v-if="!isCollapse" src="@/assets/logo.png" alt="Logo" class="logo" />
+        <img v-if="!layoutStore.isCollapse" src="@/assets/logo.png" alt="Logo" class="logo" />
         <img v-else src="@/assets/logo.png" alt="Logo" class="logo" />
-        <span v-if="!isCollapse" class="logo-text">管理系统</span>
+        <span v-if="!layoutStore.isCollapse" class="logo-text">管理系统</span>
       </div>
       <el-menu
         :default-active="$route.path"
-        :collapse="isCollapse"
+        :collapse="layoutStore.isCollapse"
         router
         class="sidebar-menu"
         background-color="#ffffff"
@@ -26,10 +26,10 @@
         <div class="header-left">
           <el-breadcrumb separator="/" class="breadcrumb">
             <el-button
-              :icon="isCollapse ? 'Expand' : 'Fold'"
+              :icon="layoutStore.isCollapse ? 'Expand' : 'Fold'"
               circle
               class="collapse-btn"
-              @click="toggleCollapse"
+              @click="layoutStore.toggleCollapse"
             />
             <el-breadcrumb-item :to="{ path: '/console' }">控制台</el-breadcrumb-item>
             <el-breadcrumb-item v-for="(item, index) in breadcrumbList" :key="index">
@@ -45,10 +45,10 @@
               clearable
             />
           </div>
-          <el-button type="text" class="icon-button">
+          <el-button link class="icon-button">
             <el-icon><Setting /></el-icon>
           </el-button>
-          <el-button type="text" class="icon-button">
+          <el-button link class="icon-button">
             <el-badge :value="1" class="notification-badge">
               <el-icon><Bell /></el-icon>
             </el-badge>
@@ -90,11 +90,11 @@ import { useRouterStore } from '@/stores/router/routerStore'
 import type { Permissions } from '@/api/auth/auth.d'
 import { useUserStore } from '@/stores/user/userStore'
 import { filterRoutes } from '@/router/index'
+import { useLayoutStore } from '@/stores/layout/layoutStore'
 
 const route = useRoute()
 const permissions: Permissions[] = useUserStore().permissions
-const isCollapse = ref(false)
-
+const layoutStore = useLayoutStore()
 const filteredLinks = ref<RouteRecordRaw[]>([])
 
 // 递归过滤隐藏的路由
@@ -140,9 +140,7 @@ const breadcrumbList = computed(() => {
     }))
 })
 
-const toggleCollapse = () => {
-  isCollapse.value = !isCollapse.value
-}
+// 不再需要本地的 toggleCollapse 方法，直接使用 store 中的方法
 </script>
 
 <style scoped lang="scss">

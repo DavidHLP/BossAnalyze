@@ -8,6 +8,9 @@ import { createPinia } from 'pinia'
 // 引入Pinia持久化插件
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
+// 导入mock服务
+import '@/mock'
+
 import App from './App.vue'
 import router from './router'
 import { useUserStore } from '@/stores/user/userStore'

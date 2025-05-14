@@ -1,0 +1,319 @@
+<template>
+  <div class="resume-edit-container">
+    <el-form :model="resumeForm" label-position="top" class="resume-form">
+      <!-- 基本信息 -->
+      <div class="form-section">
+        <h3 class="section-title">基本信息</h3>
+        <BasicInfoEdit
+          v-model:basicInfo="basicInfoComputed"
+        />
+      </div>
+
+      <!-- 求职意向 -->
+      <div class="form-section">
+        <h3 class="section-title">求职意向</h3>
+        <JobIntentionEdit
+          v-model:jobIntention="jobIntentionComputed"
+        />
+      </div>
+
+      <!-- 教育背景 -->
+      <div class="form-section">
+        <h3 class="section-title">教育背景</h3>
+        <EducationalBackgroundEdit v-model:education="resumeForm.education" />
+      </div>
+
+      <!-- 工作经验 -->
+      <div class="form-section">
+        <h3 class="section-title">工作经验</h3>
+        <WorkExperienceEdit v-model:workExperience="resumeForm.workExperience" />
+      </div>
+
+      <!-- 技能和证书 -->
+      <div class="form-section">
+        <h3 class="section-title">个人证书</h3>
+        <CertificateEdit v-model:certificates="resumeForm.certificates" />
+      </div>
+
+      <!-- 兴趣爱好 -->
+      <div class="form-section">
+        <h3 class="section-title">兴趣爱好</h3>
+        <InterestTagsEdit v-model:interestTags="resumeForm.interestTags" />
+      </div>
+
+      <!-- 自我评价 -->
+      <div class="form-section">
+        <h3 class="section-title">自我评价</h3>
+        <SelfEvaluationEdit v-model="resumeForm.selfEvaluation" />
+      </div>
+    </el-form>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { reactive, onMounted, defineProps, defineEmits, computed, watch } from 'vue'
+import BasicInfoEdit from './components/edit/BasicInfoEdit.vue'
+import JobIntentionEdit from './components/edit/JobIntentionEdit.vue'
+import CertificateEdit from './components/edit/CertificateEdit.vue'
+import InterestTagsEdit from './components/edit/InterestTagsEdit.vue'
+import EducationalBackgroundEdit from './components/edit/EducationalBackgroundEdit.vue'
+import SelfEvaluationEdit from './components/edit/Self-EvaluationEdit.vue'
+import WorkExperienceEdit from './components/edit/WorkExperienceEdit.vue'
+import type { ResumeData } from '@/mock/resumeData'
+
+// Props 定义
+const props = defineProps<{
+  resumeData?: ResumeData
+}>()
+
+// Emits 定义
+const emit = defineEmits<{
+  (e: 'save', data: ResumeData): void
+  (e: 'preview', data: ResumeData): void
+  (e: 'update:form', data: ResumeData): void
+}>()
+
+// 响应式状态
+const resumeForm = reactive<ResumeData>({
+  name: '',
+  age: '',
+  gender: '',
+  location: '',
+  experience: '',
+  phone: '',
+  email: '',
+  avatar: '',
+  jobTarget: '',
+  expectedSalary: '',
+  targetCity: '',
+  availableTime: '',
+  education: [],
+  workExperience: [],
+  languageSkills: '',
+  professionalSkills: '',
+  computerSkills: '',
+  certificates: [],
+  interestTags: [],
+  selfEvaluation: '',
+  customSkills: []
+})
+
+// 创建计算属性分离表单数据
+const basicInfoComputed = computed({
+  get: () => ({
+    name: resumeForm.name,
+    age: resumeForm.age,
+    gender: resumeForm.gender,
+    location: resumeForm.location,
+    experience: resumeForm.experience,
+    phone: resumeForm.phone,
+    email: resumeForm.email,
+    avatar: resumeForm.avatar
+  }),
+  set: (val) => {
+    Object.assign(resumeForm, val);
+    // 触发表单更新事件
+    emit('update:form', {...resumeForm});
+  }
+});
+
+const jobIntentionComputed = computed({
+  get: () => ({
+    jobTarget: resumeForm.jobTarget,
+    expectedSalary: resumeForm.expectedSalary,
+    targetCity: resumeForm.targetCity,
+    availableTime: resumeForm.availableTime
+  }),
+  set: (val) => {
+    Object.assign(resumeForm, val);
+    // 触发表单更新事件
+    emit('update:form', {...resumeForm});
+  }
+});
+
+// 初始化表单数据
+onMounted(() => {
+  if (props.resumeData && Object.keys(props.resumeData).length > 0) {
+    initFormData()
+  } else {
+    setDefaultValues()
+  }
+})
+
+// 方法
+const initFormData = () => {
+  if (!props.resumeData) return;
+
+  const data = props.resumeData;
+
+  // 基本信息
+  resumeForm.name = data.name || '';
+  resumeForm.age = data.age || '';
+  resumeForm.gender = data.gender || '';
+  resumeForm.location = data.location || '';
+  resumeForm.experience = data.experience || '';
+  resumeForm.phone = data.phone || '';
+  resumeForm.email = data.email || '';
+  resumeForm.avatar = data.avatar || '';
+
+  // 求职意向
+  resumeForm.jobTarget = data.jobTarget || '';
+  resumeForm.expectedSalary = data.expectedSalary || '';
+  resumeForm.targetCity = data.targetCity || '';
+  resumeForm.availableTime = data.availableTime || '';
+
+  // 技能部分
+  resumeForm.languageSkills = data.languageSkills || '';
+  resumeForm.professionalSkills = data.professionalSkills || '';
+  resumeForm.computerSkills = data.computerSkills || '';
+  resumeForm.selfEvaluation = data.selfEvaluation || '';
+
+  // 处理证书列表
+  resumeForm.certificates = Array.isArray(data.certificates) ? [...data.certificates] : [];
+
+  // 数组类型的字段需要确保是数组
+  resumeForm.interestTags = Array.isArray(data.interestTags) ? [...data.interestTags] : [];
+  resumeForm.education = Array.isArray(data.education) ? [...data.education] : [];
+  resumeForm.workExperience = Array.isArray(data.workExperience) ? [...data.workExperience] : [];
+
+  // 自定义技能
+  resumeForm.customSkills = Array.isArray(data.customSkills) ? [...data.customSkills] : [];
+
+  // 初始化后触发一次更新
+  emit('update:form', {...resumeForm});
+}
+
+const setDefaultValues = () => {
+  Object.assign(resumeForm, {
+    name: 'DavidHLP',
+    age: '27岁',
+    gender: '男',
+    location: '上海',
+    experience: '4年经验',
+    phone: '15688888888',
+    email: 'example@qq.com',
+    avatar: '',
+    jobTarget: '行政专员',
+    expectedSalary: '8000/月',
+    targetCity: '上海',
+    availableTime: '一个月内到岗',
+    education: [
+      {
+        startDate: '2012-09',
+        endDate: '2016-07',
+        school: '全民简历师范大学',
+        major: '工商管理（本科）',
+        gpa: 'GPA 3.86/4（专业前5%）',
+        courses: '统计分析学、市场研究学、组织行为学、经济法概论、财务会计学、数据学管理、国际行为学、市场营销学、国际贸易理论、国际贸易实务、人力资源开发与管理、财务管理学、企业战略管理概论、资源管理学、资源管理与优化等。'
+      }
+    ],
+    workExperience: [
+      {
+        startDate: '2018-09',
+        endDate: '至今',
+        company: '全民简历科技有限公司',
+        position: '行政专员',
+        duties: [
+          '负责公司行政人事管理和日常工作，以及员工培训、假期管理等工作的统筹',
+          '公司规章制度，内部办公制度，保证上报下载下高效运行，负责公司文件归档的事项进行归档',
+          '部门相关事，负责公司团队状况的制作',
+          '公司各人事管理制度，配合各负责人审批。'
+        ]
+      },
+      {
+        startDate: '2016-09',
+        endDate: '2018-08',
+        company: '上海某学网络科技有限公司',
+        position: '行政专员',
+        duties: [
+          '负责中心服务的对接、部门管控',
+          '负责公司团队部门各种会议工作，负责引导新人，积极团队工作推广',
+          '负责中心行政事务，公司证照管理，负责部门工作下属管理',
+          '负责招聘工作，筛选人才和负责人小组面试及测验',
+          '管理公司档案工作，人事档案，劳工档案，生日活动及公司档案管理会的活动的执行',
+          '负责招聘工作，筛选公司的人力资源配件材料，编写人才聘用及相关标准及资料'
+        ]
+      }
+    ],
+    languageSkills: '大学英语6级证书，英语可进行日常交流和简单文档写作',
+    professionalSkills: '熟练掌握操作系统原理及网络协议的运行方式,熟练使用',
+    computerSkills: '计算机二级证书，熟练运用常见办公软件，如Word、Excel、PowerPoint等',
+    interestTags: ['爱阅读', '旅游', '王者荣耀'],
+    selfEvaluation: '工作积极认真，细心负责，熟练运用公众自动化软件，善于在工作中提出创意，发现问题，整理流程，有较强的分析能力，易融于学习，接受新知；好学勤力强，认真负责，有良好的团队合作精神；诚实守信，吃苦耐劳，宽以待人。',
+    customSkills: [
+      {
+        name: '项目管理',
+        description: '具有多年项目管理经验，熟悉敏捷开发方法论'
+      }
+    ],
+    certificates: [
+      {
+        name: '英语四级证书',
+        date: '2014-06',
+        description: '英语听说读写都较好，能够使用英语进行日常交流，熟练通读英文文档和资料'
+      },
+      {
+        name: 'PMP项目管理认证',
+        date: '2021-06',
+        description: '全球认可的项目管理专业资质认证'
+      }
+    ]
+  })
+}
+
+// 已在父组件中实现相关功能
+
+// 添加表单字段监听器
+watch(() => resumeForm.education, () => {
+  emit('update:form', {...resumeForm});
+}, { deep: true });
+
+watch(() => resumeForm.workExperience, () => {
+  emit('update:form', {...resumeForm});
+}, { deep: true });
+
+watch(() => resumeForm.certificates, () => {
+  emit('update:form', {...resumeForm});
+}, { deep: true });
+
+watch(() => resumeForm.interestTags, () => {
+  emit('update:form', {...resumeForm});
+}, { deep: true });
+
+watch(() => resumeForm.selfEvaluation, () => {
+  emit('update:form', {...resumeForm});
+});
+</script>
+
+<style scoped>
+.resume-edit-container {
+  padding: 20px;
+}
+
+.resume-form {
+  background-color: #fff;
+  border-radius: 4px;
+}
+
+.form-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  margin-top: 0;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #3498db;
+  color: #2c3e50;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+}
+</style>
