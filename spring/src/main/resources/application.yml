@@ -14,19 +14,15 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-  mail:
-    outTime: 15
-    host: smtp.163.com # 你邮箱的smtp地址
-    username: xxxxxxxx@163.com # 申请了smtp的邮箱
-    password: yyyyyyyyyyy # SMTP服务的秘钥
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
 
   data:
+    mongodb:
+      host: 127.0.0.1
+      port: 27017
+      database: resumedb
+      username: root
+      password: Alone117
+      authentication-database: admin
     redis:
       host: 127.0.0.1
       port: 6379
@@ -39,6 +35,17 @@ spring:
           max-wait: -1    # 最大阻塞等待时间(负数表示无限制)
           max-idle: 5     # 最大空闲连接数
           min-idle: 0     # 最小空闲连接数
+
+# MinIO配置
+minio:
+  endpoint: http://127.0.0.1:18988
+  accessKey: root
+  secretKey: Alone117
+  bucketName: default-bucket
+  # 可选配置
+  secure: false  # 如果使用HTTPS则设为true
+  connectTimeout: 10000  # 连接超时时间(毫秒)
+  readTimeout: 10000     # 读取超时时间(毫秒)
 
 application:
   security:
@@ -54,9 +61,9 @@ server:
       enabled: false # 禁用 Spring 默认错误页面
   port: 8080
 
-logging:
-  level:
-    org.springframework.boot.autoconfigure: OFF
+# logging:
+#   level:
+#     org.springframework.boot.autoconfigure: OFF
     # org.springframework: DEBUG
     # com.david.hlp.Spring.system.mapper: TRACE
     # org.mybatis: DEBUG
@@ -64,8 +71,8 @@ logging:
     # com.david.hlp.Spring.common.util.aspect: DEBUG
     # com.david.hlp.Spring.common.util.datasource: DEBUG
     # org.springframework.jdbc: DEBUG
-  file:
-    name: /home/david/Project/BlogAndChart/logs/spring.log # 主日志文件路径
+  # file:
+    # name: /home/david/Project/BlogAndChart/logs/spring.log # 主日志文件路径
 
 # MyBatis & MyBatis-Plus 配置
 mybatis-plus:

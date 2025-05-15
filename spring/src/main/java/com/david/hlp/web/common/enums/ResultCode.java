@@ -9,6 +9,7 @@ package com.david.hlp.web.common.enums;
 public enum ResultCode {
     /** 成功状态码 */
     SUCCESS(200, "操作成功"),
+    ERROR(500, "操作失败"),
 
     /** 客户端错误 4xx */
     BAD_REQUEST(400, "请求参数错误"),

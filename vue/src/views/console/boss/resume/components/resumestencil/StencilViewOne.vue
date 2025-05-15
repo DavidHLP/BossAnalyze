@@ -5,6 +5,7 @@
       <div class="left-sidebar">
         <div class="sidebar-content">
           <BasicInfoView :basicInfo="resume" />
+          <!-- 兴趣爱好 -->
           <div class="interest-section">
             <h3>兴趣爱好</h3>
             <InterestTagsView :interestTags="resume.interestTags || []" />
@@ -19,25 +20,40 @@
           <JobIntentionView :jobIntention="resume" />
         </div>
 
-        <!-- 教育背景 -->
-        <EducationalBackgroundView :education="resume.education" />
+        <!-- 动态渲染各部分，根据sectionOrder排序 -->
+        <template v-for="sectionType in orderedSections" :key="sectionType">
+          <!-- 教育背景 -->
+          <EducationalBackgroundView
+            v-if="sectionType === 'education'"
+            :education="resume.education"
+          />
 
-        <!-- 工作经验 -->
-        <WorkExperienceView :workExperience="resume.workExperience" />
+          <!-- 工作经验 -->
+          <WorkExperienceView
+            v-if="sectionType === 'workExperience'"
+            :workExperience="resume.workExperience"
+          />
 
-        <!-- 证书资质 -->
-        <CertificateView
-          :certificates="resume.certificates"
-        />
+          <!-- 证书资质 -->
+          <CertificateView
+            v-if="sectionType === 'certificates'"
+            :certificates="resume.certificates"
+          />
 
-        <!-- 自我评价 -->
-        <SelfEvaluationView :evaluation="resume.selfEvaluation" />
+
+          <!-- 自我评价 -->
+          <SelfEvaluationView
+            v-if="sectionType === 'selfEvaluation'"
+            :evaluation="resume.selfEvaluation"
+          />
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
+import { computed } from 'vue'
 import BasicInfoView from './components/view/BasicInfoView.vue'
 import InterestTagsView from './components/view/InterestTagsView.vue'
 import JobIntentionView from './components/view/JobIntentionView.vue'
@@ -45,12 +61,19 @@ import CertificateView from './components/view/CertificateView.vue'
 import EducationalBackgroundView from './components/view/EducationalBackgroundView.vue'
 import SelfEvaluationView from './components/view/Self-EvaluationView.vue'
 import WorkExperienceView from './components/view/WorkExperienceView.vue'
-import type { ResumeData } from '@/mock/resumeData'
+import type { ResumeData } from '@/api/resume/resume.d'
 
 // Props
-defineProps<{
+const props = defineProps<{
   resume: ResumeData
 }>()
+
+  // 根据sectionOrder计算组件显示顺序
+const orderedSections = computed(() => {
+  // 若未提供顺序，则使用默认顺序
+  const defaultOrder = ['education', 'workExperience', 'certificates', 'selfEvaluation'];
+  return props.resume.sectionOrder || defaultOrder;
+})
 </script>
 
 <style scoped>
@@ -60,32 +83,32 @@ defineProps<{
   align-items: flex-start;
   padding: 20px;
   background-color: #f5f5f5;
-  min-height: 100vh;
+  min-height: 100%;
+  width: 100%;
 }
 
 .resume-container {
   display: flex;
-  font-family: Arial, sans-serif;
   width: 100%;
   max-width: 1000px;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-  border-radius: 5px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
   overflow: hidden;
   min-height: 100%;
-  /* 确保左右两侧等高的关键属性 */
+  background-color: white;
   align-items: stretch;
 }
 
 .left-sidebar {
   width: 250px;
   min-width: 250px;
-  background-color: #34495e;
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
   color: white;
   flex-shrink: 0;
 }
 
 .sidebar-content {
-  padding: 20px;
+  padding: 30px 20px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -93,14 +116,16 @@ defineProps<{
 
 .avatar-container {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
 }
 
 .avatar {
-  width: 120px;
-  height: 120px;
-  border-radius: 5px;
+  width: 140px;
+  height: 140px;
+  border-radius: 8px;
   object-fit: cover;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  border: 3px solid rgba(255, 255, 255, 0.2);
 }
 
 .personal-info {
@@ -108,7 +133,7 @@ defineProps<{
 }
 
 .info-item {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   font-size: 14px;
@@ -116,36 +141,26 @@ defineProps<{
 }
 
 .info-item i {
-  margin-right: 10px;
+  margin-right: 12px;
 }
 
 .skill-section, .interest-section {
-  margin-bottom: 25px;
+  margin-bottom: 30px;
 }
 
 .interest-section {
-  margin-top: auto; /* 将兴趣部分推到底部 */
+  margin-top: auto;
   padding-bottom: 20px;
-  flex-grow: 1; /* 使其撑满剩余空间 */
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
 }
 
-.interest-section h3 {
-  border-bottom: 1px solid #7f8c8d;
-  padding-bottom: 8px;
-  margin-bottom: 15px;
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: #ffffff;
-  letter-spacing: 0.5px;
-}
-
 .skill-section h3, .interest-section h3 {
-  border-bottom: 1px solid #7f8c8d;
-  padding-bottom: 8px;
-  margin-bottom: 15px;
-  font-size: 1.15rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+  font-size: 18px;
   font-weight: 600;
   color: #ffffff;
   letter-spacing: 0.5px;
@@ -158,91 +173,121 @@ defineProps<{
 
 .right-content {
   flex: 1;
-  padding: 30px;
+  padding: 40px;
   background-color: white;
   min-width: 500px;
 }
 
 .header {
-  margin-bottom: 30px;
+  margin-bottom: 35px;
 }
 
 .name {
   color: #2c3e50;
-  font-size: 28px;
+  font-size: 32px;
+  font-weight: 700;
   margin-bottom: 15px;
+  letter-spacing: 0.5px;
 }
 
 .section {
-  margin-bottom: 30px;
+  margin-bottom: 35px;
+  padding-bottom: 5px;
 }
 
 .section-header {
   display: flex;
   align-items: center;
-  margin-bottom: 15px;
-  border-bottom: 2px solid #3498db;
-  padding-bottom: 5px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #3B82F6;
+  padding-bottom: 8px;
 }
 
 .icon-circle {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background-color: #3498db;
+  background-color: #3B82F6;
   display: flex;
   justify-content: center;
   align-items: center;
   color: white;
-  margin-right: 10px;
+  margin-right: 12px;
+  box-shadow: 0 2px 5px rgba(59, 130, 246, 0.3);
 }
 
 .section-header h2 {
   color: #2c3e50;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 600;
   margin: 0;
 }
 
 .timeline-item {
-  margin-bottom: 20px;
+  margin-bottom: 25px;
+  padding-left: 20px;
+  border-left: 2px solid #e2e8f0;
+  position: relative;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-item:before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #3B82F6;
 }
 
 .time-range {
-  color: #7f8c8d;
+  color: #64748b;
   font-size: 14px;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
 .institution {
-  font-weight: bold;
+  font-weight: 600;
   color: #2c3e50;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
+  font-size: 16px;
 }
 
 .position {
-  color: #e74c3c;
-  margin-bottom: 10px;
+  color: #3B82F6;
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 15px;
 }
 
 .details {
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.7;
+  color: #334155;
 }
 
 .certificate-content, .self-evaluation {
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.7;
+  color: #334155;
 }
 
 /* 响应式设计 */
 @media screen and (max-width: 1024px) {
   .resume-container {
-    flex-direction: row !important; /* 强制保持水平布局 */
+    flex-direction: row !important;
     max-width: 900px;
   }
 
   .right-content {
     min-width: 400px;
+    padding: 30px;
   }
 }
 
@@ -255,6 +300,19 @@ defineProps<{
     max-width: 100%;
     overflow-x: auto;
   }
+
+  .left-sidebar {
+    width: 220px;
+    min-width: 220px;
+  }
+
+  .right-content {
+    padding: 25px;
+  }
+
+  .name {
+    font-size: 28px;
+  }
 }
 
 @media print {
@@ -266,7 +324,7 @@ defineProps<{
   .resume-container {
     max-width: 100%;
     overflow-x: visible;
-    flex-direction: row !important; /* 打印时也保持水平布局 */
+    flex-direction: row !important;
     box-shadow: none;
   }
 

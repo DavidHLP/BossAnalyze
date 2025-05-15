@@ -17,7 +17,7 @@ import java.util.Random;
 @Slf4j
 public class WebDriverConfig {
 
-    @Value("${webdriver.chrome.driver:/home/david/Driver/chromedriver-linux64/chromedriver}")
+    @Value("${webdriver.chrome.driver}")
     private String chromeDriverPath;
 
     @Value("${webdriver.chrome.headless:true}")

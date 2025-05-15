@@ -40,7 +40,9 @@ public class SecurityConfiguration {
                     "/api/boss/**",
                     "/api/proxy/**",
                     "/api/boss/basic/**",
-                    "/api/boss/user/**"
+                    "/api/boss/user/**",
+                    "/api/resume/**",
+                    "/api/image/**"
                 ).permitAll()
                 .requestMatchers("/api/user/**").hasRole("ADMIN")
                 .requestMatchers("/api/role/**").hasRole("ADMIN")

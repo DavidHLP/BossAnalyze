@@ -1,43 +1,68 @@
 <template>
-  <template v-for="link in links" :key="link.path">
-    <!-- 只有当meta.type不是'F'时才显示节点 -->
-    <template v-if="link.meta?.type !== 'F'">
-      <el-sub-menu v-if="link.meta?.type === 'M'" :index="link.path">
-        <template #title>
-          <div class="menu-item-content">
-            <el-icon><component :is="link.meta?.metaIcon || (link as any).icon || 'Document'" /></el-icon>
-            <span>{{ link.name }}</span>
-          </div>
-        </template>
-        <SidebarMenuLinks :links="link.children || []" />
-      </el-sub-menu>
-      <el-sub-menu v-if="link.meta?.type === 'C' && (link.children?.length || 0) > 0 && link.children?.some(child => child.meta?.type !== 'F')" :index="link.path">
-        <template #title>
-          <div class="menu-item-content">
-            <el-icon><component :is="link.meta?.metaIcon || (link as any).icon || 'Document'" /></el-icon>
-            <span>{{ link.name }}</span>
-          </div>
-        </template>
-        <SidebarMenuLinks :links="link.children || []" />
-      </el-sub-menu>
-      <el-menu-item v-else-if="link.meta?.type === 'C'" :index="link.path">
+  <template v-for="link in filteredLinks" :key="link.path">
+    <!-- 目录类型显示为子菜单 -->
+    <el-sub-menu v-if="link.meta?.type === 'M'" :index="link.path">
+      <template #title>
         <div class="menu-item-content">
-          <el-icon><component :is="link.meta?.metaIcon || (link as any).icon || 'Document'" /></el-icon>
+          <el-icon><component :is="link.meta?.metaIcon || 'Document'" /></el-icon>
           <span>{{ link.name }}</span>
         </div>
-      </el-menu-item>
-    </template>
+      </template>
+      <SidebarMenuLinks v-if="hasChildren(link)" :links="link.children || []" />
+    </el-sub-menu>
+
+    <!-- 菜单类型且有可见子菜单，显示为子菜单 -->
+    <el-sub-menu v-else-if="link.meta?.type === 'C' && hasChildren(link)" :index="link.path">
+      <template #title>
+        <div class="menu-item-content">
+          <el-icon><component :is="link.meta?.metaIcon || 'Document'" /></el-icon>
+          <span>{{ link.name }}</span>
+        </div>
+      </template>
+      <SidebarMenuLinks :links="link.children || []" />
+    </el-sub-menu>
+
+    <!-- 菜单类型且无子菜单，显示为菜单项 -->
+    <el-menu-item v-else-if="link.meta?.type === 'C'" :index="link.path">
+      <div class="menu-item-content">
+        <el-icon><component :is="link.meta?.metaIcon || 'Document'" /></el-icon>
+        <span>{{ link.name }}</span>
+      </div>
+    </el-menu-item>
   </template>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { RouteRecordRaw } from 'vue-router';
 import type { Router } from '@/router/index.d';
 
-// 定义接受的props类型为RouteRecordRaw数组或后端返回的Router数组
-defineProps<{
-  links: (RouteRecordRaw | Router)[]
-}>();
+// 定义props类型
+interface Props {
+  links: (RouteRecordRaw | Router)[];
+}
+
+const props = defineProps<Props>();
+
+// 过滤出可见的菜单链接
+const filteredLinks = computed(() => {
+  return props.links.filter(link => isVisible(link));
+});
+
+// 判断链接是否可见
+function isVisible(link: RouteRecordRaw | Router): boolean {
+  return link.meta?.type !== 'F' && !link.meta?.metaHidden;
+}
+
+// 判断是否有可见的子菜单
+function hasChildren(link: RouteRecordRaw | Router): boolean {
+  if (!link.children || link.children.length === 0) {
+    return false;
+  }
+
+  // 检查是否有至少一个可见的子链接
+  return link.children.some(child => isVisible(child));
+}
 </script>
 
 <style lang="scss">

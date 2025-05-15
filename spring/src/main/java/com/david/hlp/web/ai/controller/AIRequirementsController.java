@@ -22,7 +22,7 @@ public class AIRequirementsController {
 
     @GetMapping("/get-core-requirements")
     public List<String> getCoreRequirements(@RequestParam(required = false) String city, @RequestParam(required = false) String position) {
-        URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
+        URI url = UriComponentsBuilder.fromUriString(BaseUrl)
                                          .path("/get-core-requirements")
                                          .queryParam("city", city)
                                          .queryParam("position", position)

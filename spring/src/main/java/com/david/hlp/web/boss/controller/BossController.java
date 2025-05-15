@@ -27,7 +27,7 @@ public class BossController {
 
     @GetMapping("/salary-hot-job")
     public Result<List<SalaryJob>> getSalaryJobAnalysis(@RequestParam(required = false, defaultValue = "20") Long limit) {
-        URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
+        URI url = UriComponentsBuilder.fromUriString(BaseUrl)
                                          .path("/salary-hot-job")
                                          .queryParam("limit", limit)
                                          .build().encode().toUri();
@@ -46,7 +46,7 @@ public class BossController {
                                                                         @RequestParam(required = false, defaultValue = "all") String positionName,
                                                                         @RequestParam(required = false, defaultValue = "salary_value") String xAxis,
                                                                         @RequestParam(required = false, defaultValue = "degree_value") String yAxis) {
-        URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
+        URI url = UriComponentsBuilder.fromUriString(BaseUrl)
                                          .path("/two-dimensional-analysis-chart")
                                          .queryParam("cityName", cityName)
                                          .queryParam("positionName", positionName)
@@ -66,7 +66,7 @@ public class BossController {
     @GetMapping("/three-dimensional-analysis-chart")
     public Result<List<JobAnalysisData>> getThreeDimensionalAnalysisChart(@RequestParam(required = false, defaultValue = "all") String cityName,
                                                                          @RequestParam(required = false, defaultValue = "all") String positionName) {
-        URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
+        URI url = UriComponentsBuilder.fromUriString(BaseUrl)
                                          .path("/three-dimensional-analysis-chart")
                                          .queryParam("cityName", cityName)
                                          .queryParam("positionName", positionName)

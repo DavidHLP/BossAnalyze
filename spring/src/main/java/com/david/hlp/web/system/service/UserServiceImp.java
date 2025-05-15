@@ -32,12 +32,12 @@ public class UserServiceImp {
         List<User> users = userMapper.listByPage(pageNum-1, pageSize, query);
         Long total = userMapper.count(query); // 获取总记录数
         PageInfo<User> pageInfo = PageInfo.<User>builder()
-                .items(users)
+                .content(users)
                 .query(query)
-                .pageNum(pageNum)
-                .pageSize(pageSize)
-                .total(total)
-                .pages((int)Math.ceil((double)total / pageSize))
+                .number(pageNum)
+                .size(pageSize)
+                .totalElements(total)
+                .totalPages((int)Math.ceil((double)total / pageSize))
                 .build();
         return pageInfo;
     }

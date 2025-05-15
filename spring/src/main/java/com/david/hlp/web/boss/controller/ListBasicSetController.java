@@ -23,7 +23,7 @@ public class ListBasicSetController {
 
     @GetMapping("/city-name-list")
     public List<String> getCityNameList() {
-        URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
+        URI url = UriComponentsBuilder.fromUriString(BaseUrl)
                 .path("/city-name-list")
                 .build().encode().toUri();
         ResponseEntity<List<String>> responseEntity = restTemplate.exchange(
@@ -37,7 +37,7 @@ public class ListBasicSetController {
 
     @GetMapping("/position-name-list")
     public List<String> getPositionNameList(@RequestParam(defaultValue = "all") String cityName) {
-        URI url = UriComponentsBuilder.fromHttpUrl(BaseUrl)
+        URI url = UriComponentsBuilder.fromUriString(BaseUrl)
                 .path("/position-name-list")
                 .queryParam("cityName", cityName)
                 .build().encode().toUri();

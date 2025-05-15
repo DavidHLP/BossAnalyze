@@ -103,8 +103,7 @@
 
         <div class="pagination-container">
           <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize" :page-sizes="[5, 10, 20]"
-            layout="total, sizes, prev, pager, next" :total="total" @current-change="handleCurrentChange"
-            @size-change="handleSizeChange" background />
+            layout="total, sizes, prev, pager, next" :total="total" background />
         </div>
       </el-card>
     </div>
@@ -154,9 +153,9 @@ import {
   ElCard,
 } from 'element-plus'
 import { getUserManageInfo } from '@/api/user/user'
-import { computed, ref, onMounted, reactive } from 'vue'
+import { computed, ref, onMounted, reactive, watch } from 'vue'
 import type { UserBaseInfo as User } from '@/api/auth/auth.d'
-import type { PageInfo } from '@/utils/types/common'
+import type { PageInfo } from '@/types/common'
 import { getRoleList } from '@/api/role/role'
 import { deleteUser } from '@/api/user/user'
 import EditUser from './components/EditUser.vue'
@@ -185,13 +184,13 @@ const roleOptions = ref<{ label: string; value: number }[]>([]) // 单独的角�
 // 修改后的数据获取方法
 const fetchData = async (page: number, size: number, params?: User) => {
   const res: PageInfo<User> = await getUserManageInfo(page, size, params)
-  tableData.splice(0, tableData.length, ...res.items)
+  tableData.splice(0, tableData.length, ...res.content)
   tableData.forEach((item) => {
     item.status = Number(item.status)
   })
-  total.value = res.total
-  pageNum.value = res.pageNum
-  pageSize.value = res.pageSize
+  total.value = res.totalElements
+  pageNum.value = res.number
+  pageSize.value = res.size
 }
 
 // 搜索处理
@@ -212,6 +211,28 @@ const handleReset = () => {
   fetchData(1, pageSize.value)
 }
 
+// 分别监听页码和页大小变化
+watch(pageNum, (newPage, oldPage) => {
+  if (newPage !== oldPage) {
+    fetchData(newPage, pageSize.value, {
+      name: searchForm.name || undefined,
+      status: searchForm.status || undefined,
+      roleId: searchForm.roleId,
+    })
+  }
+})
+
+watch(pageSize, (newSize, oldSize) => {
+  if (newSize !== oldSize) {
+    pageNum.value = 1 // 页大小变化时，重置为第一页
+    fetchData(1, newSize, {
+      name: searchForm.name || undefined,
+      status: searchForm.status || undefined,
+      roleId: searchForm.roleId,
+    })
+  }
+})
+
 // 修改onMounted中的调用
 onMounted(async () => {
   await fetchData(1, 10)
@@ -222,15 +243,6 @@ onMounted(async () => {
     value: item.id ?? 0,
   }))
 })
-
-const handleCurrentChange = (val: number) => {
-  pageNum.value = val
-}
-
-const handleSizeChange = (val: number) => {
-  pageSize.value = val
-  pageNum.value = 1
-}
 
 // 添加编辑相关状态
 const editDialogVisible = ref(false)

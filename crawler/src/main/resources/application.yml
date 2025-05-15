@@ -52,7 +52,7 @@ mybatis-plus:
 # WebDriver配置
 webdriver:
   chrome:
-    driver: /home/david/Driver/chromedriver-linux64/chromedriver
+    driver: /home/david/Driver/chromedriver-linux64-136/chromedriver
     headless: true
     disable-gpu: true
     no-sandbox: true

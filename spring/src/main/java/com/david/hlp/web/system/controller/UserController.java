@@ -37,8 +37,8 @@ public class UserController extends BaseController {
     @PostMapping("/getUserManageInfo")
     public Result<PageInfo<User>> getUserManageInfo(@RequestBody PageInfo<User> pageInfo) {
         return Result.success(userService.getUserManageInfo(
-            pageInfo.getPageNum(),
-            pageInfo.getPageSize(),
+            pageInfo.getNumber(),
+            pageInfo.getSize(),
             pageInfo.getQuery()
         ));
     }

@@ -132,7 +132,7 @@ onMounted(async () => {
 
 const breadcrumbList = computed(() => {
   return route.matched
-    .filter((item) => item.meta?.breadcrumb !== false)
+    .filter((item) => item.meta?.breadcrumb !== false && !item.meta?.metaHidden)
     .map((item) => ({
       path: item.path,
       name: item.name,

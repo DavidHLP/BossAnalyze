@@ -9,7 +9,7 @@ import { createPinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
 // 导入mock服务
-import '@/mock'
+// import '@/mock'
 
 import App from './App.vue'
 import router from './router'
