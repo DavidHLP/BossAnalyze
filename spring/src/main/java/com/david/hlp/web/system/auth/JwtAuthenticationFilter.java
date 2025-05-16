@@ -62,7 +62,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     "/api/boss/basic/",
     "/api/boss/user/",
     "/api/resume/",
-    "/api/image/"
   };
 
 

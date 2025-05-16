@@ -2,6 +2,7 @@ package com.david.hlp.web.minio.controller;
 
 import com.david.hlp.web.common.enums.ResultCode;
 import com.david.hlp.web.common.result.Result;
+import com.david.hlp.web.common.controller.BaseController;
 import com.david.hlp.web.minio.model.ImageResponse;
 import com.david.hlp.web.minio.service.MinioService;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/image")
 @RequiredArgsConstructor
-public class ImageController {
+public class ImageController extends BaseController {
 
     private final MinioService minioService;
 
@@ -53,8 +54,16 @@ public class ImageController {
                 return createErrorResult("只允许上传图片文件");
             }
 
+            // 获取原始文件名
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null) {
+                return createErrorResult("文件名不能为空");
+            }
+            // 构建新的文件名：用户ID_原始文件名
+            String newFileName = getCurrentUserId() + "_" + originalFilename;
+
             // 上传文件到MinIO
-            String fileName = minioService.uploadFile(file);
+            String fileName = minioService.uploadFile(file, newFileName);
             // 获取文件访问URL - 使用简短URL
             String fileUrl = minioService.getSimpleFileUrl(fileName);
 
@@ -83,8 +92,8 @@ public class ImageController {
      * @param fileName 文件名
      * @return 图片资源
      */
-    @GetMapping("/view")
-    public ResponseEntity<InputStreamResource> viewImage(@RequestParam("fileName") String fileName) {
+    @GetMapping("/view/{fileName}")
+    public ResponseEntity<InputStreamResource> viewImage(@PathVariable("fileName") String fileName) {
         try {
             InputStream inputStream = minioService.getObject(fileName);
             
@@ -137,11 +146,11 @@ public class ImageController {
      * @param fileName 文件名
      * @return 图片URL
      */
-    @GetMapping("/url")
-    public Result<ImageResponse> getImageUrl(@RequestParam("fileName") String fileName) {
+    @GetMapping("/url/{fileName}")
+    public Result<ImageResponse> getImageUrl(@PathVariable("fileName") String fileName) {
         try {
             // 使用简短URL而不是预签名URL
-            String url = minioService.getSimpleFileUrl(fileName);
+            String url = minioService.getFileUrl(fileName);
             
             ImageResponse response = ImageResponse.builder()
                     .success(true)

@@ -2,99 +2,146 @@
   <el-dialog
     v-model="dialogVisible"
     title="添加用户"
-    width="500px"
+    width="550px"
     :before-close="handleClose"
     class="add-user-dialog"
   >
-    <el-form
-      :model="formData"
-      :rules="rules"
-      ref="formRef"
-      label-width="100px"
-      class="user-form"
-    >
-      <el-form-item label="姓名" prop="name">
-        <el-input v-model="formData.name" placeholder="请输入姓名" class="rounded-input" />
-      </el-form-item>
-
-      <el-form-item label="邮箱" prop="email">
-        <el-input v-model="formData.email" placeholder="请输入邮箱" class="rounded-input" />
-      </el-form-item>
-
-      <el-form-item label="密码" prop="password">
-        <el-input
-          v-model="formData.password"
-          type="password"
-          placeholder="请输入密码"
-          show-password
-          class="rounded-input"
-        />
-      </el-form-item>
-
-      <el-form-item label="确认密码" prop="confirmPassword">
-        <el-input
-          v-model="formData.confirmPassword"
-          type="password"
-          placeholder="请再次输入密码"
-          show-password
-          class="rounded-input"
-        />
-      </el-form-item>
-
-      <el-form-item label="角色" prop="roleId">
-        <el-select
-          v-model="formData.roleId"
-          filterable
-          remote
-          reserve-keyword
-          placeholder="请输入角色名称"
-          :remote-method="remoteRoleSearch"
-          :loading="roleLoading"
-          class="rounded-input full-width"
+    <BCard no-body class="border-0 shadow-sm">
+      <BCardBody>
+        <el-form
+          :model="formData"
+          :rules="rules"
+          ref="formRef"
+          label-width="100px"
+          class="user-form"
         >
-          <el-option
-            v-for="role in roleOptions"
-            :key="role.value"
-            :label="role.label"
-            :value="role.value"
-          />
-        </el-select>
-      </el-form-item>
+          <div class="avatar-upload-section">
+            <el-upload
+              :http-request="handleUploadRequest"
+              :on-success="handleAvatarSuccess"
+              :file-list="formData.avatar ? [{ name: 'avatar', url: avatarUrl || '' }] : []"
+              list-type="picture-card"
+              class="avatar-uploader"
+              :auto-upload="true"
+            >
+              <div class="avatar-inner">
+                <template v-if="formData.avatar">
+                  <el-image :src="avatarUrl" class="uploaded-avatar" fit="cover" />
+                </template>
+                <div v-else class="upload-placeholder">
+                  <el-icon><Plus /></el-icon>
+                  <span>上传头像</span>
+                </div>
+              </div>
+            </el-upload>
+          </div>
 
-      <el-form-item label="状态" prop="status">
-        <el-switch
-          v-model="statusValue"
-          class="status-switch"
-          active-text="启用"
-          inactive-text="禁用"
-          inline-prompt
-        />
-      </el-form-item>
+          <el-form-item label="姓名" prop="name">
+            <el-input v-model="formData.name" placeholder="请输入姓名" class="rounded-input" />
+          </el-form-item>
 
-      <el-form-item label="地址">
-        <el-input
-          v-model="formData.address"
-          placeholder="请输入地址"
-          class="rounded-input"
-        />
-      </el-form-item>
+          <el-form-item label="邮箱" prop="email">
+            <el-input v-model="formData.email" placeholder="请输入邮箱" class="rounded-input">
+              <template #prefix>
+                <el-icon class="text-primary"><Message /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
 
-      <el-form-item label="个人简介">
-        <el-input
-          v-model="formData.introduction"
-          type="textarea"
-          placeholder="请输入个人简介"
-          :rows="3"
-          class="rounded-input"
-        />
-      </el-form-item>
-    </el-form>
+          <el-form-item label="密码" prop="password">
+            <el-input
+              v-model="formData.password"
+              type="password"
+              placeholder="请输入密码"
+              show-password
+              class="rounded-input"
+            >
+              <template #prefix>
+                <el-icon class="text-primary"><Lock /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-form-item label="确认密码" prop="confirmPassword">
+            <el-input
+              v-model="formData.confirmPassword"
+              type="password"
+              placeholder="请再次输入密码"
+              show-password
+              class="rounded-input"
+            >
+              <template #prefix>
+                <el-icon class="text-primary"><Lock /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-form-item label="角色" prop="roleId">
+            <el-select
+              v-model="formData.roleId"
+              filterable
+              remote
+              reserve-keyword
+              placeholder="请输入角色名称"
+              :remote-method="remoteRoleSearch"
+              :loading="roleLoading"
+              class="rounded-input full-width"
+            >
+              <template #prefix>
+                <el-icon class="text-primary"><UserIcon /></el-icon>
+              </template>
+              <el-option
+                v-for="role in roleOptions"
+                :key="role.value"
+                :label="role.label"
+                :value="role.value"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="状态" prop="status">
+            <div class="d-flex align-items-center">
+              <el-switch
+                v-model="statusValue"
+                class="status-switch me-3"
+                active-text="启用"
+                inactive-text="禁用"
+                inline-prompt
+              />
+              <BBadge :variant="statusValue ? 'success' : 'danger'">{{ statusValue ? '用户可登录系统' : '用户被禁止登录' }}</BBadge>
+            </div>
+          </el-form-item>
+
+          <el-form-item label="地址">
+            <el-input
+              v-model="formData.address"
+              placeholder="请输入地址"
+              class="rounded-input"
+            >
+              <template #prefix>
+                <el-icon class="text-primary"><Location /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-form-item label="个人简介">
+            <el-input
+              v-model="formData.introduction"
+              type="textarea"
+              placeholder="请输入个人简介"
+              :rows="3"
+              class="rounded-input"
+            />
+          </el-form-item>
+        </el-form>
+      </BCardBody>
+    </BCard>
 
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="handleClose" round>取消</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitLoading" round>
-          创建用户
+          {{ submitLoading ? '创建中...' : '创建用户' }}
         </el-button>
       </div>
     </template>
@@ -104,9 +151,11 @@
 <script lang="ts" setup>
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Plus, Message, Lock, User as UserIcon, Location } from '@element-plus/icons-vue'
 import type { FormInstance, FormItemRule } from 'element-plus'
 import { getRoleList } from '@/api/role/role'
 import { addUser } from '@/api/user/user'
+import { uploadImage, getImageUrl } from '@/api/minio/minio'
 import type { UserBaseInfo as User } from '@/api/auth/auth.d'
 
 // 父组件传入的props
@@ -136,6 +185,9 @@ const roleLoading = ref(false)
 // 提交状态
 const submitLoading = ref(false)
 
+// 头像URL
+const avatarUrl = ref('')
+
 // 表单数据
 const formData = reactive<User & { password?: string; confirmPassword?: string }>({
   name: '',
@@ -146,6 +198,7 @@ const formData = reactive<User & { password?: string; confirmPassword?: string }
   status: '1',
   address: '',
   introduction: '',
+  avatar: '',
 })
 
 // 状态值的计算属性，用于switch组件
@@ -244,6 +297,7 @@ const resetForm = () => {
     status: '1',
     address: '',
     introduction: '',
+    avatar: '',
   })
 }
 
@@ -285,6 +339,53 @@ watch(() => dialogVisible.value, (val) => {
     initRoleOptions()
   }
 })
+
+// 处理头像上传成功
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handleAvatarSuccess = (response: any) => {
+  formData.avatar = response.fileName
+  ElMessage.success('头像上传成功')
+}
+
+// 根据文件名获取图片URL
+const getImageUrlByFileName = async (fileName: string) => {
+  const response = await getImageUrl(fileName)
+  const url = response.url
+  return url
+}
+
+// 更新头像URL
+const updateAvatarUrl = async () => {
+  if (formData.avatar) {
+    avatarUrl.value = await getImageUrlByFileName(formData.avatar)
+  }
+}
+
+// 监听头像变化
+watch(() => formData.avatar, () => {
+  updateAvatarUrl()
+}, { immediate: true })
+
+// 自定义上传请求处理
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handleUploadRequest = async (options: any) => {
+  try {
+    const response = await uploadImage(options.file)
+    // 获取返回结果中的数据
+    const responseData = response
+    // 直接使用返回的对象
+    handleAvatarSuccess(responseData)
+    if (options.onSuccess) {
+      options.onSuccess(response)
+    }
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    ElMessage.error('头像上传失败，请稍后重试')
+    if (options.onError) {
+      options.onError(error)
+    }
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -294,16 +395,29 @@ watch(() => dialogVisible.value, (val) => {
     color: #fff;
     padding: 16px 20px;
     border-radius: 8px 8px 0 0;
+    margin-right: 0;
 
     .el-dialog__title {
       color: #fff;
       font-weight: 500;
       font-size: 18px;
     }
+
+    .el-dialog__close {
+      color: rgba(255, 255, 255, 0.8);
+      &:hover {
+        color: #fff;
+      }
+    }
   }
 
   :deep(.el-dialog__body) {
-    padding: 24px 30px;
+    padding: 20px;
+  }
+
+  :deep(.el-dialog__footer) {
+    padding: 10px 20px 20px;
+    border-top: none;
   }
 }
 
@@ -311,15 +425,35 @@ watch(() => dialogVisible.value, (val) => {
   .el-form-item {
     margin-bottom: 20px;
   }
+
+  :deep(.el-form-item__label) {
+    font-weight: 500;
+  }
+
+  :deep(.el-input__wrapper) {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) inset;
+    &:hover {
+      box-shadow: 0 0 0 1px $primary-color inset;
+    }
+    &.is-focus {
+      box-shadow: 0 0 0 1px $primary-color inset !important;
+    }
+  }
+
+  :deep(.el-input__prefix) {
+    margin-right: 8px;
+  }
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  padding-top: 10px;
 
   .el-button {
-    min-width: 100px;
+    min-width: 80px;
+    font-weight: normal;
   }
 }
 
@@ -327,46 +461,55 @@ watch(() => dialogVisible.value, (val) => {
   width: 80px;
 }
 
-.avatar-upload {
+.avatar-upload-section {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+}
 
-  .avatar-uploader {
-    width: 100px;
-    height: 100px;
+.avatar-uploader {
+  :deep(.el-upload) {
+    border: 1px dashed #d9d9d9;
     border-radius: 50%;
     overflow: hidden;
-    border: 1px dashed #d9d9d9;
     cursor: pointer;
     position: relative;
-    margin-bottom: 10px;
+    transition: all 0.3s ease;
 
     &:hover {
-      border-color: var(--el-color-primary);
-    }
-
-    .avatar-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .avatar-icon {
-      font-size: 28px;
-      color: #8c939d;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      border-color: $primary-color;
     }
   }
 
-  .avatar-tip {
-    font-size: 12px;
-    color: #909399;
-    margin-top: 8px;
+  .avatar-inner {
+    width: 110px;
+    height: 110px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .uploaded-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #8c8c8c;
+
+    .el-icon {
+      font-size: 22px;
+    }
+
+    span {
+      font-size: 14px;
+    }
   }
 }
 
@@ -376,11 +519,21 @@ watch(() => dialogVisible.value, (val) => {
   }
 
   .el-textarea__inner {
-    border-radius: 20px !important;
+    border-radius: 16px !important;
+    padding: 12px 16px;
+    transition: all 0.3s;
+
+    &:focus {
+      box-shadow: 0 0 0 1px $primary-color !important;
+    }
   }
 }
 
 .full-width {
   width: 100%;
+}
+
+:deep(.text-primary) {
+  color: $primary-color;
 }
 </style>

@@ -43,8 +43,8 @@
             <template #default="props">
               <div class="user-detail">
                 <div class="avatar-container">
-                  <el-image :src="props.row.avatar || '/assets/default-avatar.png'" class="user-avatar"
-                    :preview-src-list="[props.row.avatar]" fit="cover" />
+                  <el-image :src="avatarUrls[props.row.avatar] || ''" class="user-avatar"
+                    :preview-src-list="avatarUrls[props.row.avatar] ? [avatarUrls[props.row.avatar]] : []" fit="cover" preview-teleported />
                 </div>
                 <el-descriptions title="详细信息" border class="expanded-info" :column="2">
                   <el-descriptions-item label="姓名">{{ props.row.name }}</el-descriptions-item>
@@ -160,6 +160,7 @@ import { getRoleList } from '@/api/role/role'
 import { deleteUser } from '@/api/user/user'
 import EditUser from './components/EditUser.vue'
 import AddUser from './components/AddUser.vue'
+import { getImageUrl } from '@/api/minio/minio'
 
 // 生成更多测试数据
 const tableData: User[] = reactive([])
@@ -167,6 +168,24 @@ const tableData: User[] = reactive([])
 const pageNum = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+
+const avatarUrls = ref<Record<string, string>>({})
+
+// 预加载头像URL
+const loadAvatarUrl = async (fileName: string) => {
+  if (!avatarUrls.value[fileName]) {
+    const res = await getImageUrl(fileName)
+    avatarUrls.value[fileName] = res.url
+  }
+  return avatarUrls.value[fileName]
+}
+
+// 在表格数据加载后批量加载头像
+watch(tableData, async () => {
+  for (const user of tableData) {
+    if (user.avatar) await loadAvatarUrl(user.avatar)
+  }
+})
 
 const currentPageData = computed(() => {
   return tableData.slice((pageNum.value - 1) * pageSize.value, pageNum.value * pageSize.value)

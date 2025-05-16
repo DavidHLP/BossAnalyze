@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.david.hlp.web.common.controller.BaseController;
 import com.david.hlp.web.common.enums.ResultCode;
 import com.david.hlp.web.common.exception.ApiException;
 import com.david.hlp.web.common.result.PageInfo;

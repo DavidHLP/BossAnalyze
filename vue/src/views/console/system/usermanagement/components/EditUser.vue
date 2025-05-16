@@ -1,45 +1,67 @@
 <template>
   <el-dialog v-model="dialogVisible" title="编辑用户" width="600px" destroy-on-close center class="user-edit-dialog">
-    <el-form :model="formData" label-width="80px" class="edit-form">
-      <div class="avatar-upload-section">
-        <el-upload action="/api/upload/avatar" :on-success="handleAvatarSuccess"
-          :file-list="formData.avatar ? [{ name: 'avatar', url: formData.avatar }] : []" list-type="picture-card"
-          class="avatar-uploader">
-          <div class="upload-inner">
-            <template v-if="formData.avatar">
-              <el-image :src="formData.avatar" class="uploaded-avatar" fit="cover" />
-            </template>
-            <div v-else class="upload-placeholder">
-              <el-icon><Plus /></el-icon>
-              <span>上传头像</span>
-            </div>
+    <BCard no-body class="border-0 shadow-sm">
+      <BCardBody>
+        <el-form :model="formData" label-width="80px" class="edit-form">
+          <div class="avatar-upload-section">
+            <el-upload :http-request="handleUploadRequest" :on-success="handleAvatarSuccess"
+              :file-list="formData.avatar ? [{ name: 'avatar', url: avatarUrl || '' }] : []" list-type="picture-card"
+              class="avatar-uploader" :auto-upload="true">
+              <div class="avatar-inner">
+                <template v-if="formData.avatar">
+                  <el-image :src="avatarUrl" class="uploaded-avatar" fit="cover" />
+                </template>
+                <div v-else class="upload-placeholder">
+                  <el-icon>
+                    <Plus />
+                  </el-icon>
+                  <span>上传头像</span>
+                </div>
+              </div>
+            </el-upload>
           </div>
-        </el-upload>
-      </div>
 
-      <el-form-item label="姓名">
-        <el-input v-model="formData.name" class="form-input" />
-      </el-form-item>
-      <el-form-item label="角色">
-        <el-select v-model="formData.roleId" filterable remote reserve-keyword placeholder="请输入角色名称"
-          :remote-method="remoteRoleSearch" :loading="roleLoading" class="form-input">
-          <el-option v-for="role in formData.roleOptions" :key="role.value" :label="role.label" :value="role.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="状态">
-        <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" active-text="启用"
-          inactive-text="禁用" active-color="#1E88E5" inactive-color="#F44336" />
-      </el-form-item>
-      <el-form-item label="地址">
-        <el-input v-model="formData.address" class="form-input" />
-      </el-form-item>
-      <el-form-item label="邮箱">
-        <el-input v-model="formData.email" class="form-input" />
-      </el-form-item>
-      <el-form-item label="个人简介">
-        <el-input v-model="formData.introduction" type="textarea" :rows="4" class="form-input" />
-      </el-form-item>
-    </el-form>
+          <el-form-item label="姓名">
+            <el-input v-model="formData.name" class="rounded-input" />
+          </el-form-item>
+          <el-form-item label="角色">
+            <el-select v-model="formData.roleId" filterable remote reserve-keyword placeholder="请输入角色名称"
+              :remote-method="remoteRoleSearch" :loading="roleLoading" class="rounded-input full-width">
+              <template #prefix>
+                <el-icon class="text-primary"><UserIcon /></el-icon>
+              </template>
+              <el-option v-for="role in formData.roleOptions" :key="role.value" :label="role.label" :value="role.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="状态">
+            <div class="d-flex align-items-center">
+              <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="禁用"
+                active-color="#1E88E5" inactive-color="#F44336" class="me-3" />
+              <BBadge :variant="formData.status === 1 ? 'success' : 'danger'">
+                {{ formData.status === 1 ? '用户可登录系统' : '用户被禁止登录' }}
+              </BBadge>
+            </div>
+          </el-form-item>
+          <el-form-item label="地址">
+            <el-input v-model="formData.address" class="rounded-input">
+              <template #prefix>
+                <el-icon class="text-primary"><Location /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item label="邮箱">
+            <el-input v-model="formData.email" class="rounded-input">
+              <template #prefix>
+                <el-icon class="text-primary"><Message /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item label="个人简介">
+            <el-input v-model="formData.introduction" type="textarea" :rows="4" class="rounded-input" />
+          </el-form-item>
+        </el-form>
+      </BCardBody>
+    </BCard>
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="handleClose" round>取消</el-button>
@@ -62,11 +84,12 @@ import {
   ElImage,
   ElMessage,
 } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Message, User as UserIcon, Location } from '@element-plus/icons-vue'
 import { computed, ref, defineEmits, defineProps, watch } from 'vue'
 import type { UserBaseInfo as User } from '@/api/auth/auth.d'
 import { getRoleList } from '@/api/role/role'
 import { updateUser } from '@/api/user/user'
+import { uploadImage, getImageUrl } from '@/api/minio/minio'
 
 const props = defineProps({
   visible: {
@@ -99,6 +122,8 @@ const formData = ref<User>({
   roleOptions: [],
 })
 
+const avatarUrl = ref('')
+
 const roleLoading = ref(false)
 
 const loadRoleOptions = async () => {
@@ -109,7 +134,6 @@ const loadRoleOptions = async () => {
       value: Number(item.id) || 0,
     }))
     formData.value.roleOptions = formattedResponse
-    console.log(formattedResponse)
   } catch (error) {
     console.error('加载角色选项失败:', error)
   }
@@ -148,9 +172,47 @@ const remoteRoleSearch = async (roleName: string) => {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const handleAvatarSuccess = (response: any, file: any) => {
-  formData.value.avatar = response.url || file.url
+const handleAvatarSuccess = async (response: any) => {
+  formData.value.avatar = response.fileName
   ElMessage.success('头像上传成功')
+}
+
+const getImageUrlByFileName = async (fileName: string) => {
+  const response = await getImageUrl(fileName)
+  const url = response.url
+  return url
+}
+
+const updateAvatarUrl = async () => {
+  if (formData.value.avatar) {
+    avatarUrl.value = await getImageUrlByFileName(formData.value.avatar)
+  }
+}
+
+watch(() => formData.value.avatar, () => {
+  updateAvatarUrl()
+}, { immediate: true })
+
+// 自定义上传请求处理
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handleUploadRequest = async (options: any) => {
+  try {
+    const response = await uploadImage(options.file)
+    console.log(response)
+    // 获取返回结果中的数据
+    const responseData = response
+    // 直接使用返回的对象
+    handleAvatarSuccess(responseData)
+    if (options.onSuccess) {
+      options.onSuccess(response)
+    }
+  } catch (error) {
+    console.error('上传失败:', error)
+    ElMessage.error('上传失败，请稍后重试')
+    if (options.onError) {
+      options.onError(error)
+    }
+  }
 }
 
 const handleClose = () => {
@@ -177,55 +239,65 @@ const handleConfirm = async () => {
     color: #fff;
     padding: 16px 20px;
     border-radius: 8px 8px 0 0;
+    margin-right: 0;
 
     .el-dialog__title {
       color: #fff;
       font-weight: 500;
       font-size: 18px;
     }
+
+    .el-dialog__close {
+      color: rgba(255, 255, 255, 0.8);
+      &:hover {
+        color: #fff;
+      }
+    }
   }
 
   :deep(.el-dialog__body) {
-    padding: 24px 30px;
+    padding: 20px;
   }
 
-  :deep(.el-dialog__headerbtn .el-dialog__close) {
-    color: #fff;
+  :deep(.el-dialog__footer) {
+    padding: 10px 20px 20px;
+    border-top: none;
   }
 }
 
 .edit-form {
   .el-form-item {
-    margin-bottom: 22px;
+    margin-bottom: 20px;
+  }
 
-    &:last-child {
-      margin-bottom: 0;
+  :deep(.el-form-item__label) {
+    font-weight: 500;
+  }
+
+  :deep(.el-input__wrapper) {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) inset;
+    &:hover {
+      box-shadow: 0 0 0 1px $primary-color inset;
     }
-
-    :deep(.el-form-item__label) {
-      color: #606266;
-      font-weight: normal;
+    &.is-focus {
+      box-shadow: 0 0 0 1px $primary-color inset !important;
     }
   }
 
-  .form-input {
-    :deep(.el-input__wrapper) {
-      border-radius: 4px;
-      box-shadow: 0 0 0 1px #dcdfe6 inset;
-      transition: all 0.2s;
+  :deep(.el-input__prefix) {
+    margin-right: 8px;
+  }
+}
 
-      &:hover {
-        box-shadow: 0 0 0 1px #c0c4cc inset;
-      }
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 10px;
 
-      &.is-focus {
-        box-shadow: 0 0 0 1px $primary-color inset;
-      }
-    }
-
-    :deep(.el-textarea__inner) {
-      border-radius: 4px;
-    }
+  .el-button {
+    min-width: 80px;
+    font-weight: normal;
   }
 }
 
@@ -249,7 +321,7 @@ const handleConfirm = async () => {
     }
   }
 
-  .upload-inner {
+  .avatar-inner {
     width: 110px;
     height: 110px;
     display: flex;
@@ -281,15 +353,27 @@ const handleConfirm = async () => {
   }
 }
 
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 10px;
-
-  .el-button {
-    min-width: 80px;
-    font-weight: normal;
+:deep(.rounded-input) {
+  .el-input__wrapper {
+    border-radius: 20px !important;
   }
+
+  .el-textarea__inner {
+    border-radius: 16px !important;
+    padding: 12px 16px;
+    transition: all 0.3s;
+
+    &:focus {
+      box-shadow: 0 0 0 1px $primary-color !important;
+    }
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+:deep(.text-primary) {
+  color: $primary-color;
 }
 </style>

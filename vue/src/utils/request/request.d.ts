@@ -8,3 +8,10 @@ declare module '@/utils/request' {
 
   export default function request(config: RequestConfig): Promise<unknown>;
 }
+
+// 通用响应接口
+export interface Request<T> {
+  code: number
+  message: string
+  data: T
+}

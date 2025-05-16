@@ -1,4 +1,4 @@
-package com.david.hlp.web.system.controller;
+package com.david.hlp.web.common.controller;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

@@ -3,6 +3,7 @@ package com.david.hlp.web.system.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import com.david.hlp.web.common.controller.BaseController;
 import com.david.hlp.web.common.enums.ResultCode;
 import com.david.hlp.web.common.exception.BusinessException;
 import com.david.hlp.web.common.result.Result;

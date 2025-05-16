@@ -190,7 +190,6 @@ const fetchResumeList = async () => {
       page: currentPage.value - 1,
       size: pageSize.value
     })
-    console.log(res)
 
     resumeList.value = res.content
     total.value = res.totalElements

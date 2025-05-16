@@ -1,11 +1,14 @@
 import axios from 'axios'
-import type { Request } from '@/utils/types/auth'
+import type { Request } from '@/utils/request/request.d'
 
 // 创建一个 axios 实例
 const service = axios.create({
   baseURL: 'http://localhost:8080',
   timeout: 5000,
   withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json;charset=UTF-8'
+  }
 })
 
 // 请求拦截器
