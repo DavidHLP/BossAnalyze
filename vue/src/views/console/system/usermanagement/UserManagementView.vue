@@ -38,7 +38,7 @@
           <span class="table-title">用户列表</span>
           <span class="record-count">共 {{ total }} 条记录</span>
         </div>
-        <el-table :data="currentPageData" border class="user-table">
+        <el-table :data="tableData" border class="user-table">
           <el-table-column type="expand">
             <template #default="props">
               <div class="user-detail">
@@ -122,7 +122,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="deleteDialogVisible = false" round>取消</el-button>
-          <el-button type="danger" @click="handleConfirmDelete" round>确认删除</el-button>
+          <el-button type="danger" @click="handleConfirmDelete" :loading="deleteLoading" round>确认删除</el-button>
         </div>
       </template>
     </el-dialog>
@@ -153,7 +153,7 @@ import {
   ElCard,
 } from 'element-plus'
 import { getUserManageInfo } from '@/api/user/user'
-import { computed, ref, onMounted, reactive, watch } from 'vue'
+import { ref, onMounted, reactive, watch } from 'vue'
 import type { UserBaseInfo as User } from '@/api/auth/auth.d'
 import type { PageInfo } from '@/types/common'
 import { getRoleList } from '@/api/role/role'
@@ -171,25 +171,43 @@ const total = ref(0)
 
 const avatarUrls = ref<Record<string, string>>({})
 
-// 预加载头像URL
-const loadAvatarUrl = async (fileName: string) => {
-  if (!avatarUrls.value[fileName]) {
-    const res = await getImageUrl(fileName)
-    avatarUrls.value[fileName] = res.url
+// 批量加载头像URL
+const batchLoadAvatarUrls = async (users: User[]) => {
+  const promises = users
+    .filter(user => user.avatar && !avatarUrls.value[user.avatar])
+    .map(async user => {
+      try {
+        const res = await getImageUrl(user.avatar as string)
+        avatarUrls.value[user.avatar as string] = res.url
+      } catch (error) {
+        console.error(`加载头像失败: ${user.avatar}`, error)
+      }
+    })
+
+  if (promises.length > 0) {
+    await Promise.all(promises)
   }
-  return avatarUrls.value[fileName]
 }
 
-// 在表格数据加载后批量加载头像
-watch(tableData, async () => {
-  for (const user of tableData) {
-    if (user.avatar) await loadAvatarUrl(user.avatar)
-  }
-})
+// 修改数据获取方法，优化分页处理
+const fetchData = async (page: number, size: number, params?: User) => {
+  try {
+    const res: PageInfo<User> = await getUserManageInfo(page, size, params)
+    tableData.splice(0, tableData.length, ...res.content)
+    tableData.forEach((item) => {
+      item.status = Number(item.status)
+    })
+    total.value = res.totalElements
+    pageNum.value = res.number
+    pageSize.value = res.size
 
-const currentPageData = computed(() => {
-  return tableData.slice((pageNum.value - 1) * pageSize.value, pageNum.value * pageSize.value)
-})
+    // 批量加载头像
+    await batchLoadAvatarUrls(res.content)
+  } catch (error) {
+    console.error('获取用户数据失败:', error)
+    ElMessage.error('获取用户数据失败')
+  }
+}
 
 // 查询相关状态
 const searchForm = reactive({
@@ -198,18 +216,36 @@ const searchForm = reactive({
   roleId: undefined as number | undefined,
 })
 
-const roleOptions = ref<{ label: string; value: number }[]>([]) // 单独的角色选项列表
+const roleOptions = ref<{ label: string; value: number }[]>([])
+const roleLoading = ref(false)
 
-// 修改后的数据获取方法
-const fetchData = async (page: number, size: number, params?: User) => {
-  const res: PageInfo<User> = await getUserManageInfo(page, size, params)
-  tableData.splice(0, tableData.length, ...res.content)
-  tableData.forEach((item) => {
-    item.status = Number(item.status)
-  })
-  total.value = res.totalElements
-  pageNum.value = res.number
-  pageSize.value = res.size
+// 统一的角色加载方法
+const loadRoleOptions = async (roleName?: string) => {
+  roleLoading.value = true
+  try {
+    const response = await getRoleList(roleName)
+    const formattedResponse = response.map((item) => ({
+      label: item.roleName ?? '',
+      value: item.id ?? 0,
+    }))
+    roleOptions.value = formattedResponse
+    return formattedResponse
+  } catch (error) {
+    console.error('加载角色数据失败:', error)
+    ElMessage.error('加载角色数据失败')
+    return []
+  } finally {
+    roleLoading.value = false
+  }
+}
+
+// 远程搜索方法简化
+const remoteRoleSearch = async (roleName: string) => {
+  if (roleName) {
+    await loadRoleOptions(roleName)
+  } else {
+    await loadRoleOptions()
+  }
 }
 
 // 搜索处理
@@ -254,13 +290,10 @@ watch(pageSize, (newSize, oldSize) => {
 
 // 修改onMounted中的调用
 onMounted(async () => {
-  await fetchData(1, 10)
-  // 初始化时加载角色选项
-  const initialRolesResponse = await getRoleList()
-  roleOptions.value = initialRolesResponse.map((item) => ({
-    label: item.roleName ?? '',
-    value: item.id ?? 0,
-  }))
+  await Promise.all([
+    fetchData(1, 10),
+    loadRoleOptions() // 使用统一方法加载角色
+  ])
 })
 
 // 添加编辑相关状态
@@ -284,9 +317,11 @@ const handleEdit = (row: User) => {
   editDialogVisible.value = true
 }
 
+// 优化删除用户相关逻辑
 const deleteDialogVisible = ref(false)
 const deletingUser = ref<User>({})
 const password = ref('')
+const deleteLoading = ref(false)
 
 const handleDelete = (row: User) => {
   ElMessageBox.confirm('确定要永久删除该用户吗？此操作不可恢复！', '警告', {
@@ -296,35 +331,9 @@ const handleDelete = (row: User) => {
   }).then(() => {
     deleteDialogVisible.value = true
     deletingUser.value = row
+  }).catch(() => {
+    // 用户取消删除，不做任何操作
   })
-}
-
-// 添加远程搜索相关状态
-const roleLoading = ref(false)
-
-// 远程搜索方法
-const remoteRoleSearch = async (roleName: string) => {
-  if (roleName) {
-    roleLoading.value = true
-    try {
-      // 这里替换为实际的API调用
-      const response = await getRoleList(roleName)
-      const formattedResponse = response.map((item) => ({
-        label: item.roleName ?? '',
-        value: item.id ?? 0,
-      }))
-
-      // 同时更新顶部搜索表单和编辑对话框中的角色选项
-      roleOptions.value = formattedResponse
-
-      // 如果当前正在编辑，也更新编辑表单中的角色选项
-      if (editDialogVisible.value && formData.value.roleOptions) {
-        formData.value.roleOptions = [...formattedResponse]
-      }
-    } finally {
-      roleLoading.value = false
-    }
-  }
 }
 
 // 给script添加handleUserUpdated声明
@@ -347,30 +356,35 @@ const handleUserAdded = async () => {
 
 // 添加确认删除方法
 const handleConfirmDelete = async () => {
+  if (!password.value) {
+    ElMessage.error('请输入当前密码以确认操作')
+    return
+  }
+
+  if (!deletingUser.value.id) {
+    ElMessage.error('未选择要删除的用户')
+    return
+  }
+
+  deleteLoading.value = true
   try {
-    if (!password.value) {
-      ElMessage.error('请输入当前密码以确认操作')
-      return
-    }
-
-    if (!deletingUser.value) {
-      ElMessage.error('未选择要删除的用户')
-      return
-    }
-
-    await deleteUser(deletingUser.value.id ?? 0, password.value)
-
-    const index = tableData.findIndex((item) => item.id === deletingUser.value?.id)
-    if (index !== -1) {
-      tableData.splice(index, 1)
-      total.value -= 1
-    }
-
+    await deleteUser(deletingUser.value.id, password.value)
+    await fetchData(pageNum.value, pageSize.value, {
+      name: searchForm.name || undefined,
+      status: searchForm.status || undefined,
+      roleId: searchForm.roleId,
+    })
     ElMessage.success('删除成功')
     resetDeleteState()
   } catch (error) {
     console.error('删除失败:', error)
-    handleDeleteError(error)
+    if (error instanceof Error && error.message === '密码错误') {
+      ElMessage.error('密码错误，请重新输入')
+    } else {
+      ElMessage.error('删除失败，请检查密码是否正确')
+    }
+  } finally {
+    deleteLoading.value = false
   }
 }
 
@@ -379,15 +393,6 @@ const resetDeleteState = () => {
   deleteDialogVisible.value = false
   password.value = ''
   deletingUser.value = {}
-}
-
-// 处理删除错误
-const handleDeleteError = (error: unknown) => {
-  if (error instanceof Error && error.message === '密码错误') {
-    ElMessage.error('密码错误，请重新输入')
-  } else {
-    ElMessage.error('删除失败，请检查密码是否正确')
-  }
 }
 </script>
 

@@ -244,8 +244,9 @@ const rules = reactive<Record<string, FormItemRule[]>>({
   ]
 })
 
-// 初始化角色数据
+// 初始化角色数据和远程搜索简化
 const initRoleOptions = async () => {
+  roleLoading.value = true
   try {
     const response = await getRoleList()
     roleOptions.value = response.map((item) => ({
@@ -255,27 +256,25 @@ const initRoleOptions = async () => {
   } catch (error) {
     console.error('加载角色数据失败:', error)
     ElMessage.error('加载角色数据失败')
+  } finally {
+    roleLoading.value = false
   }
 }
 
 // 远程搜索角色
 const remoteRoleSearch = async (roleName: string) => {
-  if (roleName) {
-    roleLoading.value = true
-    try {
-      const response = await getRoleList(roleName)
-      roleOptions.value = response.map((item) => ({
-        label: item.roleName ?? '',
-        value: item.id ?? 0,
-      }))
-    } catch (error) {
-      console.error('搜索角色失败:', error)
-    } finally {
-      roleLoading.value = false
-    }
-  } else {
-    // 如果搜索词为空，恢复所有角色
-    initRoleOptions()
+  roleLoading.value = true
+  try {
+    const response = await getRoleList(roleName || '')
+    roleOptions.value = response.map((item) => ({
+      label: item.roleName ?? '',
+      value: item.id ?? 0,
+    }))
+  } catch (error) {
+    console.error('搜索角色失败:', error)
+    ElMessage.error('搜索角色失败')
+  } finally {
+    roleLoading.value = false
   }
 }
 
@@ -306,58 +305,51 @@ const handleSubmit = async () => {
   if (!formRef.value) return
 
   await formRef.value.validate(async (valid, fields) => {
-    if (valid) {
-      submitLoading.value = true
-      try {
-        // 准备提交的数据（移除确认密码字段）
-        const userData = { ...formData }
-        delete userData.confirmPassword
-
-        // 调用API添加用户
-        const response = await addUser(userData)
-
-        ElMessage.success('添加用户成功')
-        emit('user-added', response)
-        dialogVisible.value = false
-        resetForm()
-      } catch (error: unknown) {
-        console.error('添加用户失败:', error)
-        ElMessage.error(error instanceof Error ? error.message : '添加用户失败')
-      } finally {
-        submitLoading.value = false
-      }
-    } else {
+    if (!valid) {
       console.log('表单验证失败', fields)
       ElMessage.error('请正确填写表单信息')
+      return
+    }
+
+    submitLoading.value = true
+    try {
+      // 准备提交的数据（移除确认密码字段）
+      const userData = { ...formData }
+      delete userData.confirmPassword
+
+      // 调用API添加用户
+      const response = await addUser(userData)
+
+      ElMessage.success('添加用户成功')
+      emit('user-added', response)
+      dialogVisible.value = false
+      resetForm()
+    } catch (error: unknown) {
+      console.error('添加用户失败:', error)
+      ElMessage.error(error instanceof Error ? error.message : '添加用户失败')
+    } finally {
+      submitLoading.value = false
     }
   })
 }
 
-// 监听对话框打开，初始化角色数据
-watch(() => dialogVisible.value, (val) => {
-  if (val) {
-    initRoleOptions()
-  }
-})
-
-// 处理头像上传成功
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const handleAvatarSuccess = (response: any) => {
-  formData.avatar = response.fileName
-  ElMessage.success('头像上传成功')
-}
-
 // 根据文件名获取图片URL
 const getImageUrlByFileName = async (fileName: string) => {
-  const response = await getImageUrl(fileName)
-  const url = response.url
-  return url
+  try {
+    const response = await getImageUrl(fileName)
+    return response.url
+  } catch (error) {
+    console.error('获取头像URL失败:', error)
+    return ''
+  }
 }
 
 // 更新头像URL
 const updateAvatarUrl = async () => {
   if (formData.avatar) {
     avatarUrl.value = await getImageUrlByFileName(formData.avatar)
+  } else {
+    avatarUrl.value = ''
   }
 }
 
@@ -371,10 +363,7 @@ watch(() => formData.avatar, () => {
 const handleUploadRequest = async (options: any) => {
   try {
     const response = await uploadImage(options.file)
-    // 获取返回结果中的数据
-    const responseData = response
-    // 直接使用返回的对象
-    handleAvatarSuccess(responseData)
+    handleAvatarSuccess(response)
     if (options.onSuccess) {
       options.onSuccess(response)
     }
@@ -386,6 +375,21 @@ const handleUploadRequest = async (options: any) => {
     }
   }
 }
+
+// 处理头像上传成功
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handleAvatarSuccess = async (response: any) => {
+  formData.avatar = response.fileName
+  await updateAvatarUrl()
+  ElMessage.success('头像上传成功')
+}
+
+// 监听对话框打开，初始化角色数据
+watch(() => dialogVisible.value, (val) => {
+  if (val) {
+    initRoleOptions()
+  }
+})
 </script>
 
 <style lang="scss" scoped>

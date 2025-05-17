@@ -23,8 +23,6 @@ public class ExtractionOfJobRequirements {
     private final EmployeeBenefitsExtractionTask employeeBenefitsTask;
     private final JobRequirementsExtractionTask jobRequirementsTask;
 
-    
-
     /**
      * 定时提取职位福利信息
      */

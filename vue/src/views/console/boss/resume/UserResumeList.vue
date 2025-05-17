@@ -265,9 +265,16 @@ const handleAddResume = async () => {
 
 // 编辑简历
 const handleEdit = (row: ResumeData) => {
-  currentResume.value = JSON.parse(JSON.stringify(row))
-  currentMode.value = 'edit'
-  resumeDialogVisible.value = true
+  // 深拷贝数据，确保不影响表格中的原始数据
+  currentResume.value = JSON.parse(JSON.stringify(row));
+
+  // 确保id字段正确
+  if (row.id) {
+    currentResume.value.id = row.id;
+  }
+
+  currentMode.value = 'edit';
+  resumeDialogVisible.value = true;
 }
 
 // 处理简历保存
@@ -275,21 +282,36 @@ const handleResumeSave = (data: ResumeData) => {
   // 将保存的简历更新到列表
   if (currentMode.value === 'add') {
     // 调用mock接口添加简历
-    addResume(data).then(() => {
-      ElMessage.success('添加简历成功')
-      fetchResumeList() // 重新获取列表数据
+    addResume(data).then((newResume) => {
+      // 确保使用后端返回的ID
+      if (newResume && newResume.id) {
+        data.id = newResume.id;
+      }
+      ElMessage.success('添加简历成功');
+      fetchResumeList(); // 重新获取列表数据
     }).catch(() => {
-      ElMessage.error('添加简历失败')
-    })
+      ElMessage.error('添加简历失败');
+    });
   } else if (currentMode.value === 'edit') {
-    // 调用保存接口，在mockjsApi.ts中已处理更新列表数据的逻辑
-    const index = resumeList.value.findIndex(item => item.name === data.name)
-    if (index !== -1) {
-      resumeList.value[index] = data
+    // 保持原始ID
+    if (currentResume.value.id) {
+      data.id = currentResume.value.id;
     }
-    ElMessage.success('编辑简历成功')
+
+    // 调用保存接口，在mockjsApi.ts中已处理更新列表数据的逻辑
+    const index = resumeList.value.findIndex(item => item.id === data.id);
+    if (index !== -1) {
+      resumeList.value[index] = {...data};
+    } else {
+      // 如果找不到匹配id的项，则根据姓名匹配
+      const nameIndex = resumeList.value.findIndex(item => item.name === data.name);
+      if (nameIndex !== -1) {
+        resumeList.value[nameIndex] = {...data};
+      }
+    }
+    ElMessage.success('编辑简历成功');
   }
-  resumeDialogVisible.value = false
+  resumeDialogVisible.value = false;
 }
 
 // 删除简历

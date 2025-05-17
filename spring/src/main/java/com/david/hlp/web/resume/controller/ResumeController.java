@@ -52,10 +52,9 @@ public class ResumeController {
         }
 
         @PutMapping("/update")
-        public Result<Resume> updateResume(@RequestParam String id, @RequestBody Resume resume) {
-                return resumeService.findById(id)
+        public Result<Resume> updateResume(@RequestBody Resume resume) {
+                return resumeService.findById(resume.getId())
                                 .map(existingResume -> {
-                                        resume.setId(id);
                                         return Result.<Resume>builder()
                                                         .code(ResultCode.SUCCESS.getCode())
                                                         .message(ResultCode.SUCCESS.getMessage())

@@ -11,9 +11,32 @@
 
     <!-- 根据城市和职位名称查询职位需求 -->
     <select id="selectJobRequirements" resultType="com.david.hlp.crawler.ai.entity.MiniJobDetail">
-        SELECT 
+        SELECT
             id,
             JSON_UNQUOTE(job_requirements) as job_requirements
+        FROM t_job_detail
+        <where>
+            <if test="cityName != null">
+                city_name = #{cityName}
+            </if>
+            <if test="positionName != null">
+                <if test="cityName != null">AND</if> position_name = #{positionName}
+            </if>
+            <if test="startIndex != null">
+                AND id > #{startIndex}
+            </if>
+        </where>
+        ORDER BY id ASC
+        LIMIT #{limit}
+    </select>
+    <select id="selectMiniJobDetail" resultType="com.david.hlp.crawler.ai.entity.MiniJobDetail">
+        SELECT
+            id,
+            position_name,
+            city_name,
+            JSON_UNQUOTE(job_requirements) as job_requirements,
+            JSON_UNQUOTE(employee_benefits) as employee_benefits,
+            detail_data
         FROM t_job_detail
         <where>
             <if test="cityName != null">

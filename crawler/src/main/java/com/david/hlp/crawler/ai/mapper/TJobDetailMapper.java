@@ -27,4 +27,8 @@ public interface TJobDetailMapper {
     List<MiniJobDetail> selectJobRequirements(@Param("cityName") String cityName,
             @Param("positionName") String positionName,
             @Param("startIndex") Long startIndex, @Param("limit") Integer limit);
+
+    List<MiniJobDetail> selectMiniJobDetail(@Param("cityName") String cityName,
+            @Param("positionName") String positionName,
+            @Param("startIndex") Long startIndex, @Param("limit") Integer limit);
 }

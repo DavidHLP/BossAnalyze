@@ -47,7 +47,7 @@ import { Check, RefreshRight, View, Back, Close } from '@element-plus/icons-vue'
 import StencilViewOne from '@/views/console/boss/resume/components/resumestencil/StencilViewOne.vue'
 import StencilEditOne from '@/views/console/boss/resume/components/resumestencil/StencilEditOne.vue'
 import type { ResumeData } from '@/api/resume/resume.d'
-import { getResumeData, saveResumeData, resetResumeData } from '@/api/resume/resume'
+import { getResumeData, saveResumeData, getResumeDetail } from '@/api/resume/resume'
 
 const props = defineProps({
   initialResumeData: {
@@ -91,8 +91,20 @@ const loadResumeData = async () => {
   try {
     // 使用mock服务获取简历数据
     const data = await getResumeData();
-    resumeData.value = JSON.parse(JSON.stringify(data)); // 使用深拷贝
-    previewData.value = JSON.parse(JSON.stringify(data)); // 使用深拷贝
+
+    // 保存原ID(如果有)
+    const originalId = resumeData.value?.id;
+
+    // 使用深拷贝更新数据
+    resumeData.value = JSON.parse(JSON.stringify(data));
+    previewData.value = JSON.parse(JSON.stringify(data));
+
+    // 如果有原ID，则保留
+    if (originalId) {
+      resumeData.value.id = originalId;
+      previewData.value.id = originalId;
+    }
+
     ElMessage.success('简历数据加载成功');
   } catch (error) {
     console.error('简历数据加载失败', error);
@@ -105,8 +117,19 @@ const switchToPreview = () => {
 };
 
 const handleSave = async (data: ResumeData) => {
-  resumeData.value = JSON.parse(JSON.stringify(data)); // 使用深拷贝
-  previewData.value = JSON.parse(JSON.stringify(data)); // 使用深拷贝
+  // 保存原ID(如果有)
+  const originalId = resumeData.value?.id;
+
+  // 使用深拷贝更新数据
+  resumeData.value = JSON.parse(JSON.stringify(data));
+  previewData.value = JSON.parse(JSON.stringify(data));
+
+  // 如果有原ID，则保留
+  if (originalId) {
+    resumeData.value.id = originalId;
+    previewData.value.id = originalId;
+  }
+
   await saveResumeToStorage();
   // 向父组件发送保存事件
   emit('save', resumeData.value);
@@ -114,14 +137,38 @@ const handleSave = async (data: ResumeData) => {
 };
 
 const handlePreview = (data: ResumeData) => {
-  resumeData.value = JSON.parse(JSON.stringify(data)); // 使用深拷贝
-  previewData.value = JSON.parse(JSON.stringify(data)); // 使用深拷贝
+  // 保存原ID(如果有)
+  const originalId = resumeData.value?.id;
+
+  // 使用深拷贝更新数据
+  resumeData.value = JSON.parse(JSON.stringify(data));
+  previewData.value = JSON.parse(JSON.stringify(data));
+
+  // 如果有原ID，则保留
+  if (originalId) {
+    resumeData.value.id = originalId;
+    previewData.value.id = originalId;
+  }
+
   switchToPreview();
 };
 
 // 处理表单实时更新，用于同步到预览区域
 const handleFormUpdate = (data: ResumeData) => {
-  previewData.value = JSON.parse(JSON.stringify(data)); // 使用深拷贝
+  // 使用深拷贝确保数据完全替换，避免引用问题
+  previewData.value = JSON.parse(JSON.stringify(data));
+
+  // 确保ID一致性 - 双向同步ID
+  if (resumeData.value.id) {
+    // 如果resumeData有ID但data没有，则保留resumeData的ID
+    previewData.value.id = resumeData.value.id;
+  } else if (data.id) {
+    // 如果data有ID，则更新resumeData的ID
+    resumeData.value.id = data.id;
+  }
+
+  // 同步更新resumeData，确保保存时能获取到最新数据
+  resumeData.value = JSON.parse(JSON.stringify(previewData.value));
 };
 
 // 添加按钮对应的功能函数
@@ -150,8 +197,7 @@ const saveResumeToStorage = async () => {
 
 const resetForm = async () => {
   try {
-    // 使用mock服务重置简历数据
-    const data = await resetResumeData();
+    const data = await getResumeDetail(resumeData.value.id || '');
 
     // 使用深拷贝确保数据完全替换
     resumeData.value = JSON.parse(JSON.stringify(data));
@@ -170,7 +216,15 @@ const resetForm = async () => {
 const previewResume = () => {
   // 全屏预览简历
   isEditing.value = true;
-  previewData.value = JSON.parse(JSON.stringify(resumeData.value)); // 使用深拷贝
+
+  // 确保ID同步
+  const originalId = resumeData.value?.id;
+  previewData.value = JSON.parse(JSON.stringify(resumeData.value));
+
+  // 如果有原ID，则保留
+  if (originalId) {
+    previewData.value.id = originalId;
+  }
 };
 
 // 取消按钮处理函数

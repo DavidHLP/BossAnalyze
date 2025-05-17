@@ -17,7 +17,17 @@ public class MiniJobDetail {
      * 主键ID
      */
     private Long id;
-    
+
+    /**
+     * 职位名称
+     */
+    private String positionName;
+
+    /**
+     * 城市名称
+     */
+    private String cityName;
+
     /**
      * 职位详情数据
      */
