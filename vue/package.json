@@ -34,7 +34,6 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "md-editor-v3": "^5.5.1",
-    "mockjs": "^1.1.0",
     "node-modules-inspector": "^0.6.8",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
