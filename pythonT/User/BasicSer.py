@@ -4,7 +4,7 @@ from pyspark.sql.types import StructType, StructField, StringType
 
 # 创建Spark会话
 spark = SparkSession.builder.appName("SalaryDegreeAnalyze")\
-    .config("spark.jars.packages", "mysql:mysql-connector-java:8.0.28") \
+    .config("spark.jars.packages", "com.mysql:mysql-connector-j:8.2.0") \
     .config("spark.sql.adaptive.enabled", "true") \
     .config("spark.sql.shuffle.partitions", "10") \
     .getOrCreate()
