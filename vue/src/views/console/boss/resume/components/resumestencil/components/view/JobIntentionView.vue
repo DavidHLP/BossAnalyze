@@ -2,19 +2,19 @@
   <div class="job-info">
     <div class="job-item">
       <span class="label">求职意向：</span>
-      <span class="value">{{ jobIntention.jobTarget || '行政专员' }}</span>
+      <span class="value">{{ jobIntention.jobTarget}}</span>
     </div>
     <div class="job-item">
       <span class="label">期望薪资：</span>
-      <span class="value">{{ jobIntention.expectedSalary || '8000/月' }}</span>
+      <span class="value">{{ jobIntention.expectedSalary}}</span>
     </div>
     <div class="job-item">
       <span class="label">意向城市：</span>
-      <span class="value">{{ jobIntention.targetCity || '上海' }}</span>
+      <span class="value">{{ jobIntention.targetCity}}</span>
     </div>
     <div class="job-item">
       <span class="label">入职时间：</span>
-      <span class="value">{{ jobIntention.availableTime || '一个月内到岗' }}</span>
+      <span class="value">{{ jobIntention.availableTime}}</span>
     </div>
   </div>
 </template>

@@ -120,11 +120,28 @@
       title="删除确认"
       width="30%"
     >
-      <span>确定要删除选中的简历吗？此操作不可恢复。</span>
+      <span>确定要删除 <strong>{{ deleteName }}</strong> 的简历吗？此操作不可恢复。</span>
+      <div class="mt-4">
+        <el-form>
+          <el-form-item label="请输入姓名以确认删除">
+            <el-input
+              v-model="deleteConfirmInput"
+              placeholder="请输入完整姓名确认"
+              :maxlength="20"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="deleteDialogVisible = false">取消</el-button>
-          <el-button type="danger" @click="confirmDelete">确定</el-button>
+          <el-button
+            type="danger"
+            @click="confirmDelete"
+            :disabled="deleteConfirmInput !== deleteName || !deleteName"
+          >
+            确定删除
+          </el-button>
         </span>
       </template>
     </el-dialog>
@@ -153,7 +170,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus, Edit, Delete, RefreshRight } from '@element-plus/icons-vue'
 import type { ResumeData } from '@/api/resume/resume.d'
-import { getResumeList, getResumeData, addResume, deleteResume } from '@/api/resume/resume'
+import { getResumeList, getResumeData, deleteResume, saveResumeData } from '@/api/resume/resume'
 import UserResume from '@/views/console/boss/resume/components/UserResume.vue'
 
 // 数据加载与表格相关状态
@@ -170,6 +187,8 @@ const searchForm = ref({
 const selectedRows = ref<ResumeData[]>([])
 const deleteDialogVisible = ref(false)
 const deleteItem = ref<ResumeData | null>(null)
+const deleteConfirmInput = ref('')
+const deleteName = ref('')
 
 // 简历操作对话框相关状态
 const resumeDialogVisible = ref(false)
@@ -181,21 +200,39 @@ const dialogTitle = computed(() => {
   return '查看简历'
 })
 
+// 对用户输入进行安全处理的函数
+const sanitizeInput = (input: string): string => {
+  if (!input) return ''
+  // 移除可能的脚本标签和危险属性
+  return input
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+="[^"]*"/g, '')
+    .replace(/javascript:/gi, '')
+    .trim()
+}
+
 // 获取简历列表数据
 const fetchResumeList = async () => {
   loading.value = true
   try {
+    // 对搜索参数进行安全处理
+    const sanitizedForm = {
+      name: sanitizeInput(searchForm.value.name),
+      experience: sanitizeInput(searchForm.value.experience),
+      jobTarget: sanitizeInput(searchForm.value.jobTarget)
+    }
+
     // 使用mock接口获取简历列表数据
     const res = await getResumeList({
       page: currentPage.value - 1,
-      size: pageSize.value
+      size: pageSize.value,
+      ...sanitizedForm
     })
 
     resumeList.value = res.content
     total.value = res.totalElements
 
-  } catch (error) {
-    console.error('获取简历列表失败', error)
+  } catch {
     ElMessage.error('获取简历列表失败')
   } finally {
     loading.value = false
@@ -248,12 +285,23 @@ const handleAddResume = async () => {
   // 获取空白简历模板
   try {
     const emptyResume = await getResumeData()
+    // 明确设置ID为空字符串，确保添加模式
+    emptyResume.id = ''
     // 重置关键字段
     emptyResume.name = ''
     emptyResume.age = ''
     emptyResume.jobTarget = ''
     emptyResume.experience = ''
     emptyResume.phone = ''
+
+    // 确保所有数组字段正确初始化
+    emptyResume.education = []
+    emptyResume.workExperience = []
+    emptyResume.certificates = []
+    emptyResume.interestTags = []
+    emptyResume.customSkills = []
+    emptyResume.sectionOrder = ['education', 'workExperience', 'certificates', 'interestTags', 'selfEvaluation']
+
     currentResume.value = emptyResume
     currentMode.value = 'add'
     resumeDialogVisible.value = true
@@ -281,35 +329,23 @@ const handleEdit = (row: ResumeData) => {
 const handleResumeSave = (data: ResumeData) => {
   // 将保存的简历更新到列表
   if (currentMode.value === 'add') {
-    // 调用mock接口添加简历
-    addResume(data).then((newResume) => {
-      // 确保使用后端返回的ID
-      if (newResume && newResume.id) {
-        data.id = newResume.id;
-      }
-      ElMessage.success('添加简历成功');
-      fetchResumeList(); // 重新获取列表数据
-    }).catch(() => {
-      ElMessage.error('添加简历失败');
-    });
+    // 由于在UserResume组件中已经调用了addResume，这里只需刷新列表
+    ElMessage.success('添加简历成功');
+    fetchResumeList(); // 重新获取列表数据
   } else if (currentMode.value === 'edit') {
-    // 保持原始ID
-    if (currentResume.value.id) {
-      data.id = currentResume.value.id;
+    // 确保编辑模式下保留id
+    if (!data.id) {
+      ElMessage.error('缺少简历ID,无法更新');
+      return;
     }
 
-    // 调用保存接口，在mockjsApi.ts中已处理更新列表数据的逻辑
-    const index = resumeList.value.findIndex(item => item.id === data.id);
-    if (index !== -1) {
-      resumeList.value[index] = {...data};
-    } else {
-      // 如果找不到匹配id的项，则根据姓名匹配
-      const nameIndex = resumeList.value.findIndex(item => item.name === data.name);
-      if (nameIndex !== -1) {
-        resumeList.value[nameIndex] = {...data};
-      }
-    }
-    ElMessage.success('编辑简历成功');
+    // 调用保存接口
+    saveResumeData(data).then(() => {
+      ElMessage.success('编辑简历成功');
+      fetchResumeList(); // 重新获取列表数据
+    }).catch(() => {
+      ElMessage.error('编辑简历失败');
+    });
   }
   resumeDialogVisible.value = false;
 }
@@ -317,22 +353,41 @@ const handleResumeSave = (data: ResumeData) => {
 // 删除简历
 const handleDelete = (row: ResumeData) => {
   deleteItem.value = row
+  deleteName.value = row.name || ''
+  deleteConfirmInput.value = ''
   deleteDialogVisible.value = true
 }
 
 // 确认删除
 const confirmDelete = () => {
-  if (deleteItem.value) {
-    // 调用mock接口删除简历
-    deleteResume(deleteItem.value.name).then(() => {
-      ElMessage.success(`已删除 ${deleteItem.value?.name} 的简历`)
-      fetchResumeList() // 重新获取列表数据
-    }).catch(() => {
-      ElMessage.error('删除简历失败')
-    })
+  if (!deleteItem.value) return
+
+  // 检查用户输入的确认文本是否匹配
+  if (deleteConfirmInput.value !== deleteName.value) {
+    ElMessage.warning('确认文本不匹配，无法删除')
+    return
+  }
+
+  // 调用mock接口删除简历
+  const name = sanitizeInput(deleteItem.value.name || '')
+
+  // 确保ID存在
+  if (!deleteItem.value.id) {
+    ElMessage.error('缺少简历ID，无法删除')
     deleteDialogVisible.value = false
     deleteItem.value = null
+    return
   }
+
+  deleteResume(deleteItem.value.id).then(() => {
+    ElMessage.success(`已删除 ${name} 的简历`)
+    fetchResumeList() // 重新获取列表数据
+  }).catch(() => {
+    ElMessage.error('删除简历失败')
+  })
+  deleteDialogVisible.value = false
+  deleteItem.value = null
+  deleteConfirmInput.value = ''
 }
 </script>
 

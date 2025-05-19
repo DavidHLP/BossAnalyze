@@ -46,9 +46,6 @@ export const saveResumeData = (data: ResumeData): Promise<boolean> => {
   return request({
     url: '/api/resume/update',
     method: 'PUT',
-    params: {
-      id: data.id
-    },
     data
   })
 }

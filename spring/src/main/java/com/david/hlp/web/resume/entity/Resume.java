@@ -44,9 +44,6 @@ public class Resume {
 
     private List<Education> education;
     private List<WorkExperience> workExperience;
-    private String languageSkills;
-    private String professionalSkills;
-    private String computerSkills;
     private List<String> interestTags;
     private String selfEvaluation;
     private List<CustomSkill> customSkills;

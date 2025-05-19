@@ -54,15 +54,22 @@
       </el-col>
       <el-col :span="12">
         <el-form-item label="头像">
-          <el-upload class="avatar-uploader" action="/api/upload" :show-file-list="false" :on-success="(res) => {
-            if (res.code === 0) handleAvatarSuccess(res.data.url);
-            else ElMessage.error('上传失败');
-          }" :before-upload="beforeAvatarUpload">
-            <img v-if="basicInfo.avatar" :src="basicInfo.avatar" class="avatar">
-            <el-icon v-else class="avatar-uploader-icon">
-              <Plus />
-            </el-icon>
-          </el-upload>
+          <div class="avatar-upload-section">
+            <el-upload :http-request="handleUploadRequest" :on-success="handleAvatarSuccess"
+              list-type="picture-card" class="avatar-uploader" :auto-upload="true">
+              <div class="avatar-inner">
+                <template v-if="basicInfo.avatar">
+                  <el-image :src="avatarUrl" class="uploaded-avatar" fit="cover" />
+                </template>
+                <div v-else class="upload-placeholder">
+                  <el-icon>
+                    <Plus />
+                  </el-icon>
+                  <span>上传头像</span>
+                </div>
+              </div>
+            </el-upload>
+          </div>
         </el-form-item>
       </el-col>
     </el-row>
@@ -70,9 +77,11 @@
 </template>
 
 <script lang="ts" setup>
-import { defineProps, defineEmits } from 'vue'
+import { defineProps, defineEmits, ref, onMounted, watch } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { uploadImage, getImageUrl } from '@/api/minio/minio'
+import type { ImageResponse } from '@/api/minio/minio.d'
 
 // 定义基本信息接口
 interface BasicInfo {
@@ -96,6 +105,8 @@ const emit = defineEmits<{
   (e: 'update:basicInfo', value: BasicInfo): void
 }>()
 
+const avatarUrl = ref('')
+
 // 通用字段更新方法
 const updateField = (field: keyof BasicInfo, value: string) => {
   emit('update:basicInfo', {
@@ -104,26 +115,109 @@ const updateField = (field: keyof BasicInfo, value: string) => {
   })
 }
 
-// 头像上传成功回调
-const handleAvatarSuccess = (url: string) => {
-  updateField('avatar', url);
+// 更新头像URL
+const updateAvatarUrl = async () => {
+  if (props.basicInfo.avatar) {
+    try {
+      const response = await getImageUrl(props.basicInfo.avatar)
+      avatarUrl.value = response.url
+    } catch (error) {
+      console.error('获取头像URL失败:', error)
+      avatarUrl.value = ''
+    }
+  } else {
+    avatarUrl.value = ''
+  }
 }
 
-// 头像上传前的验证
-const beforeAvatarUpload = (file: File) => {
-  const isJPG = file.type === 'image/jpeg' || file.type === 'image/png'
-  const isLt2M = file.size / 1024 / 1024 < 2
+// 组件挂载和头像属性变化时更新头像URL
+onMounted(() => {
+  updateAvatarUrl()
+})
 
-  if (!isJPG) {
-    ElMessage.error('上传头像图片只能是 JPG 或 PNG 格式!')
+watch(() => props.basicInfo.avatar, () => {
+  updateAvatarUrl()
+})
+
+// 头像上传成功回调
+const handleAvatarSuccess = (response: ImageResponse) => {
+  if (response.fileName) {
+    updateField('avatar', response.fileName)
+    ElMessage.success('头像上传成功')
+    updateAvatarUrl()
   }
-  if (!isLt2M) {
-    ElMessage.error('上传头像图片大小不能超过 2MB!')
+}
+
+// 自定义上传请求处理
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handleUploadRequest = async (options: any) => {
+  try {
+    const response = await uploadImage(options.file)
+    handleAvatarSuccess(response)
+    if (options.onSuccess) {
+      options.onSuccess(response)
+    }
+  } catch (error) {
+    console.error('上传失败:', error)
+    ElMessage.error('上传失败，请稍后重试')
+    if (options.onError) {
+      options.onError(new Error('上传失败'))
+    }
   }
-  return isJPG && isLt2M
 }
 </script>
 
 <style lang="scss" scoped>
 @use "../style/edittheme.scss";
+
+.avatar-upload-section {
+  display: flex;
+  justify-content: center;
+}
+
+.avatar-uploader {
+  :deep(.el-upload) {
+    border: 1px dashed #d9d9d9;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+
+    &:hover {
+      border-color: #3B82F6;
+    }
+  }
+
+  .avatar-inner {
+    width: 110px;
+    height: 110px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .uploaded-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #8c8c8c;
+
+    .el-icon {
+      font-size: 22px;
+    }
+
+    span {
+      font-size: 14px;
+    }
+  }
+}
 </style>

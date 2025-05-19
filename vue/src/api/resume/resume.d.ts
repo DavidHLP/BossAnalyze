@@ -33,9 +33,6 @@ export interface ResumeData {
   availableTime: string;
   education: Education[];
   workExperience: WorkExperience[];
-  languageSkills: string;
-  professionalSkills: string;
-  computerSkills: string;
   certificates: { name: string; date: string; description: string }[];
   interestTags: string[];
   selfEvaluation: string;

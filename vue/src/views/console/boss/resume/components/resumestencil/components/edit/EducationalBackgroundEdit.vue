@@ -25,10 +25,13 @@
             <el-date-picker
               v-model="edu.startDate"
               type="month"
-              format="yyyy-MM"
-              value-format="yyyy-MM"
+              format="YYYY-MM"
+              value-format="YYYY-MM"
+              :disabled-date="disableFutureDates"
+              @change="validateDates(index)"
               placeholder="选择开始时间">
             </el-date-picker>
+            <div v-if="edu.dateError" class="error-message">{{ edu.dateError }}</div>
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -36,8 +39,10 @@
             <el-date-picker
               v-model="edu.endDate"
               type="month"
-              format="yyyy-MM"
-              value-format="yyyy-MM"
+              format="YYYY-MM"
+              value-format="YYYY-MM"
+              :disabled-date="(time: Date) => disableEndDate(time, edu.startDate)"
+              @change="validateDates(index)"
               placeholder="选择结束时间">
             </el-date-picker>
           </el-form-item>
@@ -71,6 +76,7 @@ interface Education {
   major: string;
   gpa: string;
   courses: string;
+  dateError?: string;
 }
 
 const props = defineProps<{
@@ -88,6 +94,48 @@ watch(() => props.education, (newValue) => {
   educationList.value = [...newValue]
 }, { deep: true })
 
+// 禁用未来日期
+const disableFutureDates = (time: Date) => {
+  return time.getTime() > Date.now()
+}
+
+// 禁用早于开始日期的结束日期
+const disableEndDate = (time: Date, startDate: string) => {
+  // 禁用未来日期
+  if (time.getTime() > Date.now()) {
+    return true
+  }
+
+  // 如果有开始日期，则禁用早于开始日期的时间
+  if (startDate) {
+    const start = new Date(startDate)
+    return time.getTime() < start.getTime()
+  }
+
+  return false
+}
+
+// 验证日期
+const validateDates = (index: number) => {
+  const edu = educationList.value[index]
+
+  // 清除之前的错误
+  edu.dateError = ''
+
+  if (edu.startDate && edu.endDate) {
+    const startDate = new Date(edu.startDate)
+    const endDate = new Date(edu.endDate)
+
+    if (startDate > endDate) {
+      edu.dateError = '结束时间不能早于开始时间'
+      return false
+    }
+  }
+
+  updateEducation()
+  return true
+}
+
 // 添加教育经历
 const addEducation = () => {
   educationList.value.push({
@@ -96,7 +144,8 @@ const addEducation = () => {
     school: '',
     major: '',
     gpa: '',
-    courses: ''
+    courses: '',
+    dateError: ''
   })
   updateEducation()
 }
@@ -109,7 +158,19 @@ const removeEducation = (index: number) => {
 
 // 更新教育信息
 const updateEducation = () => {
-  emit('update:education', educationList.value)
+  // 过滤掉 dateError 字段后再发送
+  const cleanedEducationList = educationList.value.map((edu) => {
+    // 创建新对象不包含dateError
+    return {
+      startDate: edu.startDate,
+      endDate: edu.endDate,
+      school: edu.school,
+      major: edu.major,
+      gpa: edu.gpa,
+      courses: edu.courses
+    }
+  })
+  emit('update:education', cleanedEducationList)
 }
 </script>
 
@@ -118,5 +179,11 @@ const updateEducation = () => {
 
 .education-section {
   width: 100%;
+}
+
+.error-message {
+  color: #f56c6c;
+  font-size: 12px;
+  margin-top: 4px;
 }
 </style>

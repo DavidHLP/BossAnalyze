@@ -24,27 +24,25 @@
         <template v-for="sectionType in orderedSections" :key="sectionType">
           <!-- 教育背景 -->
           <EducationalBackgroundView
-            v-if="sectionType === 'education'"
+            v-if="sectionType === 'education' && resume.education && resume.education.length > 0"
             :education="resume.education"
           />
 
           <!-- 工作经验 -->
           <WorkExperienceView
-            v-if="sectionType === 'workExperience'"
+            v-if="sectionType === 'workExperience' && resume.workExperience && resume.workExperience.length > 0"
             :workExperience="resume.workExperience"
           />
 
           <!-- 证书资质 -->
           <CertificateView
-            v-if="sectionType === 'certificates'"
+            v-if="sectionType === 'certificates' && resume.certificates && resume.certificates.length > 0"
             :certificates="resume.certificates"
           />
-
-
           <!-- 自我评价 -->
           <SelfEvaluationView
-            v-if="sectionType === 'selfEvaluation'"
-            :evaluation="resume.selfEvaluation"
+            v-if="sectionType === 'selfEvaluation' && resume.selfEvaluation"
+            :evaluation="resume.selfEvaluation || ''"
           />
         </template>
       </div>
@@ -68,10 +66,10 @@ const props = defineProps<{
   resume: ResumeData
 }>()
 
-  // 根据sectionOrder计算组件显示顺序
+// 根据sectionOrder计算组件显示顺序
 const orderedSections = computed(() => {
   // 若未提供顺序，则使用默认顺序
-  const defaultOrder = ['education', 'workExperience', 'certificates', 'selfEvaluation'];
+  const defaultOrder = ['education', 'workExperience', 'certificates', 'interestTags', 'selfEvaluation'];
   return props.resume.sectionOrder || defaultOrder;
 })
 </script>
@@ -276,6 +274,16 @@ const orderedSections = computed(() => {
   font-size: 14px;
   line-height: 1.7;
   color: #334155;
+}
+
+:deep(.el-tag) {
+  margin: 4px;
+  padding: 6px 12px;
+  border-radius: 16px;
+}
+
+:deep(.el-icon) {
+  vertical-align: middle;
 }
 
 /* 响应式设计 */

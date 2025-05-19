@@ -1,7 +1,8 @@
 <template>
   <div>
     <div class="avatar-container">
-      <img :src="basicInfo.avatar || defaultAvatar" alt="头像" class="avatar" />
+      <el-image :src="avatarUrl || defaultAvatar" alt="头像" class="avatar"
+        :preview-src-list="avatarUrl ? [avatarUrl] : []" fit="cover" preview-teleported />
     </div>
     <div class="personal-info">
       <div class="info-item"><el-icon><Calendar /></el-icon> {{ basicInfo.age || '27岁' }}</div>
@@ -15,8 +16,9 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { Calendar, Male, Location, Timer, Phone, Message } from '@element-plus/icons-vue'
+import { getImageUrl } from '@/api/minio/minio'
 
 interface BasicInfo {
   age?: string;
@@ -28,11 +30,37 @@ interface BasicInfo {
   avatar?: string;
 }
 
-defineProps<{
+const props = defineProps<{
   basicInfo: BasicInfo
 }>()
 
 const defaultAvatar = ref('/avatar-default.jpg')
+const avatarUrl = ref('')
+
+// 加载头像URL
+const loadAvatarUrl = async () => {
+  if (props.basicInfo.avatar) {
+    try {
+      const res = await getImageUrl(props.basicInfo.avatar)
+      avatarUrl.value = res.url
+    } catch (error) {
+      console.error('加载头像失败:', error)
+      avatarUrl.value = ''
+    }
+  } else {
+    avatarUrl.value = ''
+  }
+}
+
+// 监听头像变化
+watch(() => props.basicInfo.avatar, () => {
+  loadAvatarUrl()
+})
+
+// 组件挂载时加载头像
+onMounted(() => {
+  loadAvatarUrl()
+})
 </script>
 
 <style scoped>

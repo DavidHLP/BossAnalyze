@@ -115,9 +115,6 @@ const resumeForm = reactive<ResumeData>({
   availableTime: '',
   education: [],
   workExperience: [],
-  languageSkills: '',
-  professionalSkills: '',
-  computerSkills: '',
   certificates: [],
   interestTags: [],
   selfEvaluation: '',
@@ -181,20 +178,59 @@ const jobIntentionComputed = computed({
 });
 
 // 初始化表单数据
+// 初始化表单数据
 onMounted(() => {
   if (props.resumeData && Object.keys(props.resumeData).length > 0) {
-    initFormData()
+    // 确保ID被正确同步
+    resumeForm.id = props.resumeData.id || '';
+
+    // 使用解构赋值合并数据，减少冗余代码
+    Object.assign(resumeForm, props.resumeData);
+
+    // 确保数组类型的字段是数组
+    ensureDataStructure();
+  } else {
+    // 如果没有数据，确保数组字段初始化为空数组
+    ensureDataStructure();
   }
 
   // 如果有保存的顺序，则恢复顺序
   if (resumeForm.sectionOrder && resumeForm.sectionOrder.length > 0) {
     restoreSectionOrder();
   }
+
+  // 初始化后触发一次更新（延迟执行防止频繁更新）
+  setTimeout(() => {
+    emit('update:form', JSON.parse(JSON.stringify(resumeForm)));
+  }, 100);
 })
+
+
+// 确保数据结构完整
+const ensureDataStructure = () => {
+  // 初始化数组类型字段
+  resumeForm.education = Array.isArray(resumeForm.education) ? resumeForm.education : [];
+  resumeForm.workExperience = Array.isArray(resumeForm.workExperience) ? resumeForm.workExperience : [];
+  resumeForm.certificates = Array.isArray(resumeForm.certificates) ? resumeForm.certificates : [];
+  resumeForm.interestTags = Array.isArray(resumeForm.interestTags) ? resumeForm.interestTags : [];
+  resumeForm.customSkills = Array.isArray(resumeForm.customSkills) ? resumeForm.customSkills : [];
+
+  // 初始化默认排序
+  if (!resumeForm.sectionOrder || resumeForm.sectionOrder.length === 0) {
+    resumeForm.sectionOrder = draggableSections.value.map(section => section.type);
+  }
+
+  // 初始化字符串字段
+  resumeForm.selfEvaluation = resumeForm.selfEvaluation || '';
+}
 
 // 恢复已保存的组件顺序
 const restoreSectionOrder = () => {
-  if (!resumeForm.sectionOrder || resumeForm.sectionOrder.length === 0) return;
+  if (!resumeForm.sectionOrder || resumeForm.sectionOrder.length === 0) {
+    // 如果没有保存的顺序，使用默认顺序
+    resumeForm.sectionOrder = draggableSections.value.map(section => section.type);
+    return;
+  }
 
   // 临时存储当前顺序
   const tempSections = [...draggableSections.value];
@@ -215,55 +251,6 @@ const restoreSectionOrder = () => {
       draggableSections.value.push(section);
     }
   });
-}
-
-// 方法
-const initFormData = () => {
-  if (!props.resumeData) return;
-
-  const data = props.resumeData;
-
-  // 确保ID被正确同步
-  resumeForm.id = data.id || '';
-
-  // 基本信息
-  resumeForm.name = data.name || '';
-  resumeForm.age = data.age || '';
-  resumeForm.gender = data.gender || '';
-  resumeForm.location = data.location || '';
-  resumeForm.experience = data.experience || '';
-  resumeForm.phone = data.phone || '';
-  resumeForm.email = data.email || '';
-  resumeForm.avatar = data.avatar || '';
-
-  // 求职意向
-  resumeForm.jobTarget = data.jobTarget || '';
-  resumeForm.expectedSalary = data.expectedSalary || '';
-  resumeForm.targetCity = data.targetCity || '';
-  resumeForm.availableTime = data.availableTime || '';
-
-  // 技能部分
-  resumeForm.languageSkills = data.languageSkills || '';
-  resumeForm.professionalSkills = data.professionalSkills || '';
-  resumeForm.computerSkills = data.computerSkills || '';
-  resumeForm.selfEvaluation = data.selfEvaluation || '';
-
-  // 处理证书列表
-  resumeForm.certificates = Array.isArray(data.certificates) ? [...data.certificates] : [];
-
-  // 数组类型的字段需要确保是数组
-  resumeForm.interestTags = Array.isArray(data.interestTags) ? [...data.interestTags] : [];
-  resumeForm.education = Array.isArray(data.education) ? [...data.education] : [];
-  resumeForm.workExperience = Array.isArray(data.workExperience) ? [...data.workExperience] : [];
-
-  // 自定义技能
-  resumeForm.customSkills = Array.isArray(data.customSkills) ? [...data.customSkills] : [];
-
-  // 拖拽顺序
-  resumeForm.sectionOrder = Array.isArray(data.sectionOrder) ? [...data.sectionOrder] : [];
-
-  // 初始化后触发一次更新
-  emit('update:form', JSON.parse(JSON.stringify(resumeForm)));
 }
 
 // 监听器

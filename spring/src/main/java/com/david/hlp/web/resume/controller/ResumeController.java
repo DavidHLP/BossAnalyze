@@ -44,6 +44,7 @@ public class ResumeController {
 
         @PostMapping("/create")
         public Result<Resume> createResume(@RequestBody Resume resume) {
+                resume.setId(null); // 确保ID为null，由MongoDB自动生成
                 return Result.<Resume>builder()
                                 .code(ResultCode.SUCCESS.getCode())
                                 .message(ResultCode.SUCCESS.getMessage())
@@ -53,6 +54,10 @@ public class ResumeController {
 
         @PutMapping("/update")
         public Result<Resume> updateResume(@RequestBody Resume resume) {
+                if (resume.getId() == null || resume.getId().isEmpty()) {
+                        return Result.error(ResultCode.PARAM_ERROR);
+                }
+
                 return resumeService.findById(resume.getId())
                                 .map(existingResume -> {
                                         return Result.<Resume>builder()
