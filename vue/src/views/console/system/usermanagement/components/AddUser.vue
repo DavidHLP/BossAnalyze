@@ -1,35 +1,20 @@
 <template>
-  <el-dialog
-    v-model="dialogVisible"
-    title="添加用户"
-    width="550px"
-    :before-close="handleClose"
-    class="add-user-dialog"
-  >
+  <el-dialog v-model="dialogVisible" title="添加用户" width="550px" :before-close="handleClose" class="add-user-dialog">
     <BCard no-body class="border-0 shadow-sm">
       <BCardBody>
-        <el-form
-          :model="formData"
-          :rules="rules"
-          ref="formRef"
-          label-width="100px"
-          class="user-form"
-        >
+        <el-form :model="formData" :rules="rules" ref="formRef" label-width="100px" class="user-form">
           <div class="avatar-upload-section">
-            <el-upload
-              :http-request="handleUploadRequest"
-              :on-success="handleAvatarSuccess"
-              :file-list="formData.avatar ? [{ name: 'avatar', url: avatarUrl || '' }] : []"
-              list-type="picture-card"
-              class="avatar-uploader"
-              :auto-upload="true"
-            >
+            <el-upload :http-request="handleUploadRequest" :on-success="handleAvatarSuccess"
+              :file-list="formData.avatar ? [{ name: 'avatar', url: avatarUrl || '' }] : []" list-type="picture-card"
+              class="avatar-uploader" :auto-upload="true">
               <div class="avatar-inner">
                 <template v-if="formData.avatar">
                   <el-image :src="avatarUrl" class="uploaded-avatar" fit="cover" />
                 </template>
                 <div v-else class="upload-placeholder">
-                  <el-icon><Plus /></el-icon>
+                  <el-icon>
+                    <Plus />
+                  </el-icon>
                   <span>上传头像</span>
                 </div>
               </div>
@@ -43,95 +28,68 @@
           <el-form-item label="邮箱" prop="email">
             <el-input v-model="formData.email" placeholder="请输入邮箱" class="rounded-input">
               <template #prefix>
-                <el-icon class="text-primary"><Message /></el-icon>
+                <el-icon class="text-primary">
+                  <Message />
+                </el-icon>
               </template>
             </el-input>
           </el-form-item>
 
           <el-form-item label="密码" prop="password">
-            <el-input
-              v-model="formData.password"
-              type="password"
-              placeholder="请输入密码"
-              show-password
-              class="rounded-input"
-            >
+            <el-input v-model="formData.password" type="password" placeholder="请输入密码" show-password
+              class="rounded-input">
               <template #prefix>
-                <el-icon class="text-primary"><Lock /></el-icon>
+                <el-icon class="text-primary">
+                  <Lock />
+                </el-icon>
               </template>
             </el-input>
           </el-form-item>
 
           <el-form-item label="确认密码" prop="confirmPassword">
-            <el-input
-              v-model="formData.confirmPassword"
-              type="password"
-              placeholder="请再次输入密码"
-              show-password
-              class="rounded-input"
-            >
+            <el-input v-model="formData.confirmPassword" type="password" placeholder="请再次输入密码" show-password
+              class="rounded-input">
               <template #prefix>
-                <el-icon class="text-primary"><Lock /></el-icon>
+                <el-icon class="text-primary">
+                  <Lock />
+                </el-icon>
               </template>
             </el-input>
           </el-form-item>
 
           <el-form-item label="角色" prop="roleId">
-            <el-select
-              v-model="formData.roleId"
-              filterable
-              remote
-              reserve-keyword
-              placeholder="请输入角色名称"
-              :remote-method="remoteRoleSearch"
-              :loading="roleLoading"
-              class="rounded-input full-width"
-            >
+            <el-select v-model="formData.roleId" filterable remote reserve-keyword placeholder="请输入角色名称"
+              :remote-method="remoteRoleSearch" :loading="roleLoading" class="rounded-input full-width">
               <template #prefix>
-                <el-icon class="text-primary"><UserIcon /></el-icon>
+                <el-icon class="text-primary">
+                  <UserIcon />
+                </el-icon>
               </template>
-              <el-option
-                v-for="role in roleOptions"
-                :key="role.value"
-                :label="role.label"
-                :value="role.value"
-              />
+              <el-option v-for="role in roleOptions" :key="role.value" :label="role.label" :value="role.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item label="状态" prop="status">
             <div class="d-flex align-items-center">
-              <el-switch
-                v-model="statusValue"
-                class="status-switch me-3"
-                active-text="启用"
-                inactive-text="禁用"
-                inline-prompt
-              />
+              <el-switch v-model="statusValue" class="status-switch me-3" active-text="启用" inactive-text="禁用"
+                inline-prompt />
               <BBadge :variant="statusValue ? 'success' : 'danger'">{{ statusValue ? '用户可登录系统' : '用户被禁止登录' }}</BBadge>
             </div>
           </el-form-item>
 
           <el-form-item label="地址">
-            <el-input
-              v-model="formData.address"
-              placeholder="请输入地址"
-              class="rounded-input"
-            >
+            <el-input v-model="formData.address" placeholder="请输入地址" class="rounded-input">
               <template #prefix>
-                <el-icon class="text-primary"><Location /></el-icon>
+                <el-icon class="text-primary">
+                  <Location />
+                </el-icon>
               </template>
             </el-input>
           </el-form-item>
 
           <el-form-item label="个人简介">
-            <el-input
-              v-model="formData.introduction"
-              type="textarea"
-              placeholder="请输入个人简介"
-              :rows="3"
-              class="rounded-input"
-            />
+            <el-input v-model="formData.introduction" type="textarea" placeholder="请输入个人简介" :rows="3"
+              class="rounded-input" />
           </el-form-item>
         </el-form>
       </BCardBody>
@@ -409,6 +367,7 @@ watch(() => dialogVisible.value, (val) => {
 
     .el-dialog__close {
       color: rgba(255, 255, 255, 0.8);
+
       &:hover {
         color: #fff;
       }
@@ -436,9 +395,11 @@ watch(() => dialogVisible.value, (val) => {
 
   :deep(.el-input__wrapper) {
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) inset;
+
     &:hover {
       box-shadow: 0 0 0 1px $primary-color inset;
     }
+
     &.is-focus {
       box-shadow: 0 0 0 1px $primary-color inset !important;
     }

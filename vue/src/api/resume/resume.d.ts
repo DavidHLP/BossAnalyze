@@ -22,14 +22,14 @@ export interface ResumeData {
   name: string;
   age: string;
   gender: string;
-  location: string;
+  location: string[];
   experience: string;
   phone: string;
   email: string;
   avatar: string;
   jobTarget: string;
   expectedSalary: string;
-  targetCity: string;
+  targetCity: string[];
   availableTime: string;
   education: Education[];
   workExperience: WorkExperience[];

@@ -10,7 +10,7 @@
     </div>
     <div class="job-item">
       <span class="label">意向城市：</span>
-      <span class="value">{{ jobIntention.targetCity}}</span>
+      <span class="value">{{ Array.isArray(jobIntention.targetCity) ? jobIntention.targetCity.join('/') : '' }}</span>
     </div>
     <div class="job-item">
       <span class="label">入职时间：</span>
@@ -23,7 +23,7 @@
 interface JobIntention {
   jobTarget?: string;
   expectedSalary?: string;
-  targetCity?: string;
+  targetCity?: string[];
   availableTime?: string;
 }
 

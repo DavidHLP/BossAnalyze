@@ -62,7 +62,32 @@
           <el-table-column prop="name" label="姓名" min-width="100" />
           <el-table-column prop="age" label="年龄" width="80" />
           <el-table-column prop="gender" label="性别" width="80" />
-          <el-table-column prop="location" label="所在地" min-width="100" />
+          <el-table-column label="所在地" min-width="100">
+            <template #default="scope">
+              <el-space wrap size="small">
+                <template v-if="Array.isArray(scope.row.location) && scope.row.location.length > 0">
+                  <el-tag
+                    v-for="(loc, index) in scope.row.location"
+                    :key="index"
+                    type="success"
+                    effect="light"
+                    size="small"
+                    round
+                  >
+                    <el-icon class="location-icon"><Location /></el-icon>
+                    {{ loc }}
+                  </el-tag>
+                </template>
+                <template v-else-if="scope.row.location">
+                  <el-tag type="success" effect="light" size="small" round>
+                    <el-icon class="location-icon"><Location /></el-icon>
+                    {{ scope.row.location }}
+                  </el-tag>
+                </template>
+                <span v-else class="text-muted">未设置</span>
+              </el-space>
+            </template>
+          </el-table-column>
           <el-table-column prop="experience" label="工作经验" min-width="100" />
           <el-table-column prop="jobTarget" label="目标职位" min-width="120" />
           <el-table-column prop="expectedSalary" label="期望薪资" min-width="120" />
@@ -168,10 +193,10 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Plus, Edit, Delete, RefreshRight } from '@element-plus/icons-vue'
+import { Search, Plus, Edit, Delete, RefreshRight, Location } from '@element-plus/icons-vue'
 import type { ResumeData } from '@/api/resume/resume.d'
 import { getResumeList, getResumeData, deleteResume, saveResumeData } from '@/api/resume/resume'
-import UserResume from '@/views/console/boss/resume/components/UserResume.vue'
+import UserResume from '@/views/console/boss/resume/UserResume/components/UserResume.vue'
 
 // 数据加载与表格相关状态
 const loading = ref(false)
@@ -425,6 +450,17 @@ const confirmDelete = () => {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+.location-icon {
+  margin-right: 4px;
+  font-size: 12px;
+}
+
+.text-muted {
+  color: #909399;
+  font-size: 13px;
+  font-style: italic;
 }
 
 @media (max-width: 768px) {

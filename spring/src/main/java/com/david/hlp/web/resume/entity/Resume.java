@@ -12,6 +12,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
 import java.util.List;
+import java.io.Serializable;
 
 @Data
 @NoArgsConstructor
@@ -22,7 +23,7 @@ import java.util.List;
     @CompoundIndex(name = "userId_updatedAt", def = "{'userId': 1, 'updatedAt': -1}"),
     @CompoundIndex(name = "userName_createdAt", def = "{'userName': 1, 'createdAt': -1}")
 })
-public class Resume {
+public class Resume implements Serializable {
     @Id
     private String id;
 
@@ -32,14 +33,14 @@ public class Resume {
     private String name;
     private String age;
     private String gender;
-    private String location;
+    private List<String> location;
     private String experience;
     private String phone;
     private String email;
     private String avatar;
     private String jobTarget;
     private String expectedSalary;
-    private String targetCity;
+    private List<String> targetCity;
     private String availableTime;
 
     private List<Education> education;

@@ -508,9 +508,6 @@ const saveRolePermissionsData = async () => {
   // 获取树选中的节点ID（包括父节点和子节点）
   const checkedMenuIds = menuTreeRef.value?.getCheckedKeys() || [];
 
-  console.log(checkedMenuIds);
-  console.log(currentRole.value.id);
-
   // 保存路由权限（路由中已包含对应的操作权限）
   await updateRoleRouters({
     roleId: currentRole.value.id as number,

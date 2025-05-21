@@ -44,8 +44,8 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Check, RefreshRight, View, Back, Close } from '@element-plus/icons-vue'
-import StencilViewOne from '@/views/console/boss/resume/components/resumestencil/StencilViewOne.vue'
-import StencilEditOne from '@/views/console/boss/resume/components/resumestencil/StencilEditOne.vue'
+import StencilViewOne from '@/views/console/boss/resume/UserResume/components/resumestencil/StencilViewOne.vue'
+import StencilEditOne from '@/views/console/boss/resume/UserResume/components/resumestencil/StencilEditOne.vue'
 import type { ResumeData } from '@/api/resume/resume.d'
 import { getResumeData, saveResumeData, getResumeDetail, addResume } from '@/api/resume/resume'
 
@@ -166,14 +166,14 @@ const initEmptyResumeData = () => {
   resumeData.value.name = '';
   resumeData.value.age = '';
   resumeData.value.gender = '';
-  resumeData.value.location = '';
+  resumeData.value.location = [];
   resumeData.value.experience = '';
   resumeData.value.phone = '';
   resumeData.value.email = '';
   resumeData.value.avatar = '';
   resumeData.value.jobTarget = '';
   resumeData.value.expectedSalary = '';
-  resumeData.value.targetCity = '';
+  resumeData.value.targetCity = [];
   resumeData.value.availableTime = '';
   resumeData.value.selfEvaluation = '';
 
@@ -300,23 +300,22 @@ const validateAndCleanData = (data: ResumeData) => {
   data.name = sanitizeInput(data.name);
   data.age = sanitizeInput(data.age);
   data.gender = sanitizeInput(data.gender);
-  data.location = sanitizeInput(data.location);
+
+  // 为location数组特殊处理
+  data.location = sanitizeArrayField(data.location);
+
   data.experience = sanitizeInput(data.experience);
   data.phone = sanitizeInput(data.phone);
   data.email = sanitizeInput(data.email);
   data.avatar = sanitizeInput(data.avatar);
   data.jobTarget = sanitizeInput(data.jobTarget);
   data.expectedSalary = sanitizeInput(data.expectedSalary);
-  data.targetCity = sanitizeInput(data.targetCity);
+  data.targetCity = sanitizeArrayField(data.targetCity);
   data.availableTime = sanitizeInput(data.availableTime);
   data.selfEvaluation = sanitizeInput(data.selfEvaluation);
 
   // 验证并清理兴趣标签
-  if (Array.isArray(data.interestTags)) {
-    data.interestTags = data.interestTags
-      .map(tag => sanitizeInput(tag))
-      .filter(tag => tag.length > 0);
-  }
+  data.interestTags = sanitizeArrayField(data.interestTags);
 
   // 对于复杂对象数组，使用类型断言来解决类型问题
 
@@ -424,12 +423,33 @@ const validateAndCleanData = (data: ResumeData) => {
 const sanitizeInput = (input: string | undefined): string => {
   if (!input) return '';
 
+  // 确保input是字符串
+  if (typeof input !== 'string') {
+    return '';
+  }
+
   // 移除可能的脚本标签和危险属性
   return input
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/on\w+="[^"]*"/g, '')
     .replace(/javascript:/gi, '')
     .trim();
+};
+
+// 处理数组类型字段的函数，返回清理后的字符串数组
+const sanitizeArrayField = (input: string[] | string | undefined): string[] => {
+  // 如果是数组，对每个元素进行清理并过滤空值
+  if (Array.isArray(input)) {
+    return input.map(item => sanitizeInput(item)).filter(item => item.length > 0);
+  }
+  // 如果是字符串，转换为单元素数组
+  else if (typeof input === 'string') {
+    return input ? [sanitizeInput(input)] : [];
+  }
+  // 其他情况返回空数组
+  else {
+    return [];
+  }
 };
 
 // 添加安全检查

@@ -20,37 +20,20 @@ public class RequirementAnalyzer {
     private final TJobDetailMapper tJobDetailMapper;
     private final AIExtractionOfJobRequirements aiExtractionOfJobRequirements;
     private final FormatDataService formatDataService;
-    private Long currentIndex = 0L;
     @Value("${limit:20}")
     private Integer limit = 20;
-    private StringBuffer requirementBuilder = new StringBuffer();
-
-
-    public  List<String> getCoreRequirements(String cityName, String positionName) {
-        List<MiniJobDetail> jobDetailList = null;
-        List<String> coreRequirementList = new ArrayList<>();
-        do {
-            jobDetailList = tJobDetailMapper.selectJobRequirements(cityName, positionName, currentIndex, limit);
-            jobDetailList.sort(Comparator.comparing(MiniJobDetail::getId));
-            for (MiniJobDetail jobDetail : jobDetailList) {
-                String jobRequirement = jobDetail.getJobRequirements();
-                requirementBuilder.append(jobRequirement);
-                currentIndex = jobDetail.getId();
-            }
-            for (String requirement : coreRequirementList) {
-                requirementBuilder.append(requirement);
-            }
-            coreRequirementList = aiExtractionOfJobRequirements.coreRequirementAnalyzer(requirementBuilder.toString());
-        } while (jobDetailList.isEmpty());
-        return coreRequirementList;
-    }
-
-    public List<UserSimilarity> getUserSimilarity(String resume, String city, String position) {
-        List<MiniJobDetail> jobDetailList = null;
+    public List<UserSimilarity> getUserSimilarity(String resume, List<String> cityList, String position) {
+        Long currentIndex = 0L;
+        List<MiniJobDetail> jobDetailList = new ArrayList<>();
         CompareQueue<UserSimilarity> compareQueue = new CompareQueue<>(10,
                 Comparator.comparing(UserSimilarity::getSimilarity).reversed());
         do {
-            jobDetailList = tJobDetailMapper.selectMiniJobDetail(city, position, currentIndex, limit);
+            for (String city : cityList) {
+                jobDetailList.addAll(tJobDetailMapper.selectMiniJobDetail(city, position, currentIndex, limit));
+            }
+            if (jobDetailList.isEmpty()) {
+                break;
+            }
             jobDetailList.sort(Comparator.comparing(MiniJobDetail::getId));
             for (MiniJobDetail jobDetail : jobDetailList) {
                 int similarity = aiExtractionOfJobRequirements.getUserSimilarity(jobDetail.getDetailData(), resume);
@@ -62,6 +45,7 @@ public class RequirementAnalyzer {
                 compareQueue.add(userSimilarity);
                 currentIndex = jobDetail.getId();
             }
+            jobDetailList.clear();
         } while (jobDetailList.isEmpty());
         List<UserSimilarity> resultList = new ArrayList<>();
         while (!compareQueue.isEmpty()) {

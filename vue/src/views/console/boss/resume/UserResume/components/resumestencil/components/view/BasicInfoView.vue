@@ -7,7 +7,14 @@
     <div class="personal-info">
       <div class="info-item"><el-icon><Calendar /></el-icon> {{ basicInfo.age || '27岁' }}</div>
       <div class="info-item"><el-icon><Male /></el-icon> {{ basicInfo.gender || '男' }}</div>
-      <div class="info-item"><el-icon><Location /></el-icon> {{ basicInfo.location || '上海' }}</div>
+      <div class="info-item"><el-icon><Location /></el-icon>
+        <template v-if="Array.isArray(basicInfo.location) && basicInfo.location.length > 0">
+          {{ basicInfo.location.join('/') }}
+        </template>
+        <template v-else>
+          {{ basicInfo.location}}
+        </template>
+      </div>
       <div class="info-item"><el-icon><Timer /></el-icon> {{ basicInfo.experience || '4年经验' }}</div>
       <div class="info-item"><el-icon><Phone /></el-icon> {{ basicInfo.phone || '15688888888' }}</div>
       <div class="info-item"><el-icon><Message /></el-icon> {{ basicInfo.email || 'example@qq.com' }}</div>
@@ -23,7 +30,7 @@ import { getImageUrl } from '@/api/minio/minio'
 interface BasicInfo {
   age?: string;
   gender?: string;
-  location?: string;
+  location?: string[] | string;
   experience?: string;
   phone?: string;
   email?: string;

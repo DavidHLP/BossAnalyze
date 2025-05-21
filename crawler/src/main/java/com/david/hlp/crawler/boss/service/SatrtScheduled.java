@@ -13,23 +13,23 @@ import com.david.hlp.crawler.common.threadpool.ScrapeBossDataThreadPool;
 public class SatrtScheduled {
     private final DataScrapingService dataScrapingService;
 
-    @Scheduled(fixedDelay = 1000 * 60 * 1)
-    public void startScrapeBossUrl() {
-        ScrapeBossUrlThreadPool.executeWithSpringContext(() -> {
-            dataScrapingService.scrapeBossUrl();
-        });
-    }
+    // @Scheduled(fixedDelay = 1000 * 60 * 1)
+    // public void startScrapeBossUrl() {
+    //     ScrapeBossUrlThreadPool.executeWithSpringContext(() -> {
+    //         dataScrapingService.scrapeBossUrl();
+    //     });
+    // }
 
-    @Scheduled(fixedDelay = 1000 * 30 * 1)
-    public void startParseBossHtmlData() {
-        ParseBossHtmlDataThreadPool.executeWithSpringContext(() -> {
-            dataScrapingService.parseBossHtmlData();
-        });
-    }
-    @Scheduled(fixedDelay = 1000 * 60 * 1)
-    public void startScrapeBossData() {
-        ScrapeBossDataThreadPool.executeWithSpringContext(() -> {
-            dataScrapingService.scrapeBossData();
-        });
-    }
+    // @Scheduled(fixedDelay = 1000 * 30 * 1)
+    // public void startParseBossHtmlData() {
+    //     ParseBossHtmlDataThreadPool.executeWithSpringContext(() -> {
+    //         dataScrapingService.parseBossHtmlData();
+    //     });
+    // }
+    // @Scheduled(fixedDelay = 1000 * 60 * 1)
+    // public void startScrapeBossData() {
+    //     ScrapeBossDataThreadPool.executeWithSpringContext(() -> {
+    //         dataScrapingService.scrapeBossData();
+    //     });
+    // }
 }

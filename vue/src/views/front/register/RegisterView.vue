@@ -4,7 +4,7 @@
       <div class="register-header">
         <div class="logo-container">
           <el-icon class="logo-icon"><svg viewBox="0 0 128 128" width="24" height="24"><path d="M115.4 30.7L67.1 2.9c-.8-.5-1.9-.7-3.1-.7-1.2 0-2.3.3-3.1.7l-48 27.9c-1.7 1-2.9 3.5-2.9 5.4v55.7c0 1.1.2 2.4 1 3.5l106.8-62c-.6-1.2-1.5-2.1-2.4-2.7z" fill="#42b883"></path><path d="M10.7 95.3c.5.8 1.2 1.5 1.9 1.9l48.2 27.9c.8.5 1.9.7 3.1.7 1.2 0 2.3-.3 3.1-.7l48-27.9c1.7-1 2.9-3.5 2.9-5.4V36.1c0-.9-.1-1.9-.6-2.8l-106.6 62z" fill="#35495e"></path></svg></el-icon>
-          <h1 class="app-title">路由管理</h1>
+          <h1 class="app-title">推荐系统</h1>
         </div>
         <h2 class="register-title">创建账号</h2>
         <p class="register-subtitle">请填写以下信息完成注册</p>
@@ -49,7 +49,7 @@
       </el-form>
 
       <div class="register-footer">
-        <p>© {{ currentYear }} 路由管理. 保留所有权利</p>
+        <p>© {{ currentYear }} 推荐系统. 保留所有权利</p>
       </div>
     </div>
   </div>

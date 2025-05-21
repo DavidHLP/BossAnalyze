@@ -42,7 +42,8 @@ public class SecurityConfiguration {
                     "/api/boss/basic/**",
                     "/api/boss/user/**",
                     "/api/resume/**",
-                    "/api/image/**"
+                    "/api/image/**",
+                    "/api/ai/**"
                 ).permitAll()
                 .requestMatchers("/api/user/**").hasRole("ADMIN")
                 .requestMatchers("/api/role/**").hasRole("ADMIN")

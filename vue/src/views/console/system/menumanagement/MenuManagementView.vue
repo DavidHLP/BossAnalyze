@@ -4,21 +4,29 @@
     <div class="action-bar">
       <div class="action-left">
         <el-button type="primary" @click="handleAdd" class="action-button">
-          <el-icon><Plus /></el-icon>
+          <el-icon>
+            <Plus />
+          </el-icon>
           <span>添加菜单</span>
         </el-button>
         <el-button type="success" @click="expandAll" class="action-button">
-          <el-icon><Expand /></el-icon>
+          <el-icon>
+            <Expand />
+          </el-icon>
           <span>展开全部</span>
         </el-button>
         <el-button type="info" @click="collapseAll" class="action-button">
-          <el-icon><Fold /></el-icon>
+          <el-icon>
+            <Fold />
+          </el-icon>
           <span>折叠全部</span>
         </el-button>
       </div>
       <div class="action-right">
         <el-button type="primary" plain @click="toggleSidebar" class="toggle-sidebar-btn">
-          <el-icon><component :is="isSidebarCollapsed ? 'Expand' : 'Fold'" /></el-icon>
+          <el-icon>
+            <component :is="isSidebarCollapsed ? 'Expand' : 'Fold'" />
+          </el-icon>
           <span class="hidden-sm-and-down">{{ isSidebarCollapsed ? '展开侧栏' : '折叠侧栏' }}</span>
         </el-button>
       </div>
@@ -27,80 +35,55 @@
     <!-- 主内容区 - 分割面板 -->
     <el-row :gutter="20" class="content-panel">
       <!-- 左侧树形菜单 -->
-      <el-col :xs="24" :sm="isSidebarCollapsed ? 6 : 8" :md="isSidebarCollapsed ? 5 : 8" :lg="isSidebarCollapsed ? 4 : 8" class="sidebar-col" :class="{ 'is-collapsed': isSidebarCollapsed }">
+      <el-col :xs="24" :sm="isSidebarCollapsed ? 6 : 8" :md="isSidebarCollapsed ? 5 : 8"
+        :lg="isSidebarCollapsed ? 4 : 8" class="sidebar-col" :class="{ 'is-collapsed': isSidebarCollapsed }">
         <el-card shadow="hover" class="tree-card">
           <template #header>
             <div class="card-header">
               <h3 class="card-title">菜单结构</h3>
               <div class="search-wrapper">
-                <el-input
-                  v-model="filterText"
-                  placeholder="搜索菜单"
-                  prefix-icon="Search"
-                  clearable
-                  class="search-input"
-                />
+                <el-input v-model="filterText" placeholder="搜索菜单" prefix-icon="Search" clearable class="search-input" />
               </div>
             </div>
           </template>
-          <el-tree
-            ref="menuTreeRef"
-            :data="tableData"
-            :props="{
-              label: 'name',
-              children: 'children'
-            }"
-            node-key="id"
-            :filter-node-method="filterNode as any"
-            :expand-on-click-node="false"
-            :default-expanded-keys="expandedKeys"
-            draggable
-            @node-drag-end="handleDragEnd"
-            highlight-current
-            @node-click="handleNodeClick"
-            class="menu-tree"
-          >
+          <el-tree ref="menuTreeRef" :data="tableData" :props="{
+            label: 'name',
+            children: 'children'
+          }" node-key="id" :filter-node-method="filterNode as any" :expand-on-click-node="false"
+            :default-expanded-keys="expandedKeys" draggable @node-drag-end="handleDragEnd" highlight-current
+            @node-click="handleNodeClick" class="menu-tree">
             <template #default="{ node, data }">
               <div class="tree-node">
                 <div class="node-label">
                   <el-icon v-if="data.meta?.metaIcon" class="node-icon">
                     <component :is="data.meta.metaIcon" />
                   </el-icon>
-                  <span class="node-text" :class="{'truncated-text': isSidebarCollapsed}">{{ node.label }}</span>
+                  <span class="node-text" :class="{ 'truncated-text': isSidebarCollapsed }">{{ node.label }}</span>
                   <el-tag v-if="data.meta?.type" size="small" :type="tagType(data.meta.type)" class="node-tag">
                     {{ { M: '目录', C: '菜单', F: '按钮' }[data.meta.type as 'M' | 'C' | 'F'] || '-' }}
                   </el-tag>
                 </div>
                 <div class="node-actions">
                   <el-tooltip content="添加子菜单" placement="top">
-                    <el-button
-                      type="primary"
-                      link
-                      @click.stop="handleAddChild(data)"
-                      class="action-icon"
-                      v-if="data.meta?.type !== 'F'"
-                    >
-                      <el-icon><Plus /></el-icon>
+                    <el-button type="primary" link @click.stop="handleAddChild(data)" class="action-icon"
+                      v-if="data.meta?.type !== 'F'">
+                      <el-icon>
+                        <Plus />
+                      </el-icon>
                     </el-button>
                   </el-tooltip>
                   <el-tooltip content="编辑" placement="top">
-                    <el-button
-                      type="primary"
-                      link
-                      @click.stop="handleEdit(data)"
-                      class="action-icon"
-                    >
-                      <el-icon><Edit /></el-icon>
+                    <el-button type="primary" link @click.stop="handleEdit(data)" class="action-icon">
+                      <el-icon>
+                        <Edit />
+                      </el-icon>
                     </el-button>
                   </el-tooltip>
                   <el-tooltip content="删除" placement="top">
-                    <el-button
-                      type="danger"
-                      link
-                      @click.stop="handleDelete(data)"
-                      class="action-icon"
-                    >
-                      <el-icon><Delete /></el-icon>
+                    <el-button type="danger" link @click.stop="handleDelete(data)" class="action-icon">
+                      <el-icon>
+                        <Delete />
+                      </el-icon>
                     </el-button>
                   </el-tooltip>
                 </div>
@@ -111,7 +94,8 @@
       </el-col>
 
       <!-- 右侧详情信息 -->
-      <el-col :xs="24" :sm="isSidebarCollapsed ? 18 : 16" :md="isSidebarCollapsed ? 19 : 16" :lg="isSidebarCollapsed ? 20 : 16" class="content-col">
+      <el-col :xs="24" :sm="isSidebarCollapsed ? 18 : 16" :md="isSidebarCollapsed ? 19 : 16"
+        :lg="isSidebarCollapsed ? 20 : 16" class="content-col">
         <el-card shadow="hover" class="detail-card">
           <template #header>
             <div class="card-header">
@@ -127,7 +111,9 @@
               <el-descriptions-item label="权限标识">{{ currentNode.permission || '-' }}</el-descriptions-item>
               <el-descriptions-item label="图标">
                 <span class="icon-preview">
-                  <el-icon v-if="currentNode.meta?.metaIcon"><component :is="currentNode.meta.metaIcon" /></el-icon>
+                  <el-icon v-if="currentNode.meta?.metaIcon">
+                    <component :is="currentNode.meta.metaIcon" />
+                  </el-icon>
                   {{ currentNode.meta?.metaIcon || '-' }}
                 </span>
               </el-descriptions-item>
@@ -165,15 +151,22 @@
 
             <div class="action-group">
               <el-button type="primary" @click="handleEdit(currentNode)" class="detail-button">
-                <el-icon><Edit /></el-icon>
+                <el-icon>
+                  <Edit />
+                </el-icon>
                 <span>编辑菜单</span>
               </el-button>
-              <el-button v-if="currentNode.meta?.type !== 'F'" type="success" @click="handleAddChild(currentNode)" class="detail-button">
-                <el-icon><Plus /></el-icon>
+              <el-button v-if="currentNode.meta?.type !== 'F'" type="success" @click="handleAddChild(currentNode)"
+                class="detail-button">
+                <el-icon>
+                  <Plus />
+                </el-icon>
                 <span>添加子菜单</span>
               </el-button>
               <el-button type="danger" @click="handleDelete(currentNode)" class="detail-button">
-                <el-icon><Delete /></el-icon>
+                <el-icon>
+                  <Delete />
+                </el-icon>
                 <span>删除菜单</span>
               </el-button>
             </div>
@@ -187,7 +180,8 @@
     </el-row>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="editDialogVisible" :title="dialogTitle" :width="dialogWidth" destroy-on-close class="menu-dialog">
+    <el-dialog v-model="editDialogVisible" :title="dialogTitle" :width="dialogWidth" destroy-on-close
+      class="menu-dialog">
       <el-form :model="formData" label-width="100px" class="menu-form">
         <el-tabs>
           <el-tab-pane label="基本信息">
@@ -220,24 +214,16 @@
                         </template>
                         <div class="icon-selector">
                           <div class="icon-search">
-                            <el-input
-                              v-model="iconSearchText"
-                              placeholder="搜索图标"
-                              clearable
-                              prefix-icon="Search"
-                            />
+                            <el-input v-model="iconSearchText" placeholder="搜索图标" clearable prefix-icon="Search" />
                           </div>
                           <div class="icon-grid-container">
                             <el-scrollbar height="350px">
                               <div class="icon-grid">
-                                <div
-                                  v-for="icon in filteredIcons"
-                                  :key="icon"
-                                  @click="selectIcon(icon)"
-                                  class="icon-item"
-                                  :class="{ 'icon-selected': icon === formData.meta.metaIcon }"
-                                >
-                                  <el-icon><component :is="icon" /></el-icon>
+                                <div v-for="icon in filteredIcons" :key="icon" @click="selectIcon(icon)"
+                                  class="icon-item" :class="{ 'icon-selected': icon === formData.meta.metaIcon }">
+                                  <el-icon>
+                                    <component :is="icon" />
+                                  </el-icon>
                                   <span class="icon-name">{{ icon }}</span>
                                 </div>
                               </div>
@@ -248,7 +234,9 @@
                             <div v-if="formData.meta.metaIcon" class="selected-icon">
                               <span>已选图标：</span>
                               <el-tag type="success">
-                                <el-icon><component :is="formData.meta.metaIcon" /></el-icon>
+                                <el-icon>
+                                  <component :is="formData.meta.metaIcon" />
+                                </el-icon>
                                 {{ formData.meta.metaIcon }}
                               </el-tag>
                             </div>
@@ -269,14 +257,8 @@
               </el-col>
               <el-col :xs="24" :sm="12">
                 <el-form-item label="状态">
-                  <el-switch
-                    v-model="formData.status"
-                    :active-value="1"
-                    :inactive-value="0"
-                    active-text="启用"
-                    inactive-text="停用"
-                    class="status-switch"
-                  />
+                  <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" active-text="启用"
+                    inactive-text="停用" class="status-switch" />
                 </el-form-item>
               </el-col>
             </el-row>
@@ -351,17 +333,12 @@
     </el-dialog>
 
     <!-- 添加拖拽确认对话框 -->
-    <el-dialog
-      v-model="dragConfirmVisible"
-      title="确认菜单位置修改"
-      width="30%"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      :show-close="false"
-      class="confirm-dialog"
-    >
+    <el-dialog v-model="dragConfirmVisible" title="确认菜单位置修改" width="30%" :close-on-click-modal="false"
+      :close-on-press-escape="false" :show-close="false" class="confirm-dialog">
       <div class="confirm-content">
-        <el-icon class="warning-icon"><Warning /></el-icon>
+        <el-icon class="warning-icon">
+          <Warning />
+        </el-icon>
         <span>
           确定要将菜单 "<strong>{{ dragInfo?.nodeName || '' }}</strong>"
           {{ dragInfo?.dropType === 'inner' ? '移动到' : '移动到与' }}
@@ -579,9 +556,9 @@ const loadData = async () => {
 const filterNode = (value: string, data: Router) => {
   if (!value) return true
   return data.name.includes(value) ||
-         data.path.includes(value) ||
-         String(data.permission).includes(value) ||
-         data.meta?.component?.includes(value)
+    data.path.includes(value) ||
+    String(data.permission).includes(value) ||
+    data.meta?.component?.includes(value)
 }
 
 // 处理节点点击
@@ -640,7 +617,6 @@ interface DragNode {
 
 // 拖拽结束处理
 const handleDragEnd = async (draggingNode: DragNode, dropNode: DragNode | null, dropType: string) => {
-  console.log('拖拽结束', draggingNode.data, dropNode?.data, dropType);
 
   // 如果没有目标节点，说明是无效的拖拽
   if (!dropNode) return;
@@ -882,7 +858,6 @@ const handleDelete = (row: Router) => {
 // 提交添加操作
 const submitAdd = async () => {
   try {
-    console.log('提交添加', formData.value)
 
     // 处理数据格式，确保与后端兼容
     const submittingData = { ...formData.value }
@@ -915,7 +890,6 @@ const submitAdd = async () => {
 // 提交编辑操作
 const submitEdit = async () => {
   try {
-    console.log('提交编辑', formData.value)
 
     // 处理数据格式，确保与后端兼容
     const submittingData = { ...formData.value }
@@ -977,13 +951,15 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
   flex-wrap: wrap;
   gap: var(--spacing-md);
 
-  .action-left, .action-right {
+  .action-left,
+  .action-right {
     display: flex;
     gap: var(--spacing-md);
     flex-wrap: wrap;
   }
 
-  .action-button, .toggle-sidebar-btn {
+  .action-button,
+  .toggle-sidebar-btn {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1034,7 +1010,8 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
   transition: all 0.3s ease;
 }
 
-.tree-card, .detail-card {
+.tree-card,
+.detail-card {
   height: 100%;
   border-radius: var(--border-radius-lg);
   box-shadow: var(--box-shadow);
@@ -1148,7 +1125,8 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
     gap: 8px;
   }
 
-  .status-tag, .feature-tag {
+  .status-tag,
+  .feature-tag {
     font-weight: 500;
   }
 }
@@ -1187,7 +1165,8 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
     padding: var(--spacing-md) 0;
   }
 
-  .number-input, .type-select {
+  .number-input,
+  .type-select {
     width: 100%;
   }
 
@@ -1297,12 +1276,14 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
     flex-direction: column;
     align-items: stretch;
 
-    .action-left, .action-right {
+    .action-left,
+    .action-right {
       justify-content: space-between;
     }
   }
 
-  .sidebar-col, .content-col {
+  .sidebar-col,
+  .content-col {
     margin-bottom: var(--spacing-md);
   }
 

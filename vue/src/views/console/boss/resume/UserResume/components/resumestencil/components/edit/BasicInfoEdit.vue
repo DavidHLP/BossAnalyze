@@ -27,8 +27,23 @@
     <el-row :gutter="20">
       <el-col :span="8">
         <el-form-item label="所在地">
-          <el-input :model-value="basicInfo.location" @update:model-value="updateField('location', $event)"
-            placeholder="请输入所在地"></el-input>
+          <el-select
+            v-model="locationValue"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请输入所在地"
+            @change="handleLocationChange"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in locationValue"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
         </el-form-item>
       </el-col>
       <el-col :span="8">
@@ -88,7 +103,7 @@ interface BasicInfo {
   name: string;
   age: string;
   gender: string;
-  location: string;
+  location: string[] | string;
   experience: string;
   phone: string;
   email: string;
@@ -106,9 +121,15 @@ const emit = defineEmits<{
 }>()
 
 const avatarUrl = ref('')
+const locationValue = ref<string[]>([])
+
+// 处理所在地变化
+const handleLocationChange = (value: string[]) => {
+  updateField('location', value)
+}
 
 // 通用字段更新方法
-const updateField = (field: keyof BasicInfo, value: string) => {
+const updateField = (field: keyof BasicInfo, value: string | string[]) => {
   emit('update:basicInfo', {
     ...props.basicInfo,
     [field]: value
@@ -130,21 +151,50 @@ const updateAvatarUrl = async () => {
   }
 }
 
-// 组件挂载和头像属性变化时更新头像URL
+// 组件挂载时初始化locationValue
 onMounted(() => {
   updateAvatarUrl()
+
+  // 初始化location值
+  if (props.basicInfo.location) {
+    // 如果location是字符串，转换为数组
+    if (typeof props.basicInfo.location === 'string') {
+      locationValue.value = props.basicInfo.location ? [props.basicInfo.location] : []
+    } else {
+      // 如果已经是数组则直接赋值
+      locationValue.value = props.basicInfo.location
+    }
+  }
 })
 
+// 为avatar单独添加监听
 watch(() => props.basicInfo.avatar, () => {
   updateAvatarUrl()
 })
 
+// 监听location属性变化
+watch(() => props.basicInfo.location, (newValue) => {
+  if (newValue) {
+    if (typeof newValue === 'string') {
+      locationValue.value = newValue ? [newValue] : []
+    } else {
+      locationValue.value = newValue
+    }
+  } else {
+    locationValue.value = []
+  }
+})
+
 // 头像上传成功回调
 const handleAvatarSuccess = (response: ImageResponse) => {
+
   if (response.fileName) {
     updateField('avatar', response.fileName)
     ElMessage.success('头像上传成功')
     updateAvatarUrl()
+  } else {
+    console.error('头像上传响应无效:', response)
+    ElMessage.error('头像上传失败，响应数据不完整')
   }
 }
 
@@ -154,7 +204,7 @@ const handleUploadRequest = async (options: any) => {
   try {
     const response = await uploadImage(options.file)
     handleAvatarSuccess(response)
-    if (options.onSuccess) {
+    if (options.onSuccess && response) {
       options.onSuccess(response)
     }
   } catch (error) {
