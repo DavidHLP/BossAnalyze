@@ -23,25 +23,25 @@ public class ExtractionOfJobRequirements {
     private final EmployeeBenefitsExtractionTask employeeBenefitsTask;
     private final JobRequirementsExtractionTask jobRequirementsTask;
 
-    // /**
-    //  * 定时提取职位福利信息
-    //  */
-    // @Scheduled(cron = "0 0/5 * * * ?")
-    // private void extractionOfEmployeeBenefits() {
-    //     lockService.executeWithLock("职位福利提取", () -> {
-    //         taskExecutorService.executeAsync("职位福利提取任务", employeeBenefitsTask::execute);
-    //         return null;
-    //     });
-    // }
+    /**
+     * 定时提取职位福利信息
+     */
+    @Scheduled(cron = "0 0/5 * * * ?")
+    private void extractionOfEmployeeBenefits() {
+        lockService.executeWithLock("职位福利提取", () -> {
+            taskExecutorService.executeAsync("职位福利提取任务", employeeBenefitsTask::execute);
+            return null;
+        });
+    }
 
-    // /**
-    //  * 定时提取职位要求信息
-    //  */
-    // @Scheduled(cron = "0 0/5 * * * ?")
-    // private void extractionOfJobRequirements() {
-    //     lockService.executeWithLock("职位要求提取", () -> {
-    //         taskExecutorService.executeAsync("职位要求提取任务", jobRequirementsTask::execute);
-    //         return null;
-    //     });
-    // }
+    /**
+     * 定时提取职位要求信息
+     */
+    @Scheduled(cron = "0 0/5 * * * ?")
+    private void extractionOfJobRequirements() {
+        lockService.executeWithLock("职位要求提取", () -> {
+            taskExecutorService.executeAsync("职位要求提取任务", jobRequirementsTask::execute);
+            return null;
+        });
+    }
 }

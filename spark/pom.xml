@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.7.18</version>
+        <version>2.7.15</version>
         <relativePath/>
     </parent>
     <groupId>com.david.hlp</groupId>
@@ -18,8 +18,8 @@
         <java.version>1.8</java.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <spark.version>3.4.1</spark.version>
-        <scala.version>2.12</scala.version>
+        <spark.version>3.5.5</spark.version>
+        <scala.version>2.13</scala.version>
     </properties>
 
     <dependencies>

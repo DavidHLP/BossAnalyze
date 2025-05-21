@@ -2,13 +2,6 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.david.hlp.crawler.ai.mapper.TJobDetailMapper">
 
-    <resultMap type="com.david.hlp.crawler.ai.entity.MiniJobDetail" id="BaseResultMap">
-       <result column="id" property="id"/>
-       <result column="job_requirements" property="jobRequirements"/>
-       <result column="employee_benefits" property="employeeBenefits"/>
-       <result column="detail_data" property="detailData"/>
-    </resultMap>
-
     <!-- 根据城市和职位名称查询职位需求 -->
     <select id="selectJobRequirements" resultType="com.david.hlp.crawler.ai.entity.MiniJobDetail">
         SELECT
@@ -33,6 +26,7 @@
         SELECT
             id,
             position_name,
+            html_url,
             city_name,
             JSON_UNQUOTE(job_requirements) as job_requirements,
             JSON_UNQUOTE(employee_benefits) as employee_benefits,

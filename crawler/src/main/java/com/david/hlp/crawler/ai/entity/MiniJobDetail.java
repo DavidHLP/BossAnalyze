@@ -17,6 +17,11 @@ public class MiniJobDetail {
      * 主键ID
      */
     private Long id;
+    
+    /**
+     * 职位详情链接
+     */
+    private String url;
 
     /**
      * 职位名称

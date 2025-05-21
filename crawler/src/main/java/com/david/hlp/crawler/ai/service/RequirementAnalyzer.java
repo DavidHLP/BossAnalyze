@@ -51,6 +51,7 @@ public class RequirementAnalyzer {
         while (!compareQueue.isEmpty()) {
             UserSimilarity userSimilarity = compareQueue.poll();
             userSimilarity.setJobAnalysisData(formatDataService.convertToJobAnalysisData(userSimilarity.getMiniJobDetail()));
+            userSimilarity.getJobAnalysisData().setJobUrl(userSimilarity.getMiniJobDetail().getUrl());
             userSimilarity.setMiniJobDetail(null);
             resultList.add(userSimilarity);
         }

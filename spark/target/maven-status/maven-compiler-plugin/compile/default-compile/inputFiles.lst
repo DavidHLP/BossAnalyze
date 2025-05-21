@@ -1,6 +1,14 @@
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/service/User/SalaryHotJob.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/model/User/JobAnalysisData.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/controller/User/ListBasicSetController.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChart.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/config/SparkClusterConfig.java
 /home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/enums/Education.java
-/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/service/BossSpark.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/controller/User/CityAndPositonController.java
 /home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/config/RedisConfig.java
-/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/config/SparkConfig.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/config/SparkLocalConfig.java
 /home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/utils/RedisCache.java
-/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/SpringSparkBootAplication.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/service/User/ListBasicSet.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/SpringSpark.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/model/User/SalaryJob.java
+/home/david/Project/BossAnalyze/spark/src/main/java/com/david/hlp/spark/service/User/ThreeDimensionalAnalysisChart.java
