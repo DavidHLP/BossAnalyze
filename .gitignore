@@ -61,4 +61,4 @@ env/
 *.pdf
 
 *.vscode
-**target**
+**/target/**
