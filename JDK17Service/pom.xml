@@ -22,6 +22,8 @@
 	
 	<properties>
 		<java.version>17</java.version>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
 		<lombok.version>1.18.30</lombok.version>
 		<selenium.version>4.15.0</selenium.version>
 		<playwright.version>1.39.0</playwright.version>
@@ -51,9 +53,8 @@
 		<opencsv.version>5.7.1</opencsv.version>
 		<!-- 存储相关版本 -->
 		<minio.version>8.5.7</minio.version>
-		<!-- Spark相关版本 -->
-		<spark.version>3.4.1</spark.version>
-		<janino.version>3.0.8</janino.version>
+		<!-- Jackson 相关版本 -->
+		<jackson.version>2.15.3</jackson.version>
 	</properties>
 	
 	<dependencyManagement>
@@ -185,35 +186,19 @@
 				<artifactId>minio</artifactId>
 				<version>${minio.version}</version>
 			</dependency>
-			<!-- Spark -->
+			<!-- Jackson -->
 			<dependency>
-				<groupId>org.apache.spark</groupId>
-				<artifactId>spark-core_2.12</artifactId>
-				<version>${spark.version}</version>
+				<groupId>com.fasterxml.jackson.core</groupId>
+				<artifactId>jackson-core</artifactId>
+				<version>${jackson.version}</version>
 			</dependency>
 			<dependency>
-				<groupId>org.apache.spark</groupId>
-				<artifactId>spark-sql_2.12</artifactId>
-				<version>${spark.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.apache.spark</groupId>
-				<artifactId>spark-streaming_2.12</artifactId>
-				<version>${spark.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.apache.spark</groupId>
-				<artifactId>spark-sql-kafka-0-10_2.12</artifactId>
-				<version>${spark.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.codehaus.janino</groupId>
-				<artifactId>janino</artifactId>
-				<version>${janino.version}</version>
+				<groupId>com.fasterxml.jackson.core</groupId>
+				<artifactId>jackson-databind</artifactId>
+				<version>${jackson.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
-	
 	<build>
 		<pluginManagement>
 			<plugins>
