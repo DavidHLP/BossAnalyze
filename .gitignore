@@ -1,64 +1,77 @@
-# Created by https://www.toptal.com/developers/gitignore/api/java,linux
-# Edit at https://www.toptal.com/developers/gitignore?templates=java,linux
+#Java
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
-### Java ###
-# Compiled class file
-*.class
-*target
-*dist
+### IntelliJ IDEA ###
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
+*.iws
+*.iml
+*.ipr
 
-# Log file
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+#Vue3
+# Logs
+logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# BlueJ files
-*.ctxt
+node_modules
+.DS_Store
+dist
+dist-ssr
+coverage
+*.local
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
+/cypress/videos/
+/cypress/screenshots/
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-### Linux ###
-*~
+*.tsbuildinfo
 
-# temporary files which can be created if a process still has a handle open of a deleted file
-.fuse_hidden*
+test-results/
+playwright-report/
 
-# KDE directory preferences
-.directory
-
-# Linux trash folder which might appear on any partition or disk
-.Trash-*
-
-# .nfs files are created when an open file is removed but is still being accessed
-.nfs*
-
-# End of https://www.toptal.com/developers/gitignore/api/java,linux
-
-# Python virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# Python files
-*.pyc
-*.pyo
-*.pyd
-*.pyw
-*.pyz
-*.pywz
-*.pdf
-
-*.vscode
-**/target/**
+#Cursor
+**.cursor
