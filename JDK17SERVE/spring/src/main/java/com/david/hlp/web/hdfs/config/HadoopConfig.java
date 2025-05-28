@@ -37,7 +37,24 @@ public class HadoopConfig {
         System.setProperty("HADOOP_USER_NAME", hdfsUser);
         // 设置副本数，通常单机测试时设为1
         configuration.set("dfs.replication", "3");
-        log.info("初始化Hadoop配置: {}", hdfsUri);
+
+        // 解决数据节点替换错误 - 设置替换策略为NEVER
+        // 这将阻止在写入失败时尝试替换数据节点，而是直接报告错误
+        configuration.set("dfs.client.block.write.replace-datanode-on-failure.policy", "NEVER");
+        configuration.setBoolean("dfs.client.block.write.replace-datanode-on-failure.enable", false);
+
+        // IO性能和重试相关配置
+        configuration.setInt("dfs.socket.timeout", 120000); // 套接字超时时间，单位毫秒
+        configuration.setInt("dfs.datanode.socket.write.timeout", 120000); // 数据节点写入超时
+        configuration.setInt("dfs.client.socket-timeout", 120000); // 客户端超时
+        configuration.setInt("ipc.client.connect.timeout", 60000); // IPC连接超时
+        configuration.setInt("ipc.client.connect.max.retries", 10); // IPC连接最大重试次数
+        configuration.setInt("ipc.client.connect.retry.interval", 5000); // IPC重试间隔
+
+        // 流缓冲区大小设置
+        configuration.setInt("io.file.buffer.size", 65536); // 缓冲区大小64KB
+
+        log.info("初始化Hadoop配置: {}, 数据节点替换策略: NEVER", hdfsUri);
         return configuration;
     }
 

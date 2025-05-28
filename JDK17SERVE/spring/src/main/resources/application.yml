@@ -85,6 +85,20 @@ logging:
     "[com.david.hlp.Spring.common.util.datasource]": WARN
     "[org.springframework.jdbc]": WARN
 
+# HDFS配置
+hadoop:
+  hdfs:
+    uri: hdfs://hadoop-single:9000
+    user: root
+
+# HDFS日志缓存配置
+hdfs:
+  log:
+    cache:
+      threshold: 100  # 缓存日志条数阈值，达到后批量写入
+    flush:
+      interval: 30000 # 强制刷新间隔（毫秒），即使未达到阈值
+
 # MyBatis & MyBatis-Plus 配置
 mybatis-plus:
   global-config:

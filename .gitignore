@@ -75,3 +75,5 @@ playwright-report/
 
 #Cursor
 **.cursor
+
+PythonTest/
