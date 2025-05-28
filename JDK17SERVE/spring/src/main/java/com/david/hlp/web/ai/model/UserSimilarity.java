@@ -5,11 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.Builder;
 
+import java.io.Serializable;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class UserSimilarity {
+public class UserSimilarity implements Serializable {
     private Long id;
     private String cityName;
     private String positionName;

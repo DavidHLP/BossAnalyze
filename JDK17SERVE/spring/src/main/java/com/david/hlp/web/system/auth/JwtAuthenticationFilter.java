@@ -41,25 +41,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   // 用于检查 JWT 是否在数据库中有效
   private final TokenMapper tokenMapper;
 
-
   private final String[] publicPaths = {
-    "/api/auth/demo/login",
-    "/api/auth/demo/register",
-    "/api/auth/demo/logout",
-    "/api/auth/demo/refresh-token",
-    "/api/repeater/auth/login",
-    "/swagger-ui/",
-    "/doc.html",
-    "/doc.html/",
-    "/v3/api-docs",
-    "/v3/api-docs/",
-    "/webjars/",
-    "/authenticate",
-    "/swagger-ui.html/",
-    "/swagger-resources",
-    "/swagger-resources/",
+      "/api/auth/demo/login",
+      "/api/auth/demo/register",
+      "/api/auth/demo/logout",
+      "/api/auth/demo/refresh-token",
+      "/api/repeater/auth/login",
   };
-
 
   /**
    * 核心过滤逻辑。
@@ -72,18 +60,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
    */
   @Override
   protected void doFilterInternal(
-          @NonNull HttpServletRequest request,
-          @NonNull HttpServletResponse response,
-          @NonNull FilterChain filterChain
-  ) throws ServletException, IOException {
+      @NonNull HttpServletRequest request,
+      @NonNull HttpServletResponse response,
+      @NonNull FilterChain filterChain) throws ServletException, IOException {
+    // 记录请求信息：IP、路径和HTTP方法，使用键值对格式方便日志分析
+    String clientIP = request.getRemoteAddr();
+    String path = request.getServletPath();
+    String method = request.getMethod();
+    String userAgent = request.getHeader("User-Agent");
+    long timestamp = System.currentTimeMillis();
+
+    // 使用键值对格式记录日志，便于后期数据分析
+    log.info("ACCESS|ts={}|ip={}|path={}|method={}|ua={}",
+        timestamp, clientIP, path, method, userAgent != null ? userAgent : "-");
+
     // 总是允许 OPTIONS 请求通过（CORS预检请求）
     if (request.getMethod().equals("OPTIONS")) {
-        filterChain.doFilter(request, response);
-        return;
+      filterChain.doFilter(request, response);
+      return;
     }
 
     // 1. 检查是否为公开路径
-    String path = request.getServletPath();
     boolean isPublicPath = Arrays.stream(publicPaths).anyMatch(path::startsWith);
 
     // 2. 检查Authorization头
@@ -91,54 +88,68 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     // 3. 如果不是公开路径且没有有效token，直接返回401
     if (!isPublicPath && (authHeader == null || !authHeader.startsWith("Bearer "))) {
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        return;
+      log.warn("拒绝访问：路径 {} 需要授权但未提供有效token", path);
+      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      return;
     }
 
     // 4. 如果是公开路径，允许通过
     if (isPublicPath) {
-        filterChain.doFilter(request, response);
-        return;
+      filterChain.doFilter(request, response);
+      return;
     }
 
-    // 5. 处理正常的带token请求
-    final String jwt = authHeader.substring(7);
-    final String userEmail = jwtService.extractUsername(jwt);
+    try {
+      // 5. 处理正常的带token请求
+      final String jwt = authHeader.substring(7);
+      final String userEmail = jwtService.extractUsername(jwt);
 
-    // 验证用户并设置认证信息
-    if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-      // 从 UserDetailsService 加载用户信息
-      UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+      // 验证用户并设置认证信息
+      if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        // 从 UserDetailsService 加载用户信息
+        UserDetails userDetails;
+        try {
+          userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+        } catch (Exception e) {
+          log.error("加载用户信息失败: {}", userEmail);
+          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+          return;
+        }
 
-      // 检查 JWT 是否在数据库中有效，且未过期或撤销
-      var isTokenValid = tokenMapper.checkTokenValid(jwt);
+        // 检查 JWT 是否在数据库中有效，且未过期或撤销
+        var isTokenValid = tokenMapper.checkTokenValid(jwt);
+        if (!isTokenValid) {
+          log.warn("token已失效或被撤销: {}", userEmail);
+          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+          return;
+        }
 
-      // 验证 JWT 是否有效
-      if (jwtService.isTokenValid(jwt, userDetails) && isTokenValid) {
-        // 直接从UserDetails获取权限
-        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                userDetails,
-                null,
-                userDetails.getAuthorities()
-        );
+        // 验证 JWT 是否有效
+        if (jwtService.isTokenValid(jwt, userDetails)) {
+          // 直接从UserDetails获取权限
+          UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+              userDetails,
+              null,
+              userDetails.getAuthorities());
 
-        // 设置认证请求的详细信息
-        authToken.setDetails(
-                new WebAuthenticationDetailsSource().buildDetails(request)
-        );
+          // 设置认证请求的详细信息
+          authToken.setDetails(
+              new WebAuthenticationDetailsSource().buildDetails(request));
 
-        log.info("认证成功，设置认证信息: {}", authToken);
-
-        // 确保在认证成功后设置SecurityContext
-        SecurityContextHolder.getContext().setAuthentication(authToken);
+          // 确保在认证成功后设置SecurityContext
+          SecurityContextHolder.getContext().setAuthentication(authToken);
+        } else {
+          log.warn("无效的token: {}", userEmail);
+          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+          return;
+        }
       }
+    } catch (Exception e) {
+      log.error("JWT认证过程发生错误: {}", e.getMessage());
+      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      return;
     }
 
     filterChain.doFilter(request, response);
   }
-
-  // @Override
-  // protected boolean shouldNotFilter(HttpServletRequest request) {
-  //   return request.getServletPath().startsWith("/api/auth/");
-  // }
 }

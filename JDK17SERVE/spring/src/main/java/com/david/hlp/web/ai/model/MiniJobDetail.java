@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+import java.io.Serializable;
 
 /**
  * 职位详情精简实体类
@@ -12,7 +13,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class MiniJobDetail {
+public class MiniJobDetail implements Serializable {
+
     /**
      * 主键ID
      */
@@ -32,12 +34,12 @@ public class MiniJobDetail {
      * 职位详情数据
      */
     private String detailData;
-    
+
     /**
      * 员工福利
      */
     private String employeeBenefits;
-    
+
     /**
      * 职位需求
      */

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ import com.david.hlp.web.system.token.TokenType;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , Token> {
 
     private final UserMapper userMapper;
@@ -45,6 +47,7 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , T
     @Transactional(rollbackFor = Exception.class)
     public void addUser(RegistrationDTO request) {
         if (userMapper.getByEmailToUser(request.getEmail()) != null) {
+            log.warn("注册失败: 邮箱{}已存在", request.getEmail());
             throw new BusinessException(ResultCode.USER_EXISTS);
         }
 
@@ -71,10 +74,12 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , T
     public Token login(LoginDTO request) {
         AuthUser user = userMapper.getByEmailToAuthUser(request.getEmail());
         if (user == null) {
+            log.warn("登录失败: 邮箱{}不存在", request.getEmail());
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            log.warn("登录失败: 用户ID{}密码错误", user.getUserId());
             throw new BusinessException(ResultCode.INVALID_CREDENTIALS);
         }
 
@@ -85,7 +90,12 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , T
                 .tokenType(TokenType.ACCESS)
                 .build();
 
-        tokenMapper.save(token);
+        try {
+            tokenMapper.save(token);
+        } catch (Exception e) {
+            log.error("保存token失败: 用户ID={}", user.getUserId(), e);
+            throw e;
+        }
         return token;
     }
 
@@ -96,7 +106,12 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , T
      */
     @Override
     public Long getDefaultRoleId() {
-        return roleMapper.getDefaultRoleId();
+        try {
+            return roleMapper.getDefaultRoleId();
+        } catch (Exception e) {
+            log.error("获取默认角色ID失败", e);
+            throw e;
+        }
     }
 
     /**
@@ -107,7 +122,11 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , T
      */
     @Override
     public String getPassword(Long userId) {
-        return userMapper.getPasswordById(userId);
+        try {
+            return userMapper.getPasswordById(userId);
+        } catch (Exception e) {
+            log.error("获取用户密码失败: 用户ID={}", userId, e);
+            throw e;
+        }
     }
-
 }

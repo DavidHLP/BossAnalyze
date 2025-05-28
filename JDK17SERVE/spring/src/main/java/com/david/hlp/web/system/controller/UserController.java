@@ -1,6 +1,7 @@
 package com.david.hlp.web.system.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +21,7 @@ import com.david.hlp.web.system.service.imp.AuthServiceImp;
 /**
  * 用户管理控制器
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
@@ -37,11 +39,17 @@ public class UserController extends BaseController {
      */
     @PostMapping("/getUserManageInfo")
     public Result<PageInfo<User>> getUserManageInfo(@RequestBody PageInfo<User> pageInfo) {
-        return Result.success(userService.getUserManageInfo(
-            pageInfo.getNumber(),
-            pageInfo.getSize(),
-            pageInfo.getQuery()
-        ));
+        try {
+            return Result.success(userService.getUserManageInfo(
+                pageInfo.getNumber(),
+                pageInfo.getSize(),
+                pageInfo.getQuery()
+            ));
+        } catch (Exception e) {
+            log.error("获取用户管理信息异常: page={}, size={}, 错误={}", 
+                pageInfo.getNumber(), pageInfo.getSize(), e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "获取用户信息失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -52,11 +60,19 @@ public class UserController extends BaseController {
      */
     @PostMapping("/deleteUser")
     public Result<Void> deleteUser(@RequestBody DelUser user) {
-        if (!passwordService.matches(user.getPassword(), authService.getPassword(getCurrentUserId()))) {
-            throw new ApiException(ResultCode.PASSWORD_ERROR);
+        try {
+            if (!passwordService.matches(user.getPassword(), authService.getPassword(getCurrentUserId()))) {
+                log.warn("删除用户操作失败: 管理员密码错误, 尝试删除的用户ID={}", user.getId());
+                throw new ApiException(ResultCode.PASSWORD_ERROR);
+            }
+            userService.deleteUser(user);
+            return Result.success("删除成功");
+        } catch (ApiException e) {
+            throw e; // 已记录日志的异常直接抛出
+        } catch (Exception e) {
+            log.error("删除用户异常: userId={}, 错误={}", user.getId(), e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "删除用户失败: " + e.getMessage());
         }
-        userService.deleteUser(user);
-        return Result.success("删除成功");
     }
 
     /**
@@ -67,13 +83,23 @@ public class UserController extends BaseController {
      */
     @PostMapping("/updateUser")
     public Result<Void> updateUser(@RequestBody User user) {
-        userService.updateUser(user);
-        return Result.success("更新成功");
+        try {
+            userService.updateUser(user);
+            return Result.success("更新成功");
+        } catch (Exception e) {
+            log.error("更新用户信息异常: userId={}, 错误={}", user.getId(), e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "更新用户信息失败: " + e.getMessage());
+        }
     }
 
     @PostMapping("/addUser")
     public Result<Void> addUser(@RequestBody User user) {
-        userService.addUser(user);
-        return Result.success("添加成功");
+        try {
+            userService.addUser(user);
+            return Result.success("添加成功");
+        } catch (Exception e) {
+            log.error("添加用户异常: email={}, 错误={}", user.getEmail(), e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "添加用户失败: " + e.getMessage());
+        }
     }
 }

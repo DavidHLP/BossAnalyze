@@ -98,18 +98,29 @@
             </el-row>
           </el-card>
 
-          <el-row :gutter="20" class="jobs-container">
-            <el-col v-for="job in filteredJobs" :key="job.id" :lg="12" :md="24" class="job-col">
-              <el-card class="job-item" shadow="hover">
-                <template #header>
-                  <el-row class="job-header" justify="space-between" align="middle">
-                    <el-col :span="18">
-                      <el-text class="job-title" truncated>{{ job.jobAnalysisData.positionName }}</el-text>
-                    </el-col>
-                    <el-col :span="6" style="text-align:right">
+          <!-- 使用类似SelectResume的网格布局 -->
+          <div class="jobs-content">
+            <div class="jobs-count">
+              <el-badge :value="filteredJobs.length" class="count-badge" type="primary" />
+              <span class="count-text">个职位匹配</span>
+            </div>
+
+            <el-scrollbar height="400px" class="jobs-scrollbar">
+              <div class="jobs-grid">
+                <div v-for="job in filteredJobs" :key="job.id" class="job-item-wrapper">
+                  <el-card
+                    :class="{'job-item-active': selectedJobId === String(job.id)}"
+                    class="job-item"
+                    shadow="hover"
+                    @click="onSelectJob(String(job.id))"
+                  >
+                    <div class="job-header-row">
+                      <span class="job-title" :title="job.jobAnalysisData.positionName">
+                        {{ job.jobAnalysisData.positionName }}
+                      </span>
                       <el-tooltip :content="`匹配度: ${job.similarity}%`" placement="top">
                         <el-space class="similarity-gauge">
-                          <svg width="36" height="36" viewBox="0 0 36 36">
+                          <svg width="30" height="30" viewBox="0 0 36 36">
                             <circle class="progress-ring__circle-bg" r="15" cx="18" cy="18" />
                             <circle
                               class="progress-ring__circle"
@@ -127,84 +138,58 @@
                           </svg>
                         </el-space>
                       </el-tooltip>
-                    </el-col>
-                  </el-row>
-                </template>
+                    </div>
 
-                <el-space direction="vertical" fill class="job-body">
-                  <el-descriptions border :column="1" size="small" class="job-info">
-                    <el-descriptions-item>
-                      <template #label>
-                        <el-space alignment="center">
-                          <el-icon><OfficeBuilding /></el-icon>
-                          <span>公司</span>
-                        </el-space>
-                      </template>
-                      <el-text class="info-value company">{{ job.jobAnalysisData.companyName }}</el-text>
-                    </el-descriptions-item>
-                    <el-descriptions-item>
-                      <template #label>
-                        <el-space alignment="center">
-                          <el-icon><Money /></el-icon>
-                          <span>薪资</span>
-                        </el-space>
-                      </template>
-                      <el-text class="info-value salary" type="success">{{ job.jobAnalysisData.salary }}</el-text>
-                    </el-descriptions-item>
-                    <el-descriptions-item>
-                      <template #label>
-                        <el-space alignment="center">
-                          <el-icon><Location /></el-icon>
-                          <span>地点</span>
-                        </el-space>
-                      </template>
-                      <el-text class="info-value location">{{ job.jobAnalysisData.cityName }}</el-text>
-                    </el-descriptions-item>
-                  </el-descriptions>
-
-                  <el-card class="job-requirements" shadow="hover">
-                    <template #header>
-                      <el-space alignment="center" class="requirements-header">
-                        <el-icon><Document /></el-icon>
-                        <span>岗位要求</span>
-                      </el-space>
-                    </template>
-
-                    <el-scrollbar height="120px" class="requirements-scrollbar">
-                      <el-space
-                        v-for="(req, index) in job.jobAnalysisData.jobRequirements"
-                        :key="index"
-                        direction="vertical"
-                        fill
-                        class="requirement-item"
-                      >
-                        <el-space alignment="top">
-                          <el-text class="requirement-bullet" type="primary">•</el-text>
-                          <el-text class="requirement-text">{{ req }}</el-text>
-                        </el-space>
-                      </el-space>
-                    </el-scrollbar>
+                    <div class="job-info-grid">
+                      <div class="info-row">
+                        <el-icon class="info-icon"><OfficeBuilding /></el-icon>
+                        <div class="info-content">
+                          <div class="info-label">公司</div>
+                          <div class="info-value">{{ job.jobAnalysisData.companyName }}</div>
+                        </div>
+                      </div>
+                      <div class="info-row">
+                        <el-icon class="info-icon"><Money /></el-icon>
+                        <div class="info-content">
+                          <div class="info-label">薪资</div>
+                          <div class="info-value salary">{{ job.jobAnalysisData.salary }}</div>
+                        </div>
+                      </div>
+                      <div class="info-row">
+                        <el-icon class="info-icon"><Location /></el-icon>
+                        <div class="info-content">
+                          <div class="info-label">城市</div>
+                          <div class="info-value">{{ job.jobAnalysisData.cityName }}</div>
+                        </div>
+                      </div>
+                      <div class="info-row">
+                        <el-icon class="info-icon"><View /></el-icon>
+                        <div class="info-content">
+                          <div class="info-label">操作</div>
+                          <div class="info-value">
+                            <el-space>
+                              <el-button type="primary" size="small" plain @click.stop="showJobDetails(job)">
+                                详情
+                              </el-button>
+                              <el-button
+                                v-if="job.jobAnalysisData.JobUrl"
+                                type="success"
+                                size="small"
+                                plain
+                                @click.stop="openJobLink(job.jobAnalysisData.JobUrl)"
+                              >
+                                投递
+                              </el-button>
+                            </el-space>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </el-card>
-
-                  <el-row class="job-actions" justify="end">
-                    <el-col>
-                      <el-button
-                        v-if="job.jobAnalysisData.JobUrl"
-                        type="primary"
-                        plain
-                        size="small"
-                        @click="openJobLink(job.jobAnalysisData.JobUrl)"
-                        class="view-button"
-                      >
-                        <el-icon><TopRight /></el-icon>
-                        查看详情
-                      </el-button>
-                    </el-col>
-                  </el-row>
-                </el-space>
-              </el-card>
-            </el-col>
-          </el-row>
+                </div>
+              </div>
+            </el-scrollbar>
+          </div>
         </el-space>
       </div>
 
@@ -239,12 +224,32 @@
         职位匹配度越高，表示您的简历与该职位的匹配程度越高。
       </el-text>
     </el-alert>
+
+    <!-- 职位详情抽屉 -->
+    <el-drawer
+      v-model="showDetailsDrawer"
+      title="职位详情"
+      direction="rtl"
+      size="450px"
+      :with-header="false"
+      class="job-details-drawer"
+    >
+      <CompanyDetailsCard
+        v-if="selectedJobDetails"
+        :company-info="selectedJobDetails"
+        @openCompanyUrl="openCompanyUrl"
+        @openJobUrl="openJobUrl"
+        @openGoogleMaps="openGoogleMaps"
+      />
+    </el-drawer>
   </el-space>
 </template>
 
 <script lang="ts" setup>
 import { defineProps, defineEmits, ref, computed } from 'vue'
 import type { UserSimilarity } from '@/api/ai/ai.d'
+import type { CompanyInfo } from '@/api/boss/user/user.d'
+import CompanyDetailsCard from '@/views/console/boss/user/components/CompanyDetailsCard.vue'
 import {
   Briefcase,
   Medal,
@@ -258,9 +263,8 @@ import {
   OfficeBuilding,
   Money,
   Location,
-  Document,
-  TopRight,
-  ArrowLeft
+  ArrowLeft,
+  View
 } from '@element-plus/icons-vue'
 
 const props = defineProps<{
@@ -276,6 +280,9 @@ const emit = defineEmits<{
 
 const sortBy = ref('similarity')
 const searchKeyword = ref('')
+const selectedJobId = ref('')
+const showDetailsDrawer = ref(false)
+const selectedJobDetails = ref<CompanyInfo | null>(null)
 const loadingProgress = computed(() => Math.floor(Math.random() * 30) + 60)
 
 // 根据排序和搜索过滤职位
@@ -303,6 +310,33 @@ const filteredJobs = computed(() => {
   return result
 })
 
+// 选择职位
+const onSelectJob = (id: string) => {
+  selectedJobId.value = id
+}
+
+// 显示职位详情
+const showJobDetails = (job: UserSimilarity) => {
+  selectedJobId.value = String(job.id)
+  // 转换数据格式以适配CompanyDetailsCard
+  selectedJobDetails.value = {
+    companyName: job.jobAnalysisData.companyName,
+    positionName: job.jobAnalysisData.positionName,
+    cityName: job.jobAnalysisData.cityName,
+    salary: job.jobAnalysisData.salary,
+    degree: job.jobAnalysisData.degree || '不限',
+    experience: job.jobAnalysisData.experience || '不限',
+    companySize: job.jobAnalysisData.companySize || '未知',
+    financingStage: job.jobAnalysisData.financingStage || '未知',
+    address: job.jobAnalysisData.address || '',
+    employeeBenefits: job.jobAnalysisData.employeeBenefits || [],
+    jobRequirements: job.jobAnalysisData.jobRequirements || [],
+    companyUrl: job.jobAnalysisData.companyUrl || '',
+    jobUrl: job.jobAnalysisData.JobUrl || ''
+  }
+  showDetailsDrawer.value = true
+}
+
 const prev = () => {
   emit('prev')
 }
@@ -313,6 +347,26 @@ const reset = () => {
 
 const openJobLink = (url: string) => {
   emit('openJobLink', url)
+}
+
+// 新增的方法
+const openCompanyUrl = () => {
+  if (selectedJobDetails.value?.companyUrl) {
+    window.open(selectedJobDetails.value.companyUrl, '_blank')
+  }
+}
+
+const openJobUrl = () => {
+  if (selectedJobDetails.value?.jobUrl) {
+    window.open(selectedJobDetails.value.jobUrl, '_blank')
+  }
+}
+
+const openGoogleMaps = () => {
+  if (selectedJobDetails.value?.address) {
+    const encodedAddress = encodeURIComponent(selectedJobDetails.value.address)
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank')
+  }
 }
 </script>
 
@@ -393,26 +447,128 @@ const openJobLink = (url: string) => {
   padding: 16px;
 }
 
-.jobs-container {
+.jobs-content {
   padding: 0 20px;
-  flex: 1;
-  overflow-y: auto;
-  max-height: calc(100% - 140px);
+}
+
+.jobs-count {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.count-text {
+  font-size: 13px;
+  color: #606266;
+  margin-left: 8px;
+}
+
+.jobs-scrollbar {
+  width: 100%;
+  padding: 10px 0;
+}
+
+.jobs-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 0 10px;
+}
+
+.job-item-wrapper {
+  margin-bottom: 0;
+  flex: 1 1 280px;
+  min-width: 280px;
+  max-width: 350px;
 }
 
 .job-item {
-  height: 100%;
   border-radius: 8px;
-  margin-bottom: 15px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+  padding: 12px 16px;
+  height: auto;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #EBEEF5;
 }
 
-.job-header {
-  padding: 10px;
-  background-color: #f5f7fa;
-  border-bottom: 1px solid #ebeef5;
+.job-item:hover {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.job-item-active {
+  border: 2px solid #409EFF;
+  background-color: rgba(64, 158, 255, 0.05);
+}
+
+.job-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .job-title {
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.job-info-grid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 16px;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  min-height: 42px;
+  margin-bottom: 2px;
+}
+
+.info-icon {
+  margin-right: 10px;
+  color: #409eff;
+  margin-top: 2px;
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.info-content {
+  flex: 1;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #303133;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow: visible;
+}
+
+.info-value.salary {
+  color: #67C23A;
   font-weight: 600;
 }
 
@@ -436,17 +592,21 @@ const openJobLink = (url: string) => {
   font-weight: bold;
 }
 
-.job-body {
-  padding: 12px;
-}
 
-.job-requirements {
-  margin-top: 12px;
-}
 
 @media (max-width: 768px) {
   .filter-left, .filter-right {
     margin-bottom: 10px;
+  }
+
+  .jobs-grid {
+    gap: 15px;
+  }
+
+  .job-item-wrapper {
+    flex: 1 1 100%;
+    min-width: 100%;
+    max-width: 100%;
   }
 
   .action-footer {

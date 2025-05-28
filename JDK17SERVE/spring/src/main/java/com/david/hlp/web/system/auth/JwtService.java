@@ -5,10 +5,14 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-
+import lombok.extern.slf4j.Slf4j;
 import com.david.hlp.web.system.mapper.TokenMapper;
 import com.david.hlp.web.system.token.Token;
 
@@ -22,6 +26,7 @@ import java.util.List;
 /**
  * JWT 服务类，提供生成、解析和验证功能。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class JwtService {
@@ -105,8 +110,13 @@ public class JwtService {
    */
   public boolean isTokenValid(String jwt, UserDetails userDetails) {
     final String username = extractUsername(jwt);
-    return (username.equals(userDetails.getUsername()))
-        && !isTokenExpired(jwt); // 增加Redis校验
+    boolean isValid = (username.equals(userDetails.getUsername())) && !isTokenExpired(jwt);
+    
+    if (!isValid) {
+      log.warn("Token验证失败：用户名不匹配或Token已过期，用户名: {}", username);
+    }
+    
+    return isValid;
   }
 
   /**
@@ -116,7 +126,14 @@ public class JwtService {
    * @return 是否过期。
    */
   private boolean isTokenExpired(String token) {
-    return extractExpiration(token).before(new Date());
+    Date expiration = extractExpiration(token);
+    boolean isExpired = expiration.before(new Date());
+    
+    if (isExpired) {
+      log.warn("Token已过期，过期时间: {}", expiration);
+    }
+    
+    return isExpired;
   }
 
   /**
@@ -154,11 +171,19 @@ public class JwtService {
    * @return 声明。
    */
   private Claims extractAllClaims(String token) {
-    return Jwts.parserBuilder()
-            .setSigningKey(getSignInKey())
-            .build()
-            .parseClaimsJws(token)
-            .getBody();
+    try {
+      return Jwts.parserBuilder()
+              .setSigningKey(getSignInKey())
+              .build()
+              .parseClaimsJws(token)
+              .getBody();
+    } catch (ExpiredJwtException e) {
+      log.warn("解析过期的Token: {}", e.getMessage());
+      throw e;
+    } catch (UnsupportedJwtException | MalformedJwtException | SignatureException | IllegalArgumentException e) {
+      log.error("Token解析失败: {}", e.getMessage());
+      throw e;
+    }
   }
 
   /**
@@ -172,12 +197,23 @@ public class JwtService {
 
   public void invalidateUserTokens(Long userId) {
     List<Token> tokens = tokenMapper.listValidTokensByUser(userId);
+    if (tokens.isEmpty()) {
+      log.warn("没有找到用户ID为{}的有效Token", userId);
+      return;
+    }
+    
     tokens.forEach(token ->
       {
         token.setRevoked(true);
         token.setExpired(true);
       }
     );
-    tokenMapper.updateBatch(tokens);
+    
+    try {
+      tokenMapper.updateBatch(tokens);
+      log.warn("已撤销用户ID为{}的{}个Token", userId, tokens.size());
+    } catch (Exception e) {
+      log.error("撤销用户Token失败，用户ID: {}, 错误: {}", userId, e.getMessage());
+    }
   }
 }

@@ -40,9 +40,6 @@ public class MinioService {
             if (!bucketExists) {
                 minioClient.makeBucket(
                         MakeBucketArgs.builder().bucket(bucketName).build());
-                log.info("存储桶 [{}] 创建成功", bucketName);
-            } else {
-                log.info("存储桶 [{}] 已存在", bucketName);
             }
         } catch (Exception e) {
             log.error("创建存储桶 [{}] 失败: {}", bucketName, e.getMessage(), e);
@@ -79,7 +76,6 @@ public class MinioService {
                             .stream(file.getInputStream(), file.getSize(), -1)
                             .build());
 
-            log.info("文件 [{}] 上传成功，保存为 [{}]", file.getOriginalFilename(), fileName);
             return fileName;
         } catch (Exception e) {
             log.error("文件上传失败: {}", e.getMessage(), e);
@@ -107,7 +103,6 @@ public class MinioService {
                             .expiry(DEFAULT_URL_EXPIRY_DAYS, TimeUnit.DAYS)
                             .build());
 
-            log.debug("获取文件 [{}] 的访问URL: {}", fileName, presignedUrl);
             return presignedUrl;
         } catch (Exception e) {
             log.error("获取文件 [{}] URL失败: {}", fileName, e.getMessage(), e);
@@ -146,7 +141,6 @@ public class MinioService {
                             .object(fileName)
                             .build());
 
-            log.debug("获取文件 [{}] 成功", fileName);
             return inputStream;
         } catch (Exception e) {
             log.error("获取文件 [{}] 失败: {}", fileName, e.getMessage(), e);
@@ -171,7 +165,6 @@ public class MinioService {
                             .object(fileName)
                             .build());
 
-            log.info("删除文件 [{}] 成功", fileName);
         } catch (Exception e) {
             log.error("删除文件 [{}] 失败: {}", fileName, e.getMessage(), e);
             throw new RuntimeException("删除文件失败", e);

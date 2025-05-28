@@ -1,6 +1,7 @@
 package com.david.hlp.web.system.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import com.david.hlp.web.common.controller.BaseController;
@@ -31,6 +32,7 @@ import java.util.Objects;
  *
  * @author david
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -41,7 +43,6 @@ public class AuthController extends BaseController {
     private final PermissionService permissionService;
     private final RoleServiceImp roleService;
     private final UserServiceImp userService;
-
     /**
      * 用户注册
      *
@@ -55,8 +56,10 @@ public class AuthController extends BaseController {
             authService.addUser(request);
             return Result.success("注册成功");
         } catch (final DuplicateKeyException e) {
+            log.warn("用户注册失败: 用户已存在, email={}", request.getEmail());
             throw new BusinessException(ResultCode.USER_EXISTS);
         } catch (final Exception e) {
+            log.error("用户注册异常: {}", e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "注册失败: " + e.getMessage());
         }
     }
@@ -71,12 +74,14 @@ public class AuthController extends BaseController {
     public Result<Token> login(@RequestBody final LoginDTO request) {
         Objects.requireNonNull(request, "登录请求不能为空");
         if (Objects.isNull(request.getEmail()) || Objects.isNull(request.getPassword())) {
+            log.warn("登录失败: 请求参数不完整, email={}", request.getEmail());
             throw new BusinessException(ResultCode.BAD_REQUEST);
         }
         try {
             final Token token = authService.login(request);
             return Result.success(token);
         } catch (final Exception e) {
+            log.error("用户登录异常: email={}, 错误={}", request.getEmail(), e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "登录失败: " + e.getMessage());
         }
     }
@@ -134,9 +139,14 @@ public class AuthController extends BaseController {
      */
     @PostMapping("/demo/editRouter")
     public Result<Void> editRouter(@RequestBody final Router router) {
-        Objects.requireNonNull(router, "路由信息不能为空");
-        routerService.editRouter(router);
-        return Result.success("编辑成功");
+        try {
+            Objects.requireNonNull(router, "路由信息不能为空");
+            routerService.editRouter(router);
+            return Result.success("编辑成功");
+        } catch (Exception e) {
+            log.error("编辑路由异常: routerId={}, 错误={}", router != null ? router.getId() : "null", e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "编辑失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -147,9 +157,14 @@ public class AuthController extends BaseController {
      */
     @PostMapping("/demo/addRouter")
     public Result<Void> addRouter(@RequestBody final Router router) {
-        Objects.requireNonNull(router, "路由信息不能为空");
-        routerService.addRouter(router);
-        return Result.success("添加成功");
+        try {
+            Objects.requireNonNull(router, "路由信息不能为空");
+            routerService.addRouter(router);
+            return Result.success("添加成功");
+        } catch (Exception e) {
+            log.error("添加路由异常: 错误={}", e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "添加失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -160,9 +175,14 @@ public class AuthController extends BaseController {
      */
     @PostMapping("/demo/deleteRouter")
     public Result<Void> deleteRouter(@RequestBody final Router router) {
-        Objects.requireNonNull(router, "路由信息不能为空");
-        routerService.deleteRouter(router);
-        return Result.success("删除成功");
+        try {
+            Objects.requireNonNull(router, "路由信息不能为空");
+            routerService.deleteRouter(router);
+            return Result.success("删除成功");
+        } catch (Exception e) {
+            log.error("删除路由异常: routerId={}, 错误={}", router != null ? router.getId() : "null", e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "删除失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -184,9 +204,14 @@ public class AuthController extends BaseController {
      */
     @PostMapping("/demo/addRole")
     public Result<Void> addRole(@RequestBody final Role role) {
-        Objects.requireNonNull(role, "角色信息不能为空");
-        roleService.addRole(role);
-        return Result.success("添加成功");
+        try {
+            Objects.requireNonNull(role, "角色信息不能为空");
+            roleService.addRole(role);
+            return Result.success("添加成功");
+        } catch (Exception e) {
+            log.error("添加角色异常: 错误={}", e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "添加失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -197,9 +222,14 @@ public class AuthController extends BaseController {
      */
     @PostMapping("/demo/editRole")
     public Result<Void> editRole(@RequestBody final Role role) {
-        Objects.requireNonNull(role, "角色信息不能为空");
-        roleService.editRole(role);
-        return Result.success("编辑成功");
+        try {
+            Objects.requireNonNull(role, "角色信息不能为空");
+            roleService.editRole(role);
+            return Result.success("编辑成功");
+        } catch (Exception e) {
+            log.error("编辑角色异常: roleId={}, 错误={}", role != null ? role.getId() : "null", e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "编辑失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -210,9 +240,16 @@ public class AuthController extends BaseController {
      */
     @PostMapping("/demo/updateRoleRouters")
     public Result<Void> updateRolePermissions(@RequestBody final RolePermissionUpdateResponse rolePermissionUpdateResponse) {
-        Objects.requireNonNull(rolePermissionUpdateResponse, "角色权限更新信息不能为空");
-        roleService.updateRolePermissions(rolePermissionUpdateResponse);
-        return Result.success("更新成功");
+        try {
+            Objects.requireNonNull(rolePermissionUpdateResponse, "角色权限更新信息不能为空");
+            roleService.updateRolePermissions(rolePermissionUpdateResponse);
+            return Result.success("更新成功");
+        } catch (Exception e) {
+            log.error("更新角色权限异常: roleId={}, 错误={}", 
+                rolePermissionUpdateResponse != null ? rolePermissionUpdateResponse.getRoleId() : "null", 
+                e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "更新失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -223,8 +260,13 @@ public class AuthController extends BaseController {
      */
     @PostMapping("/demo/deleteRole")
     public Result<Void> deleteRole(@RequestBody final Role role) {
-        Objects.requireNonNull(role, "角色信息不能为空");
-        roleService.deleteRole(role.getId());
-        return Result.success("删除成功");
+        try {
+            Objects.requireNonNull(role, "角色信息不能为空");
+            roleService.deleteRole(role.getId());
+            return Result.success("删除成功");
+        } catch (Exception e) {
+            log.error("删除角色异常: roleId={}, 错误={}", role != null ? role.getId() : "null", e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "删除失败: " + e.getMessage());
+        }
     }
 }

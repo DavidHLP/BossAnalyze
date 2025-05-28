@@ -7,9 +7,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import com.david.hlp.web.system.entity.auth.AuthUser;
 
 import org.springframework.lang.NonNull;
-
+import lombok.extern.slf4j.Slf4j;
 import java.util.Optional;
 
+@Slf4j
 public class ApplicationAuditAware implements AuditorAware<Integer> {
 
     @Override
@@ -18,6 +19,7 @@ public class ApplicationAuditAware implements AuditorAware<Integer> {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated()) {
+            log.warn("获取审计用户失败: 认证为空或未通过认证");
             return Optional.empty();
         }
 
@@ -26,6 +28,7 @@ public class ApplicationAuditAware implements AuditorAware<Integer> {
             return Optional.of(((AuthUser) principal).getUserId().intValue());
         }
 
+        log.error("获取审计用户失败: Principal类型不匹配, 类型为: {}", principal.getClass().getName());
         return Optional.empty();
     }
 }

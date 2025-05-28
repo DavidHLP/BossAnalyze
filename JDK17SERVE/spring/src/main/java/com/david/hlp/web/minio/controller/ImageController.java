@@ -81,7 +81,7 @@ public class ImageController extends BaseController {
                     .data(response)
                     .build();
         } catch (Exception e) {
-            log.error("上传图片失败", e);
+            log.error("上传图片失败: {}", e.getMessage());
             return createErrorResult("上传图片失败: " + e.getMessage());
         }
     }
@@ -96,10 +96,10 @@ public class ImageController extends BaseController {
     public ResponseEntity<InputStreamResource> viewImage(@PathVariable("fileName") String fileName) {
         try {
             InputStream inputStream = minioService.getObject(fileName);
-            
+
             // 设置Content-Type
             String contentType = getContentTypeByFileName(fileName);
-            
+
             // 构建HTTP响应，添加缓存控制
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
@@ -107,7 +107,7 @@ public class ImageController extends BaseController {
                     .header(HttpHeaders.CACHE_CONTROL, "max-age=31536000") // 缓存一年
                     .body(new InputStreamResource(inputStream));
         } catch (Exception e) {
-            log.error("获取图片 [{}] 失败: {}", fileName, e.getMessage());
+            log.error("获取图片失败 - 文件名: {}, 错误: {}", fileName, e.getMessage());
             return ResponseEntity.notFound().build();
         }
     }
@@ -135,7 +135,7 @@ public class ImageController extends BaseController {
                     .data(response)
                     .build();
         } catch (Exception e) {
-            log.error("删除图片失败", e);
+            log.error("删除图片失败 - 文件名: {}, 错误: {}", fileName, e.getMessage());
             return createErrorResult("删除图片失败: " + e.getMessage());
         }
     }
@@ -151,20 +151,20 @@ public class ImageController extends BaseController {
         try {
             // 使用简短URL而不是预签名URL
             String url = minioService.getFileUrl(fileName);
-            
+
             ImageResponse response = ImageResponse.builder()
                     .success(true)
                     .url(url)
                     .fileName(fileName)
                     .build();
-                    
+
             return Result.<ImageResponse>builder()
                     .code(ResultCode.SUCCESS.getCode())
                     .message(ResultCode.SUCCESS.getMessage())
                     .data(response)
                     .build();
         } catch (Exception e) {
-            log.error("获取图片URL失败", e);
+            log.error("获取图片URL失败 - 文件名: {}, 错误: {}", fileName, e.getMessage());
             return createErrorResult("获取图片URL失败: " + e.getMessage());
         }
     }

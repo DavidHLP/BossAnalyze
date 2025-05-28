@@ -1,0 +1,61 @@
+services:
+  # 单机节点配置
+  hadoop-single:
+    image: big-data-components:1.0
+    stdin_open: true
+    tty: true
+    command: sh -c "/usr/sbin/sshd -D"
+    container_name: hadoop-single
+    hostname: hadoop-single
+    volumes:
+      - type: bind
+        source: $HOME/opt/stand-alone/hadoop-spark-hive-hbase/hadoop
+        target: /opt/hadoop
+      - type: bind
+        source: $HOME/opt/stand-alone/hadoop-spark-hive-hbase/hbase
+        target: /opt/hbase
+      - type: bind
+        source: $HOME/opt/stand-alone/hadoop-spark-hive-hbase/spark
+        target: /opt/spark
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    environment:
+      JAVA_HOME: "/usr/lib/jvm/java-8-openjdk-amd64"
+      HADOOP_HOME: "/opt/hadoop"
+      HADOOP_COMMON_HOME: "/opt/hadoop"
+      HADOOP_HDFS_HOME: "/opt/hadoop"
+      HADOOP_MAPRED_HOME: "/opt/hadoop"
+      YARN_HOME: "/opt/hadoop"
+      HBASE_HOME: "/opt/hbase"
+      SPARK_HOME: "/opt/spark"
+      PYTHON_HOME: "/opt/miniconda3/envs/pyspark"
+      CONDA_DEFAULT_ENV: "pyspark"
+      HADOOP_CONF_DIR: "/opt/hadoop/etc/hadoop"
+      HBASE_CONF_DIR: "/opt/hbase/conf"
+      SPARK_CONF_DIR: "/opt/spark/conf"
+      PYSPARK_PYTHON: "/opt/miniconda3/envs/pyspark/bin/python"
+      PYSPARK_DRIVER_PYTHON: "/opt/miniconda3/envs/pyspark/bin/python"
+      PYTHONPATH: "/opt/miniconda3/envs/pyspark/lib/python3.8/site-packages"
+      PYTHONIOENCODING: "utf-8"
+      CLASSPATH: ".:/usr/lib/jvm/java-8-openjdk-amd64/lib/dt.jar:/usr/lib/jvm/java-8-openjdk-amd64/lib/tools.jar:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/rt.jar"
+      PATH: "/opt/miniconda3/envs/pyspark/bin:/opt/miniconda3/bin:/usr/lib/jvm/java-8-openjdk-amd64/bin:/opt/hadoop/bin:/opt/hadoop/sbin:/opt/hbase/bin:/opt/spark/bin:/opt/spark/sbin:${PATH}"
+      # Hadoop用户权限配置 - 解决root用户运行错误
+      HDFS_NAMENODE_USER: "root"
+      HDFS_DATANODE_USER: "root"
+      HDFS_JOURNALNODE_USER: "root"
+      HDFS_ZKFC_USER: "root"
+      YARN_RESOURCEMANAGER_USER: "root"
+      YARN_NODEMANAGER_USER: "root"
+      YARN_PROXYSERVER_USER: "root"
+      MAPRED_HISTORYSERVER_USER: "root"
+    networks:
+      hadoop-network:
+        ipv4_address: 10.10.2.20
+    restart: always
+
+networks:
+  hadoop-network:
+    name: hadoop-network
+    ipam:
+      config:
+        - subnet: "10.10.2.0/24"

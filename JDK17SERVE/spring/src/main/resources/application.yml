@@ -31,10 +31,22 @@ spring:
       password: Alone117
       lettuce:
         pool:
-          max-active: 20  # 最大连接数
-          max-wait: -1    # 最大阻塞等待时间(负数表示无限制)
-          max-idle: 5     # 最大空闲连接数
-          min-idle: 0     # 最小空闲连接数
+          max-active: 20 # 最大连接数
+          max-wait: -1 # 最大阻塞等待时间(负数表示无限制)
+          max-idle: 5 # 最大空闲连接数
+          min-idle: 0 # 最小空闲连接数
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 # MinIO配置
 minio:
@@ -43,9 +55,9 @@ minio:
   secretKey: Alone117
   bucketName: default-bucket
   # 可选配置
-  secure: false  # 如果使用HTTPS则设为true
-  connectTimeout: 10000  # 连接超时时间(毫秒)
-  readTimeout: 10000     # 读取超时时间(毫秒)
+  secure: false # 如果使用HTTPS则设为true
+  connectTimeout: 10000 # 连接超时时间(毫秒)
+  readTimeout: 10000 # 读取超时时间(毫秒)
 
 application:
   security:
@@ -61,18 +73,17 @@ server:
       enabled: false # 禁用 Spring 默认错误页面
   port: 8080
 
-# logging:
-#   level:
-#     org.springframework.boot.autoconfigure: OFF
-    # org.springframework: DEBUG
-    # com.david.hlp.Spring.system.mapper: TRACE
-    # org.mybatis: DEBUG
-    # com.david.hlp.Spring.boss: INFO
-    # com.david.hlp.Spring.common.util.aspect: DEBUG
-    # com.david.hlp.Spring.common.util.datasource: DEBUG
-    # org.springframework.jdbc: DEBUG
-  # file:
-    # name: /home/david/Project/BlogAndChart/logs/spring.log # 主日志文件路径
+logging:
+  level:
+    root: INFO
+    "[org.springframework.boot.autoconfigure]": WARN
+    "[org.springframework]": WARN
+    "[com.david.hlp.Spring.system.mapper]": WARN
+    "[org.mybatis]": WARN
+    "[com.david.hlp.Spring.boss]": WARN
+    "[com.david.hlp.Spring.common.util.aspect]": WARN
+    "[com.david.hlp.Spring.common.util.datasource]": WARN
+    "[org.springframework.jdbc]": WARN
 
 # MyBatis & MyBatis-Plus 配置
 mybatis-plus:
@@ -83,15 +94,5 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
     map-underscore-to-camel-case: true
-    type-enums-package: com.david.hlp.SpringBootWork.system.token
     # cache-enabled: false
   mapper-locations: classpath*:/mapper/**/*.xml
-  # type-aliases-package: com.david.hlp.Spring.**.entity
-
-jackson:
-  date-format: yyyy-MM-dd HH:mm:ss
-  time-zone: Asia/Shanghai
-  serialization:
-    write-dates-as-timestamps: false
-  deserialization:
-    fail-on-unknown-properties: false

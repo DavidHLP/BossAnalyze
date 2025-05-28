@@ -5,13 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class JobAnalysisData {
+public class JobAnalysisData implements Serializable {
     private String positionId;
     private String positionName;
     private String cityName;

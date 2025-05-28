@@ -54,6 +54,15 @@ public class Result<T> {
                 .build();
     }
 
+    public static <T> Result<T> success(T data, String message) {
+        return Result.<T>builder()
+                .code(ResultCode.SUCCESS.getCode())
+                .message(message)
+                .data(data)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
     public static <T> Result<T> error(Integer code, String message) {
         return Result.<T>builder()
                 .code(code)

@@ -8,16 +8,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.david.hlp.web.common.result.Result;
+import com.david.hlp.web.common.enums.ResultCode;
 import com.david.hlp.web.system.entity.role.Role;
 import com.david.hlp.web.system.service.imp.RoleServiceImp;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 角色管理控制器
  *
  * @author david
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/role")
 @RequiredArgsConstructor
@@ -33,6 +36,11 @@ public class RoleController {
      */
     @GetMapping("/getRoleList")
     public Result<List<Role>> getRoleList(@RequestParam(required = false)String roleName) {
-        return Result.success(roleService.getRoleList(roleName));
+        try {
+            return Result.success(roleService.getRoleList(roleName));
+        } catch (Exception e) {
+            log.error("获取角色列表异常: roleName={}, 错误={}", roleName, e.getMessage(), e);
+            return Result.error(ResultCode.INTERNAL_ERROR, "获取角色列表失败: " + e.getMessage());
+        }
     }
 }

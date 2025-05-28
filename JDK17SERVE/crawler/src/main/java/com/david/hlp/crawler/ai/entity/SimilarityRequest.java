@@ -13,4 +13,5 @@ public class SimilarityRequest {
     private String resume;
     private List<String> city;
     private String position;
+    private String userId;
 }

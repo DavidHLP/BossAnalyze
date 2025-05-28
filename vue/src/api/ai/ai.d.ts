@@ -3,6 +3,7 @@ export interface SimilarityRequest {
   city?: string[];
   position?: string;
   resume: string;
+  resumeId?: string; // 用作缓存键的ID，通常是简历ID
 }
 
 // 用户相似度结果
@@ -34,4 +35,11 @@ export interface UserSimilarity {
 export interface CoreRequirementsParams {
   city?: string;
   position?: string;
+}
+
+// 异步响应接口
+export interface AsyncResponse<T> {
+  status: 'loading' | 'completed' | 'error';
+  message: string;
+  data?: T;
 }

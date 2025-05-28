@@ -86,7 +86,7 @@ import { useRouter } from 'vue-router'
 import { getResumeList, getResumeDetail } from '@/api/resume/resume'
 import { getUserSimilarity } from '@/api/ai/ai'
 import type { ResumeData } from '@/api/resume/resume.d'
-import type { UserSimilarity } from '@/api/ai/ai.d'
+import type { UserSimilarity, SimilarityRequest } from '@/api/ai/ai.d'
 import AnalyzeResume from './components/AnalyzeResume.vue'
 import JobRecommendation from './components/JobRecommendation.vue'
 import SelectResume from './components/SelectResume.vue'
@@ -148,12 +148,17 @@ const nextStep = async () => {
     // 从第二步到第三步，获取职位推荐
     try {
       loading.value = true
+      // 使用简历的ID作为resumeId
+      const resumeId = currentResume.value.id || ''
+
       const similarityRequest = {
         city: currentResume.value.targetCity || [],
         position: currentResume.value.jobTarget || '',
-        resume: JSON.stringify(currentResume.value)
+        resume: JSON.stringify(currentResume.value),
+        resumeId: resumeId
       }
-      similarJobs.value = await getUserSimilarity(similarityRequest)
+
+      await pollForResults(similarityRequest as SimilarityRequest )
       loading.value = false
     } catch (error) {
       console.error('获取职位推荐失败:', error)
@@ -182,6 +187,38 @@ const resetProcess = () => {
 // 跳转到创建简历页面
 const goToCreateResume = () => {
   router.push('/console/resume/create')
+}
+
+// 轮询获取AI处理结果
+const pollForResults = async (similarityRequest: SimilarityRequest) => {
+  const maxAttempts = 60 // 最多轮询60次（5分钟）
+  const interval = 5000 // 每5秒轮询一次
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await getUserSimilarity(similarityRequest)
+
+      if (response.status === 'completed' && response.data) {
+        similarJobs.value = response.data
+        return
+      } else if (response.status === 'error') {
+        throw new Error(response.message)
+      }
+
+      // 如果状态是loading，等待后继续轮询
+      if (response.status === 'loading') {
+        await new Promise(resolve => setTimeout(resolve, interval))
+        continue
+      }
+    } catch (error) {
+      if (attempt === maxAttempts - 1) {
+        throw error
+      }
+      await new Promise(resolve => setTimeout(resolve, interval))
+    }
+  }
+
+  throw new Error('AI处理超时，请稍后重试')
 }
 
 // 打开职位链接

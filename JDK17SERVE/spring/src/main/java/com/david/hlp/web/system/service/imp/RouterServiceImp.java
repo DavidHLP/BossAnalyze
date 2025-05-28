@@ -2,6 +2,7 @@ package com.david.hlp.web.system.service.imp;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -13,6 +14,7 @@ import com.david.hlp.web.system.mapper.PermissionMapper;
 import com.david.hlp.web.system.mapper.RouterMapper;
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RouterServiceImp {
     private final RouterMapper routerMapper;
     private final PermissionMapper permissionMapper;
@@ -60,6 +62,7 @@ public class RouterServiceImp {
     public void editRouter(Router router) {
         Router oldRouter = routerMapper.getById(router.getId());
         if (!oldRouter.getPermission().equals(router.getPermission())) {
+            log.warn("权限变更: 路由ID={}, 旧权限={}, 新权限={}", router.getId(), oldRouter.getPermission(), router.getPermission());
             insertPermissionHasNotInDB(router.getPermission());
             routerMapper.update(router);
             permissionMapper.deleteByPermissionName(oldRouter.getPermission());
@@ -70,16 +73,27 @@ public class RouterServiceImp {
 
     @Transactional(rollbackFor = Exception.class)
     public void addRouter(Router router) {
-        insertPermissionHasNotInDB(router.getPermission());
-        routerMapper.save(router);
+        try {
+            insertPermissionHasNotInDB(router.getPermission());
+            routerMapper.save(router);
+        } catch (Exception e) {
+            log.error("添加路由失败: 路由名称={}, 权限={}", router.getName(), router.getPermission(), e);
+            throw e;
+        }
     }
     @Transactional(rollbackFor = Exception.class)
     public void deleteRouter(Router router) {
-        routerMapper.deleteById(router.getId());
-        permissionMapper.deleteByPermissionName(router.getPermission());
-        for(Router r : router.getChildren()) {
-            routerMapper.deleteById(r.getId());
-            permissionMapper.deleteByPermissionName(r.getPermission());
+        try {
+            log.warn("删除路由: ID={}, 名称={}, 子路由数量={}", router.getId(), router.getName(), router.getChildren().size());
+            routerMapper.deleteById(router.getId());
+            permissionMapper.deleteByPermissionName(router.getPermission());
+            for(Router r : router.getChildren()) {
+                routerMapper.deleteById(r.getId());
+                permissionMapper.deleteByPermissionName(r.getPermission());
+            }
+        } catch (Exception e) {
+            log.error("删除路由失败: ID={}", router.getId(), e);
+            throw e;
         }
     }
 }

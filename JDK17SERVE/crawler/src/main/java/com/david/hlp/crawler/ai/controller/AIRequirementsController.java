@@ -9,6 +9,9 @@ import com.david.hlp.crawler.ai.service.RequirementAnalyzer;
 import com.david.hlp.crawler.ai.entity.SimilarityRequest;
 import com.david.hlp.crawler.ai.entity.UserSimilarity;
 import org.springframework.web.bind.annotation.RequestBody;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor

@@ -24,7 +24,6 @@ public class BossController {
     private final RestTemplate restTemplate;
     private final String BaseUrl = "http://localhost:8082/api/v1/boss/user";
 
-
     @GetMapping("/salary-hot-job")
     public Result<List<SalaryJob>> getSalaryJobAnalysis(@RequestParam(required = false, defaultValue = "20") Long limit) {
         URI url = UriComponentsBuilder.fromUriString(BaseUrl)

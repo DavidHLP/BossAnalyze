@@ -43,8 +43,16 @@ public class RoleServiceImp {
      * @return 角色信息
      */
     public Role getRole(Long roleId) {
-        Assert.notNull(roleId, "角色ID不能为空");
-        return roleMapper.getRoleById(roleId);
+        try {
+            Assert.notNull(roleId, "角色ID不能为空");
+            return roleMapper.getRoleById(roleId);
+        } catch (IllegalArgumentException e) {
+            log.warn("获取角色信息失败: 角色ID为空");
+            throw e;
+        } catch (Exception e) {
+            log.error("获取角色信息异常: 角色ID={}", roleId, e);
+            throw e;
+        }
     }
 
     /**
@@ -54,7 +62,12 @@ public class RoleServiceImp {
      * @return 角色列表
      */
     public List<Role> getRoleList(String roleName) {
-        return roleMapper.listRoles(roleName);
+        try {
+            return roleMapper.listRoles(roleName);
+        } catch (Exception e) {
+            log.error("根据角色名称查询角色列表异常: roleName={}", roleName, e);
+            throw e;
+        }
     }
 
     /**
@@ -63,23 +76,27 @@ public class RoleServiceImp {
      * @return 角色列表
      */
     public List<Role> getRoleList() {
-        List<Role> roleList = roleMapper.listRoles(null);
-        log.info("获取所有角色列表，包含权限和路由信息: {}", Arrays.toString(roleList.toArray()));
-        if (CollectionUtils.isEmpty(roleList)) {
-            return new ArrayList<>();
-        }
-
-        for (Role role : roleList) {
-            List<Permission> permissions = permissionMapper.listPermissionDetailsByRoleId(role.getId());
-            role.setPermissions(permissions);
-            if (!CollectionUtils.isEmpty(permissions)) {
-                List<String> permissionNames = permissions.stream()
-                    .map(Permission::getPermission)
-                    .collect(Collectors.toList());
-                role.setRouters(routerMapper.listByPermissions(permissionNames));
+        try {
+            List<Role> roleList = roleMapper.listRoles(null);
+            if (CollectionUtils.isEmpty(roleList)) {
+                return new ArrayList<>();
             }
+
+            for (Role role : roleList) {
+                List<Permission> permissions = permissionMapper.listPermissionDetailsByRoleId(role.getId());
+                role.setPermissions(permissions);
+                if (!CollectionUtils.isEmpty(permissions)) {
+                    List<String> permissionNames = permissions.stream()
+                        .map(Permission::getPermission)
+                        .collect(Collectors.toList());
+                    role.setRouters(routerMapper.listByPermissions(permissionNames));
+                }
+            }
+            return roleList;
+        } catch (Exception e) {
+            log.error("获取角色列表异常", e);
+            throw e;
         }
-        return roleList;
     }
 
     /**
@@ -89,9 +106,17 @@ public class RoleServiceImp {
      */
     @Transactional(rollbackFor = Exception.class)
     public void addRole(Role role) {
-        Assert.notNull(role, "角色信息不能为空");
-        Assert.hasText(role.getRoleName(), "角色名称不能为空");
-        roleMapper.insertRole(role);
+        try {
+            Assert.notNull(role, "角色信息不能为空");
+            Assert.hasText(role.getRoleName(), "角色名称不能为空");
+            roleMapper.insertRole(role);
+        } catch (IllegalArgumentException e) {
+            log.warn("添加角色失败: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("添加角色异常: roleName={}", role != null ? role.getRoleName() : "null", e);
+            throw e;
+        }
     }
 
     /**
@@ -101,10 +126,20 @@ public class RoleServiceImp {
      */
     @Transactional(rollbackFor = Exception.class)
     public void editRole(Role role) {
-        Assert.notNull(role, "角色信息不能为空");
-        Assert.notNull(role.getId(), "角色ID不能为空");
-        Assert.hasText(role.getRoleName(), "角色名称不能为空");
-        roleMapper.updateRole(role);
+        try {
+            Assert.notNull(role, "角色信息不能为空");
+            Assert.notNull(role.getId(), "角色ID不能为空");
+            Assert.hasText(role.getRoleName(), "角色名称不能为空");
+            roleMapper.updateRole(role);
+        } catch (IllegalArgumentException e) {
+            log.warn("编辑角色失败: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("编辑角色异常: roleId={}, roleName={}", 
+                role != null ? role.getId() : "null", 
+                role != null ? role.getRoleName() : "null", e);
+            throw e;
+        }
     }
 
     /**
@@ -114,18 +149,27 @@ public class RoleServiceImp {
      */
     @Transactional(rollbackFor = Exception.class)
     public void updateRolePermissions(RolePermissionUpdateResponse rolePermissionUpdateResponse) {
-        Assert.notNull(rolePermissionUpdateResponse, "角色权限更新信息不能为空");
-        Assert.notNull(rolePermissionUpdateResponse.getRoleId(), "角色ID不能为空");
+        try {
+            Assert.notNull(rolePermissionUpdateResponse, "角色权限更新信息不能为空");
+            Assert.notNull(rolePermissionUpdateResponse.getRoleId(), "角色ID不能为空");
 
-        Long roleId = rolePermissionUpdateResponse.getRoleId();
-        List<RolePermission> existingPermissions = roleMapper.listRolePermissions(roleId);
-        List<Long> existingPermissionIds = existingPermissions.stream()
-            .map(RolePermission::getPermissionId)
-            .collect(Collectors.toList());
+            Long roleId = rolePermissionUpdateResponse.getRoleId();
+            List<RolePermission> existingPermissions = roleMapper.listRolePermissions(roleId);
+            List<Long> existingPermissionIds = existingPermissions.stream()
+                .map(RolePermission::getPermissionId)
+                .collect(Collectors.toList());
 
-        List<Long> newPermissionIds = getNewPermissionIds(rolePermissionUpdateResponse);
+            List<Long> newPermissionIds = getNewPermissionIds(rolePermissionUpdateResponse);
 
-        updateRolePermissionRelations(roleId, existingPermissionIds, newPermissionIds);
+            updateRolePermissionRelations(roleId, existingPermissionIds, newPermissionIds);
+        } catch (IllegalArgumentException e) {
+            log.warn("更新角色权限失败: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("更新角色权限异常: roleId={}", 
+                rolePermissionUpdateResponse != null ? rolePermissionUpdateResponse.getRoleId() : "null", e);
+            throw e;
+        }
     }
 
     /**
@@ -135,9 +179,17 @@ public class RoleServiceImp {
      */
     @Transactional(rollbackFor = Exception.class)
     public void deleteRole(Long roleId) {
-        Assert.notNull(roleId, "角色ID不能为空");
-        roleMapper.deleteRolePermissionByRoleId(roleId);
-        roleMapper.deleteRole(roleId);
+        try {
+            Assert.notNull(roleId, "角色ID不能为空");
+            roleMapper.deleteRolePermissionByRoleId(roleId);
+            roleMapper.deleteRole(roleId);
+        } catch (IllegalArgumentException e) {
+            log.warn("删除角色失败: 角色ID为空");
+            throw e;
+        } catch (Exception e) {
+            log.error("删除角色异常: roleId={}", roleId, e);
+            throw e;
+        }
     }
 
     /**
@@ -155,7 +207,11 @@ public class RoleServiceImp {
                     Long permissionId = permissionMapper.getIdByPermissionName(permission);
                     if (permissionId != null) {
                         newPermissionIds.add(permissionId);
+                    } else {
+                        log.warn("未找到权限ID: permission={}", permission);
                     }
+                } else {
+                    log.warn("未找到路由权限: routerId={}", routerId);
                 }
             }
         }
@@ -170,23 +226,28 @@ public class RoleServiceImp {
      * @param newPermissionIds 新的权限ID列表
      */
     private void updateRolePermissionRelations(Long roleId, List<Long> existingPermissionIds, List<Long> newPermissionIds) {
-        List<Long> toDeletePermissionIds = existingPermissionIds.stream()
-            .filter(id -> !newPermissionIds.contains(id))
-            .collect(Collectors.toList());
+        try {
+            List<Long> toDeletePermissionIds = existingPermissionIds.stream()
+                .filter(id -> !newPermissionIds.contains(id))
+                .collect(Collectors.toList());
 
-        List<Long> toAddPermissionIds = newPermissionIds.stream()
-            .filter(id -> !existingPermissionIds.contains(id))
-            .distinct()
-            .collect(Collectors.toList());
+            List<Long> toAddPermissionIds = newPermissionIds.stream()
+                .filter(id -> !existingPermissionIds.contains(id))
+                .distinct()
+                .collect(Collectors.toList());
 
-        if (!CollectionUtils.isEmpty(toDeletePermissionIds)) {
-            for (Long permissionId : toDeletePermissionIds) {
-                roleMapper.deleteRolePermission(roleId, permissionId);
+            if (!CollectionUtils.isEmpty(toDeletePermissionIds)) {
+                for (Long permissionId : toDeletePermissionIds) {
+                    roleMapper.deleteRolePermission(roleId, permissionId);
+                }
             }
-        }
 
-        if (!CollectionUtils.isEmpty(toAddPermissionIds)) {
-            roleMapper.insertRolePermissions(roleId, toAddPermissionIds);
+            if (!CollectionUtils.isEmpty(toAddPermissionIds)) {
+                roleMapper.insertRolePermissions(roleId, toAddPermissionIds);
+            }
+        } catch (Exception e) {
+            log.error("更新角色权限关系异常: roleId={}", roleId, e);
+            throw e;
         }
     }
 }
