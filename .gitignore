@@ -78,4 +78,4 @@ playwright-report/
 
 PythonTest/
 
-**.windsurf
+.windsurf/*
