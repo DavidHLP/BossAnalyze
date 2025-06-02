@@ -106,7 +106,14 @@ const baseOption = {
     padding: [12, 16],
     extraCssText: 'box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border-radius: 8px;',
     formatter: function(params: echarts.DefaultLabelFormatterCallbackParams[]) {
-      const item = salaryJobList.value[params[0].dataIndex];
+      // 这里不能直接使用原始数据索引，需要根据当前点击的系列和索引找到对应数据
+      const positionName = params[0].name as string; // 当前鼠标位置对应的职位名称
+      const item = salaryJobList.value.find(job => job.positionName === positionName);
+
+      if (!item) {
+        return '暂无数据';
+      }
+
       let result = `<div style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #344767;">${item.positionName}</div>`;
       result += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">`;
       result += `<span style="color: #3B82F6; font-weight: bold;">${item.avgSalary}k</span>`;
@@ -430,12 +437,28 @@ const initChart = () => {
       const selected = (params as {selected: Record<string, boolean>}).selected;
       let currentSortKey: keyof SalaryJob = defaultSortKey; // 默认排序键
 
-      // 查找优先级最高的、当前被选中的图例对应的 key
-      for (const priority of sortPriority) {
-        if (selected[priority.name]) { // 如果该图例项被选中
-          currentSortKey = priority.key;
-          break; // 找到最高优先级的就停止查找
+      // 检查是否所有图例都未被选中
+      const allUnselected = Object.values(selected).every(value => value === false);
+
+      if (!allUnselected) {
+        // 查找优先级最高的、当前被选中的图例对应的 key
+        let foundSelected = false;
+        for (const priority of sortPriority) {
+          if (selected[priority.name]) { // 如果该图例项被选中
+            currentSortKey = priority.key;
+            foundSelected = true;
+            break; // 找到最高优先级的就停止查找
+          }
         }
+
+        // 如果没有找到任何选中的项，但图例选择状态不是全部未选中
+        // 这种情况可能发生在用户手动切换图例时
+        if (!foundSelected) {
+          // 保持默认排序键
+          console.log('使用默认排序键:', defaultSortKey);
+        }
+      } else {
+        console.log('所有图例都未选中，使用默认排序键:', defaultSortKey);
       }
 
       // 使用新的排序键和选中状态更新图表
@@ -446,6 +469,8 @@ const initChart = () => {
 
 /**
  * 准备排序后的数据
+ * @param sortKey 用于排序的键
+ * @returns 排序后的数据数组，但不会修改原始数据
  */
 const prepareSortedData = (sortKey: keyof SalaryJob) => {
   // 对数据进行排序（创建副本以避免修改原始数据）
@@ -477,34 +502,113 @@ const updateChart = (
 ) => {
   if (!myChart) return;
 
-  // 准备排序后的数据
+  // 重新排序，确保所有数据同步
   const sortedData = prepareSortedData(sortKey);
 
-  // 准备更新 ECharts 的选项
-  const updateOption = {
+  // 更新 option，保证 xAxis 和 series 数据一一对应
+  myChart.setOption({
     xAxis: [
       {
-        data: sortedData.positionNames // 更新 x 轴数据
+        type: 'category',
+        data: sortedData.positionNames,
+        axisPointer: { type: 'shadow' },
+        axisLabel: {
+          interval: 0,
+          rotate: 45,
+          color: '#67748E',
+          fontSize: 12
+        },
+        axisLine: {
+          lineStyle: {
+            color: '#E5E7EB'
+          }
+        },
+        splitLine: {
+          show: false
+        }
       }
     ],
     series: [
-      { data: sortedData.avgSalaries }, // 更新系列数据
-      { data: sortedData.minSalaries },
-      { data: sortedData.maxSalaries },
-      { data: sortedData.jobCounts }
+      {
+        name: '平均薪资',
+        type: 'bar',
+        yAxisIndex: 0,
+        data: sortedData.avgSalaries,
+        tooltip: { valueFormatter: (value: number | string) => value + ' k' },
+        itemStyle: {
+          color: '#3B82F6',
+          borderRadius: [4, 4, 0, 0]
+        },
+        emphasis: {
+          itemStyle: {
+            color: '#2563EB'
+          }
+        }
+      },
+      {
+        name: '最低工资',
+        type: 'line',
+        yAxisIndex: 0,
+        data: sortedData.minSalaries,
+        smooth: true,
+        tooltip: { valueFormatter: (value: number | string) => value + ' k' },
+        lineStyle: {
+          width: 3,
+          color: '#38BDF8'
+        },
+        symbol: 'circle',
+        symbolSize: 8,
+        itemStyle: {
+          color: '#38BDF8',
+          borderWidth: 2,
+          borderColor: '#FFFFFF'
+        }
+      },
+      {
+        name: '最高工资',
+        type: 'line',
+        yAxisIndex: 0,
+        data: sortedData.maxSalaries,
+        smooth: true,
+        tooltip: { valueFormatter: (value: number | string) => value + ' k' },
+        lineStyle: {
+          width: 3,
+          color: '#60A5FA'
+        },
+        symbol: 'circle',
+        symbolSize: 8,
+        itemStyle: {
+          color: '#60A5FA',
+          borderWidth: 2,
+          borderColor: '#FFFFFF'
+        }
+      },
+      {
+        name: '职位数量',
+        type: 'bar',
+        yAxisIndex: 1,
+        data: sortedData.jobCounts,
+        tooltip: { valueFormatter: (value: number | string) => value + ' 职位' },
+        itemStyle: {
+          color: '#93C5FD',
+          borderRadius: [4, 4, 0, 0]
+        },
+        emphasis: {
+          itemStyle: {
+            color: '#60A5FA'
+          }
+        }
+      }
     ],
     legend: {
-      // 如果提供了 selected 状态，则更新图例状态
       selected: currentSelected
     },
-    // 排序动画配置
     animationDurationUpdate: 600,
     animationEasingUpdate: 'elasticOut',
-    animationDelayUpdate: (idx: number) => idx * 20
-  };
-
-  // 应用更新
-  myChart.setOption(updateOption as EChartsOption);
+    animationDelayUpdate: (idx: number) => idx * 20,
+    transition: ['all'],
+    animationThreshold: 50
+  } as EChartsOption, false); // 使用false，不使用合并模式而是完全替换
 };
 
 // 处理窗口大小变化

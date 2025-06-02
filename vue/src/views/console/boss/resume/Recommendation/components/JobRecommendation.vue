@@ -55,55 +55,9 @@
         </el-empty>
 
         <el-space v-else direction="vertical" fill>
-          <el-card class="match-summary">
-            <el-space alignment="center" class="match-header">
-              <el-space alignment="center" justify="center" class="match-icon">
-                <el-icon><Aim /></el-icon>
-              </el-space>
-              <el-space direction="vertical" fill class="match-info">
-                <el-space class="match-title" alignment="center">
-                  <span>找到</span>
-                  <el-tag type="success" size="small" round>{{ jobs.length }}</el-tag>
-                  <span>个匹配职位</span>
-                </el-space>
-                <el-text class="match-description" type="info">基于您的简历技能和经验，我们匹配了以下职位</el-text>
-              </el-space>
-            </el-space>
-          </el-card>
-
-          <el-card class="filter-controls">
-            <el-row :gutter="20" align="middle">
-              <el-col :md="12" :sm="24" class="filter-left">
-                <el-space alignment="center" class="sort-wrapper">
-                  <el-icon><Filter /></el-icon>
-                  <span class="sort-label">排序方式：</span>
-                  <el-select v-model="sortBy" placeholder="排序方式" size="small">
-                    <el-option label="匹配度从高到低" value="similarity"></el-option>
-                    <el-option label="薪资从高到低" value="salary"></el-option>
-                  </el-select>
-                </el-space>
-              </el-col>
-              <el-col :md="12" :sm="24" class="filter-right">
-                <el-space class="search-wrapper">
-                  <el-input
-                    v-model="searchKeyword"
-                    placeholder="搜索职位或公司"
-                    prefix-icon="Search"
-                    clearable
-                    size="small"
-                  >
-                  </el-input>
-                </el-space>
-              </el-col>
-            </el-row>
-          </el-card>
 
           <!-- 使用类似SelectResume的网格布局 -->
           <div class="jobs-content">
-            <div class="jobs-count">
-              <el-badge :value="filteredJobs.length" class="count-badge" type="primary" />
-              <span class="count-text">个职位匹配</span>
-            </div>
 
             <el-scrollbar height="400px" class="jobs-scrollbar">
               <div class="jobs-grid">
@@ -193,37 +147,20 @@
         </el-space>
       </div>
 
-      <div class="action-footer">
-        <el-row justify="space-between">
-          <el-col :xs="24" :sm="12">
-            <el-button type="info" plain @click="prev" class="prev-button">
-              <el-icon><ArrowLeft /></el-icon> 返回
-            </el-button>
-          </el-col>
-          <el-col :xs="24" :sm="12" style="text-align: right">
-            <el-button type="primary" @click="reset" class="reset-button">
-              <el-icon><RefreshRight /></el-icon> 重新开始
-            </el-button>
-          </el-col>
-        </el-row>
-      </div>
+      <el-divider />
+      <el-row justify="space-between" class="action-footer">
+        <el-col :xs="24" :sm="12">
+          <el-button type="info" plain @click="prev" class="prev-button">
+            <el-icon><ArrowLeft /></el-icon> 返回
+          </el-button>
+        </el-col>
+        <el-col :xs="24" :sm="12" style="text-align: right">
+          <el-button type="primary" @click="reset" class="reset-button">
+            <el-icon><RefreshRight /></el-icon> 重新开始
+          </el-button>
+        </el-col>
+      </el-row>
     </el-card>
-
-    <el-alert
-      v-if="jobs.length > 0"
-      type="info"
-      :closable="false"
-      show-icon
-      class="helper-tips"
-    >
-      <template #title>
-        <el-text class="tips-title" tag="b">匹配提示</el-text>
-      </template>
-      <el-text class="tips-text">
-        以上职位由AI根据您的简历技能自动匹配，考虑了技能相关性、工作经验和教育背景等多方面因素。
-        职位匹配度越高，表示您的简历与该职位的匹配程度越高。
-      </el-text>
-    </el-alert>
 
     <!-- 职位详情抽屉 -->
     <el-drawer
@@ -258,8 +195,6 @@ import {
   CircleCheckFilled,
   DocumentDelete,
   RefreshRight,
-  Aim,
-  Filter,
   OfficeBuilding,
   Money,
   Location,
@@ -407,10 +342,7 @@ const openGoogleMaps = () => {
 }
 
 .action-footer {
-  display: flex;
-  justify-content: space-between;
   padding: 16px 20px;
-  border-top: 1px solid #f0f0f0;
   margin-top: auto;
 }
 
@@ -592,13 +524,7 @@ const openGoogleMaps = () => {
   font-weight: bold;
 }
 
-
-
 @media (max-width: 768px) {
-  .filter-left, .filter-right {
-    margin-bottom: 10px;
-  }
-
   .jobs-grid {
     gap: 15px;
   }

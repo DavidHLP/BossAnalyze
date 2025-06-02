@@ -4,27 +4,11 @@
       <el-row class="title-section">
         <el-col :span="24">
           <el-space alignment="center" class="section-title">
-            <el-icon><DataAnalysis /></el-icon>
+            <el-icon><Lightning /></el-icon>
             <span>简历分析</span>
-            <el-badge value="AI" class="ai-badge">
-              <el-icon><Lightning /></el-icon>
-            </el-badge>
           </el-space>
         </el-col>
       </el-row>
-
-      <div v-if="!analyzing" class="analysis-status-section">
-        <div class="analysis-status-row">
-          <div class="analysis-complete">
-            <div class="status-wrapper">
-              <el-icon class="status-icon"><CircleCheck /></el-icon>
-              <span class="status-text">分析完成</span>
-              <el-tag size="small" effect="dark" type="success" class="status-tag">100%</el-tag>
-            </div>
-            <div class="analysis-description">您的简历已成功分析，以下是简历分析结果</div>
-          </div>
-        </div>
-      </div>
 
       <el-container class="content-wrapper">
         <template v-if="analyzing">
@@ -233,19 +217,6 @@
         </el-col>
       </el-row>
     </el-card>
-
-    <el-alert
-      v-if="!analyzing"
-      type="info"
-      :closable="false"
-      show-icon
-      class="helper-tips"
-    >
-      <template #title>
-        <el-text class="tips-title" tag="b">分析提示</el-text>
-      </template>
-      <el-text class="tips-text">AI分析已完成，您可以查看推荐的职位匹配结果，或返回上一步重新选择简历。确保您的简历信息完整以获得更准确的推荐。</el-text>
-    </el-alert>
   </el-space>
 </template>
 
@@ -253,12 +224,10 @@
 import { defineProps, defineEmits, computed } from 'vue'
 import type { ResumeData } from '@/api/resume/resume.d'
 import {
-  DataAnalysis,
   Lightning,
   Loading,
   Timer,
   CircleCheckFilled,
-  CircleCheck,
   User,
   Briefcase,
   Location,

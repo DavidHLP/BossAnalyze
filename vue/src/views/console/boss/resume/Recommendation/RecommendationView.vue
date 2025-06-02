@@ -68,15 +68,6 @@
         </el-col>
       </el-row>
     </el-main>
-
-    <!-- 页面底部 -->
-    <el-footer class="footer-info">
-      <el-row>
-        <el-col :span="24" class="text-center text-muted small py-3">
-          <el-text class="mb-0" type="info" size="small">简历推荐系统 © {{ new Date().getFullYear() }} 求职分析助手</el-text>
-        </el-col>
-      </el-row>
-    </el-footer>
   </el-container>
 </template>
 
@@ -235,9 +226,10 @@ onMounted(() => {
 .resume-recommendation {
   padding: 20px;
   background-color: #f9fafc;
-  min-height: calc(100vh - 60px);
+  min-height: calc(90vh - 60px);
   display: flex;
   flex-direction: column;
+  overflow-y: hidden;
 }
 
 .steps-container {
@@ -259,6 +251,7 @@ onMounted(() => {
   min-height: 600px;
   transition: all 0.3s;
   width: 100%;
+  overflow-y: hidden;
 }
 
 .w-100 {

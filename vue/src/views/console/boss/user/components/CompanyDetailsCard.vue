@@ -182,78 +182,122 @@ const openGoogleMaps = () => {
   display: flex;
   flex-direction: column;
   padding: 0;
-  background-color: var(--bs-light, #f8f9fa);
+  background-color: #f9fafc;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .company-header {
-  padding: 1.5rem;
-  background: linear-gradient(135deg, var(--bs-primary, #0d6efd), var(--bs-primary-dark, #0a58ca));
+  padding: 2rem 1.75rem;
+  background: linear-gradient(135deg, #4268F6, #5733EA);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-radius: 0 0 16px 16px;
 
   .company-title {
-    margin: 0 0 0.75rem 0;
-    font-size: 1.5rem;
-    font-weight: 600;
+    margin: 0 0 1rem 0;
+    font-size: 1.75rem;
+    font-weight: 700;
     line-height: 1.3;
+    letter-spacing: -0.01em;
   }
 
   .position-tag {
     margin-bottom: 0.75rem;
     font-size: 0.875rem;
     border: none;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
   }
 
   .location-info {
-    font-size: 0.875rem;
-    opacity: 0.9;
+    font-size: 0.95rem;
+    opacity: 0.92;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
   }
 }
 
 .info-sections {
   flex: 1;
-  padding: 1rem;
+  padding: 1.25rem;
   overflow-y: auto;
+  scroll-behavior: smooth;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 10px;
+    transition: background 0.3s;
+
+    &:hover {
+      background: #9ca3af;
+    }
+  }
 }
 
 .info-card {
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: 12px;
   overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.25rem;
+  background-color: #fff;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   }
 
   .card-header {
-    background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.05);
-    border-bottom: 1px solid rgba(var(--bs-primary-rgb, 13, 110, 253), 0.1);
+    background-color: #f9fafc;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     font-weight: 600;
-    color: var(--bs-gray-700);
-    padding: 0.75rem 1rem;
+    color: #374151;
+    padding: 1rem 1.25rem;
+    font-size: 1.05rem;
   }
+}
+
+.info-label {
+  font-size: 0.9rem;
+  color: #6b7280;
 }
 
 .info-value {
   font-weight: 500;
+  color: #111827;
 
   &.salary {
-    color: var(--bs-primary, #0d6efd);
-    font-size: 1.125rem;
+    color: #4268F6;
+    font-size: 1.25rem;
+    font-weight: 700;
   }
 
   &.location {
     display: flex;
     align-items: center;
-    color: var(--bs-primary, #0d6efd);
+    color: #4268F6;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: all 0.2s;
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
 
     &:hover {
-      opacity: 0.8;
+      background-color: rgba(66, 104, 246, 0.08);
+      transform: translateX(2px);
     }
   }
 }
@@ -261,55 +305,107 @@ const openGoogleMaps = () => {
 .benefits-container {
   display: flex;
   flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .benefit-tag {
-  font-weight: normal;
-  font-size: 0.8125rem;
-  padding: 0.35rem 0.75rem;
-  background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.1);
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.85rem;
+  background-color: rgba(66, 104, 246, 0.08);
+  color: #4268F6;
+  border-radius: 8px;
+  border: none;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: rgba(66, 104, 246, 0.15);
+    transform: translateY(-2px);
+  }
+}
+
+.requirement-item {
+  margin-bottom: 0.85rem;
+  background-color: #f9fafc;
+  padding: 0.75rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: #f3f4f6;
+    transform: translateX(3px);
+  }
 }
 
 .requirement-number {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  background-color: var(--bs-primary, #0d6efd);
-  font-size: 0.75rem;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  background-color: #4268F6;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 50%;
+  margin-right: 0.75rem;
 }
 
 .requirement-text {
-  font-size: 0.9375rem;
+  font-size: 0.95rem;
   line-height: 1.6;
+  align-self: center;
+}
+
+.empty-info {
+  padding: 1.5rem;
+  color: #9ca3af;
+  font-size: 0.95rem;
 }
 
 .drawer-footer {
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.75rem;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   background-color: #fff;
+  gap: 1rem;
+}
+
+.b-button {
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
 // 响应式调整
 @media (max-width: 768px) {
   .company-header {
-    padding: 1rem;
+    padding: 1.5rem;
+    border-radius: 0 0 12px 12px;
 
     .company-title {
-      font-size: 1.25rem;
+      font-size: 1.35rem;
     }
   }
 
   .info-sections {
-    padding: 0.75rem;
+    padding: 1rem;
   }
 
   .drawer-footer {
-    padding: 0.75rem 1rem;
+    padding: 1rem;
     flex-direction: column;
 
     .b-button {
       margin: 0.25rem 0;
+      width: 100%;
     }
+  }
+
+  .info-card {
+    margin-bottom: 1rem;
+    border-radius: 10px;
   }
 }
 </style>

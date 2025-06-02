@@ -1,10 +1,5 @@
 <template>
   <el-card class="scatter-plot-card">
-    <el-page-header class="scatter-header">
-      <template #title>
-        <h1 class="scatter-title">职位分析散点图</h1>
-      </template>
-    </el-page-header>
     <el-row :gutter="10" class="filter-row">
       <el-col :span="6" :xs="6">
         <el-form-item label="X轴:">
@@ -83,7 +78,6 @@ import {
   ElFormItem,
   ElAlert,
   ElDrawer,
-  ElPageHeader,
 } from 'element-plus';
 // 导入公司详情卡组件
 import CompanyDetailsCard from './components/CompanyDetailsCard.vue';
