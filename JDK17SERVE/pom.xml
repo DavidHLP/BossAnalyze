@@ -72,6 +72,11 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			<dependency>
+				<groupId>org.springframework.ai</groupId>
+				<artifactId>spring-ai-starter-model-openai</artifactId>
+				<version>${spring-ai.version}</version>
+			</dependency>
 			<!-- Lombok -->
 			<dependency>
 				<groupId>org.projectlombok</groupId>

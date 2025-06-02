@@ -145,28 +145,11 @@
       title="删除确认"
       width="30%"
     >
-      <span>确定要删除 <strong>{{ deleteName }}</strong> 的简历吗？此操作不可恢复。</span>
-      <div class="mt-4">
-        <el-form>
-          <el-form-item label="请输入姓名以确认删除">
-            <el-input
-              v-model="deleteConfirmInput"
-              placeholder="请输入完整姓名确认"
-              :maxlength="20"
-            />
-          </el-form-item>
-        </el-form>
-      </div>
+      <span>确定要删除该简历吗？此操作不可恢复。</span>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="deleteDialogVisible = false">取消</el-button>
-          <el-button
-            type="danger"
-            @click="confirmDelete"
-            :disabled="deleteConfirmInput !== deleteName || !deleteName"
-          >
-            确定删除
-          </el-button>
+          <el-button type="danger" @click="confirmDelete">确定删除</el-button>
         </span>
       </template>
     </el-dialog>
@@ -212,8 +195,6 @@ const searchForm = ref({
 const selectedRows = ref<ResumeData[]>([])
 const deleteDialogVisible = ref(false)
 const deleteItem = ref<ResumeData | null>(null)
-const deleteConfirmInput = ref('')
-const deleteName = ref('')
 
 // 简历操作对话框相关状态
 const resumeDialogVisible = ref(false)
@@ -265,17 +246,10 @@ const fetchResumeList = async () => {
 }
 
 // 分别监听页码和页大小变化
-watch(currentPage, (newPage, oldPage) => {
-  if (newPage !== oldPage) {
-    fetchResumeList()
-  }
-})
-
-watch(pageSize, (newSize, oldSize) => {
-  if (newSize !== oldSize) {
-    currentPage.value = 1 // 页大小变化时，重置为第一页
-    fetchResumeList()
-  }
+watch(currentPage, () => fetchResumeList())
+watch(pageSize, () => {
+  currentPage.value = 1 // 页大小变化时，重置为第一页
+  fetchResumeList()
 })
 
 // 页面加载时获取数据
@@ -378,41 +352,27 @@ const handleResumeSave = (data: ResumeData) => {
 // 删除简历
 const handleDelete = (row: ResumeData) => {
   deleteItem.value = row
-  deleteName.value = row.name || ''
-  deleteConfirmInput.value = ''
   deleteDialogVisible.value = true
 }
 
-// 确认删除
-const confirmDelete = () => {
-  if (!deleteItem.value) return
-
-  // 检查用户输入的确认文本是否匹配
-  if (deleteConfirmInput.value !== deleteName.value) {
-    ElMessage.warning('确认文本不匹配，无法删除')
-    return
-  }
-
-  // 调用mock接口删除简历
-  const name = sanitizeInput(deleteItem.value.name || '')
-
-  // 确保ID存在
-  if (!deleteItem.value.id) {
+const confirmDelete = async () => {
+  if (!deleteItem.value?.id) {
     ElMessage.error('缺少简历ID，无法删除')
     deleteDialogVisible.value = false
     deleteItem.value = null
     return
   }
 
-  deleteResume(deleteItem.value.id).then(() => {
-    ElMessage.success(`已删除 ${name} 的简历`)
-    fetchResumeList() // 重新获取列表数据
-  }).catch(() => {
-    ElMessage.error('删除简历失败')
-  })
-  deleteDialogVisible.value = false
-  deleteItem.value = null
-  deleteConfirmInput.value = ''
+  try {
+    await deleteResume(deleteItem.value.id)
+    ElMessage.success('删除成功')
+    fetchResumeList()
+  } catch {
+    ElMessage.error('删除失败')
+  } finally {
+    deleteDialogVisible.value = false
+    deleteItem.value = null
+  }
 }
 </script>
 

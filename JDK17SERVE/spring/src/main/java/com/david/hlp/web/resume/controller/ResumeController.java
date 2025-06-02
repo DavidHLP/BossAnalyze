@@ -96,18 +96,6 @@ public class ResumeController {
         }
 
         /**
-         * 根据用户ID查询最新创建的简历
-         */
-        @GetMapping("/user/latest")
-        public Result<List<Resume>> getLatestResumesByUserId(@RequestParam String userId) {
-                return Result.<List<Resume>>builder()
-                                .code(ResultCode.SUCCESS.getCode())
-                                .message(ResultCode.SUCCESS.getMessage())
-                                .data(resumeService.findLatestByUserId(userId))
-                                .build();
-        }
-
-        /**
          * 获取用户最新创建的一份简历
          */
         @GetMapping("/user/latest/one")
@@ -119,63 +107,5 @@ public class ResumeController {
                                                 .data(resume)
                                                 .build())
                                 .orElse(Result.error(ResultCode.NOT_FOUND));
-        }
-
-        /**
-         * 根据用户ID查询最近更新的简历
-         */
-        @GetMapping("/user/recently-updated")
-        public Result<List<Resume>> getRecentlyUpdatedResumesByUserId(@RequestParam String userId) {
-                return Result.<List<Resume>>builder()
-                                .code(ResultCode.SUCCESS.getCode())
-                                .message(ResultCode.SUCCESS.getMessage())
-                                .data(resumeService.findRecentlyUpdatedByUserId(userId))
-                                .build();
-        }
-
-        /**
-         * 获取用户最近更新的一份简历
-         */
-        @GetMapping("/user/recently-updated/one")
-        public Result<Resume> getRecentlyUpdatedOneResumeByUserId(@RequestParam String userId) {
-                return resumeService.findRecentlyUpdatedOneByUserId(userId)
-                                .map(resume -> Result.<Resume>builder()
-                                                .code(ResultCode.SUCCESS.getCode())
-                                                .message(ResultCode.SUCCESS.getMessage())
-                                                .data(resume)
-                                                .build())
-                                .orElse(Result.error(ResultCode.NOT_FOUND));
-        }
-
-        /**
-         * 分页查询用户简历
-         */
-        @GetMapping("/user/page")
-        public Result<Page<Resume>> getResumesByUserIdPaged(
-                        @RequestParam String userId,
-                        @RequestParam(defaultValue = "0") int page,
-                        @RequestParam(defaultValue = "10") int size) {
-                Pageable pageable = PageRequest.of(page, size);
-                return Result.<Page<Resume>>builder()
-                                .code(ResultCode.SUCCESS.getCode())
-                                .message(ResultCode.SUCCESS.getMessage())
-                                .data(resumeService.findByUserId(userId, pageable))
-                                .build();
-        }
-
-        /**
-         * 分页查询用户简历（按用户名）
-         */
-        @GetMapping("/username/page")
-        public Result<Page<Resume>> getResumesByUserNamePaged(
-                        @RequestParam String userName,
-                        @RequestParam(defaultValue = "0") int page,
-                        @RequestParam(defaultValue = "10") int size) {
-                Pageable pageable = PageRequest.of(page, size);
-                return Result.<Page<Resume>>builder()
-                                .code(ResultCode.SUCCESS.getCode())
-                                .message(ResultCode.SUCCESS.getMessage())
-                                .data(resumeService.findByUserName(userName, pageable))
-                                .build();
         }
 }

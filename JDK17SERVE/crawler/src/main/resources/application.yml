@@ -28,7 +28,6 @@ spring:
         options:
           model: qwen3:4b # 指定使用 qwen3:4b 模型
           format: json # 建议模型返回 JSON 格式
-
 server:
   port: 8081
 logging:

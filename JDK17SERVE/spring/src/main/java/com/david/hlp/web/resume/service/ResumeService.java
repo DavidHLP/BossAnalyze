@@ -39,13 +39,6 @@ public class ResumeService {
     }
 
     /**
-     * 根据用户ID查询最新创建的简历
-     */
-    public List<Resume> findLatestByUserId(String userId) {
-        return resumeRepository.findByUserIdOrderByCreatedAtDesc(userId);
-    }
-
-    /**
      * 获取用户最新创建的一份简历
      */
     public Optional<Resume> findLatestOneByUserId(String userId) {
