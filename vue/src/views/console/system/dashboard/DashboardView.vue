@@ -10,17 +10,17 @@
         <div class="metric-cards">
           <div class="metric-card">
             <div class="metric-icon visits-icon">
-              <i class="icon"><ViewIcon /></i>
-              </div>
+              <el-icon><Monitor /></el-icon>
+            </div>
             <div class="metric-content">
               <div class="metric-value">{{ statsData.totalVisits }}</div>
               <div class="metric-label">总访问量</div>
-              </div>
-              </div>
+            </div>
+          </div>
 
           <div class="metric-card">
             <div class="metric-icon ips-icon">
-              <i class="icon"><User /></i>
+              <el-icon><User /></el-icon>
             </div>
             <div class="metric-content">
               <div class="metric-value">{{ statsData.uniqueIps }}</div>
@@ -30,7 +30,7 @@
 
           <div class="metric-card">
             <div class="metric-icon browser-icon">
-              <i class="icon"><ChromeFilled /></i>
+              <el-icon><Platform /></el-icon>
             </div>
             <div class="metric-content">
               <div class="metric-value">{{ Object.keys(statsData.browserStats).length }}</div>
@@ -40,7 +40,7 @@
 
           <div class="metric-card">
             <div class="metric-icon http-icon">
-              <i class="icon"><Connection /></i>
+              <el-icon><Connection /></el-icon>
             </div>
             <div class="metric-content">
               <div class="metric-value">{{ Object.keys(statsData.httpMethods).length }}</div>
@@ -159,9 +159,9 @@ import { defineComponent, onMounted, ref, reactive, computed, watch } from 'vue'
 import { getAccessLogStats } from '@/api/log/accesslog';
 import type { AccessLogStats } from '@/api/log/accesslog.d';
 import {
-  View as ViewIcon,
+  Monitor,
   User,
-  ChromeFilled,
+  Platform,
   Connection,
   InfoFilled,
 } from '@element-plus/icons-vue';
@@ -177,9 +177,9 @@ interface IpTableItem {
 export default defineComponent({
   name: 'DashboardView',
   components: {
-    ViewIcon,
+    Monitor,
     User,
-    ChromeFilled,
+    Platform,
     Connection,
     InfoFilled,
   },

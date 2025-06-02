@@ -153,8 +153,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineProps, defineEmits } from 'vue'
+import { ref, computed, defineProps, defineEmits, watch } from 'vue'
 import { useWindowSize } from '@vueuse/core'
+import { iconList } from '../types/icons'
 
 // 定义组件接收的属性
 const props = defineProps({
@@ -200,51 +201,49 @@ const dialogTitle = computed(() => props.title)
 // 深拷贝表单数据
 const formData = ref(JSON.parse(JSON.stringify(props.initialFormData)))
 
+// 确保formData中的meta对象结构完整
+const ensureFormDataComplete = () => {
+  if (!formData.value.meta) {
+    formData.value.meta = {
+      type: 'C',
+      component: '',
+      redirect: null,
+      alwaysShow: false,
+      metaTitle: '',
+      metaIcon: null,
+      metaHidden: false,
+      metaRoles: null,
+      metaKeepAlive: false,
+      hidden: false
+    }
+  } else {
+    // 确保meta的所有属性都存在
+    formData.value.meta = {
+      type: formData.value.meta.type || 'C',
+      component: formData.value.meta.component || '',
+      redirect: formData.value.meta.redirect || null,
+      alwaysShow: typeof formData.value.meta.alwaysShow === 'boolean' ? formData.value.meta.alwaysShow : false,
+      metaTitle: formData.value.meta.metaTitle || '',
+      metaIcon: formData.value.meta.metaIcon || null,
+      metaHidden: typeof formData.value.meta.metaHidden === 'boolean' ? formData.value.meta.metaHidden : false,
+      metaRoles: formData.value.meta.metaRoles || null,
+      metaKeepAlive: typeof formData.value.meta.metaKeepAlive === 'boolean' ? formData.value.meta.metaKeepAlive : false,
+      hidden: typeof formData.value.meta.hidden === 'boolean' ? formData.value.meta.hidden : false
+    }
+  }
+}
+
+// 初始化时确保数据完整
+ensureFormDataComplete()
+
+// 监听initialFormData变化，确保数据始终完整
+watch(() => props.initialFormData, (newVal) => {
+  formData.value = JSON.parse(JSON.stringify(newVal))
+  ensureFormDataComplete()
+}, { deep: true })
+
 // 图标选择相关
 const iconSearchText = ref('')
-
-// 图标列表 - Element Plus 常用图标
-const iconList = [
-  'Add', 'AddLocation', 'Aim', 'Alarm', 'Apple', 'ArrowDown', 'ArrowDownBold', 'ArrowLeft',
-  'ArrowLeftBold', 'ArrowRight', 'ArrowRightBold', 'ArrowUp', 'ArrowUpBold', 'Avatar',
-  'Back', 'Baseball', 'Basketball', 'Bell', 'BellFilled', 'Bicycle', 'Bottom', 'BottomLeft',
-  'BottomRight', 'Bowl', 'Box', 'Briefcase', 'Brush', 'BrushFilled', 'Burger', 'Calendar',
-  'Camera', 'CameraFilled', 'CaretBottom', 'CaretLeft', 'CaretRight', 'CaretTop', 'Cellphone',
-  'ChatDotRound', 'ChatDotSquare', 'ChatLineRound', 'ChatLineSquare', 'ChatRound', 'ChatSquare',
-  'Check', 'Checked', 'Cherry', 'Chicken', 'CircleCheck', 'CircleCheckFilled', 'CircleClose',
-  'CircleCloseFilled', 'CirclePlus', 'CirclePlusFilled', 'Clock', 'Close', 'CloseBold',
-  'Cloudy', 'Coffee', 'CoffeeCup', 'Coin', 'ColdDrink', 'Collection', 'CollectionTag',
-  'Comment', 'Compass', 'Connection', 'Coordinate', 'CopyDocument', 'Cpu', 'CreditCard',
-  'Crop', 'DataAnalysis', 'DataBoard', 'DataLine', 'Delete', 'DeleteFilled', 'DeleteLocation',
-  'Dessert', 'Discount', 'Dish', 'DishDot', 'Document', 'DocumentAdd', 'DocumentChecked',
-  'DocumentCopy', 'DocumentDelete', 'DocumentRemove', 'Download', 'Drizzling', 'Edit', 'EditPen',
-  'Eleme', 'ElemeFilled', 'ElementPlus', 'Expand', 'Failed', 'Female', 'Files', 'Film',
-  'Filter', 'Finished', 'FirstAidKit', 'Flag', 'Fold', 'Folder', 'FolderAdd', 'FolderChecked',
-  'FolderDelete', 'FolderOpened', 'FolderRemove', 'Food', 'Football', 'ForkSpoon', 'Fries',
-  'FullScreen', 'Goblet', 'GobletFull', 'GobletSquare', 'GobletSquareFull', 'Goods', 'GoodsFilled',
-  'Grape', 'Grid', 'Guide', 'Handbag', 'Headset', 'Help', 'HelpFilled', 'Hide', 'Histogram',
-  'History', 'HomeFilled', 'HotWater', 'House', 'IceCream', 'IceCreamRound', 'IceCreamSquare',
-  'IceDrink', 'IceTea', 'InfoFilled', 'Iphone', 'Key', 'KnifeFork', 'Lightning', 'Link',
-  'List', 'Loading', 'Location', 'LocationFilled', 'LocationInformation', 'Lock', 'Lollipop',
-  'Magic', 'Magnet', 'Male', 'Management', 'MapLocation', 'Medal', 'Memo', 'Menu', 'Message',
-  'MessageBox', 'Mic', 'Microphone', 'MilkTea', 'Minus', 'Money', 'Monitor', 'Moon', 'MoonNight',
-  'More', 'MoreFilled', 'MostlyCloudy', 'Mouse', 'Mug', 'Mute', 'MuteNotification', 'NoSmoking',
-  'Notebook', 'Notification', 'Odometer', 'OfficeBuilding', 'Open', 'Operation', 'Opportunity',
-  'Orange', 'Paperclip', 'PartlyCloudy', 'Pear', 'Phone', 'PhoneFilled', 'Picture',
-  'PictureFilled', 'PictureRounded', 'PieChart', 'Place', 'Platform', 'Plus', 'Pointer',
-  'Position', 'Postcard', 'Pouring', 'Present', 'PriceTag', 'Printer', 'Promotion', 'QuartzWatch',
-  'Question', 'QuestionFilled', 'Rank', 'Reading', 'ReadingLamp', 'Refresh', 'RefreshLeft',
-  'RefreshRight', 'Refrigerator', 'Remove', 'RemoveFilled', 'Right', 'ScaleToOriginal', 'School',
-  'Scissor', 'Search', 'Select', 'Sell', 'SemiSelect', 'Service', 'Setting', 'Share', 'Ship',
-  'Shop', 'ShoppingBag', 'ShoppingCart', 'ShoppingCartFull', 'ShoppingTrolley', 'Smoking',
-  'Soccer', 'SoldOut', 'Sort', 'SortDown', 'SortUp', 'Stamp', 'Star', 'StarFilled', 'Stopwatch',
-  'SuccessFilled', 'Sugar', 'Suitcase', 'Sunny', 'Sunrise', 'Sunset', 'Switch', 'SwitchButton',
-  'TakeawayBox', 'Ticket', 'Tickets', 'Timer', 'ToiletPaper', 'Tools', 'Top', 'TopLeft',
-  'TopRight', 'TrendCharts', 'Trophy', 'TrophyBase', 'Truck', 'Umbrella', 'Unlock', 'Upload',
-  'UploadFilled', 'User', 'UserFilled', 'Van', 'VideoCamera', 'VideoCameraFilled', 'VideoPause',
-  'VideoPlay', 'View', 'Wallet', 'WalletFilled', 'Warning', 'WarningFilled', 'Watch',
-  'Watermelon', 'WindPower', 'ZoomIn', 'ZoomOut'
-]
 
 // 过滤图标
 const filteredIcons = computed(() => {
@@ -279,95 +278,4 @@ const submit = () => {
 </script>
 
 <style scoped lang="scss">
-.menu-dialog {
-  .menu-form {
-    padding: var(--spacing-md) 0;
-  }
-
-  .number-input,
-  .type-select {
-    width: 100%;
-  }
-
-  .switch-item {
-    display: flex;
-    align-items: center;
-  }
-
-  .textarea {
-    border-radius: var(--border-radius-md);
-  }
-}
-
-.icon-selector {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-
-  .icon-search {
-    padding-bottom: var(--spacing-sm);
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .icon-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-    gap: var(--spacing-md);
-    padding: var(--spacing-sm);
-
-    .icon-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      padding: 8px;
-      border-radius: var(--border-radius-md);
-      cursor: pointer;
-      transition: all 0.2s ease;
-
-      .el-icon {
-        font-size: 20px;
-      }
-
-      .icon-name {
-        font-size: var(--font-size-sm);
-        text-align: center;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100%;
-      }
-
-      &:hover {
-        background-color: var(--primary-light);
-        color: var(--primary-color);
-      }
-
-      &.icon-selected {
-        background-color: var(--primary-color);
-        color: white;
-      }
-    }
-  }
-
-  .icon-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: var(--spacing-sm);
-    border-top: 1px solid var(--border-color);
-
-    .selected-icon {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-  }
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--spacing-md);
-}
 </style>

@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineProps, defineEmits } from 'vue'
+import { ref, defineProps, defineEmits, watch, nextTick } from 'vue'
 import type { TreeInstance, TreeNode } from 'element-plus'
 
 // 定义接口
@@ -130,6 +130,22 @@ const handleDragEnd = (draggingNode: TreeNode, dropNode: TreeNode | null, dropTy
   // 发送拖拽结束事件到父组件处理
   emit('node-drag-end', draggingNode, dropNode, dropType)
 }
+
+// 监听 expandedKeys 变化，动态折叠/展开树节点
+watch(() => props.expandedKeys, (val) => {
+  nextTick(() => {
+    if (treeRef.value) {
+      // 先全部折叠
+      treeRef.value.store.setDefaultExpandedKeys(val)
+      // 强制刷新
+      if (treeRef.value.store.nodesMap) {
+        Object.values(treeRef.value.store.nodesMap).forEach((node: { key: string | number; expanded: boolean }) => {
+          node.expanded = val.includes(node.key)
+        })
+      }
+    }
+  })
+})
 
 // 对外暴露方法
 defineExpose({

@@ -124,92 +124,116 @@ const handleDelete = (node: Router) => {
 
 <style scoped lang="scss">
 .content-col {
-  height: 100%;
   transition: all 0.3s ease;
 }
 
 .detail-card {
   height: 100%;
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--box-shadow);
-  transition: all 0.3s ease;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
 
-  &:hover {
-    box-shadow: var(--box-shadow-lg);
-  }
-}
-
-.card-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md) 0;
-
-  .card-title {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-}
-
-.details-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-
-  .details-info {
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .icon-preview {
+  .card-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+
+    .card-title {
+      margin: 0;
+      font-size: 16px;
+      color: #303133;
+    }
   }
 
-  .status-tag,
-  .feature-tag {
-    font-weight: 500;
+  .details-container {
+    height: 100%;
+    overflow: auto;
+    padding: 8px 0;
+
+    .details-info {
+      margin-bottom: 24px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+
+      :deep(.el-descriptions__cell) {
+        padding: 12px 16px;
+      }
+
+      :deep(.el-descriptions__label) {
+        color: #606266;
+        font-weight: 500;
+        background-color: #fafafa;
+      }
+
+      .status-tag {
+        font-weight: normal;
+        padding: 2px 10px;
+        border-radius: 12px;
+      }
+
+      .feature-tag {
+        padding: 0 8px;
+        border-radius: 10px;
+      }
+
+      .icon-preview {
+        display: flex;
+        align-items: center;
+
+        .el-icon {
+          margin-right: 8px;
+          font-size: 16px;
+        }
+      }
+    }
+
+    .action-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 16px;
+
+      .detail-button {
+        min-width: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+
+        .el-icon {
+          margin-right: 4px;
+        }
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+      }
+    }
   }
-}
 
-.action-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-md);
-  margin-top: auto;
-  padding-top: var(--spacing-lg);
-
-  .detail-button {
+  .empty-state {
+    height: 80%;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    border-radius: var(--border-radius-md);
-    transition: all 0.2s ease;
-    margin-bottom: var(--spacing-sm);
+    justify-content: center;
 
-    &:hover {
-      transform: translateY(-2px);
+    .el-empty {
+      padding: 40px 0;
     }
   }
 }
 
-.empty-state {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-// 响应式样式
 @media (max-width: 768px) {
   .content-col {
-    margin-bottom: var(--spacing-md);
+    margin-top: 16px;
+  }
+
+  .action-group {
+    flex-direction: column;
+
+    .detail-button {
+      width: 100% !important;
+    }
   }
 }
 </style>

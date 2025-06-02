@@ -1,7 +1,7 @@
 <template>
   <!-- 左侧树形菜单 -->
-  <el-col :xs="24" :sm="isSidebarCollapsed ? 6 : 8" :md="isSidebarCollapsed ? 5 : 8"
-    :lg="isSidebarCollapsed ? 4 : 8" class="sidebar-col" :class="{ 'is-collapsed': isSidebarCollapsed }">
+  <el-col :xs="24" :sm="isSidebarCollapsed ? 6 : 8" :md="isSidebarCollapsed ? 5 : 8" :lg="isSidebarCollapsed ? 4 : 8"
+    class="sidebar-col" :class="{ 'is-collapsed': isSidebarCollapsed }">
     <el-card shadow="hover" class="tree-card">
       <template #header>
         <div class="card-header">
@@ -11,13 +11,8 @@
           </div>
         </div>
       </template>
-      <EditTree
-        ref="menuTreeRef"
-        :tree-data="tableData as any[]"
-        :expanded-keys="expandedKeys"
-        :filter-method="filterNode"
-        :custom-class="'menu-tree'"
-        @node-click="handleNodeClick"
+      <EditTree ref="menuTreeRef" :tree-data="tableData as any[]" :expanded-keys="expandedKeys"
+        :filter-method="filterNode" :custom-class="'menu-tree'" @node-click="handleNodeClick"
         @node-drag-end="handleDragEnd">
 
         <!-- 自定义节点 -->
@@ -34,10 +29,14 @@
             </div>
             <div class="node-actions">
               <el-button type="primary" link @click.stop="handleEdit(data)">
-                <el-icon><Edit /></el-icon>
+                <el-icon>
+                  <Edit />
+                </el-icon>
               </el-button>
               <el-button type="danger" link @click.stop="handleDelete(data)">
-                <el-icon><Delete /></el-icon>
+                <el-icon>
+                  <Delete />
+                </el-icon>
               </el-button>
             </div>
           </div>
@@ -111,7 +110,26 @@ const handleDragEnd = (draggingNode: DragNode, dropNode: DragNode | null, dropTy
 
 // 处理编辑
 const handleEdit = (data: Router) => {
-  emit('edit', data)
+  // 确保传递完整的数据对象
+  const completeData = JSON.parse(JSON.stringify(data));
+
+  // 确保meta对象完整
+  if (!completeData.meta) {
+    completeData.meta = {
+      type: 'C',
+      component: '',
+      redirect: null,
+      alwaysShow: false,
+      metaTitle: '',
+      metaIcon: null,
+      metaHidden: false,
+      metaRoles: null,
+      metaKeepAlive: false,
+      hidden: false
+    };
+  }
+
+  emit('edit', completeData);
 }
 
 // 处理删除
@@ -133,25 +151,26 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
 <style scoped lang="scss">
 .sidebar-col {
   transition: all 0.3s ease;
-  height: 100%;
 
   &.is-collapsed {
-    .tree-card {
-      .card-header {
-        .search-wrapper {
-          .search-input {
-            .el-input__wrapper {
-              padding-left: 8px;
-              padding-right: 8px;
-            }
-          }
+    .tree-node {
+      .node-label {
+        .truncated-text {
+          max-width: 80px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
       }
-    }
 
-    .tree-node {
       .node-actions {
-        flex-direction: column;
+        opacity: 0;
+      }
+
+      &:hover {
+        .node-actions {
+          opacity: 1;
+        }
       }
     }
   }
@@ -159,43 +178,38 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
 
 .tree-card {
   height: 100%;
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--box-shadow);
-  transition: all 0.3s ease;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
 
-  &:hover {
-    box-shadow: var(--box-shadow-lg);
-  }
-}
+  .card-header {
+    display: flex;
+    flex-direction: column;
 
-.card-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md) 0;
-
-  .card-title {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .search-wrapper {
-    margin-top: var(--spacing-sm);
-
-    .search-input {
-      border-radius: var(--border-radius-md);
+    .card-title {
+      margin-bottom: 10px;
     }
   }
 }
 
 .menu-tree {
-  flex: 1;
-  overflow: auto;
+  margin-top: 10px;
+
+  :deep(.el-tree-node) {
+    position: relative;
+  }
+  :deep(.el-tree-node.is-current > .el-tree-node__content) {
+    background-color: #ecf5ff;
+    border-radius: 4px;
+  }
+  :deep(.el-tree-node__content) {
+    border-radius: 4px;
+    margin: 2px 0;
+    transition: all 0.2s;
+    height: auto !important;
+    min-height: 36px;
+    padding: 4px 0;
+    &:hover {
+      background-color: #f5f7fa;
+    }
+  }
 }
 
 .tree-node {
@@ -203,45 +217,55 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 0 4px;
 
   .node-label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex: 1;
-    min-width: 0; // 防止子元素溢出
+    max-width: 80%;
 
     .node-icon {
-      color: var(--primary-color);
+      margin-right: 6px;
       font-size: 16px;
-      flex-shrink: 0;
     }
 
     .node-text {
-      font-size: var(--font-size-md, 14px);
-      color: var(--text-primary);
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      margin-right: 8px;
+      transition: all 0.3s;
+    }
 
-      &.truncated-text {
-        max-width: 60px;
-      }
+    .el-tag {
+      margin-left: 6px;
+      font-size: 10px;
+      height: 20px;
+      line-height: 20px;
     }
   }
 
   .node-actions {
     display: flex;
-    gap: 4px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    flex-shrink: 0;
+    align-items: center;
+    transition: opacity 0.3s;
+
+    .el-button {
+      padding: 4px;
+
+      .el-icon {
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar-col {
+    margin-bottom: 16px;
   }
 
-  &:hover .node-actions {
-    opacity: 1;
+  .tree-node {
+    .node-actions {
+      opacity: 1;
+    }
   }
 }
 </style>
