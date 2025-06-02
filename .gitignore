@@ -76,6 +76,4 @@ playwright-report/
 #Cursor
 **.cursor
 
-PythonTest/
-
 .windsurf/

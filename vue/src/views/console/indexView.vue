@@ -146,18 +146,21 @@ const breadcrumbList = computed(() => {
 <style scoped lang="scss">
 .dashboard-container {
   display: flex;
-  height: 100vh;
+  height: 100%;
   width: 100%;
   overflow: hidden;
   background-color: var(--background-color);
+  overflow-y: auto;
 }
 
 .sidebar {
-  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
   background-color: var(--sidebar-bg);
   transition: all 0.3s;
-  width: var(--sidebar-width);
-  position: relative;
   z-index: 10;
   box-shadow: var(--box-shadow);
 
@@ -260,113 +263,116 @@ const breadcrumbList = computed(() => {
 
 .main-content {
   flex: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background-color: var(--background-color);
-}
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0.3s;
 
-.header {
-  height: var(--header-height);
-  padding: 0 20px;
-  background-color: var(--header-bg);
-  box-shadow: var(--box-shadow);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  &-left {
+  .header {
+    height: var(--header-height);
+    padding: 0 20px;
+    background-color: var(--header-bg);
+    box-shadow: var(--box-shadow);
     display: flex;
     align-items: center;
+    justify-content: space-between;
 
-    .collapse-btn {
-      margin-right: 16px;
-      background-color: transparent;
-      color: var(--menu-text-color);
-      border: none;
-      width: 36px;
-      height: 36px;
-      padding: 0;
+    &-left {
       display: flex;
       align-items: center;
-      justify-content: center;
 
-      .el-icon {
-        font-size: 18px;
-      }
-
-      &:hover {
-        color: var(--primary-color);
-        background-color: rgba(59, 130, 246, 0.1);
-      }
-    }
-
-    .breadcrumb {
-      font-size: 14px;
-      color: var(--breadcrumb-text-color);
-
-      :deep(.el-breadcrumb__item) {
-        display: inline-flex;
-        align-items: center;
-        line-height: normal;
-      }
-    }
-  }
-
-  &-right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-
-    .header-search {
-      width: 220px;
-
-      :deep(.el-input__wrapper) {
-        padding: 0 8px;
-      }
-
-      :deep(.el-input__inner) {
-        height: 36px;
-      }
-    }
-
-    .icon-button {
-      font-size: 18px;
-      color: var(--menu-text-color);
-      cursor: pointer;
-      width: 36px;
-      height: 36px;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      &:hover {
-        color: var(--primary-color);
-      }
-    }
-
-    .notification-badge :deep(.el-badge__content) {
-      top: 5px;
-      right: 5px;
-    }
-
-    .user-dropdown {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-      padding: 5px 10px;
-      border-radius: 4px;
-      transition: background-color 0.3s;
-
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.03);
-      }
-
-      .username {
-        margin-left: 8px;
-        font-size: 14px;
+      .collapse-btn {
+        margin-right: 16px;
+        background-color: transparent;
         color: var(--menu-text-color);
+        border: none;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .el-icon {
+          font-size: 18px;
+        }
+
+        &:hover {
+          color: var(--primary-color);
+          background-color: rgba(59, 130, 246, 0.1);
+        }
+      }
+
+      .breadcrumb {
+        font-size: 14px;
+        color: var(--breadcrumb-text-color);
+
+        :deep(.el-breadcrumb__item) {
+          display: inline-flex;
+          align-items: center;
+          line-height: normal;
+        }
+      }
+    }
+
+    &-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .header-search {
+        width: 220px;
+
+        :deep(.el-input__wrapper) {
+          padding: 0 8px;
+        }
+
+        :deep(.el-input__inner) {
+          height: 36px;
+        }
+      }
+
+      .icon-button {
+        font-size: 18px;
+        color: var(--menu-text-color);
+        cursor: pointer;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &:hover {
+          color: var(--primary-color);
+        }
+      }
+
+      .notification-badge :deep(.el-badge__content) {
+        top: 5px;
+        right: 5px;
+      }
+
+      .user-dropdown {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+
+        &:hover {
+          background-color: rgba(0, 0, 0, 0.03);
+        }
+
+        .username {
+          margin-left: 8px;
+          font-size: 14px;
+          color: var(--menu-text-color);
+        }
       }
     }
   }
@@ -375,7 +381,7 @@ const breadcrumbList = computed(() => {
 .content-container {
   flex: 1;
   padding: var(--content-padding);
-  overflow-y: auto;
+  height: 100%;
 }
 
 .fade-scale-enter-active,
@@ -387,5 +393,11 @@ const breadcrumbList = computed(() => {
 .fade-scale-leave-to {
   opacity: 0;
   transform: scale(0.98);
+}
+
+/* 适配收缩状态 */
+.dashboard-container .sidebar.sidebar-collapsed + .main-content,
+.dashboard-container .sidebar-collapsed + .main-content {
+  margin-left: var(--sidebar-width-collapsed);
 }
 </style>

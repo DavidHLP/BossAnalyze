@@ -12,6 +12,7 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
 
 /**
  * spring redis 工具类
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
  **/
 @SuppressWarnings(value = { "unchecked", "rawtypes" })
 @Component
+@RequiredArgsConstructor
 public class RedisCache
 {
     @Autowired
@@ -183,26 +185,16 @@ public class RedisCache
     }
 
     /**
-     * 缓存Map
-     *
-     * @param key
-     * @param dataMap
+     * 设置缓存Map
      */
-    public <T> void setCacheMap(final String key, final Map<String, T> dataMap)
-    {
-        if (dataMap != null) {
-            redisTemplate.opsForHash().putAll(key, dataMap);
-        }
+    public void setCacheMap(String key, Map<String, Object> data) {
+        redisTemplate.opsForHash().putAll(key, data);
     }
 
     /**
-     * 获得缓存的Map
-     *
-     * @param key
-     * @return
+     * 获取缓存Map
      */
-    public <T> Map<String, T> getCacheMap(final String key)
-    {
+    public Map<String, Object> getCacheMap(String key) {
         return redisTemplate.opsForHash().entries(key);
     }
 

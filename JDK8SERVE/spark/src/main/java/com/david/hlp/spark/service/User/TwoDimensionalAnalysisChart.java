@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.Serializable;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Dataset;
@@ -21,12 +22,14 @@ import org.apache.spark.sql.types.StructType;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.david.hlp.spark.model.User.JobAnalysisData;
+import com.david.hlp.spark.utils.RedisCache;
 
 @Service
 @RequiredArgsConstructor
 public class TwoDimensionalAnalysisChart implements Serializable {
     private static final long serialVersionUID = 1L;
     private final SparkSession sparkSession;
+    private final RedisCache redisCache;
 
     // 经验关键词到数值的映射
     private static final Map<String, Integer> EXPERIENCE_MAP = new HashMap<>();
@@ -66,6 +69,16 @@ public class TwoDimensionalAnalysisChart implements Serializable {
      */
     public List<JobAnalysisData> getJobAnalysisData(String cityName, String positionName,
             String xAxis, String yAxis) {
+        // 构建Redis缓存键
+        String cacheKey = "job_analysis:" + cityName + ":" + positionName + ":" + xAxis + ":" + yAxis;
+
+        // 尝试从Redis缓存中获取数据
+        List<JobAnalysisData> cachedData = redisCache.getCacheObject(cacheKey);
+        if (cachedData != null && !cachedData.isEmpty()) {
+            return cachedData;
+        }
+
+        // 缓存中没有数据，从数据库获取
         // 创建职位数据的JSON解析Schema
         StructType jsonSchema = createJobDataSchema();
 
@@ -79,7 +92,12 @@ public class TwoDimensionalAnalysisChart implements Serializable {
         processedDf = applyFilters(processedDf, cityName, positionName, xAxis, yAxis);
 
         // 选择需要的列并构建返回结果
-        return buildResultDataList(processedDf);
+        List<JobAnalysisData> resultData = buildResultDataList(processedDf);
+
+        // 将结果存入Redis缓存（设置6小时过期时间）
+        redisCache.setCacheObject(cacheKey, resultData, 6, TimeUnit.HOURS);
+
+        return resultData;
     }
 
     /**
@@ -201,13 +219,13 @@ public class TwoDimensionalAnalysisChart implements Serializable {
             if (expStr == null || expStr.isEmpty()) {
                 return 0;
             }
-            
+
             // 遍历映射表查找匹配的关键词
             return EXPERIENCE_MAP.entrySet().stream()
-                .filter(entry -> expStr.contains(entry.getKey()))
-                .map(Map.Entry::getValue)
-                .findFirst()
-                .orElse(0);
+                    .filter(entry -> expStr.contains(entry.getKey()))
+                    .map(Map.Entry::getValue)
+                    .findFirst()
+                    .orElse(0);
         }, DataTypes.IntegerType);
     }
 
@@ -219,13 +237,13 @@ public class TwoDimensionalAnalysisChart implements Serializable {
             if (degreeStr == null || degreeStr.isEmpty()) {
                 return 0;
             }
-            
+
             // 遍历映射表查找匹配的关键词
             return DEGREE_MAP.entrySet().stream()
-                .filter(entry -> degreeStr.contains(entry.getKey()))
-                .map(Map.Entry::getValue)
-                .findFirst()
-                .orElse(0);
+                    .filter(entry -> degreeStr.contains(entry.getKey()))
+                    .map(Map.Entry::getValue)
+                    .findFirst()
+                    .orElse(0);
         }, DataTypes.IntegerType);
     }
 

@@ -5,7 +5,7 @@
         <el-form :model="formData" :rules="rules" ref="formRef" label-width="100px" class="user-form">
           <div class="avatar-upload-section">
             <el-upload :http-request="handleUploadRequest" :on-success="handleAvatarSuccess"
-              :file-list="formData.avatar ? [{ name: 'avatar', url: avatarUrl || '' }] : []" list-type="picture-card"
+              list-type="picture-card"
               class="avatar-uploader" :auto-upload="true">
               <div class="avatar-inner">
                 <template v-if="formData.avatar">
@@ -353,25 +353,13 @@ watch(() => dialogVisible.value, (val) => {
 <style lang="scss" scoped>
 .add-user-dialog {
   :deep(.el-dialog__header) {
-    background-color: $primary-color;
-    color: #fff;
-    padding: 16px 20px;
-    border-radius: 8px 8px 0 0;
-    margin-right: 0;
-
-    .el-dialog__title {
-      color: #fff;
-      font-weight: 500;
-      font-size: 18px;
-    }
-
-    .el-dialog__close {
-      color: rgba(255, 255, 255, 0.8);
-
-      &:hover {
-        color: #fff;
-      }
-    }
+    padding: 20px;
+    margin: 0;
+    text-align: center;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 18px;
+    font-weight: bold;
+    color: #303133;
   }
 
   :deep(.el-dialog__body) {
@@ -379,118 +367,77 @@ watch(() => dialogVisible.value, (val) => {
   }
 
   :deep(.el-dialog__footer) {
-    padding: 10px 20px 20px;
-    border-top: none;
+    padding: 15px 20px;
+    border-top: 1px solid #f0f0f0;
   }
 }
 
 .user-form {
   .el-form-item {
-    margin-bottom: 20px;
+    margin-bottom: 18px;
   }
-
-  :deep(.el-form-item__label) {
-    font-weight: 500;
-  }
-
-  :deep(.el-input__wrapper) {
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) inset;
-
-    &:hover {
-      box-shadow: 0 0 0 1px $primary-color inset;
-    }
-
-    &.is-focus {
-      box-shadow: 0 0 0 1px $primary-color inset !important;
-    }
-  }
-
-  :deep(.el-input__prefix) {
-    margin-right: 8px;
-  }
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 10px;
-
-  .el-button {
-    min-width: 80px;
-    font-weight: normal;
-  }
-}
-
-.status-switch {
-  width: 80px;
 }
 
 .avatar-upload-section {
   display: flex;
   justify-content: center;
-  margin-bottom: 28px;
-}
+  margin-bottom: 24px;
 
-.avatar-uploader {
-  :deep(.el-upload) {
-    border: 1px dashed #d9d9d9;
-    border-radius: 50%;
-    overflow: hidden;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.3s ease;
+  :deep(.avatar-uploader) {
+    .el-upload {
+      border: 1px dashed #d9d9d9;
+      border-radius: 50%;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s;
+      width: 100px;
+      height: 100px;
 
-    &:hover {
-      border-color: $primary-color;
-    }
-  }
-
-  .avatar-inner {
-    width: 110px;
-    height: 110px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-  }
-
-  .uploaded-avatar {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .upload-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: #8c8c8c;
-
-    .el-icon {
-      font-size: 22px;
-    }
-
-    span {
-      font-size: 14px;
+      &:hover {
+        border-color: #409EFF;
+      }
     }
   }
 }
 
-:deep(.rounded-input) {
-  .el-input__wrapper {
-    border-radius: 20px !important;
+.avatar-inner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.uploaded-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8c939d;
+
+  .el-icon {
+    font-size: 24px;
+    margin-bottom: 5px;
   }
 
-  .el-textarea__inner {
-    border-radius: 16px !important;
-    padding: 12px 16px;
-    transition: all 0.3s;
+  span {
+    font-size: 12px;
+  }
+}
 
-    &:focus {
-      box-shadow: 0 0 0 1px $primary-color !important;
-    }
+.rounded-input {
+  border-radius: 20px;
+
+  :deep(.el-input__wrapper) {
+    border-radius: 20px;
   }
 }
 
@@ -498,7 +445,22 @@ watch(() => dialogVisible.value, (val) => {
   width: 100%;
 }
 
-:deep(.text-primary) {
-  color: $primary-color;
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.status-switch {
+  :deep(.el-switch__core) {
+    border-radius: 12px;
+    height: 24px;
+
+    .el-switch__action {
+      height: 20px;
+      width: 20px;
+      margin: 2px;
+    }
+  }
 }
 </style>

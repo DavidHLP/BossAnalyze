@@ -2,34 +2,15 @@
   <div class="user-management-container">
 
     <div class="search-section">
-      <el-card shadow="hover" class="search-card">
-        <el-form :model="searchForm" class="search-form">
-          <div class="form-row">
-            <el-form-item label="姓名">
-              <el-input v-model="searchForm.name" placeholder="请输入姓名" clearable class="rounded-input" />
-            </el-form-item>
-            <el-form-item label="状态">
-              <el-select v-model="searchForm.status" placeholder="请选择状态" clearable class="rounded-input">
-                <el-option label="启用" :value="1" />
-                <el-option label="禁用" :value="0" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="角色">
-              <el-select v-model="searchForm.roleId" filterable remote reserve-keyword placeholder="请输入角色名称"
-                :remote-method="remoteRoleSearch" :loading="roleLoading" clearable class="rounded-input">
-                <el-option v-for="role in roleOptions" :key="role.value" :label="role.label" :value="role.value" />
-              </el-select>
-            </el-form-item>
-            <div class="search-buttons">
-              <el-button type="primary" @click="handleSearch" round>搜索</el-button>
-              <el-button @click="handleReset" round>重置</el-button>
-            </div>
-            <div class="search-buttons">
-              <el-button type="primary" icon="Plus" class="add-user-btn" @click="addDialogVisible = true" round>添加用户</el-button>
-            </div>
-          </div>
-        </el-form>
-      </el-card>
+      <SearchComponents
+        v-model:searchForm="searchForm"
+        :roleOptions="roleOptions"
+        :roleLoading="roleLoading"
+        :remoteRoleSearch="remoteRoleSearch"
+        @search="handleSearch"
+        @reset="handleReset"
+        @add-user="addDialogVisible = true"
+      />
     </div>
 
     <div class="table-section">
@@ -108,24 +89,12 @@
       </el-card>
     </div>
 
-    <el-dialog v-model="deleteDialogVisible" title="安全验证" width="400px" center class="blue-dialog">
-      <div class="delete-warning">
-        <i class="el-icon-warning warning-icon"></i>
-        <p>删除操作不可恢复，请确认您的操作</p>
-      </div>
-      <el-form label-width="100px" class="delete-form">
-        <el-form-item label="当前密码" required>
-          <el-input v-model="password" type="password" placeholder="请输入您的登录密码以确认操作" show-password
-            class="rounded-input" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="deleteDialogVisible = false" round>取消</el-button>
-          <el-button type="danger" @click="handleConfirmDelete" :loading="deleteLoading" round>确认删除</el-button>
-        </div>
-      </template>
-    </el-dialog>
+    <security-dialog
+      v-model:visible="deleteDialogVisible"
+      :loading="deleteLoading"
+      @confirm="handleConfirmDelete"
+      @cancel="resetDeleteState"
+    />
 
     <!-- 使用编辑用户组件 -->
     <edit-user v-model:visible="editDialogVisible" :user-data="formData" @user-updated="handleUserUpdated" />
@@ -139,11 +108,6 @@
 import {
   ElTable,
   ElPagination,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElSelect,
   ElMessageBox,
   ElMessage,
   ElDescriptions,
@@ -160,7 +124,9 @@ import { getRoleList } from '@/api/role/role'
 import { deleteUser } from '@/api/user/user'
 import EditUser from './components/EditUser.vue'
 import AddUser from './components/AddUser.vue'
+import SecurityDialog from './components/SecurityDialog.vue'
 import { getImageUrl } from '@/api/minio/minio'
+import SearchComponents from './components/SearchComponents.vue'
 
 // 生成更多测试数据
 const tableData: User[] = reactive([])
@@ -192,27 +158,27 @@ const batchLoadAvatarUrls = async (users: User[]) => {
 // 修改数据获取方法，优化分页处理
 const fetchData = async (page: number, size: number, params?: User) => {
   try {
-    const res: PageInfo<User> = await getUserManageInfo(page, size, params)
-    tableData.splice(0, tableData.length, ...res.content)
+    const res: PageInfo<User> = await getUserManageInfo(page, size, params);
+    tableData.splice(0, tableData.length, ...res.content);
     tableData.forEach((item) => {
-      item.status = Number(item.status)
-    })
-    total.value = res.totalElements
-    pageNum.value = res.number
-    pageSize.value = res.size
+      item.status = Number(item.status);
+    });
+    total.value = res.totalElements;
+    pageNum.value = res.number;
+    pageSize.value = res.size;
 
     // 批量加载头像
-    await batchLoadAvatarUrls(res.content)
+    await batchLoadAvatarUrls(res.content);
   } catch (error) {
-    console.error('获取用户数据失败:', error)
-    ElMessage.error('获取用户数据失败')
+    console.error('获取用户数据失败:', error);
+    ElMessage.error('获取用户数据失败');
   }
-}
+};
 
 // 查询相关状态
 const searchForm = reactive({
   name: '',
-  status: '',
+  status: undefined as number | undefined,
   roleId: undefined as number | undefined,
 })
 
@@ -249,19 +215,20 @@ const remoteRoleSearch = async (roleName: string) => {
 }
 
 // 搜索处理
-const handleSearch = () => {
-  pageNum.value = 1
-  fetchData(pageNum.value, pageSize.value, {
-    name: searchForm.name ?? undefined,
-    status: searchForm.status ?? undefined,
-    roleId: searchForm.roleId ?? undefined,
-  })
-}
+const handleSearch = (searchParams: User) => {
+  pageNum.value = 1;
+  const params = {
+    name: searchParams.name || undefined,
+    status: searchParams.status,
+    roleId: searchParams.roleId
+  };
+  fetchData(pageNum.value, pageSize.value, params);
+};
 
 // 重置处理
 const handleReset = () => {
   searchForm.name = ''
-  searchForm.status = ''
+  searchForm.status = undefined
   searchForm.roleId = undefined
   fetchData(1, pageSize.value)
 }
@@ -271,7 +238,7 @@ watch(pageNum, (newPage, oldPage) => {
   if (newPage !== oldPage) {
     fetchData(newPage, pageSize.value, {
       name: searchForm.name || undefined,
-      status: searchForm.status || undefined,
+      status: searchForm.status,
       roleId: searchForm.roleId,
     })
   }
@@ -282,7 +249,7 @@ watch(pageSize, (newSize, oldSize) => {
     pageNum.value = 1 // 页大小变化时，重置为第一页
     fetchData(1, newSize, {
       name: searchForm.name || undefined,
-      status: searchForm.status || undefined,
+      status: searchForm.status,
       roleId: searchForm.roleId,
     })
   }
@@ -320,7 +287,6 @@ const handleEdit = (row: User) => {
 // 优化删除用户相关逻辑
 const deleteDialogVisible = ref(false)
 const deletingUser = ref<User>({})
-const password = ref('')
 const deleteLoading = ref(false)
 
 const handleDelete = (row: User) => {
@@ -355,8 +321,8 @@ const handleUserAdded = async () => {
 }
 
 // 添加确认删除方法
-const handleConfirmDelete = async () => {
-  if (!password.value) {
+const handleConfirmDelete = async (password: string) => {
+  if (!password) {
     ElMessage.error('请输入当前密码以确认操作')
     return
   }
@@ -368,10 +334,10 @@ const handleConfirmDelete = async () => {
 
   deleteLoading.value = true
   try {
-    await deleteUser(deletingUser.value.id, password.value)
+    await deleteUser(deletingUser.value.id, password)
     await fetchData(pageNum.value, pageSize.value, {
       name: searchForm.name || undefined,
-      status: searchForm.status || undefined,
+      status: searchForm.status,
       roleId: searchForm.roleId,
     })
     ElMessage.success('删除成功')
@@ -391,292 +357,164 @@ const handleConfirmDelete = async () => {
 // 重置删除状态
 const resetDeleteState = () => {
   deleteDialogVisible.value = false
-  password.value = ''
   deletingUser.value = {}
 }
 </script>
 
 <style lang="scss">
 .user-management-container {
-  padding: var(--content-padding);
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-
-    .page-title {
-      font-size: 24px;
-      color: var(--text-primary);
-      font-weight: 600;
-      margin: 0;
-    }
-
-    .add-user-btn {
-      background-color: $primary-color;
-      border-color: $primary-color;
-
-      &:hover {
-        background-color: $primary-dark;
-        border-color: $primary-dark;
-      }
-    }
-  }
+  padding: 16px;
+  height: 100%;
 
   .search-section {
-    margin-bottom: 24px;
-  }
-
-  .search-card {
-    background-color: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-    border: none;
-    overflow: hidden;
-
-    &:hover {
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-    }
-  }
-
-  .search-form {
-    padding: 20px;
-
-    .form-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      align-items: center;
-
-      .el-form-item {
-        margin-bottom: 0;
-        flex: 1;
-        min-width: 200px;
-      }
-    }
-  }
-
-  .search-buttons {
-    display: flex;
-    gap: 12px;
-    margin-left: auto;
-    flex-shrink: 0;
-
-    .el-button {
-      min-width: 90px;
-    }
+    margin-bottom: 20px;
   }
 
   .table-section {
-    margin-bottom: 24px;
-  }
+    .table-card {
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 
-  .table-card {
-    background-color: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-    border: none;
-    overflow: hidden;
+      .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
 
-    &:hover {
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+        .table-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #303133;
+        }
+
+        .record-count {
+          color: #909399;
+          font-size: 14px;
+        }
+      }
+
+      .user-table {
+        border-radius: 8px;
+        overflow: hidden;
+
+        .status-tag {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #F56C6C;
+            margin-right: 8px;
+
+            &.active {
+              background-color: #67C23A;
+            }
+          }
+        }
+
+        .action-buttons {
+          display: flex;
+          justify-content: center;
+          gap: 10px;
+
+          .action-button {
+            &:hover {
+              background-color: #f5f7fa;
+            }
+          }
+        }
+
+        .user-detail {
+          padding: 20px;
+          display: flex;
+
+          .avatar-container {
+            margin-right: 20px;
+
+            .user-avatar {
+              width: 100px;
+              height: 100px;
+              border-radius: 50%;
+              object-fit: cover;
+              border: 2px solid #ebeef5;
+            }
+          }
+
+          .expanded-info {
+            flex: 1;
+          }
+        }
+      }
+
+      .pagination-container {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 20px;
+      }
     }
   }
+}
 
-  .table-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
+.el-dialog {
+  border-radius: 8px;
+  overflow: hidden;
+
+  .el-dialog__header {
     border-bottom: 1px solid #f0f0f0;
-
-    .table-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .record-count {
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
   }
 
-  .user-table {
-    .el-table__header th {
-      background-color: #f8fafe;
-      color: var(--text-primary);
-      font-weight: 600;
-      padding: 12px 0;
-    }
-
-    .el-table__row {
-      transition: all 0.3s ease;
-
-      &:hover {
-        background-color: #f0f7ff;
-      }
-    }
-  }
-
-  .user-detail {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-
-    .avatar-container {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 10px;
-    }
-
-    .user-avatar {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid $primary-light;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .expanded-info {
-      .el-descriptions__label {
-        font-weight: 500;
-      }
-    }
-  }
-
-  .status-tag {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background-color: $error-color;
-
-      &.active {
-        background-color: $success-color;
-        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
-      }
-    }
-  }
-
-  .action-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .action-button {
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: scale(1.1);
-      background-color: #f0f9ff;
-    }
-  }
-
-  .pagination-container {
-    display: flex;
-    justify-content: flex-end;
-    padding: 16px 20px;
+  .el-dialog__footer {
     border-top: 1px solid #f0f0f0;
   }
+}
 
-  .blue-dialog {
-    .el-dialog__header {
-      background-color: $primary-color;
+// 表格展开行样式
+.el-table__expanded-cell {
+  padding: 0 !important;
+}
+
+// 美化标签
+.el-tag {
+  border-radius: 20px;
+  padding: 0 12px;
+}
+
+// 美化分页器
+.el-pagination {
+  .el-pagination__sizes {
+    margin-right: 15px;
+  }
+
+  button {
+    background-color: #f5f7fa;
+    border-radius: 4px;
+    margin: 0 3px;
+
+    &:hover {
+      color: #409EFF;
+    }
+
+    &.is-active {
+      background-color: #409EFF;
       color: #fff;
-      padding: 20px;
-      border-radius: 12px 12px 0 0;
-
-      .el-dialog__title {
-        color: #fff;
-        font-weight: 600;
-      }
-    }
-
-    .el-dialog__body {
-      padding: 24px;
-    }
-
-    .el-dialog__headerbtn .el-dialog__close {
-      color: #fff;
     }
   }
+}
 
-  .delete-warning {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background-color: #fff8f8;
-    padding: 16px;
-    border-radius: 8px;
-    margin-bottom: 20px;
+// 描述列表样式
+.el-descriptions {
+  margin-top: 10px;
 
-    .warning-icon {
-      color: $warning-color;
-      font-size: 24px;
-    }
-
-    p {
-      margin: 0;
-      color: var(--text-primary);
-    }
+  .el-descriptions__label {
+    color: #606266;
+    font-weight: bold;
   }
 
-  .dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-
-    .el-button {
-      min-width: 100px;
-    }
-  }
-
-  .rounded-input {
-
-    .el-textarea__inner {
-      border-radius: 20px !important;
-    }
-
-    &.el-select .el-input__wrapper {
-      border-radius: 20px !important;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .search-form .form-row {
-      flex-direction: column;
-
-      .el-form-item {
-        width: 100%;
-        margin-right: 0;
-      }
-
-      .search-buttons {
-        width: 100%;
-        margin-top: 12px;
-        justify-content: flex-end;
-      }
-    }
-
-    .user-detail {
-      flex-direction: column;
-    }
-  }
-
-  .full-width {
-    width: 100%;
+  .el-descriptions__content {
+    color: #303133;
   }
 }
 </style>

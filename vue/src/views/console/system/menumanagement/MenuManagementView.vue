@@ -35,302 +35,34 @@
     <!-- 主内容区 - 分割面板 -->
     <el-row :gutter="20" class="content-panel">
       <!-- 左侧树形菜单 -->
-      <el-col :xs="24" :sm="isSidebarCollapsed ? 6 : 8" :md="isSidebarCollapsed ? 5 : 8"
-        :lg="isSidebarCollapsed ? 4 : 8" class="sidebar-col" :class="{ 'is-collapsed': isSidebarCollapsed }">
-        <el-card shadow="hover" class="tree-card">
-          <template #header>
-            <div class="card-header">
-              <h3 class="card-title">菜单结构</h3>
-              <div class="search-wrapper">
-                <el-input v-model="filterText" placeholder="搜索菜单" prefix-icon="Search" clearable class="search-input" />
-              </div>
-            </div>
-          </template>
-          <el-tree ref="menuTreeRef" :data="tableData" :props="{
-            label: 'name',
-            children: 'children'
-          }" node-key="id" :filter-node-method="filterNode as any" :expand-on-click-node="false"
-            :default-expanded-keys="expandedKeys" draggable @node-drag-end="handleDragEnd" highlight-current
-            @node-click="handleNodeClick" class="menu-tree">
-            <template #default="{ node, data }">
-              <div class="tree-node">
-                <div class="node-label">
-                  <el-icon v-if="data.meta?.metaIcon" class="node-icon">
-                    <component :is="data.meta.metaIcon" />
-                  </el-icon>
-                  <span class="node-text" :class="{ 'truncated-text': isSidebarCollapsed }">{{ node.label }}</span>
-                  <el-tag v-if="data.meta?.type" size="small" :type="tagType(data.meta.type)" class="node-tag">
-                    {{ { M: '目录', C: '菜单', F: '按钮' }[data.meta.type as 'M' | 'C' | 'F'] || '-' }}
-                  </el-tag>
-                </div>
-                <div class="node-actions">
-                  <el-tooltip content="添加子菜单" placement="top">
-                    <el-button type="primary" link @click.stop="handleAddChild(data)" class="action-icon"
-                      v-if="data.meta?.type !== 'F'">
-                      <el-icon>
-                        <Plus />
-                      </el-icon>
-                    </el-button>
-                  </el-tooltip>
-                  <el-tooltip content="编辑" placement="top">
-                    <el-button type="primary" link @click.stop="handleEdit(data)" class="action-icon">
-                      <el-icon>
-                        <Edit />
-                      </el-icon>
-                    </el-button>
-                  </el-tooltip>
-                  <el-tooltip content="删除" placement="top">
-                    <el-button type="danger" link @click.stop="handleDelete(data)" class="action-icon">
-                      <el-icon>
-                        <Delete />
-                      </el-icon>
-                    </el-button>
-                  </el-tooltip>
-                </div>
-              </div>
-            </template>
-          </el-tree>
-        </el-card>
-      </el-col>
+      <LeftView
+        :table-data="tableData"
+        :expanded-keys="expandedKeys"
+        :is-sidebar-collapsed="isSidebarCollapsed"
+        @node-click="handleNodeClick"
+        @node-drag-end="handleDragEnd"
+        @edit="handleEdit"
+        @delete="handleDelete" />
 
       <!-- 右侧详情信息 -->
-      <el-col :xs="24" :sm="isSidebarCollapsed ? 18 : 16" :md="isSidebarCollapsed ? 19 : 16"
-        :lg="isSidebarCollapsed ? 20 : 16" class="content-col">
-        <el-card shadow="hover" class="detail-card">
-          <template #header>
-            <div class="card-header">
-              <h3 class="card-title">菜单详情</h3>
-            </div>
-          </template>
-
-          <div v-if="currentNode" class="details-container">
-            <el-descriptions :column="descriptionColumns" border class="details-info">
-              <el-descriptions-item label="菜单名称">{{ currentNode.name }}</el-descriptions-item>
-              <el-descriptions-item label="路由路径">{{ currentNode.path }}</el-descriptions-item>
-              <el-descriptions-item label="组件路径">{{ currentNode.meta?.component || '-' }}</el-descriptions-item>
-              <el-descriptions-item label="权限标识">{{ currentNode.permission || '-' }}</el-descriptions-item>
-              <el-descriptions-item label="图标">
-                <span class="icon-preview">
-                  <el-icon v-if="currentNode.meta?.metaIcon">
-                    <component :is="currentNode.meta.metaIcon" />
-                  </el-icon>
-                  {{ currentNode.meta?.metaIcon || '-' }}
-                </span>
-              </el-descriptions-item>
-              <el-descriptions-item label="排序">{{ currentNode.menuOrder }}</el-descriptions-item>
-              <el-descriptions-item label="类型">
-                {{ { M: '目录', C: '菜单', F: '按钮' }[currentNode.meta?.type as 'M' | 'C' | 'F'] || '-' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="状态">
-                <el-tag :type="currentNode.status === 1 ? 'success' : 'danger'" class="status-tag">
-                  {{ currentNode.status === 1 ? '正常' : '停用' }}
-                </el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="总是显示" :span="1">
-                <el-tag size="small" :type="currentNode.meta?.alwaysShow ? 'success' : 'info'" class="feature-tag">
-                  {{ currentNode.meta?.alwaysShow ? '是' : '否' }}
-                </el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="隐藏菜单" :span="1">
-                <el-tag size="small" :type="currentNode.meta?.metaHidden ? 'warning' : 'info'" class="feature-tag">
-                  {{ currentNode.meta?.metaHidden ? '是' : '否' }}
-                </el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="保持活跃">
-                <el-tag size="small" :type="currentNode.meta?.metaKeepAlive ? 'success' : 'info'" class="feature-tag">
-                  {{ currentNode.meta?.metaKeepAlive ? '是' : '否' }}
-                </el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="访问角色">
-                {{ currentNode.meta?.metaRoles || '-' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="备注" :span="descriptionColumns">
-                {{ currentNode.remark || '-' }}
-              </el-descriptions-item>
-            </el-descriptions>
-
-            <div class="action-group">
-              <el-button type="primary" @click="handleEdit(currentNode)" class="detail-button">
-                <el-icon>
-                  <Edit />
-                </el-icon>
-                <span>编辑菜单</span>
-              </el-button>
-              <el-button v-if="currentNode.meta?.type !== 'F'" type="success" @click="handleAddChild(currentNode)"
-                class="detail-button">
-                <el-icon>
-                  <Plus />
-                </el-icon>
-                <span>添加子菜单</span>
-              </el-button>
-              <el-button type="danger" @click="handleDelete(currentNode)" class="detail-button">
-                <el-icon>
-                  <Delete />
-                </el-icon>
-                <span>删除菜单</span>
-              </el-button>
-            </div>
-          </div>
-
-          <div v-else class="empty-state">
-            <el-empty description="请选择一个菜单项查看详情" />
-          </div>
-        </el-card>
-      </el-col>
+      <RightView
+        :current-node="currentNode"
+        :is-sidebar-collapsed="isSidebarCollapsed"
+        :description-columns="descriptionColumns"
+        @edit="handleEdit"
+        @add-child="handleAddChild"
+        @delete="handleDelete" />
     </el-row>
 
-    <!-- 编辑对话框 -->
-    <el-dialog v-model="editDialogVisible" :title="dialogTitle" :width="dialogWidth" destroy-on-close
-      class="menu-dialog">
-      <el-form :model="formData" label-width="100px" class="menu-form">
-        <el-tabs>
-          <el-tab-pane label="基本信息">
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="菜单名称" required>
-                  <el-input v-model="formData.name" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="路由路径" required v-if="formData.meta!.type !== 'F'">
-                  <el-input v-model="formData.path" />
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="权限标识">
-                  <el-input v-model="formData.permission" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="图标">
-                  <el-input v-model="formData.meta.metaIcon" placeholder="Element Plus 图标名称">
-                    <template #append>
-                      <el-popover placement="bottom" trigger="click" width="550" :hide-after="0" class="icon-popover">
-                        <template #reference>
-                          <el-button class="select-icon-btn">选择图标</el-button>
-                        </template>
-                        <div class="icon-selector">
-                          <div class="icon-search">
-                            <el-input v-model="iconSearchText" placeholder="搜索图标" clearable prefix-icon="Search" />
-                          </div>
-                          <div class="icon-grid-container">
-                            <el-scrollbar height="350px">
-                              <div class="icon-grid">
-                                <div v-for="icon in filteredIcons" :key="icon" @click="selectIcon(icon)"
-                                  class="icon-item" :class="{ 'icon-selected': icon === formData.meta.metaIcon }">
-                                  <el-icon>
-                                    <component :is="icon" />
-                                  </el-icon>
-                                  <span class="icon-name">{{ icon }}</span>
-                                </div>
-                              </div>
-                            </el-scrollbar>
-                          </div>
-                          <div class="icon-footer">
-                            <el-button size="small" @click="clearSelectedIcon" class="clear-icon-btn">清除</el-button>
-                            <div v-if="formData.meta.metaIcon" class="selected-icon">
-                              <span>已选图标：</span>
-                              <el-tag type="success">
-                                <el-icon>
-                                  <component :is="formData.meta.metaIcon" />
-                                </el-icon>
-                                {{ formData.meta.metaIcon }}
-                              </el-tag>
-                            </div>
-                          </div>
-                        </div>
-                      </el-popover>
-                    </template>
-                  </el-input>
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="排序">
-                  <el-input-number v-model="formData.menuOrder" :min="0" class="number-input" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="状态">
-                  <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" active-text="启用"
-                    inactive-text="停用" class="status-switch" />
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-form-item label="备注">
-              <el-input v-model="formData.remark" type="textarea" :rows="2" class="textarea" />
-            </el-form-item>
-          </el-tab-pane>
-
-          <el-tab-pane label="元数据信息">
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="菜单类型" required>
-                  <el-select v-model="formData.meta!.type" class="type-select">
-                    <el-option label="目录" value="M" />
-                    <el-option label="菜单" value="C" />
-                    <el-option label="按钮" value="F" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="组件路径" v-if="formData.meta!.type === 'C'">
-                  <el-input v-model="formData.meta!.component" />
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="标题">
-                  <el-input v-model="formData.meta!.metaTitle" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="12">
-                <el-form-item label="重定向" v-if="formData.meta!.type === 'M'">
-                  <el-input v-model="formData.meta!.redirect" />
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="8">
-                <el-form-item label="总是显示" class="switch-item">
-                  <el-switch v-model="formData.meta!.alwaysShow" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="8">
-                <el-form-item label="隐藏菜单" class="switch-item">
-                  <el-switch v-model="formData.meta!.metaHidden" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :sm="8">
-                <el-form-item label="保持活跃" class="switch-item">
-                  <el-switch v-model="formData.meta!.metaKeepAlive" />
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-form-item label="访问角色">
-              <el-input v-model="formData.meta!.metaRoles" placeholder="多个角色用逗号分隔" disabled />
-            </el-form-item>
-          </el-tab-pane>
-        </el-tabs>
-      </el-form>
-
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="editDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="isAddMode ? submitAdd() : submitEdit()">确定</el-button>
-        </div>
-      </template>
-    </el-dialog>
+    <!-- 编辑对话框 - 使用独立组件 -->
+    <MenuDialog
+      v-model="editDialogVisible"
+      :title="dialogTitle"
+      :is-add-mode="isAddMode"
+      :initial-form-data="formData"
+      @submit="handleSubmit"
+      @cancel="editDialogVisible = false"
+    />
 
     <!-- 添加拖拽确认对话框 -->
     <el-dialog v-model="dragConfirmVisible" title="确认菜单位置修改" width="30%" :close-on-click-modal="false"
@@ -357,14 +89,16 @@
 </template>
 
 <script setup lang="ts" name="MenuManagementComponents">
-import { ref, computed, onMounted, watch, onBeforeMount } from 'vue'
+import { ref, computed, onMounted, onBeforeMount, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Router } from '@/router/index.d'
 import { getUserRoutes, editRouter, addRouter, deleteRouter } from '@/api/router/router'
 import { useRouterStore } from '@/stores/router/routerStore'
 import { setupAsyncRoutes } from '@/router'
-import type { TreeInstance, TreeNode } from 'element-plus'
 import { useWindowSize } from '@vueuse/core'
+import LeftView from './components/LeftView.vue'
+import MenuDialog from './components/MenuDialog.vue'
+import RightView from './components/RightView.vue'
 
 // 响应式数据
 const tableData = ref<Router[]>([])
@@ -372,21 +106,11 @@ const expandedKeys = ref<number[]>([])
 const editDialogVisible = ref(false)
 const dialogTitle = ref('编辑菜单')
 const currentNode = ref<Router | null>(null)
-const filterText = ref('')
-const menuTreeRef = ref<TreeInstance | null>(null)
-const iconSearchText = ref('')
 const isAddMode = ref(false) // 新增标识，区分添加和编辑模式
 const isSidebarCollapsed = ref(false) // 侧边栏折叠状态
 
 // 响应式窗口尺寸
 const { width } = useWindowSize()
-
-// 根据窗口宽度计算对话框宽度
-const dialogWidth = computed(() => {
-  if (width.value < 768) return '95%'
-  if (width.value < 992) return '80%'
-  return '60%'
-})
 
 // 根据窗口宽度和侧边栏状态计算描述列表的列数
 const descriptionColumns = computed(() => {
@@ -395,73 +119,12 @@ const descriptionColumns = computed(() => {
   return 2
 })
 
-// 图标列表 - Element Plus 常用图标
-const iconList = [
-  'Add', 'AddLocation', 'Aim', 'Alarm', 'Apple', 'ArrowDown', 'ArrowDownBold', 'ArrowLeft',
-  'ArrowLeftBold', 'ArrowRight', 'ArrowRightBold', 'ArrowUp', 'ArrowUpBold', 'Avatar',
-  'Back', 'Baseball', 'Basketball', 'Bell', 'BellFilled', 'Bicycle', 'Bottom', 'BottomLeft',
-  'BottomRight', 'Bowl', 'Box', 'Briefcase', 'Brush', 'BrushFilled', 'Burger', 'Calendar',
-  'Camera', 'CameraFilled', 'CaretBottom', 'CaretLeft', 'CaretRight', 'CaretTop', 'Cellphone',
-  'ChatDotRound', 'ChatDotSquare', 'ChatLineRound', 'ChatLineSquare', 'ChatRound', 'ChatSquare',
-  'Check', 'Checked', 'Cherry', 'Chicken', 'CircleCheck', 'CircleCheckFilled', 'CircleClose',
-  'CircleCloseFilled', 'CirclePlus', 'CirclePlusFilled', 'Clock', 'Close', 'CloseBold',
-  'Cloudy', 'Coffee', 'CoffeeCup', 'Coin', 'ColdDrink', 'Collection', 'CollectionTag',
-  'Comment', 'Compass', 'Connection', 'Coordinate', 'CopyDocument', 'Cpu', 'CreditCard',
-  'Crop', 'DataAnalysis', 'DataBoard', 'DataLine', 'Delete', 'DeleteFilled', 'DeleteLocation',
-  'Dessert', 'Discount', 'Dish', 'DishDot', 'Document', 'DocumentAdd', 'DocumentChecked',
-  'DocumentCopy', 'DocumentDelete', 'DocumentRemove', 'Download', 'Drizzling', 'Edit', 'EditPen',
-  'Eleme', 'ElemeFilled', 'ElementPlus', 'Expand', 'Failed', 'Female', 'Files', 'Film',
-  'Filter', 'Finished', 'FirstAidKit', 'Flag', 'Fold', 'Folder', 'FolderAdd', 'FolderChecked',
-  'FolderDelete', 'FolderOpened', 'FolderRemove', 'Food', 'Football', 'ForkSpoon', 'Fries',
-  'FullScreen', 'Goblet', 'GobletFull', 'GobletSquare', 'GobletSquareFull', 'Goods', 'GoodsFilled',
-  'Grape', 'Grid', 'Guide', 'Handbag', 'Headset', 'Help', 'HelpFilled', 'Hide', 'Histogram',
-  'History', 'HomeFilled', 'HotWater', 'House', 'IceCream', 'IceCreamRound', 'IceCreamSquare',
-  'IceDrink', 'IceTea', 'InfoFilled', 'Iphone', 'Key', 'KnifeFork', 'Lightning', 'Link',
-  'List', 'Loading', 'Location', 'LocationFilled', 'LocationInformation', 'Lock', 'Lollipop',
-  'Magic', 'Magnet', 'Male', 'Management', 'MapLocation', 'Medal', 'Memo', 'Menu', 'Message',
-  'MessageBox', 'Mic', 'Microphone', 'MilkTea', 'Minus', 'Money', 'Monitor', 'Moon', 'MoonNight',
-  'More', 'MoreFilled', 'MostlyCloudy', 'Mouse', 'Mug', 'Mute', 'MuteNotification', 'NoSmoking',
-  'Notebook', 'Notification', 'Odometer', 'OfficeBuilding', 'Open', 'Operation', 'Opportunity',
-  'Orange', 'Paperclip', 'PartlyCloudy', 'Pear', 'Phone', 'PhoneFilled', 'Picture',
-  'PictureFilled', 'PictureRounded', 'PieChart', 'Place', 'Platform', 'Plus', 'Pointer',
-  'Position', 'Postcard', 'Pouring', 'Present', 'PriceTag', 'Printer', 'Promotion', 'QuartzWatch',
-  'Question', 'QuestionFilled', 'Rank', 'Reading', 'ReadingLamp', 'Refresh', 'RefreshLeft',
-  'RefreshRight', 'Refrigerator', 'Remove', 'RemoveFilled', 'Right', 'ScaleToOriginal', 'School',
-  'Scissor', 'Search', 'Select', 'Sell', 'SemiSelect', 'Service', 'Setting', 'Share', 'Ship',
-  'Shop', 'ShoppingBag', 'ShoppingCart', 'ShoppingCartFull', 'ShoppingTrolley', 'Smoking',
-  'Soccer', 'SoldOut', 'Sort', 'SortDown', 'SortUp', 'Stamp', 'Star', 'StarFilled', 'Stopwatch',
-  'SuccessFilled', 'Sugar', 'Suitcase', 'Sunny', 'Sunrise', 'Sunset', 'Switch', 'SwitchButton',
-  'TakeawayBox', 'Ticket', 'Tickets', 'Timer', 'ToiletPaper', 'Tools', 'Top', 'TopLeft',
-  'TopRight', 'TrendCharts', 'Trophy', 'TrophyBase', 'Truck', 'Umbrella', 'Unlock', 'Upload',
-  'UploadFilled', 'User', 'UserFilled', 'Van', 'VideoCamera', 'VideoCameraFilled', 'VideoPause',
-  'VideoPlay', 'View', 'Wallet', 'WalletFilled', 'Warning', 'WarningFilled', 'Watch',
-  'Watermelon', 'WindPower', 'ZoomIn', 'ZoomOut'
-]
-
-// 过滤图标
-const filteredIcons = computed(() => {
-  if (!iconSearchText.value) {
-    return iconList
+// 监听屏幕尺寸变化，自动调整侧边栏状态
+watch(width, (newWidth) => {
+  if (newWidth < 768 && !isSidebarCollapsed.value) {
+    isSidebarCollapsed.value = true
   }
-  return iconList.filter(icon =>
-    icon.toLowerCase().includes(iconSearchText.value.toLowerCase())
-  )
 })
-
-// 选择图标方法
-const selectIcon = (icon: string) => {
-  formData.value.meta.metaIcon = icon
-}
-
-// 清除选择的图标
-const clearSelectedIcon = () => {
-  formData.value.meta.metaIcon = null
-}
-
-// 切换侧边栏折叠状态
-const toggleSidebar = () => {
-  isSidebarCollapsed.value = !isSidebarCollapsed.value
-}
 
 // 添加Router类型的扩展
 interface RouterWithMeta {
@@ -511,18 +174,6 @@ const formData = ref<RouterWithMeta>({
   }
 })
 
-// 监听搜索框输入变化
-watch(filterText, (val) => {
-  menuTreeRef.value?.filter(val)
-})
-
-// 监听屏幕尺寸变化，自动调整侧边栏状态
-watch(width, (newWidth) => {
-  if (newWidth < 768 && !isSidebarCollapsed.value) {
-    isSidebarCollapsed.value = true
-  }
-})
-
 // 生命周期
 onBeforeMount(() => {
   // 在小屏幕上默认折叠侧边栏
@@ -550,15 +201,6 @@ const loadData = async () => {
     console.error('数据加载失败', error)
     ElMessage.error('数据加载失败')
   }
-}
-
-// 树节点筛选方法
-const filterNode = (value: string, data: Router) => {
-  if (!value) return true
-  return data.name.includes(value) ||
-    data.path.includes(value) ||
-    String(data.permission).includes(value) ||
-    data.meta?.component?.includes(value)
 }
 
 // 处理节点点击
@@ -590,10 +232,7 @@ const expandAll = () => {
 
 // 折叠所有节点
 const collapseAll = () => {
-  if (!menuTreeRef.value) return
-  menuTreeRef.value.store._getAllNodes().forEach((node: TreeNode) => {
-    node.expanded = false
-  })
+  expandedKeys.value = []
 }
 
 // 添加拖拽确认相关的状态变量
@@ -738,6 +377,11 @@ const findNodeById = (nodes: Router[], id: number): Router | null => {
   return null;
 }
 
+// 切换侧边栏折叠状态
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+}
+
 // 添加菜单
 const handleAdd = () => {
   dialogTitle.value = '添加菜单'
@@ -855,12 +499,11 @@ const handleDelete = (row: Router) => {
   })
 }
 
-// 提交添加操作
-const submitAdd = async () => {
+// 处理表单提交 (由MenuDialog组件触发)
+const handleSubmit = async (data: RouterWithMeta, isAdd: boolean) => {
   try {
-
     // 处理数据格式，确保与后端兼容
-    const submittingData = { ...formData.value }
+    const submittingData = { ...data }
 
     // 转换parentId为pid格式
     if (submittingData.parentId) {
@@ -868,10 +511,21 @@ const submitAdd = async () => {
       delete submittingData.parentId
     }
 
-    // 添加新菜单
-    await addRouter(submittingData as unknown as Router)
+    if (isAdd) {
+      // 添加新菜单
+      await addRouter(submittingData as unknown as Router)
+      ElMessage.success('添加成功')
+    } else {
+      // 编辑现有菜单
+      await editRouter(submittingData as unknown as Router)
+      ElMessage.success('修改成功')
 
-    ElMessage.success('添加成功')
+      // 如果是编辑当前选中的节点，更新当前节点详情
+      if (currentNode.value && currentNode.value.id === submittingData.id) {
+        currentNode.value = JSON.parse(JSON.stringify(submittingData))
+      }
+    }
+
     editDialogVisible.value = false
 
     // 清除路由缓存并重新加载路由
@@ -882,56 +536,9 @@ const submitAdd = async () => {
 
     loadData() // 刷新数据
   } catch (error) {
-    console.log('添加失败', error)
-    ElMessage.error('添加失败')
+    console.error(isAdd ? '添加失败' : '修改失败', error)
+    ElMessage.error(isAdd ? '添加失败' : '修改失败')
   }
-}
-
-// 提交编辑操作
-const submitEdit = async () => {
-  try {
-
-    // 处理数据格式，确保与后端兼容
-    const submittingData = { ...formData.value }
-
-    // 转换parentId为pid格式
-    if (submittingData.parentId) {
-      submittingData.pid = submittingData.parentId
-      delete submittingData.parentId
-    }
-
-    // 编辑现有菜单
-    await editRouter(submittingData as unknown as Router)
-
-    ElMessage.success('修改成功')
-    editDialogVisible.value = false
-
-    // 清除路由缓存并重新加载路由
-    localStorage.removeItem('cachedRoutes')
-    const routerStore = useRouterStore()
-    routerStore.setRoutes([]) // 清空当前路由
-    await setupAsyncRoutes() // 重新设置路由
-
-    loadData() // 刷新数据
-
-    // 如果是编辑当前选中的节点，更新当前节点详情
-    if (currentNode.value && currentNode.value.id === formData.value.id) {
-      currentNode.value = JSON.parse(JSON.stringify(formData.value))
-    }
-  } catch (error) {
-    console.log('修改失败', error)
-    ElMessage.error('修改失败')
-  }
-}
-
-// 根据菜单类型返回不同标签样式
-const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
-  const typeMap: Record<string, 'success' | 'warning' | 'info' | 'primary' | 'danger'> = {
-    'M': 'info',
-    'C': 'success',
-    'F': 'warning'
-  }
-  return typeMap[type] || 'info'
 }
 </script>
 
@@ -1073,7 +680,7 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
     }
 
     .node-text {
-      font-size: var(--font-size-md);
+      font-size: var(--font-size-md, 14px);
       color: var(--text-primary);
       flex: 1;
       white-space: nowrap;
@@ -1084,11 +691,6 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
         max-width: 60px;
       }
     }
-
-    .node-tag {
-      margin-left: 4px;
-      flex-shrink: 0;
-    }
   }
 
   .node-actions {
@@ -1097,12 +699,6 @@ const tagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'da
     opacity: 0;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
-
-    .action-icon {
-      font-size: 14px;
-      padding: 2px;
-      border-radius: var(--border-radius-sm);
-    }
   }
 
   &:hover .node-actions {

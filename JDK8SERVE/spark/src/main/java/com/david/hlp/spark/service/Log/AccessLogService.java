@@ -1,393 +1,241 @@
 package com.david.hlp.spark.service.Log;
 
+import com.david.hlp.spark.utils.IpGeoService;
 import com.david.hlp.spark.utils.RedisCache;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.functions;
-import lombok.RequiredArgsConstructor;
+import org.apache.spark.sql.types.DataTypes;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import java.util.*;
-import javax.annotation.PostConstruct;
 
+import java.util.*;
+import lombok.RequiredArgsConstructor;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AccessLogService {
 
-        private final RedisCache redisCache;
-        private final SparkSession sparkSession;
+    private final RedisCache redisCache;
+    private final SparkSession sparkSession;
+    private final IpGeoService ipGeoService;
 
-        private static final String REDIS_ACCESS_STATS_KEY = "access_log:stats";
-        private static final String REDIS_IP_STATS_KEY = "access_log:ip_stats";
-        private static final String REDIS_URL_STATS_KEY = "access_log:url_stats";
-        private static final String REDIS_ANOMALY_STATS_KEY = "access_log:anomaly_stats";
-        private static final String REDIS_LOAD_STATS_KEY = "access_log:load_stats";
-        private static final String REDIS_TIME_STATS_KEY = "access_log:time_stats";
-        private static final int CACHE_EXPIRE_HOURS = 24;
+    // Redis缓存键名
+    private static final String REDIS_KEY_PREFIX = "access_log:analysis:";
+    private static final String REDIS_HEATMAP_KEY = REDIS_KEY_PREFIX + "heatmap";
+    private static final String REDIS_IP_STATS_KEY = REDIS_KEY_PREFIX + "ip_stats";
+    private static final String REDIS_HTTP_METHODS_KEY = REDIS_KEY_PREFIX + "http_methods";
+    private static final String REDIS_WEEKDAY_STATS_KEY = REDIS_KEY_PREFIX + "weekday_stats";
+    private static final String REDIS_BROWSER_STATS_KEY = REDIS_KEY_PREFIX + "browser_stats";
 
-        @PostConstruct
-        public void init() {
-                StartSpark();
+    // 热力图字段名
+    private static final String MINUTE_HEATMAP_FIELD = "minute_heatmap";
+    private static final String HOUR_HEATMAP_FIELD = "hour_heatmap";
+
+    // 缓存过期时间（小时）
+    private static final int CACHE_EXPIRE_HOURS = 24;
+
+    @Scheduled(fixedRate = 5 * 60 * 1000) // 每5分钟执行一次
+    public void analyzeLogs() {
+        log.info("开始执行日志分析任务...");
+        String logsDir = "hdfs://hadoop-single:9000/logs";
+
+        try {
+            // 1. 读取并解析日志数据
+            Dataset<Row> logs = loadAndParseLogs(logsDir);
+
+            // 2. 分析访问热力图
+            analyzeHeatMap(logs);
+
+            // 3. 分析IP统计
+            analyzeIpStats(logs);
+
+            // 4. 分析HTTP方法
+            analyzeHttpMethods(logs);
+
+            // 5. 分析工作日模式
+            analyzeWeekdayPatterns(logs);
+
+            // 6. 分析浏览器使用情况
+            analyzeBrowserUsage(logs);
+
+            log.info("日志分析任务完成！");
+
+        } catch (Exception e) {
+            log.error("日志分析任务执行失败: {}", e.getMessage(), e);
+        }
+    }
+
+    private Dataset<Row> loadAndParseLogs(String logsDir) {
+        // 注册UDF函数
+        sparkSession.udf().register("parse_timestamp",
+                (String timestampStr) -> {
+                    try {
+                        return Long.parseLong(timestampStr);
+                    } catch (NumberFormatException e) {
+                        return 0L;
+                    }
+                },
+                DataTypes.LongType);
+
+        // 读取日志文件并解析
+        return sparkSession.read()
+                .option("mode", "PERMISSIVE")
+                .option("columnNameOfCorruptRecord", "_corrupt_record")
+                .text(logsDir + "/*.log")
+                .filter(functions.col("value").contains("ACCESS|ts="))
+                .select(
+                        functions.regexp_extract(functions.col("value"), "ACCESS\\|ts=([^|]+)", 1).as("timestamp_str"),
+                        functions.regexp_extract(functions.col("value"), "ip=([^|]+)", 1).as("ip"),
+                        functions.regexp_extract(functions.col("value"), "path=([^|]+)", 1).as("path"),
+                        functions.regexp_extract(functions.col("value"), "method=([^|]+)", 1).as("method"),
+                        functions.regexp_extract(functions.col("value"), "ua=([^|]+)", 1).as("user_agent"))
+                .withColumn("timestamp_ms", functions.callUDF("parse_timestamp", functions.col("timestamp_str")))
+                .withColumn("timestamp",
+                        functions.from_unixtime(functions.col("timestamp_ms").divide(1000), "yyyy-MM-dd HH:mm:ss"))
+                .withColumn("date", functions.date_format(functions.col("timestamp"), "yyyy-MM-dd"))
+                .withColumn("hour", functions.date_format(functions.col("timestamp"), "HH"))
+                .withColumn("minute", functions.date_format(functions.col("timestamp"), "mm"))
+                .withColumn("weekday", functions.dayofweek(functions.col("timestamp")));
+    }
+
+    private void analyzeHeatMap(Dataset<Row> logs) {
+        // 分钟级热力图
+        Dataset<Row> minuteHeatMap = logs
+                .groupBy(
+                        functions.date_format(functions.col("timestamp"), "yyyy-MM-dd HH:mm").as("time_key"))
+                .count()
+                .orderBy(functions.col("count").desc());
+
+        // 小时级热力图
+        Dataset<Row> hourHeatMap = logs
+                .groupBy(
+                        functions.date_format(functions.col("timestamp"), "yyyy-MM-dd HH").as("time_key"))
+                .count()
+                .orderBy(functions.col("count").desc());
+
+        // 转换为Map
+        Map<String, Object> minuteHeatMapData = convertToMap(minuteHeatMap.collectAsList(), "time_key", "count");
+        Map<String, Object> hourHeatMapData = convertToMap(hourHeatMap.collectAsList(), "time_key", "count");
+
+        // 创建嵌套的Map结构
+        Map<String, Object> heatMapData = new HashMap<>();
+        heatMapData.put(MINUTE_HEATMAP_FIELD, minuteHeatMapData);
+        heatMapData.put(HOUR_HEATMAP_FIELD, hourHeatMapData);
+
+        // 存储到Redis
+        redisCache.setCacheMap(REDIS_HEATMAP_KEY, heatMapData);
+        redisCache.expire(REDIS_HEATMAP_KEY, CACHE_EXPIRE_HOURS * 3600);
+    }
+
+    private void analyzeIpStats(Dataset<Row> logs) {
+        // 统计IP访问次数
+        Dataset<Row> ipStats = logs
+                .groupBy("ip")
+                .count()
+                .orderBy(functions.col("count").desc());
+
+        // 转换为Map并存入Redis
+        Map<String, Object> ipData = new HashMap<>();
+        List<String> localIps = new ArrayList<>();
+
+        // 收集IP统计信息
+        for (Row row : ipStats.collectAsList()) {
+            String ip = row.getAs("ip");
+            long count = row.getAs("count");
+
+            // 获取IP地理信息
+            Map<String, String> geoInfo = ipGeoService.getIpGeoInfo(ip);
+
+            // 构建IP信息
+            Map<String, Object> ipInfo = new HashMap<>();
+            ipInfo.put("count", count);
+            ipInfo.put("country_name", geoInfo.get("country_name"));
+            ipInfo.put("city", geoInfo.get("city"));
+
+            // 如果是本地IP，添加到本地IP列表
+            if (ipGeoService.isLocalIp(ip)) {
+                localIps.add(ip);
+            }
+
+            ipData.put(ip, ipInfo);
         }
 
-        @Scheduled(fixedRate = 60 * 60 * 1000)
-        private void StartSpark() {
-                log.info("开始执行日志分析任务...");
-                String logsDir = "hdfs://hadoop-single:9000/logs";
-
-                try {
-                        // 读取并解析日志数据
-                        Dataset<Row> parsedLogs = loadAndParseLogs(logsDir);
-
-                        // 过滤掉 OPTIONS 请求
-                        Dataset<Row> nonOptionsLogs = parsedLogs.filter(functions.col("method").notEqual("OPTIONS"));
-                        nonOptionsLogs.cache();
-
-                        // 执行各项分析
-                        analyzeBasicStats(nonOptionsLogs);
-                        analyzeApiPatterns(nonOptionsLogs);
-                        analyzeUserBehavior(nonOptionsLogs);
-                        analyzeAnomalies(nonOptionsLogs);
-                        analyzeSystemLoad(nonOptionsLogs);
-                        analyzeTimeBasedStats(nonOptionsLogs);
-
-                        nonOptionsLogs.unpersist();
-                        log.info("日志分析任务完成！");
-
-                } catch (Exception e) {
-                        log.error("日志分析任务执行失败: {}", e.getMessage(), e);
-                        throw new RuntimeException("日志分析任务失败", e);
-                }
+        // 将本地IP列表存入结果中
+        if (!localIps.isEmpty()) {
+            ipData.put("local_networks", localIps);
         }
 
-        private Dataset<Row> loadAndParseLogs(String logsDir) {
-                return sparkSession.read()
-                                .option("mode", "PERMISSIVE")
-                                .option("columnNameOfCorruptRecord", "_corrupt_record")
-                                .text(logsDir + "/*.log")
-                                // 过滤出包含 "ACCESS|" 标记的自定义日志行，忽略基础SpringBoot日志
-                                .filter(functions.col("value").contains("ACCESS|"))
-                                .select(
-                                                functions.regexp_extract(functions.col("value"),
-                                                                "(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})",
-                                                                1).as("timestamp"),
-                                                functions.regexp_extract(functions.col("value"), "ip=([^|]+)", 1)
-                                                                .as("ip"),
-                                                functions.regexp_extract(functions.col("value"), "path=([^|]+)", 1)
-                                                                .as("path"),
-                                                functions.regexp_extract(functions.col("value"), "method=([^|]+)", 1)
-                                                                .as("method"),
-                                                functions.regexp_extract(functions.col("value"), "ua=([^|]+)", 1)
-                                                                .as("user_agent"))
-                                .withColumn("timestamp",
-                                                functions.to_timestamp(functions.col("timestamp"),
-                                                                "yyyy-MM-dd HH:mm:ss"))
-                                .withColumn("date", functions.date_format(functions.col("timestamp"), "yyyy-MM-dd"))
-                                .withColumn("hour", functions.hour(functions.col("timestamp")))
-                                .withColumn("minute", functions.minute(functions.col("timestamp")))
-                                .withColumn("api_category", functions.regexp_extract(functions.col("path"),
-                                                "/api/boss/([^/]+)", 1));
+        // 保存到Redis
+        redisCache.setCacheMap(REDIS_IP_STATS_KEY, ipData);
+        redisCache.expire(REDIS_IP_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
+    }
+
+    private void analyzeHttpMethods(Dataset<Row> logs) {
+        // 统计HTTP方法分布
+        Dataset<Row> httpMethods = logs
+                .groupBy("method")
+                .count()
+                .orderBy(functions.col("count").desc());
+
+        // 转换为Map并存入Redis
+        Map<String, Object> httpData = convertToMap(httpMethods.collectAsList(), "method", "count");
+        redisCache.setCacheMap(REDIS_HTTP_METHODS_KEY, httpData);
+        redisCache.expire(REDIS_HTTP_METHODS_KEY, CACHE_EXPIRE_HOURS * 3600);
+    }
+
+    private void analyzeWeekdayPatterns(Dataset<Row> logs) {
+        // 统计工作日访问模式
+        Dataset<Row> weekdayStats = logs
+                .groupBy("weekday")
+                .count()
+                .orderBy("weekday");
+
+        // 转换为Map并存入Redis
+        Map<String, Object> weekdayData = convertToMap(weekdayStats.collectAsList(), "weekday", "count");
+        redisCache.setCacheMap(REDIS_WEEKDAY_STATS_KEY, weekdayData);
+        redisCache.expire(REDIS_WEEKDAY_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
+    }
+
+    private void analyzeBrowserUsage(Dataset<Row> logs) {
+        // 分析浏览器使用情况
+        Dataset<Row> browserStats = logs
+                .withColumn("browser",
+                        functions.when(functions.col("user_agent").contains("Chrome"), "Chrome")
+                                .when(functions.col("user_agent").contains("Firefox"), "Firefox")
+                                .when(functions.col("user_agent").contains("Safari"), "Safari")
+                                .when(functions.col("user_agent").contains("Opera"), "Opera")
+                                .when(functions.col("user_agent").contains("Edg"), "Edge")
+                                .when(functions.col("user_agent").contains("MSIE")
+                                        .or(functions.col("user_agent").contains("Trident")), "IE")
+                                .otherwise("其他"))
+                .groupBy("browser")
+                .count()
+                .orderBy(functions.col("count").desc());
+
+        // 转换为Map并存入Redis
+        Map<String, Object> browserData = convertToMap(browserStats.collectAsList(), "browser", "count");
+        redisCache.setCacheMap(REDIS_BROWSER_STATS_KEY, browserData);
+        redisCache.expire(REDIS_BROWSER_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
+    }
+
+    // 已迁移到IpGeoService中
+
+    private Map<String, Object> convertToMap(List<Row> rows, String keyField, String valueField) {
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        for (Row row : rows) {
+            Object key = row.getAs(keyField);
+            Object value = row.getAs(valueField);
+
+            if (key != null) {
+                result.put(key.toString(), value);
+            }
         }
 
-        private void analyzeBasicStats(Dataset<Row> logs) {
-                log.info("开始基础统计分析...");
-
-                // 基本请求统计
-                long totalRequests = logs.count();
-                long uniqueIPs = logs.select("ip").distinct().count();
-                long uniquePaths = logs.select("path").distinct().count();
-
-                // API类别分布
-                Dataset<Row> apiCategoryStats = logs.groupBy("api_category")
-                                .count()
-                                .sort(functions.col("count").desc());
-
-                // 热门API路径
-                Dataset<Row> popularPaths = logs.groupBy("path")
-                                .count()
-                                .sort(functions.col("count").desc())
-                                .limit(10);
-
-                // 缓存结果
-                Map<String, Object> basicStats = new HashMap<>();
-                basicStats.put("totalRequests", totalRequests);
-                basicStats.put("uniqueIPs", uniqueIPs);
-                basicStats.put("uniquePaths", uniquePaths);
-                basicStats.put("apiCategoryStats",
-                                convertRowsToMap(apiCategoryStats.collectAsList(), "api_category", "count"));
-                basicStats.put("popularPaths", convertRowsToMap(popularPaths.collectAsList(), "path", "count"));
-
-                redisCache.setCacheMap(REDIS_ACCESS_STATS_KEY, basicStats);
-                redisCache.expire(REDIS_ACCESS_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
-        }
-
-        private void analyzeApiPatterns(Dataset<Row> logs) {
-                log.info("开始API使用模式分析...");
-
-                // 按日期时间的API访问路径统计
-                Dataset<Row> pathDateStats = logs.groupBy("date", "path")
-                                .count()
-                                .sort(functions.col("date"), functions.col("count").desc());
-
-                // 按日期时间的HTTP方法分布
-                Dataset<Row> methodDateStats = logs.groupBy("date", "method")
-                                .count()
-                                .sort(functions.col("date"), functions.col("count").desc());
-
-                // API关联分析
-                Dataset<Row> apiSequence = logs.select("ip", "timestamp", "path")
-                                .sort(functions.col("ip"), functions.col("timestamp"));
-
-                Map<String, Object> apiPatterns = new HashMap<>();
-                apiPatterns.put("pathDateStats", convertRowsToMap(pathDateStats.collectAsList(), "path", "count"));
-                apiPatterns.put("methodDateStats",
-                                convertRowsToMap(methodDateStats.collectAsList(), "method", "count"));
-                apiPatterns.put("apiSequence", convertRowsToMap(apiSequence.collectAsList(), "ip", "path"));
-
-                redisCache.setCacheMap(REDIS_URL_STATS_KEY, apiPatterns);
-                redisCache.expire(REDIS_URL_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
-        }
-
-        private void analyzeUserBehavior(Dataset<Row> logs) {
-                log.info("开始用户行为分析...");
-
-                // 访问频率最高的IP
-                Dataset<Row> ipStats = logs.groupBy("ip")
-                                .count()
-                                .sort(functions.col("count").desc())
-                                .limit(10);
-
-                // IP和路径组合分析
-                Dataset<Row> ipPathStats = logs.groupBy("ip", "path")
-                                .count()
-                                .sort(functions.col("count").desc())
-                                .limit(20);
-
-                // 用户代理分析
-                Dataset<Row> uaStats = logs.groupBy("user_agent")
-                                .count()
-                                .sort(functions.col("count").desc())
-                                .limit(10);
-
-                Map<String, Object> userBehavior = new HashMap<>();
-                userBehavior.put("ipStats", convertRowsToMap(ipStats.collectAsList(), "ip", "count"));
-                userBehavior.put("ipPathStats", convertRowsToMap(ipPathStats.collectAsList(), "ip", "count"));
-                userBehavior.put("uaStats", convertRowsToMap(uaStats.collectAsList(), "user_agent", "count"));
-
-                redisCache.setCacheMap(REDIS_IP_STATS_KEY, userBehavior);
-                redisCache.expire(REDIS_IP_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
-        }
-
-        private void analyzeAnomalies(Dataset<Row> logs) {
-                log.info("开始异常检测分析...");
-
-                // 按分钟统计请求数
-                Dataset<Row> minuteStats = logs.groupBy("date", "hour", "minute")
-                                .count()
-                                .sort(functions.col("date"), functions.col("hour"), functions.col("minute"));
-
-                // 计算统计指标
-                Row stats = minuteStats.agg(
-                                functions.avg("count").cast("double").as("avg_requests"),
-                                functions.stddev("count").cast("double").as("stddev_requests"),
-                                functions.expr("percentile_approx(count, 0.95)").cast("double").as("p95_requests"))
-                                .first();
-
-                // 安全地获取数值，避免类型转换异常
-                double avgVal = stats.get(0) instanceof Double ? stats.getDouble(0)
-                                : ((Number) stats.get(0)).doubleValue();
-                double stddevVal = stats.get(1) instanceof Double ? stats.getDouble(1)
-                                : ((Number) stats.get(1)).doubleValue();
-                double p95Val = stats.get(2) instanceof Double ? stats.getDouble(2)
-                                : ((Number) stats.get(2)).doubleValue();
-                double stdThreshold = avgVal + 2 * stddevVal;
-
-                // 检测异常值
-                Dataset<Row> stdAnomalies = minuteStats.filter(functions.col("count").gt(stdThreshold));
-                Dataset<Row> p95Anomalies = minuteStats.filter(functions.col("count").gt(p95Val));
-
-                Map<String, Object> anomalies = new HashMap<>();
-                anomalies.put("avgRequests", avgVal);
-                anomalies.put("stddevRequests", stddevVal);
-                anomalies.put("p95Requests", p95Val);
-                anomalies.put("stdThreshold", stdThreshold);
-                anomalies.put("stdAnomalies", convertRowsToMap(stdAnomalies.collectAsList(), "date", "count"));
-                anomalies.put("p95Anomalies", convertRowsToMap(p95Anomalies.collectAsList(), "date", "count"));
-
-                redisCache.setCacheMap(REDIS_ANOMALY_STATS_KEY, anomalies);
-                redisCache.expire(REDIS_ANOMALY_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
-        }
-
-        private void analyzeSystemLoad(Dataset<Row> logs) {
-                log.info("开始系统负载分析...");
-
-                // 每小时请求数
-                Dataset<Row> hourlyStats = logs.groupBy("hour")
-                                .count()
-                                .withColumnRenamed("count", "request_count");
-
-                // 每小时平均请求数
-                Dataset<Row> hourlyAvg = hourlyStats
-                                .agg(functions.avg("request_count").as("avg_requests"))
-                                .withColumn("hour", functions.lit("hourly_avg"));
-
-                // 每分钟峰值请求数
-                Dataset<Row> peakMinute = logs.groupBy("date", "hour", "minute")
-                                .count()
-                                .sort(functions.col("count").desc())
-                                .limit(5);
-
-                Map<String, Object> loadStats = new HashMap<>();
-                loadStats.put("hourlyAvg", convertRowsToMap(hourlyAvg.collectAsList(), "hour", "avg_requests"));
-                loadStats.put("peakMinute", convertRowsToMap(peakMinute.collectAsList(), "date", "count"));
-
-                redisCache.setCacheMap(REDIS_LOAD_STATS_KEY, loadStats);
-                redisCache.expire(REDIS_LOAD_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
-        }
-
-        private Map<String, Object> convertRowsToMap(List<Row> rows, String keyField, String valueField) {
-                Map<String, Object> result = new HashMap<>();
-                for (Row row : rows) {
-                        result.put(row.getAs(keyField).toString(), row.getAs(valueField));
-                }
-                return result;
-        }
-
-        // Getter methods for cached results
-        public Map<String, Object> getBasicStats() {
-                return redisCache.getCacheMap(REDIS_ACCESS_STATS_KEY);
-        }
-
-        public Map<String, Object> getApiPatterns() {
-                return redisCache.getCacheMap(REDIS_URL_STATS_KEY);
-        }
-
-        public Map<String, Object> getUserBehavior() {
-                return redisCache.getCacheMap(REDIS_IP_STATS_KEY);
-        }
-
-        public Map<String, Object> getAnomalies() {
-                return redisCache.getCacheMap(REDIS_ANOMALY_STATS_KEY);
-        }
-
-        public Map<String, Object> getSystemLoad() {
-                return redisCache.getCacheMap(REDIS_LOAD_STATS_KEY);
-        }
-
-        public Map<String, Object> getTimeBasedStats() {
-                return redisCache.getCacheMap(REDIS_TIME_STATS_KEY);
-        }
-
-        /**
-         * 基于时间维度的细粒度分析
-         * 包括分钟级、小时级和日期级的请求统计
-         */
-        private void analyzeTimeBasedStats(Dataset<Row> logs) {
-                log.info("开始时间维度细粒度分析...");
-
-                // 添加日期时间相关列
-                Dataset<Row> logsWithTime = logs
-                                .withColumn("date_hour", functions.concat(functions.col("date"),
-                                                functions.lit(" "),
-                                                functions.lpad(functions.col("hour").cast("string"), 2, "0")))
-                                .withColumn("date_hour_minute", functions.concat(functions.col("date_hour"),
-                                                functions.lit(":"),
-                                                functions.lpad(functions.col("minute").cast("string"), 2, "0")))
-                                .withColumn("weekday", functions.date_format(functions.col("timestamp"), "E"))
-                                .withColumn("week_of_year", functions.weekofyear(functions.col("timestamp")))
-                                .withColumn("month", functions.month(functions.col("timestamp")))
-                                .withColumn("day", functions.dayofmonth(functions.col("timestamp")));
-
-                // 1. 分钟级统计 - 最近24小时内的每分钟请求量
-                Dataset<Row> minuteStats = logsWithTime
-                                .filter(functions.col("timestamp")
-                                                .gt(functions.date_sub(functions.current_timestamp(), 1)))
-                                .groupBy("date_hour_minute")
-                                .count()
-                                .sort("date_hour_minute");
-
-                // 2. 小时级统计 - 按天分组的每小时请求量
-                Dataset<Row> hourlyStats = logsWithTime
-                                .groupBy("date", "hour")
-                                .count()
-                                .withColumn("hour_key", functions.concat(functions.col("date"),
-                                                functions.lit(" "),
-                                                functions.lpad(functions.col("hour").cast("string"), 2, "0")))
-                                .sort("date", "hour");
-
-                // 3. 每日统计 - 过去30天的每日请求量
-                Dataset<Row> dailyStats = logsWithTime
-                                .groupBy("date")
-                                .count()
-                                .sort("date");
-
-                // 4. 按周分析 - 每周的请求分布
-                Dataset<Row> weekdayStats = logsWithTime
-                                .groupBy("weekday")
-                                .count()
-                                .sort(functions.col("count").desc());
-
-                // 5. 按月分析 - 每月的请求分布
-                Dataset<Row> monthlyStats = logsWithTime
-                                .groupBy("month")
-                                .count()
-                                .sort("month");
-
-                // 6. 按小时统计平均值和峰值 - 业务时间分析
-                // 先按小时和分钟分组计算每个时间点的请求数
-                Dataset<Row> requestCountsByMinute = logsWithTime
-                                .groupBy("hour", "minute")
-                                .agg(functions.count("*").as("request_count"));
-
-                // 再按小时聚合，计算平均值和最大值
-                Dataset<Row> hourPeaks = requestCountsByMinute
-                                .groupBy("hour")
-                                .agg(
-                                                functions.count("*").as("total_minutes"),
-                                                functions.sum("request_count").as("total_requests"),
-                                                functions.avg("request_count").as("avg_requests"),
-                                                functions.max("request_count").as("max_requests"))
-                                .sort("hour");
-
-                // 7. 热力图数据 - 日期和小时的二维分布
-                Dataset<Row> heatmapData = logsWithTime
-                                .groupBy("date", "hour")
-                                .count()
-                                .sort("date", "hour");
-
-                // 收集并缓存所有结果
-                Map<String, Object> timeStats = new HashMap<>();
-                timeStats.put("minuteStats",
-                                convertRowsToMap(minuteStats.collectAsList(), "date_hour_minute", "count"));
-                timeStats.put("hourlyStats", convertRowsToMap(hourlyStats.collectAsList(), "hour_key", "count"));
-                timeStats.put("dailyStats", convertRowsToMap(dailyStats.collectAsList(), "date", "count"));
-                timeStats.put("weekdayStats", convertRowsToMap(weekdayStats.collectAsList(), "weekday", "count"));
-                timeStats.put("monthlyStats", convertRowsToMap(monthlyStats.collectAsList(), "month", "count"));
-                timeStats.put("hourPeaks", convertRowsToMap(hourPeaks.collectAsList(), "hour", "total_requests"));
-                timeStats.put("heatmapData", convertMultiKeyRowsToMap(heatmapData.collectAsList(),
-                                new String[] { "date", "hour" }, "count"));
-
-                redisCache.setCacheMap(REDIS_TIME_STATS_KEY, timeStats);
-                redisCache.expire(REDIS_TIME_STATS_KEY, CACHE_EXPIRE_HOURS * 3600);
-        }
-
-        /**
-         * 将多键行数据转换为嵌套Map
-         */
-        private Map<String, Object> convertMultiKeyRowsToMap(List<Row> rows, String[] keyFields, String valueField) {
-                Map<String, Object> result = new HashMap<>();
-                for (Row row : rows) {
-                        StringBuilder keyBuilder = new StringBuilder();
-                        for (int i = 0; i < keyFields.length; i++) {
-                                if (i > 0)
-                                        keyBuilder.append("_");
-                                keyBuilder.append(row.getAs(keyFields[i]).toString());
-                        }
-                        result.put(keyBuilder.toString(), row.getAs(valueField));
-                }
-                return result;
-        }
+        return result;
+    }
 }

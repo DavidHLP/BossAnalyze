@@ -11,7 +11,6 @@ import com.david.hlp.spark.model.User.SalaryJob;
 import com.david.hlp.spark.service.User.SalaryHotJob;
 import com.david.hlp.spark.model.User.JobAnalysisData;
 import com.david.hlp.spark.service.User.TwoDimensionalAnalysisChart;
-import com.david.hlp.spark.service.User.ThreeDimensionalAnalysisChart;
 @RestController
 @RequestMapping("/api/v1/boss/user")
 @RequiredArgsConstructor
@@ -25,7 +24,6 @@ public class CityAndPositonController {
     }
 
     private final TwoDimensionalAnalysisChart twoDimensionalAnalysisChart;
-
     /**
      * 获取职位二维分析数据
      */
@@ -37,14 +35,5 @@ public class CityAndPositonController {
             @RequestParam(required = false, defaultValue = "degree_value") String yAxis) {
         return twoDimensionalAnalysisChart.getJobAnalysisData(
                 cityName, positionName, xAxis, yAxis);
-    }
-
-    private final ThreeDimensionalAnalysisChart threeDimensionalAnalysisChart;
-
-    @GetMapping("/three-dimensional-analysis-chart")
-    public List<JobAnalysisData> getJobAnalysisData(
-            @RequestParam(required = false, defaultValue = "all") String cityName,
-            @RequestParam(required = false, defaultValue = "all") String positionName) {
-        return threeDimensionalAnalysisChart.getJobAnalysisData(cityName, positionName);
     }
 }
