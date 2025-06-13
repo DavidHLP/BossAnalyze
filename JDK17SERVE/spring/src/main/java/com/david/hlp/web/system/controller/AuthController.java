@@ -5,9 +5,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import com.david.hlp.web.common.controller.BaseController;
+import com.david.hlp.web.common.enums.RedisKeyCommon;
 import com.david.hlp.web.common.enums.ResultCode;
 import com.david.hlp.web.common.exception.BusinessException;
 import com.david.hlp.web.common.result.Result;
+import com.david.hlp.web.common.service.EmailService;
+import com.david.hlp.web.common.util.CodeUtil;
+import com.david.hlp.web.common.util.RedisCache;
 import com.david.hlp.web.system.entity.auth.LoginDTO;
 import com.david.hlp.web.system.entity.auth.RegistrationDTO;
 import com.david.hlp.web.system.entity.role.Role;
@@ -15,15 +19,13 @@ import com.david.hlp.web.system.entity.role.RolePermissionUpdateResponse;
 import com.david.hlp.web.system.entity.router.Router;
 import com.david.hlp.web.system.entity.user.User;
 import com.david.hlp.web.system.service.PermissionService;
-import com.david.hlp.web.system.service.UserServiceImp;
 import com.david.hlp.web.system.service.imp.AuthServiceImp;
 import com.david.hlp.web.system.service.imp.RoleServiceImp;
 import com.david.hlp.web.system.service.imp.RouterServiceImp;
+import com.david.hlp.web.system.service.imp.UserServiceImp;
 import com.david.hlp.web.system.token.Token;
-
 import java.util.List;
 import org.springframework.dao.DuplicateKeyException;
-
 import java.util.Objects;
 
 /**
@@ -43,17 +45,46 @@ public class AuthController extends BaseController {
     private final PermissionService permissionService;
     private final RoleServiceImp roleService;
     private final UserServiceImp userService;
+    private final EmailService emailService;
+    private final RedisCache redisCache;
+
+    @PostMapping("/sendRegisterEmail")
+    public Result<Void> registerSendEmail(@RequestBody final RegistrationDTO request) {
+        if (userService.getByEmail(request.getEmail()) != null) {
+            return Result.error(ResultCode.USER_EXISTS);
+        }
+        Boolean locked = false;
+        try {
+            locked = redisCache.tryLock(request.getEmail());
+            if (!locked) {
+                return Result.error(ResultCode.LOCK_HAS_USED);
+            }
+            String code = CodeUtil.generateVerificationCode();
+            emailService.sendSimpleMail(request.getEmail(), "注册验证码", code);
+            redisCache.setCacheObject(RedisKeyCommon.REGISTER_CODE_KEY.getKey() + request.getEmail(), code,
+                    RedisKeyCommon.REGISTER_CODE_KEY.getTimeout(), RedisKeyCommon.REGISTER_CODE_KEY.getTimeUnit());
+            return Result.success("验证码已发送");
+        } catch (Exception e) {
+            log.error("注册失败: 操作频繁，请稍后再试");
+            throw new BusinessException(ResultCode.LOCK_HAS_USED);
+        } finally {
+            if (locked) {
+                redisCache.unlock(request.getEmail());
+            }
+        }
+    }
+
     /**
      * 用户注册
      *
      * @param request 注册请求信息
      * @return 注册结果
      */
-    @PostMapping("/demo/register")
+    @PostMapping("/register")
     public Result<String> registerUser(@RequestBody final RegistrationDTO request) {
         try {
             Objects.requireNonNull(request, "注册请求不能为空");
-            authService.addUser(request);
+            authService.registerUser(request);
             return Result.success("注册成功");
         } catch (final DuplicateKeyException e) {
             log.warn("用户注册失败: 用户已存在, email={}", request.getEmail());
@@ -70,7 +101,7 @@ public class AuthController extends BaseController {
      * @param request 登录请求信息
      * @return 登录令牌
      */
-    @PostMapping("/demo/login")
+    @PostMapping("/login")
     public Result<Token> login(@RequestBody final LoginDTO request) {
         Objects.requireNonNull(request, "登录请求不能为空");
         if (Objects.isNull(request.getEmail()) || Objects.isNull(request.getPassword())) {
@@ -79,6 +110,9 @@ public class AuthController extends BaseController {
         }
         try {
             final Token token = authService.login(request);
+            redisCache.setCacheObject(RedisKeyCommon.TOKEN_REFRESH_KEY.getKey() + token.getAuthUser().getUserId(),
+                    token, RedisKeyCommon.TOKEN_REFRESH_KEY.getTimeout(),
+                    RedisKeyCommon.TOKEN_REFRESH_KEY.getTimeUnit());
             return Result.success(token);
         } catch (final Exception e) {
             log.error("用户登录异常: email={}, 错误={}", request.getEmail(), e.getMessage(), e);
@@ -91,7 +125,7 @@ public class AuthController extends BaseController {
      *
      * @return 路由列表
      */
-    @GetMapping("/demo/getRouters")
+    @GetMapping("/getRouters")
     public Result<List<Router>> getRouters() {
         final List<Router> routers = routerService.getRouters();
         return Result.success(routers);
@@ -102,7 +136,7 @@ public class AuthController extends BaseController {
      *
      * @return 用户权限列表
      */
-    @GetMapping("/demo/getUserPrivateInformation")
+    @GetMapping("/getUserPrivateInformation")
     public Result<List<String>> getUserPrivateInformation() {
         final List<String> permissions = permissionService.getUserPermissions(getCurrentUserId());
         return Result.success(permissions);
@@ -113,7 +147,7 @@ public class AuthController extends BaseController {
      *
      * @return 用户角色
      */
-    @GetMapping("/demo/getUserRole")
+    @GetMapping("/getUserRole")
     public Result<Role> getUserRole() {
         final User user = userService.getUserBaseInfo(getCurrentUserId());
         final Role role = roleService.getRole(user.getRoleId());
@@ -125,7 +159,7 @@ public class AuthController extends BaseController {
      *
      * @return 用户信息
      */
-    @GetMapping("/demo/getUserBaseInfo")
+    @GetMapping("/getUserBaseInfo")
     public Result<User> getUserBaseInfo() {
         final User user = userService.getUserBaseInfo(getCurrentUserId());
         return Result.success(user);
@@ -137,7 +171,7 @@ public class AuthController extends BaseController {
      * @param router 路由信息
      * @return 操作结果
      */
-    @PostMapping("/demo/editRouter")
+    @PostMapping("/editRouter")
     public Result<Void> editRouter(@RequestBody final Router router) {
         try {
             Objects.requireNonNull(router, "路由信息不能为空");
@@ -155,7 +189,7 @@ public class AuthController extends BaseController {
      * @param router 路由信息
      * @return 操作结果
      */
-    @PostMapping("/demo/addRouter")
+    @PostMapping("/addRouter")
     public Result<Void> addRouter(@RequestBody final Router router) {
         try {
             Objects.requireNonNull(router, "路由信息不能为空");
@@ -173,7 +207,7 @@ public class AuthController extends BaseController {
      * @param router 路由信息
      * @return 操作结果
      */
-    @PostMapping("/demo/deleteRouter")
+    @PostMapping("/deleteRouter")
     public Result<Void> deleteRouter(@RequestBody final Router router) {
         try {
             Objects.requireNonNull(router, "路由信息不能为空");
@@ -190,7 +224,7 @@ public class AuthController extends BaseController {
      *
      * @return 角色列表
      */
-    @GetMapping("/demo/getRoleList")
+    @GetMapping("/getRoleList")
     public Result<List<Role>> getRoleList() {
         final List<Role> roleList = roleService.getRoleList();
         return Result.success(roleList);
@@ -202,7 +236,7 @@ public class AuthController extends BaseController {
      * @param role 角色信息
      * @return 操作结果
      */
-    @PostMapping("/demo/addRole")
+    @PostMapping("/addRole")
     public Result<Void> addRole(@RequestBody final Role role) {
         try {
             Objects.requireNonNull(role, "角色信息不能为空");
@@ -220,7 +254,7 @@ public class AuthController extends BaseController {
      * @param role 角色信息
      * @return 操作结果
      */
-    @PostMapping("/demo/editRole")
+    @PostMapping("/editRole")
     public Result<Void> editRole(@RequestBody final Role role) {
         try {
             Objects.requireNonNull(role, "角色信息不能为空");
@@ -238,16 +272,18 @@ public class AuthController extends BaseController {
      * @param rolePermissionUpdateResponse 角色权限更新信息
      * @return 操作结果
      */
-    @PostMapping("/demo/updateRoleRouters")
-    public Result<Void> updateRolePermissions(@RequestBody final RolePermissionUpdateResponse rolePermissionUpdateResponse) {
+    @PostMapping("/updateRoleRouters")
+    public Result<Void> updateRolePermissions(
+            @RequestBody final RolePermissionUpdateResponse rolePermissionUpdateResponse) {
         try {
             Objects.requireNonNull(rolePermissionUpdateResponse, "角色权限更新信息不能为空");
+            System.out.println("rolePermissionUpdateResponse:" + rolePermissionUpdateResponse);
             roleService.updateRolePermissions(rolePermissionUpdateResponse);
             return Result.success("更新成功");
         } catch (Exception e) {
-            log.error("更新角色权限异常: roleId={}, 错误={}", 
-                rolePermissionUpdateResponse != null ? rolePermissionUpdateResponse.getRoleId() : "null", 
-                e.getMessage(), e);
+            log.error("更新角色权限异常: roleId={}, 错误={}",
+                    rolePermissionUpdateResponse != null ? rolePermissionUpdateResponse.getRoleId() : "null",
+                    e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "更新失败: " + e.getMessage());
         }
     }
@@ -258,7 +294,7 @@ public class AuthController extends BaseController {
      * @param role 角色信息
      * @return 操作结果
      */
-    @PostMapping("/demo/deleteRole")
+    @PostMapping("/deleteRole")
     public Result<Void> deleteRole(@RequestBody final Role role) {
         try {
             Objects.requireNonNull(role, "角色信息不能为空");

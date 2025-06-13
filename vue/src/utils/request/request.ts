@@ -14,8 +14,8 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
-    // 排除登录和注册接口
-    const publicPaths = ['/api/auth/demo/login', '/api/auth/demo/register'];
+    // 排除无需鉴权的接口（登录、注册、发送注册验证码等）
+    const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/sendRegisterEmail'];
     const isPublicPath = publicPaths.some(path => config.url?.endsWith(path));
 
     const token = localStorage.getItem('token');

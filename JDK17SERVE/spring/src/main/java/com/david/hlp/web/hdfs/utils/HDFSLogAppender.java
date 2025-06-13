@@ -27,7 +27,7 @@ public class HDFSLogAppender extends AppenderBase<ILoggingEvent> {
     private FSDataOutputStream currentOutputStream;
     private String currentDate;
     private String processId;
-    
+
     // 日志缓存集合
     private final List<String> logCache = new ArrayList<>();
     // 缓存锁，避免并发问题
@@ -44,9 +44,10 @@ public class HDFSLogAppender extends AppenderBase<ILoggingEvent> {
         this.logDir = logDir;
         this.processId = System.getProperty("PID", "?");
     }
-    
+
     /**
      * 设置缓存阈值
+     * 
      * @param threshold 新的缓存阈值
      */
     public void setCacheThreshold(int threshold) {
@@ -54,9 +55,10 @@ public class HDFSLogAppender extends AppenderBase<ILoggingEvent> {
             this.cacheThreshold = threshold;
         }
     }
-    
+
     /**
      * 设置刷新间隔（毫秒）
+     * 
      * @param interval 刷新间隔
      */
     public void setFlushInterval(long interval) {
@@ -92,7 +94,7 @@ public class HDFSLogAppender extends AppenderBase<ILoggingEvent> {
                 // 先刷新当前缓存中的日志
                 flushCache();
                 closeCurrentStream();
-                
+
                 currentDate = formattedDate;
                 String fileName = currentDate + ".log";
 
@@ -135,11 +137,11 @@ public class HDFSLogAppender extends AppenderBase<ILoggingEvent> {
             cacheLock.lock();
             try {
                 logCache.add(fullLogEntry);
-                
+
                 // 检查是否需要刷新缓存
                 long currentTime = System.currentTimeMillis();
                 boolean timeThresholdExceeded = (currentTime - lastFlushTime) > flushInterval;
-                
+
                 if (logCache.size() >= cacheThreshold || timeThresholdExceeded) {
                     flushCache();
                     lastFlushTime = currentTime;
@@ -159,7 +161,7 @@ public class HDFSLogAppender extends AppenderBase<ILoggingEvent> {
         if (currentOutputStream == null || logCache.isEmpty()) {
             return;
         }
-        
+
         List<String> logsToWrite;
         cacheLock.lock();
         try {
@@ -171,18 +173,18 @@ public class HDFSLogAppender extends AppenderBase<ILoggingEvent> {
         } finally {
             cacheLock.unlock();
         }
-        
+
         try {
             // 批量写入所有缓存日志
             StringBuilder batchContent = new StringBuilder();
             for (String log : logsToWrite) {
                 batchContent.append(log);
             }
-            
+
             byte[] contentBytes = batchContent.toString().getBytes(StandardCharsets.UTF_8);
             currentOutputStream.write(contentBytes);
             currentOutputStream.hsync(); // 确保数据落盘
-            
+
             addInfo(String.format("批量写入%d条日志到HDFS", logsToWrite.size()));
         } catch (IOException e) {
             addError("批量写入日志到HDFS失败", e);
@@ -198,7 +200,7 @@ public class HDFSLogAppender extends AppenderBase<ILoggingEvent> {
             }
         }
     }
-    
+
     private void closeCurrentStream() {
         if (currentOutputStream != null) {
             try {

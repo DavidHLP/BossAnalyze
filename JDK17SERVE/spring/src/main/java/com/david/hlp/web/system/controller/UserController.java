@@ -15,8 +15,8 @@ import com.david.hlp.web.common.result.Result;
 import com.david.hlp.web.system.entity.user.DelUser;
 import com.david.hlp.web.system.entity.user.User;
 import com.david.hlp.web.system.service.PasswordService;
-import com.david.hlp.web.system.service.UserServiceImp;
 import com.david.hlp.web.system.service.imp.AuthServiceImp;
+import com.david.hlp.web.system.service.imp.UserServiceImp;
 
 /**
  * 用户管理控制器

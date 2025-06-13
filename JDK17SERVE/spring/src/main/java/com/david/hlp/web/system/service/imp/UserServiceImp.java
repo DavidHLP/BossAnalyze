@@ -1,4 +1,4 @@
-package com.david.hlp.web.system.service;
+package com.david.hlp.web.system.service.imp;
 
 import lombok.RequiredArgsConstructor;
 
@@ -10,6 +10,7 @@ import com.david.hlp.web.common.result.PageInfo;
 import com.david.hlp.web.system.entity.user.DelUser;
 import com.david.hlp.web.system.entity.user.User;
 import com.david.hlp.web.system.mapper.UserMapper;
+import com.david.hlp.web.system.service.PasswordService;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +27,10 @@ public class UserServiceImp {
                 .roleId(user.getRoleId())
                 .build();
         return res;
+    }
+
+    public User getByEmail(String email) {
+        return userMapper.getByEmailToUser(email);
     }
 
     public PageInfo<User> getUserManageInfo(int pageNum, int pageSize, User query){

@@ -19,52 +19,19 @@ export const getResumeDetail = (id: string): Promise<ResumeData> => {
   })
 }
 
-// 获取用户简历数据
-export const getResumesByUserId = (userId: string): Promise<ResumeData[]> => {
-  return request({
-    url: '/api/resume/user',
-    method: 'GET',
-    params: {
-      userId
-    }
-  })
-}
-
-// 获取最新一份简历数据 (用于创建新简历时使用的模板)
-export const getResumeData = (): Promise<ResumeData> => {
-  return request({
-    url: '/api/resume/user/latest/one',
-    method: 'GET',
-    params: {
-      userId: 'current' // 默认获取当前登录用户的最新简历
-    }
-  })
-}
-
 // 保存简历数据
 export const saveResumeData = (data: ResumeData): Promise<boolean> => {
   return request({
-    url: '/api/resume/update',
+    url: '/api/resume',
     method: 'PUT',
     data
-  })
-}
-
-// 重置简历数据
-export const resetResumeData = (): Promise<ResumeData> => {
-  return request({
-    url: '/api/resume/user/latest/one',
-    method: 'GET',
-    params: {
-      userId: 'current'
-    }
   })
 }
 
 // 添加新简历
 export const addResume = (data: ResumeData): Promise<ResumeData> => {
   return request({
-    url: '/api/resume/create',
+    url: '/api/resume',
     method: 'POST',
     data
   })
@@ -73,7 +40,7 @@ export const addResume = (data: ResumeData): Promise<ResumeData> => {
 // 删除简历
 export const deleteResume = (id: string): Promise<boolean> => {
   return request({
-    url: '/api/resume/delete',
+    url: '/api/resume',
     method: 'DELETE',
     params: {
       id

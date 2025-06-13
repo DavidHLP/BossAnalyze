@@ -12,9 +12,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import com.david.hlp.web.system.mapper.TokenMapper;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -31,22 +30,17 @@ import org.springframework.beans.factory.annotation.Qualifier;
 @RequiredArgsConstructor // 自动生成包含所有必需依赖项的构造函数
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-  // 用于处理 JWT 的服务类
-  private final JwtService jwtService;
-
   // 用于加载用户详细信息
   @Qualifier("userDetailsServiceImp")
   private final UserDetailsService userDetailsService;
 
-  // 用于检查 JWT 是否在数据库中有效
-  private final TokenMapper tokenMapper;
-
   private final String[] publicPaths = {
-      "/api/auth/demo/login",
-      "/api/auth/demo/register",
-      "/api/auth/demo/logout",
-      "/api/auth/demo/refresh-token",
+      "/api/auth/login",
+      "/api/auth/register",
+      "/api/auth/logout",
+      "/api/auth/refresh-token",
       "/api/repeater/auth/login",
+      "/api/auth/sendRegisterEmail",
   };
 
   /**
@@ -90,6 +84,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     if (!isPublicPath && (authHeader == null || !authHeader.startsWith("Bearer "))) {
       log.warn("拒绝访问：路径 {} 需要授权但未提供有效token", path);
       response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      response.getWriter().write(String.format("拒绝访问：路径 %s 需要授权但未提供有效token", path));
       return;
     }
 
@@ -102,51 +97,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     try {
       // 5. 处理正常的带token请求
       final String jwt = authHeader.substring(7);
-      final String userEmail = jwtService.extractUsername(jwt);
+      Assert.hasText(jwt, "token不能为空");
 
       // 验证用户并设置认证信息
-      if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+      if (SecurityContextHolder.getContext().getAuthentication() == null) {
         // 从 UserDetailsService 加载用户信息
         UserDetails userDetails;
         try {
-          userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+          userDetails = this.userDetailsService.loadUserByUsername(jwt);
         } catch (Exception e) {
-          log.error("加载用户信息失败: {}", userEmail);
+          log.error("加载用户信息失败: {}", e.getMessage());
           response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+          response.getWriter().write(e.getMessage());
           return;
         }
 
-        // 检查 JWT 是否在数据库中有效，且未过期或撤销
-        var isTokenValid = tokenMapper.checkTokenValid(jwt);
-        if (!isTokenValid) {
-          log.warn("token已失效或被撤销: {}", userEmail);
-          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-          return;
-        }
+        // 直接从UserDetails获取权限
+        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+            userDetails,
+            null,
+            userDetails.getAuthorities());
 
-        // 验证 JWT 是否有效
-        if (jwtService.isTokenValid(jwt, userDetails)) {
-          // 直接从UserDetails获取权限
-          UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-              userDetails,
-              null,
-              userDetails.getAuthorities());
+        // 设置认证请求的详细信息
+        authToken.setDetails(
+            new WebAuthenticationDetailsSource().buildDetails(request));
 
-          // 设置认证请求的详细信息
-          authToken.setDetails(
-              new WebAuthenticationDetailsSource().buildDetails(request));
-
-          // 确保在认证成功后设置SecurityContext
-          SecurityContextHolder.getContext().setAuthentication(authToken);
-        } else {
-          log.warn("无效的token: {}", userEmail);
-          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-          return;
-        }
+        // 确保在认证成功后设置SecurityContext
+        SecurityContextHolder.getContext().setAuthentication(authToken);
       }
     } catch (Exception e) {
-      log.error("JWT认证过程发生错误: {}", e.getMessage());
+      log.error("UserDetails获取权限过程发生错误: {}", e.getMessage());
       response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      response.getWriter().write(e.getMessage());
       return;
     }
 

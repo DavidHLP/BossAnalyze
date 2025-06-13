@@ -353,14 +353,21 @@ const savePermissions = async () => {
 
 // 获取并保存权限数据
 const saveRolePermissionsData = async () => {
-  // 获取树选中的节点ID（包括父节点和子节点）
-  const checkedMenuIds = menuTreeRef.value?.getCheckedKeys() || [];
+  if (!defaultCheckedMenus.value || defaultCheckedMenus.value.length === 0) {
+    ElMessage.warning('请至少选择一个权限');
+    return;
+  }
 
-  // 保存路由权限（路由中已包含对应的操作权限）
-  await updateRoleRouters({
-    roleId: currentRole.value.id as number,
-    routerIds: checkedMenuIds
-  });
+  try {
+    // 保存路由权限（路由中已包含对应的操作权限）
+    await updateRoleRouters({
+      roleId: currentRole.value.id as number,
+      routerIds: [...defaultCheckedMenus.value] // 使用展开运算符创建新数组
+    });
+  } catch (error) {
+    console.error('保存权限数据失败:', error);
+    throw error; // 将错误抛出，由上层方法处理
+  }
 };
 
 // 显示权限说明文档

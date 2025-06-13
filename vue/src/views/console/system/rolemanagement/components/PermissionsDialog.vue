@@ -84,7 +84,12 @@ const menuTreeRef = ref();
 const handleCheckedKeysChange = (keys: number[]) => {
   emits('update:checkedMenus', keys);
 };
-const handleCheckChange = () => {};
+
+const handleCheckChange = (data: any, checked: boolean) => {
+  // 当节点选中状态变化时，确保更新 checkedMenus
+  const checkedKeys = menuTreeRef.value?.getCheckedKeys() || [];
+  emits('update:checkedMenus', checkedKeys);
+};
 
 const closeDialog = () => {
   emits('update:visible', false);

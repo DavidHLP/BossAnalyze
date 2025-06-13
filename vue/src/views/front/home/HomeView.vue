@@ -4,26 +4,6 @@
       <h1>首页</h1>
       <p class="subtitle">欢迎使用我们的系统</p>
     </div>
-
-    <div class="card-section">
-      <div class="v-card feature-card">
-        <h3>数据分析</h3>
-        <p>全面的数据分析功能，帮助您做出明智决策</p>
-        <button class="v-btn primary">了解更多</button>
-      </div>
-
-      <div class="v-card feature-card">
-        <h3>实时监控</h3>
-        <p>随时掌握系统运行状态和关键指标</p>
-        <button class="v-btn secondary">查看详情</button>
-      </div>
-
-      <div class="v-card feature-card">
-        <h3>智能报表</h3>
-        <p>自动生成专业报表，提升工作效率</p>
-        <button class="v-btn accent">开始使用</button>
-      </div>
-    </div>
   </div>
 </template>
 

@@ -20,10 +20,11 @@
                 placeholder="请输入姓名"
                 clearable
                 @keyup.enter="handleSearch"
+                style="width: 240px"
               />
             </el-form-item>
             <el-form-item label="工作年限">
-              <el-select v-model="searchForm.experience" placeholder="请选择工作年限" clearable>
+              <el-select v-model="searchForm.experience" placeholder="请选择工作年限" clearable style="width: 240px">
                 <el-option label="应届生" value="应届生" />
                 <el-option label="1-3年" value="1-3年" />
                 <el-option label="3-5年" value="3-5年" />
@@ -37,6 +38,7 @@
                 placeholder="请输入目标职位"
                 clearable
                 @keyup.enter="handleSearch"
+                style="width: 240px"
               />
             </el-form-item>
             <el-form-item>
@@ -178,7 +180,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus, Edit, Delete, RefreshRight, Location } from '@element-plus/icons-vue'
 import type { ResumeData } from '@/api/resume/resume.d'
-import { getResumeList, getResumeData, deleteResume, saveResumeData } from '@/api/resume/resume'
+import { getResumeList, deleteResume, saveResumeData } from '@/api/resume/resume'
 import UserResume from '@/views/console/boss/resume/UserResume/components/UserResume.vue'
 
 // 数据加载与表格相关状态
@@ -283,7 +285,7 @@ const handleSelectionChange = (val: ResumeData[]) => {
 const handleAddResume = async () => {
   // 获取空白简历模板
   try {
-    const emptyResume = await getResumeData()
+    const emptyResume = {} as ResumeData
     // 明确设置ID为空字符串，确保添加模式
     emptyResume.id = ''
     // 重置关键字段

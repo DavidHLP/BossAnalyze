@@ -1,170 +1,129 @@
-# Boss招聘网站数据爬虫
+# BossAnalyze 爬虫系统
 
-## 项目概述
+## 1. 技术架构
 
-这是一个基于Spring Boot的Boss直聘网站数据爬虫项目，用于自动化抓取职位信息、公司信息等数据。项目采用分布式架构设计，支持多线程爬取、断点续爬、反反爬虫策略等功能。
+### 整体架构图
 
-## 功能特点
+```mermaid
+flowchart TB
+    A[前端应用层] --> B[爬虫服务层]
+    B --> C[数据存储层]
 
-- **多线程爬取**：使用线程池实现高效并发爬取
-- **断点续爬**：记录爬取状态，支持异常中断后继续爬取
-- **智能反反爬**：实现随机等待、请求间隔、User-Agent轮换等策略
-- **数据持久化**：支持MySQL数据存储
-- **任务调度**：基于Spring Schedule实现定时任务调度
-- **分布式支持**：集成Redis实现分布式锁，支持多实例部署
-- **AI集成**：集成Ollama AI模型进行数据处理和分析
+    subgraph  A[前端应用层]
+     A1[客户端]
+    end
 
-## 技术栈
+    subgraph  B[爬虫服务层]
+        D1[爬虫模块] --> D2[反爬模块]
+        E1[数据处理] --> E2[AI分析]
+    end
 
-- **核心框架**：Spring Boot 3.x
-- **Web驱动**：Selenium WebDriver
-- **HTML解析**：JSoup
-- **数据库**：MySQL
-- **缓存**：Redis
-- **任务调度**：Spring Schedule
-- **AI集成**：Spring AI + Ollama
-- **构建工具**：Maven
-- **日志**：SLF4J + Logback
-
-## 快速开始
-
-### 环境要求
-
-- JDK 17+
-- MySQL 5.7+
-- Redis 5.0+
-- Chrome/Chromium浏览器
-- Maven 3.6+
-
-### 数据库配置
-
-1. 创建数据库：
-```sql
-CREATE DATABASE IF NOT EXISTS boss_data CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    subgraph C[数据存储层]
+        F1[MySQL]
+        F2[Redis]
+    end
 ```
 
-2. 执行SQL脚本初始化表结构（位于`src/main/resources/sql/`目录下）
+### 技术栈选型
 
-### 配置说明
+#### 后端技术栈
+- **基础框架**: Spring Boot (JDK 17)
+- **ORM框架**: MyBatis-Plus
+- **数据库**: MySQL
+- **缓存**: Redis
+- **爬虫相关**:
+  - Selenium + ChromeDriver
+  - Playwright
+  - Jsoup
+  - HttpClient
+- **消息队列**: Kafka
+- **AI模型调用**: Spring AI (Ollama 接口)
 
-修改`application.yml`中的配置项：
+#### 数据库
+- MySQL: 存储结构化数据
+- Redis: 缓存和分布式锁
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/boss_data?useSSL=false&characterEncoding=UTF-8
-    username: root
-    password: your_password
-  redis:
-    host: 127.0.0.1
-    port: 6379
-    password: your_redis_password
+### 系统模块划分
 
-# WebDriver配置
-webdriver:
-  chrome:
-    driver: /path/to/chromedriver
-    headless: true
-    disable-gpu: true
-    no-sandbox: true
-    disable-dev-shm-usage: true
-```
+1. **爬虫核心模块**
+   - WebCrawlerService: 负责网页抓取和浏览器自动化
+   - HtmlParserService: 解析HTML内容
+   - DataScrapingService: 提取和清洗数据
 
-### 启动应用
+2. **调度模块**
+   - StartScheduled: 定时任务管理
 
-```bash
-mvn spring-boot:run
-```
+3. **数据处理模块**
+   - JsonScrapingService: JSON数据处理
 
-## 项目结构
+4. **AI分析模块**
+   - 使用Spring AI连接Ollama模型进行数据分析
 
-```
-src/main/java/com/david/hlp/crawler/
-├── ai/                    # AI相关功能
-│   ├── controller/        # API接口
-│   ├── entity/           # 实体类
-│   ├── executor/         # 执行器
-│   ├── lock/             # 分布式锁
-│   ├── mapper/           # 数据访问层
-│   ├── service/          # 服务层
-│   └── task/             # 定时任务
-├── boss/                 # Boss直聘爬虫核心
-│   ├── config/           # 配置类
-│   ├── entity/           # 实体类
-│   ├── exception/        # 异常处理
-│   ├── mapper/           # 数据访问层
-│   ├── model/            # 数据模型
-│   └── service/          # 服务层
-├── common/               # 公共模块
-│   ├── config/           # 公共配置
-│   └── threadpool/       # 线程池配置
-└── utils/                # 工具类
-```
+5. **反爬处理模块**
+   - IP封锁检测
+   - 验证码处理
+   - 随机延时
 
-## 定时任务
+## 2. 核心技术实现
 
-项目包含以下定时任务：
+### 关键功能技术方案
 
-1. **URL爬取任务**：每分钟执行一次，负责抓取职位列表页URL
-   ```java
-   @Scheduled(fixedDelay = 1000 * 60)
-   public void startScrapeBossUrl()
-   ```
+#### 智能爬虫实现
+- **多重爬虫技术**: 结合Selenium、Playwright和Jsoup多种爬虫技术，应对不同场景
+- **Cookie管理**: 通过WebDriver获取并应用Cookie，维持会话状态
+- **自动化验证**: 自动检测并处理验证码页面
+- **IP封锁检测**: 实时监测IP是否被封，及时调整策略
 
-2. **HTML解析任务**：每30秒执行一次，解析已抓取的HTML内容
-   ```java
-   @Scheduled(fixedDelay = 1000 * 30)
-   public void startParseBossHtmlData()
-   ```
+#### 数据提取与解析
+- 使用Jsoup进行HTML解析
+- 使用正则表达式和DOM操作提取目标数据
+- 支持复杂网页结构的数据提取
 
-3. **数据抓取任务**：每分钟执行一次，抓取详细的职位数据
-   ```java
-   @Scheduled(fixedDelay = 1000 * 60)
-   public void startScrapeBossData()
-   ```
+#### AI辅助分析
+- 对接Ollama AI模型
+- 自动分析职位描述和要求
+- 提取关键技能和薪资信息
+- 生成结构化数据供后续分析
 
-## 反爬策略
+### 数据处理流程
 
-项目实现了以下反反爬策略：
+1. **数据采集阶段**
+   - 使用WebCrawlerService获取目标页面
+   - 处理各种异常情况（验证码、IP封锁等）
+   - 存储原始HTML数据
 
-1. 随机请求间隔（10-60秒）
-2. 随机User-Agent轮换
-3. 请求头随机化
-4. Cookie管理
-5. 验证码处理
-6. IP代理池（需自行实现）
+2. **数据解析阶段**
+   - 使用HtmlParserService解析HTML结构
+   - 提取目标数据（职位、公司、薪资等）
+   - 初步清洗和格式化数据
 
-## 注意事项
+3. **数据存储阶段**
+   - 将结构化数据存入MySQL
+   - 使用Redis缓存热点数据
 
-1. 请合理设置爬取频率，避免对目标网站造成过大压力
-2. 建议使用代理IP池，防止IP被封禁
-3. 定期清理Redis缓存，避免内存占用过高
-4. 生产环境建议关闭调试日志，提高性能
+4. **数据分析阶段**
+   - 使用AI模型分析职位描述
+   - 提取关键词和技能要求
+   - 生成分析报告
 
-## 常见问题
+### 性能优化策略
 
-### 1. 如何修改爬取的城市和职位？
+1. **并发控制**
+   - 使用线程池管理爬虫任务
+   - 控制爬取频率避免IP封锁
 
-修改`CityData`和`PositionData`表中的数据，设置需要爬取的城市和职位信息。
+2. **资源管理**
+   - WebDriver资源池化管理
+   - 及时释放浏览器资源
 
-### 2. 如何处理验证码？
+3. **缓存策略**
+   - 使用Redis缓存热点数据
+   - 减少重复爬取和解析
 
-项目实现了基本的验证码处理逻辑，但建议：
-- 使用打码平台
-- 降低爬取频率
-- 使用代理IP
+4. **失败重试机制**
+   - 智能检测失败原因
+   - 根据不同情况采用不同重试策略
 
-### 3. 如何扩展新的数据源？
-
-1. 在`model`包中定义新的数据模型
-2. 在`mapper`包中创建对应的Mapper接口
-3. 在`service`包中实现业务逻辑
-4. 在`controller`包中暴露API接口
-
-## 贡献指南
-
-欢迎提交Issue和Pull Request，共同完善项目。
-
-## 许可证
-
-[MIT License](LICENSE)
+5. **定时任务优化**
+   - 错峰调度爬虫任务
+   - 根据目标网站流量动态调整爬取策略

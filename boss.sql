@@ -11,7 +11,7 @@
  Target Server Version : 80036 (8.0.36)
  File Encoding         : 65001
 
- Date: 06/05/2025 19:39:01
+ Date: 06/06/2025 19:47:56
 */
 
 SET NAMES utf8mb4;
@@ -65,7 +65,7 @@ CREATE TABLE `html_data` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `url` (`url`),
   KEY `idx_url` (`url`)
-) ENGINE=InnoDB AUTO_INCREMENT=16765 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='HTML 数据表，用于存储网页原始数据';
+) ENGINE=InnoDB AUTO_INCREMENT=22405 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='HTML 数据表，用于存储网页原始数据';
 
 -- ----------------------------
 -- Table structure for industry_data
@@ -95,7 +95,7 @@ CREATE TABLE `job_list` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_html_url` (`html_url`(255)) COMMENT 'URL唯一索引'
-) ENGINE=InnoDB AUTO_INCREMENT=6469 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='boss直聘2025年新页面工作列表表';
+) ENGINE=InnoDB AUTO_INCREMENT=12109 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='boss直聘2025年新页面工作列表表';
 
 -- ----------------------------
 -- Table structure for position_data
@@ -133,6 +133,6 @@ CREATE TABLE `t_job_detail` (
   KEY `idx_create_time` (`gmt_create`),
   KEY `idx_position_name` (`position_name`),
   KEY `idx_html_url_tb` (`html_url`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=12303 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='职位详情表';
+) ENGINE=InnoDB AUTO_INCREMENT=15173 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='职位详情表';
 
 SET FOREIGN_KEY_CHECKS = 1;

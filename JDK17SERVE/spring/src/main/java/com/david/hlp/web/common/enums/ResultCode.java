@@ -26,20 +26,22 @@ public enum ResultCode {
     USER_EXISTS(1001, "用户已存在"),
     INVALID_CREDENTIALS(1002, "用户名或密码错误"),
     CAPTCHA_ERROR(1003, "验证码错误"),
-    USER_NOT_FOUND(1004, "用户不存在"),
-    PASSWORD_ERROR(1005, "密码错误"),
-    PARAM_ERROR(1006, "参数错误"),
-    DUPLICATE_ERROR(1007, "数据重复"),
-    REQUEST_ERROR(1008, "请求错误"),
-    RESUME_NOT_FOUND(1009, "简历不存在");
+    CAPTCHA_EXPIRED(1004, "验证码过期"),
+    USER_NOT_FOUND(1005, "用户不存在"),
+    PASSWORD_ERROR(1006, "密码错误"),
+    PARAM_ERROR(1007, "参数错误"),
+    DUPLICATE_ERROR(1008, "数据重复"),
+    REQUEST_ERROR(1009, "请求错误"),
+    RESUME_NOT_FOUND(1010, "简历不存在"),
+    LOCK_HAS_USED(1011, "已经被使用");
 
-    private final int code;
+    private final Integer code;
     private final String message;
 
     /**
      * 构造方法
      *
-     * @param code 状态码
+     * @param code    状态码
      * @param message 状态信息
      */
     ResultCode(int code, String message) {
@@ -52,7 +54,7 @@ public enum ResultCode {
      *
      * @return 状态码
      */
-    public int getCode() {
+    public Integer getCode() {
         return code;
     }
 

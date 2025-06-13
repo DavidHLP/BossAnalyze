@@ -65,7 +65,7 @@ import { useTokenStore } from '@/stores/token/tokenStore'
 import { useRouterStore } from '@/stores/router/routerStore'
 
 const email = ref('lysf15520112973@163.com')
-const password = ref('admin')
+const password = ref('#Alone117')
 const rememberMe = ref(false)
 const isLoading = ref(false)
 const userStore = useUserStore()

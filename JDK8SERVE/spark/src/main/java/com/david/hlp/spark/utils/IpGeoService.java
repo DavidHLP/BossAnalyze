@@ -19,7 +19,7 @@ import org.apache.hc.core5.http.ParseException;
  */
 @Service
 public class IpGeoService {
-    private static final String API_KEY = "";
+    private static final String API_KEY = "266a9419b23942ebb641cb20985db574";
     private static final String API_URL = "https://api.ipgeolocation.io/ipgeo";
 
     // IP地址相关的正则表达式

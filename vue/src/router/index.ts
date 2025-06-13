@@ -153,20 +153,26 @@ export const checkTokenValidity = (): boolean => {
 // 完整的路由守卫
 router.beforeEach(async (to, from, next) => {
   // 1. 检查是否为公开路径
-  const publicPaths = ['/login', '/register'];
+  const publicPaths = ['/login', '/register', '/', '/about'];
   const isPublicPath = publicPaths.includes(to.path);
 
   // 2. 获取token
   const token = localStorage.getItem('token');
 
-  // 3. 如果已有token且尝试访问登录页，重定向到首页
-  if (to.path === '/login' && token) {
+  // 3. 如果已有token且尝试访问登录/注册页，重定向到首页
+  if ((to.path === '/login' || to.path === '/register') && token) {
     next('/');
     return;
   }
 
-  // 4. 如果不是公开路径且没有token，重定向到登录页
-  if (!isPublicPath && !token) {
+  // 4. 如果是公开路径，直接放行
+  if (isPublicPath) {
+    next();
+    return;
+  }
+
+  // 5. 如果没有token，重定向到登录页
+  if (!token) {
     next(`/login?redirect=${encodeURIComponent(to.fullPath)}`);
     return;
   }

@@ -39,9 +39,9 @@ public class SecurityConfiguration {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(AUTH_WHITELIST).permitAll()
-                        .requestMatchers("/api/user/**").hasRole("ADMIN")
-                        .requestMatchers("/api/role/**").hasRole("ADMIN")
-                        .requestMatchers("/api/auth/**").hasRole("ADMIN")
+                        // .requestMatchers("/api/user/**").hasRole("ADMIN")
+                        // .requestMatchers("/api/role/**").hasRole("ADMIN")
+                        // .requestMatchers("/api/auth/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)

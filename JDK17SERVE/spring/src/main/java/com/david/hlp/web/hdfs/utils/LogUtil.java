@@ -30,20 +30,20 @@ public class LogUtil {
 
     private final FileSystem fileSystem;
     private final String processId;
-    
+
     // 日志缓存，按文件路径分组
     private final Map<String, List<String>> logCache = new ConcurrentHashMap<>();
     // 缓存锁，避免并发问题
     private final Lock cacheLock = new ReentrantLock();
-    
+
     // 默认缓存阈值，达到此数量时触发写入
     @Value("${hdfs.log.cache.threshold:100}")
     private int cacheThreshold;
-    
+
     // 默认最大缓存时间（毫秒），超过此时间触发写入
     @Value("${hdfs.log.flush.interval:30000}")
     private long flushInterval;
-    
+
     public LogUtil(FileSystem fileSystem) {
         this.fileSystem = fileSystem;
         // 获取进程ID
@@ -62,12 +62,12 @@ public class LogUtil {
     public boolean writeLog(String logContent, String logDir, String logFileName) {
         try {
             String logPath = logDir + "/" + logFileName;
-            
+
             cacheLock.lock();
             try {
                 // 将日志添加到对应路径的缓存中
                 logCache.computeIfAbsent(logPath, k -> new ArrayList<>()).add(logContent);
-                
+
                 // 如果缓存达到阈值，执行批量写入
                 if (logCache.get(logPath).size() >= cacheThreshold) {
                     flushCache(logPath);
@@ -75,14 +75,14 @@ public class LogUtil {
             } finally {
                 cacheLock.unlock();
             }
-            
+
             return true;
         } catch (Exception e) {
             log.error("添加日志到缓存失败", e);
             return false;
         }
     }
-    
+
     /**
      * 执行实际的HDFS写入操作
      * 
@@ -91,20 +91,20 @@ public class LogUtil {
      */
     private boolean flushCache(String logPath) {
         List<String> cachedLogs;
-        
+
         // 获取并清空指定路径的缓存
         cacheLock.lock();
         try {
             if (!logCache.containsKey(logPath) || logCache.get(logPath).isEmpty()) {
                 return true; // 没有需要写入的日志
             }
-            
+
             cachedLogs = new ArrayList<>(logCache.get(logPath));
             logCache.get(logPath).clear();
         } finally {
             cacheLock.unlock();
         }
-        
+
         try {
             // 确保目录存在
             Path filePath = new Path(logPath);
@@ -126,7 +126,7 @@ public class LogUtil {
             for (String log : cachedLogs) {
                 batchContent.append(log);
             }
-            
+
             byte[] contentBytes = batchContent.toString().getBytes(StandardCharsets.UTF_8);
             outputStream.write(contentBytes);
             outputStream.hsync(); // 确保数据落盘
@@ -177,7 +177,7 @@ public class LogUtil {
         return String.format("%s %s %s --- [%s] %s : %s%n",
                 timestamp, level, processId, threadName, className, message);
     }
-    
+
     /**
      * 设置缓存阈值
      * 
@@ -188,7 +188,7 @@ public class LogUtil {
             this.cacheThreshold = threshold;
         }
     }
-    
+
     /**
      * 定时任务，定期刷新缓存中的日志到HDFS
      * 防止日志量较少时长时间不写入
@@ -197,27 +197,27 @@ public class LogUtil {
     public void scheduledFlush() {
         flushAllCaches();
     }
-    
+
     /**
      * 刷新所有缓存中的日志到HDFS
      */
     public void flushAllCaches() {
         log.debug("开始执行定时日志缓存刷新");
         List<String> paths;
-        
+
         cacheLock.lock();
         try {
             paths = new ArrayList<>(logCache.keySet());
         } finally {
             cacheLock.unlock();
         }
-        
+
         // 遍历所有缓存的路径，进行刷新
         for (String path : paths) {
             flushCache(path);
         }
     }
-    
+
     /**
      * 在应用关闭前，确保所有缓存的日志都写入到HDFS
      */

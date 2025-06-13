@@ -1,297 +1,152 @@
-# BossAnalyze 后端服务
+# BossAnalyze - 招聘数据分析系统
 
-## 📖 项目概述
+## 1. 技术架构
 
-BossAnalyze 是一个基于 Spring Boot 的招聘数据分析平台后端服务，提供了职位数据分析、用户认证授权、文件存储等功能。项目采用现代化的技术栈和架构设计，支持高并发、分布式部署。
-
-## 🚀 技术栈
-
-### 核心框架
-- **Spring Boot 3.x** - 应用框架
-- **Spring Security** - 认证和授权
-- **Spring Data JPA** - 数据持久化
-- **MyBatis-Plus** - MyBatis增强工具
-- **Spring Data MongoDB** - NoSQL数据库访问
-
-### 数据库
-- **MySQL** - 关系型数据库
-- **MongoDB** - 文档数据库
-- **Redis** - 缓存和会话管理
-
-### 存储
-- **MinIO** - 对象存储服务
-- **HDFS** - 分布式文件系统
-
-### 消息队列
-- **Kafka** - 消息队列
-
-### 其他
-- **JWT** - 认证令牌
-- **Swagger/OpenAPI** - API文档
-- **Lombok** - 简化代码
-- **WebDriver/Playwright** - 网页自动化
-
-## 🏗️ 系统架构
+### 1.1 整体架构图
 
 ```mermaid
 graph TD
-    A[客户端] -->|HTTP/HTTPS| B[API Gateway]
-    B --> C[认证服务]
-    B --> D[职位分析服务]
-    B --> E[用户管理服务]
-    B --> F[文件存储服务]
-    C --> G[MySQL]
-    D --> H[MongoDB]
-    E --> G
-    F --> I[MinIO]
-    F --> J[HDFS]
-    D --> K[Kafka]
-    L[Redis] <--> C
-    L <--> D
-    L <--> E
+    A[前端应用] --> B[Spring Boot API 网关]
+    B --> C[核心业务服务]
+    C --> D1[数据处理模块]
+    C --> D2[招聘数据分析模块]
+    C --> D3[简历管理模块]
+    D1 --> E1[MySQL 数据库]
+    D1 --> E2[MongoDB 数据库]
+    D1 --> E3[Redis 缓存]
+    D2 --> F1[HDFS 分布式存储]
+    D2 --> F2[Kafka 消息队列]
+    D3 --> G1[MinIO 对象存储]
 ```
 
-## 📂 项目结构
+### 1.2 技术栈选型
 
-```
-src/main/java/com/david/hlp/web/
-├── ai/                    # AI相关功能
-│   ├── controller/        # 控制器
-│   ├── model/             # 数据模型
-│   └── service/           # 服务层
-├── boss/                  # Boss直聘数据相关
-│   ├── controller/        # 控制器
-│   └── model/             # 数据模型
-├── common/                # 通用模块
-│   ├── config/            # 配置类
-│   ├── controller/        # 基础控制器
-│   ├── enums/             # 枚举类
-│   ├── exception/         # 异常处理
-│   ├── result/            # 统一返回结果
-│   └── util/              # 工具类
-├── hdfs/                  # HDFS集成
-│   ├── config/            # 配置类
-│   └── utils/             # 工具类
-├── kafka/                 # Kafka集成
-│   ├── model/             # 数据模型
-│   └── service/           # 服务层
-├── minio/                 # MinIO集成
-│   ├── config/            # 配置类
-│   ├── controller/        # 控制器
-│   ├── model/             # 数据模型
-│   └── service/           # 服务层
-├── resume/                # 简历管理
-│   ├── Repository/        # 数据访问层
-│   ├── config/            # 配置类
-│   ├── controller/        # 控制器
-│   ├── entity/            # 实体类
-│   └── service/          # 服务层
-└── system/                # 系统管理
-    ├── auth/             # 认证授权
-    ├── config/           # 配置类
-    ├── controller/       # 控制器
-    └── entity/          # 实体类
-```
+#### 1.2.1 后端技术栈
 
-## 🔍 功能模块
+- **核心框架**: Spring Boot 3.x (基于 JDK 17)
+- **ORM 层**:
+  - MyBatis-Plus (SQL 映射和增强)
+  - Spring Data JPA (对象关系映射)
+- **数据库**:
+  - MySQL (关系型数据)
+  - MongoDB (非结构化数据)
+  - Redis (缓存和会话管理)
+- **安全框架**: Spring Security + JWT
+- **API 文档**: SpringDoc OpenAPI (Swagger)
+- **大数据处理**:
+  - Apache Hadoop 生态系统 (HDFS, MapReduce)
+  - Apache Kafka (消息队列)
+- **对象存储**: MinIO
+- **Web 抓取与自动化**:
+  - Selenium
+  - Playwright
+  - JSoup
+- **日志管理**: Logback + SLF4J
 
-### 1. 用户认证与授权
-- JWT 认证
-- 基于角色的访问控制 (RBAC)
-- 权限管理
-- 会话管理
+#### 1.2.2 前端技术栈
 
-### 2. 职位分析
-- 薪资热点职位分析
-- 二维分析图表
-- 三维分析图表
-- 职位数据统计
+- 前端框架待定 (可能是 React/Vue/Angular)
+- 数据可视化库 (用于招聘数据分析图表展示)
 
-### 3. 文件管理
-- 文件上传下载
-- 图片处理
-- 大文件分片上传
-- 文件权限控制
+#### 1.2.3 DevOps 工具
 
-### 4. 简历管理
-- 简历解析
-- 简历存储
-- 简历搜索
-- 简历分析
+- Maven (构建工具)
+- Git (版本控制)
+- Docker (容器化)
 
-### 5. 系统管理
-- 用户管理
-- 角色管理
-- 权限管理
-- 系统监控
+### 1.3 系统模块划分
 
-## 📡 API 文档
+- **系统管理模块** (`system`): 用户权限、系统配置等
+- **通用功能模块** (`common`): 工具类、通用响应处理等
+- **Boss 招聘数据分析模块** (`boss`):
+  - 招聘数据分析控制器
+  - 招聘信息数据模型
+- **简历管理模块** (`resume`):
+  - 简历解析
+  - 简历存储与检索
+- **分布式存储模块**:
+  - HDFS 集成 (`hdfs`)
+  - MinIO 对象存储 (`minio`)
+- **消息队列模块**:
+  - Kafka 集成 (`kafka`)
+  - 通用消息队列服务 (`mq`)
+- **AI 辅助模块** (`ai`): 智能分析与推荐
+- **日志管理模块** (`log`): 系统日志记录与查询
 
-项目集成了 Swagger/OpenAPI，启动服务后访问：
+## 2. 核心技术实现
 
-```
-http://localhost:8080/swagger-ui.html
-```
+### 2.1 关键功能技术方案
 
-### 主要API端点
+#### 2.1.1 招聘数据分析系统
 
-#### 认证相关
-- `POST /api/auth/demo/register` - 用户注册
-- `POST /api/auth/demo/login` - 用户登录
-- `GET /api/auth/demo/getRouters` - 获取路由信息
+- **数据采集**: 使用 Selenium/Playwright 进行招聘网站数据爬取
+- **数据存储**: 原始数据存储在 MongoDB，处理后的结构化数据存入 MySQL
+- **数据分析**:
+  - 薪资热门职位分析
+  - 二维和三维图表分析（城市、职位、薪资、学历等多维度）
+  - 招聘趋势分析
 
-#### 职位分析
-- `GET /api/boss/user/salary-hot-job` - 获取薪资热点职位
-- `GET /api/boss/user/two-dimensional-analysis-chart` - 获取二维分析图表数据
-- `GET /api/boss/user/three-dimensional-analysis-chart` - 获取三维分析图表数据
+#### 2.1.2 简历管理系统
 
-#### 文件管理
-- `POST /api/minio/upload` - 文件上传
-- `GET /api/minio/download/{objectName}` - 文件下载
-- `DELETE /api/minio/delete/{objectName}` - 删除文件
+- 支持多格式简历解析（PDF、Word 等）
+- 简历信息结构化存储
+- 简历与职位匹配度分析
 
-## 🚀 快速开始
+#### 2.1.3 分布式存储与处理
 
-### 环境要求
-- JDK 17+
-- Maven 3.6+
-- MySQL 8.0+
-- MongoDB 4.4+
-- Redis 6.0+
-- MinIO (可选)
-- Kafka (可选)
+- 大文件和非结构化数据使用 HDFS/MinIO 存储
+- 使用 MapReduce 进行大规模数据处理
+- Kafka 实现数据采集与处理的解耦和异步处理
 
-### 配置
+### 2.2 数据处理流程
 
-1. 复制 `application.yml` 为 `application-dev.yml`
-2. 根据实际环境修改数据库连接信息
-3. 配置 Redis 连接信息
-4. 配置 MinIO 连接信息 (如使用)
-5. 配置 Kafka 连接信息 (如使用)
-
-### 启动应用
-
-```bash
-# 克隆项目
-git clone <repository-url>
-
-# 进入项目目录
-cd JDK17SERVE/spring
-
-# 编译项目
-mvn clean package
-
-# 运行应用
-java -jar target/spring-web-0.0.1-SNAPSHOT.jar
+```mermaid
+flowchart LR
+    A[数据采集] --> B[原始数据存储]
+    B --> C[数据清洗和转换]
+    C --> D[结构化数据存储]
+    D --> E1[实时分析]
+    D --> E2[批量分析]
+    E1 --> F[数据可视化]
+    E2 --> F
 ```
 
-## 🔧 开发指南
+1. **数据采集层**: 通过 Web 爬虫从招聘网站获取数据
+2. **原始数据存储**: 使用 MongoDB 存储爬取的原始 JSON 数据
+3. **数据处理层**:
+   - 数据清洗（去重、修正）
+   - 数据转换（标准化、结构化）
+4. **结构化存储层**: 处理后的数据存入 MySQL 关系型数据库
+5. **分析层**:
+   - 实时分析：直接查询处理
+   - 批量分析：使用 Hadoop MapReduce 进行大规模数据计算
+6. **展示层**: 通过 API 提供数据，前端进行可视化展示
 
-### 代码规范
-- 遵循阿里巴巴Java开发手册
-- 使用Lombok简化代码
-- 统一使用Swagger注解编写API文档
+### 2.3 性能优化策略
 
-### 分支管理
-- `main` - 主分支，用于生产环境部署
-- `dev` - 开发分支，用于日常开发
-- `feature/*` - 功能开发分支
-- `bugfix/*` - Bug修复分支
+#### 2.3.1 数据库优化
 
-### 提交规范
+- Redis 缓存热点数据，减轻数据库压力
+- MySQL 索引优化
+- MongoDB 查询优化
 
-```
-<type>(<scope>): <subject>
+#### 2.3.2 API 性能优化
 
-<body>
+- 合理使用 Spring Boot Actuator 监控系统性能
+- API 接口缓存策略
+- 分页查询优化
 
-<footer>
-```
+#### 2.3.3 大数据处理优化
 
-**类型(type)**
-- feat: 新功能
-- fix: 修复bug
-- docs: 文档更新
-- style: 代码格式调整
-- refactor: 代码重构
-- test: 测试用例
-- chore: 构建过程或辅助工具的变动
+- Hadoop 分布式计算优化
+- Kafka 消息处理的并行化和批量处理
 
-## 📦 部署
+#### 2.3.4 系统高可用性
 
-### Docker 部署
-
-```bash
-# 构建Docker镜像
-docker build -t boss-analyze-spring .
-
-# 运行容器
-docker run -d -p 8080:8080 --name boss-analyze-spring boss-analyze-spring
-```
-
-### Kubernetes 部署
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: boss-analyze-spring
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: boss-analyze-spring
-  template:
-    metadata:
-      labels:
-        app: boss-analyze-spring
-    spec:
-      containers:
-      - name: boss-analyze-spring
-        image: boss-analyze-spring:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: SPRING_PROFILES_ACTIVE
-          value: "prod"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: boss-analyze-spring
-spec:
-  selector:
-    app: boss-analyze-spring
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8080
-  type: LoadBalancer
-```
-
-## 📊 监控
-
-项目集成了 Spring Boot Actuator，可以通过以下端点进行监控：
-
-- `/actuator/health` - 应用健康状态
-- `/actuator/info` - 应用信息
-- `/actuator/metrics` - 应用指标
-- `/actuator/env` - 环境变量
-
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交您的更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启一个 Pull Request
-
-## 📄 许可证
-
-[MIT](LICENSE) © DavidHLP
+- 服务无状态化，便于水平扩展
+- 合理的限流和熔断策略
+- 分布式日志收集与监控
 
 ---
 
-<div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/DavidHLP">DavidHLP</a></sub>
-</div>
+该项目是一个基于 Spring Boot 的招聘数据分析系统，旨在通过大数据技术对招聘市场进行多维度分析，为求职者和 HR 提供决策支持。

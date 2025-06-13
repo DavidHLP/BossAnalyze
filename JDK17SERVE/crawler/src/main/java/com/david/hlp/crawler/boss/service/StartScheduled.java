@@ -17,18 +17,18 @@ import com.david.hlp.crawler.common.threadpool.ScrapeBossDataThreadPool;
 public class StartScheduled {
     private final DataScrapingService dataScrapingService;
 
-    @Scheduled(fixedDelay = 1000 * 60)
-    public void startScrapeBossUrl() {
-        ScrapeBossUrlThreadPool.executeWithSpringContext(dataScrapingService::scrapeBossUrl);
-    }
+    // @Scheduled(fixedDelay = 1000 * 60)
+    // public void startScrapeBossUrl() {
+    //     ScrapeBossUrlThreadPool.executeWithSpringContext(dataScrapingService::scrapeBossUrl);
+    // }
 
-    @Scheduled(fixedDelay = 1000 * 30)
-    public void startParseBossHtmlData() {
-        ParseBossHtmlDataThreadPool.executeWithSpringContext(dataScrapingService::parseBossHtmlData);
-    }
+    // @Scheduled(fixedDelay = 1000 * 30)
+    // public void startParseBossHtmlData() {
+    //     ParseBossHtmlDataThreadPool.executeWithSpringContext(dataScrapingService::parseBossHtmlData);
+    // }
 
-    @Scheduled(fixedDelay = 1000 * 60)
-    public void startScrapeBossData() {
-        ScrapeBossDataThreadPool.executeWithSpringContext(dataScrapingService::scrapeBossData);
-    }
+    // @Scheduled(fixedDelay = 1000 * 60)
+    // public void startScrapeBossData() {
+    //     ScrapeBossDataThreadPool.executeWithSpringContext(dataScrapingService::scrapeBossData);
+    // }
 }

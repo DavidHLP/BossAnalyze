@@ -1,5 +1,6 @@
 package com.david.hlp.web.common.result;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -25,7 +26,7 @@ import org.springframework.data.domain.Sort;
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
-public class PageInfo<T> {
+public class PageInfo<T> implements Serializable {
     /**
      * 分页数据列表
      */
@@ -80,7 +81,7 @@ public class PageInfo<T> {
      * 将Spring Data的Page对象转换为PageInfo对象
      *
      * @param page Spring Data的Page对象
-     * @param <T> 数据对象泛型
+     * @param <T>  数据对象泛型
      * @return PageInfo对象
      */
     public static <T> PageInfo<T> of(Page<T> page) {
@@ -96,21 +97,21 @@ public class PageInfo<T> {
                 .last(page.isLast())
                 .build();
     }
-    
+
     /**
      * 将Spring Data的Page对象转换为PageInfo对象，并转换内容类型
      *
-     * @param page Spring Data的Page对象
+     * @param page      Spring Data的Page对象
      * @param converter 内容转换函数
-     * @param <T> 源数据类型
-     * @param <R> 目标数据类型
+     * @param <T>       源数据类型
+     * @param <R>       目标数据类型
      * @return PageInfo对象
      */
     public static <T, R> PageInfo<R> of(Page<T> page, Function<T, R> converter) {
         List<R> convertedContent = page.getContent().stream()
                 .map(converter)
                 .collect(Collectors.toList());
-        
+
         return PageInfo.<R>builder()
                 .content(convertedContent)
                 .number(page.getNumber())
@@ -123,7 +124,7 @@ public class PageInfo<T> {
                 .last(page.isLast())
                 .build();
     }
-    
+
     /**
      * 获取分页数据
      * 
@@ -132,7 +133,7 @@ public class PageInfo<T> {
     public List<T> getContent() {
         return content;
     }
-    
+
     /**
      * 当前页码（从0开始计数）
      * 
@@ -141,7 +142,7 @@ public class PageInfo<T> {
     public int getNumber() {
         return number;
     }
-    
+
     /**
      * 获取每页大小
      * 
@@ -150,7 +151,7 @@ public class PageInfo<T> {
     public int getSize() {
         return size;
     }
-    
+
     /**
      * 获取总元素数
      * 
@@ -159,7 +160,7 @@ public class PageInfo<T> {
     public long getTotalElements() {
         return totalElements;
     }
-    
+
     /**
      * 获取总页数
      * 
@@ -168,7 +169,7 @@ public class PageInfo<T> {
     public int getTotalPages() {
         return totalPages;
     }
-    
+
     /**
      * 是否有下一页
      * 
@@ -177,7 +178,7 @@ public class PageInfo<T> {
     public boolean hasNext() {
         return hasNext;
     }
-    
+
     /**
      * 是否有上一页
      * 
@@ -186,7 +187,7 @@ public class PageInfo<T> {
     public boolean hasPrevious() {
         return hasPrevious;
     }
-    
+
     /**
      * 是否为第一页
      * 
@@ -195,7 +196,7 @@ public class PageInfo<T> {
     public boolean isFirst() {
         return first;
     }
-    
+
     /**
      * 是否为最后一页
      * 
@@ -204,7 +205,7 @@ public class PageInfo<T> {
     public boolean isLast() {
         return last;
     }
-    
+
     /**
      * 创建Pageable对象
      *
@@ -213,7 +214,7 @@ public class PageInfo<T> {
     public Pageable toPageable() {
         return PageRequest.of(this.number, this.size);
     }
-    
+
     /**
      * 创建带排序的Pageable对象
      *

@@ -47,7 +47,7 @@ import { Check, RefreshRight, View, Back, Close } from '@element-plus/icons-vue'
 import StencilViewOne from '@/views/console/boss/resume/UserResume/components/resumestencil/StencilViewOne.vue'
 import StencilEditOne from '@/views/console/boss/resume/UserResume/components/resumestencil/StencilEditOne.vue'
 import type { ResumeData } from '@/api/resume/resume.d'
-import { getResumeData, saveResumeData, getResumeDetail, addResume } from '@/api/resume/resume'
+import {  saveResumeData, getResumeDetail, addResume } from '@/api/resume/resume'
 
 // 定义拖拽部分的接口
 interface DraggableSection {
@@ -130,9 +130,6 @@ onMounted(async () => {
 
   const loadResumeData = async () => {
   try {
-    // 使用mock服务获取简历数据
-    const data = await getResumeData();
-
     // 保存原ID(如果有)
     const originalId = resumeData.value?.id;
 

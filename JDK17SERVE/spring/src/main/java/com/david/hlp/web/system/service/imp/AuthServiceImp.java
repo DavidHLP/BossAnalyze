@@ -1,6 +1,7 @@
 package com.david.hlp.web.system.service.imp;
 
 import org.springframework.stereotype.Service;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import lombok.RequiredArgsConstructor;
@@ -15,12 +16,17 @@ import com.david.hlp.web.system.entity.auth.AuthUser;
 import com.david.hlp.web.system.entity.auth.LoginDTO;
 import com.david.hlp.web.system.entity.auth.RegistrationDTO;
 import com.david.hlp.web.system.entity.user.User;
+import com.david.hlp.web.system.mapper.PermissionMapper;
 import com.david.hlp.web.system.mapper.RoleMapper;
 import com.david.hlp.web.system.mapper.TokenMapper;
 import com.david.hlp.web.system.mapper.UserMapper;
 import com.david.hlp.web.system.service.AuthService;
+import com.david.hlp.web.system.service.PermissionService;
 import com.david.hlp.web.system.token.Token;
 import com.david.hlp.web.system.token.TokenType;
+import com.david.hlp.web.common.util.RedisCache;
+import com.david.hlp.web.common.enums.RedisKeyCommon;
+
 /**
  * 认证服务实现类
  *
@@ -29,13 +35,46 @@ import com.david.hlp.web.system.token.TokenType;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , Token> {
+public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO, Token> {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RoleMapper roleMapper;
     private final TokenMapper tokenMapper;
+    private final RedisCache redisCache;
+    private final PermissionMapper permissionMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void registerUser(RegistrationDTO request) {
+        String lockKey = RedisKeyCommon.REGISTER_LOCK_KEY.getKey() + request.getEmail();
+        boolean locked = Boolean.FALSE;
+        try {
+            locked = redisCache.tryLock(lockKey);
+            if (!locked) {
+                log.warn("注册失败: 操作频繁，请稍后再试");
+                throw new BusinessException(ResultCode.LOCK_HAS_USED);
+            }
+
+            String code = redisCache.getCacheObject(RedisKeyCommon.REGISTER_CODE_KEY.getKey() + request.getEmail());
+            if (code == null) {
+                log.warn("注册失败: 邮箱{}验证码已过期", request.getEmail());
+                throw new BusinessException(ResultCode.CAPTCHA_EXPIRED);
+            }
+            if (!code.equals(request.getCode())) {
+                log.warn("注册失败: 邮箱{}验证码错误", request.getEmail());
+                throw new BusinessException(ResultCode.CAPTCHA_ERROR);
+            }
+            AuthServiceImp authServiceImp = (AuthServiceImp) AopContext.currentProxy();
+            authServiceImp.addUser(request);
+            redisCache.deleteObject(RedisKeyCommon.REGISTER_CODE_KEY.getKey() + request.getEmail());
+        } finally {
+            if (locked) {
+                redisCache.unlock(lockKey);
+            }
+        }
+    }
 
     /**
      * 演示用户注册
@@ -77,6 +116,7 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , T
             log.warn("登录失败: 邮箱{}不存在", request.getEmail());
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
+        user.setAuthorities(permissionMapper.listPermissionNamesByRoleId(user.getRoleId()));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             log.warn("登录失败: 用户ID{}密码错误", user.getUserId());
@@ -85,6 +125,7 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO , T
 
         String accessToken = jwtService.generateToken(user);
         Token token = Token.builder()
+                .authUser(user)
                 .userId(user.getUserId())
                 .token(accessToken)
                 .tokenType(TokenType.ACCESS)

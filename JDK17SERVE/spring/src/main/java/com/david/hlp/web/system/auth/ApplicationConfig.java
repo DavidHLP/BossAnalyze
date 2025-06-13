@@ -13,7 +13,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.david.hlp.web.system.mapper.UserMapper;
-import com.david.hlp.web.system.service.UserDetailsServiceImpl;
+import com.david.hlp.web.system.mapper.TokenMapper;
+import com.david.hlp.web.system.service.imp.UserDetailsServiceImpl;
 
 /**
  * 应用程序配置类，提供 Spring Security 核心配置和审计功能。
@@ -23,6 +24,8 @@ import com.david.hlp.web.system.service.UserDetailsServiceImpl;
 public class ApplicationConfig {
 
   private final UserMapper userMapper;
+  private final TokenMapper tokenMapper;
+  private final JwtService jwtService;
 
   /**
    * 配置 UserDetailsService，从数据库加载用户信息。
@@ -31,7 +34,7 @@ public class ApplicationConfig {
    */
   @Bean
   public UserDetailsService userDetailsService() {
-    return new UserDetailsServiceImpl(userMapper);
+    return new UserDetailsServiceImpl(userMapper, tokenMapper, jwtService);
   }
 
   /**
