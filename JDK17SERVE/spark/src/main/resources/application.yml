@@ -1,0 +1,57 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: SpringSpark
+  cloud:
+    consul:
+      host: localhost # Consul 服务器的主机地址
+      port: 8500 # Consul 服务器的端口
+      discovery:
+        prefer-ip-address: true # 优先使用服务 IP 地址进行注册
+        service-name: ${spring.application.name} # 使用 Spring 应用名作为服务名进行注册
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      timeout: 1800000 # 使用毫秒格式，兼容 Redis Lettuce
+      password: your_redis_password
+      lettuce:
+        pool:
+          max-active: 20 # 最大连接数
+          max-wait: -1 # 最大阻塞等待时间(负数表示无限制)
+          max-idle: 5 # 最大空闲连接数
+          min-idle: 0 # 最小空闲连接数
+server:
+  error:
+    whitelabel:
+      enabled: false # 禁用 Spring 默认错误页面
+  port: 8082
+
+jackson:
+  date-format: yyyy-MM-dd HH:mm:ss
+  time-zone: Asia/Shanghai
+  serialization:
+    write-dates-as-timestamps: false
+  deserialization:
+    fail-on-unknown-properties: false
+
+# Spark配置
+spark:
+  app:
+    name: springboot-spark
+  master:
+    uri: local[2]
+  redis:
+    key-prefix: "spark:job:"
+    host: localhost
+    port: 6379
+    password: your_redis_password
+    timeout: 2000
+    pool:
+      max-total: 10
+      max-idle: 5
+      min-idle: 1
+    data:
+      expire-days: 7

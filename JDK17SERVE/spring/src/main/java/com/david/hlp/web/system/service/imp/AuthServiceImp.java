@@ -26,6 +26,7 @@ import com.david.hlp.web.system.token.Token;
 import com.david.hlp.web.system.token.TokenType;
 import com.david.hlp.web.common.util.RedisCache;
 import com.david.hlp.web.common.enums.RedisKeyCommon;
+import com.david.hlp.web.common.enums.RedisLockKeyCommon;
 
 /**
  * 认证服务实现类
@@ -48,7 +49,7 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO, To
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void registerUser(RegistrationDTO request) {
-        String lockKey = RedisKeyCommon.REGISTER_LOCK_KEY.getKey() + request.getEmail();
+        String lockKey = RedisLockKeyCommon.REGISTER_LOCK_KEY.getKey() + request.getEmail();
         boolean locked = Boolean.FALSE;
         try {
             locked = redisCache.tryLock(lockKey);

@@ -31,7 +31,8 @@ public class SecurityConfiguration {
             "/api/resume/**",
             "/api/image/**",
             "/api/ai/**",
-            "/api/v1/system/logs/**"
+            "/api/v1/system/logs/**",
+            "/actuator/health"
     };
 
     @Bean

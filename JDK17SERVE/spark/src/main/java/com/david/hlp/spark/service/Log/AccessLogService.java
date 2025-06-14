@@ -41,7 +41,7 @@ public class AccessLogService {
     @Scheduled(fixedRate = 5 * 60 * 1000) // 每5分钟执行一次
     public void analyzeLogs() {
         log.info("开始执行日志分析任务...");
-        String logsDir = "hdfs://hadoop-single:9000/logs";
+        String logsDir = "hdfs://hadoop-single:9000/logs/";
 
         try {
             // 1. 读取并解析日志数据
@@ -85,7 +85,7 @@ public class AccessLogService {
         return sparkSession.read()
                 .option("mode", "PERMISSIVE")
                 .option("columnNameOfCorruptRecord", "_corrupt_record")
-                .text(logsDir + "/*.log")
+                .text(logsDir)
                 .filter(functions.col("value").contains("ACCESS|ts="))
                 .select(
                         functions.regexp_extract(functions.col("value"), "ACCESS\\|ts=([^|]+)", 1).as("timestamp_str"),

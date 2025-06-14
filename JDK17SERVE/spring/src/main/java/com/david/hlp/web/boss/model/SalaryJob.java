@@ -1,5 +1,7 @@
 package com.david.hlp.web.boss.model;
 
+import java.io.Serializable;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class SalaryJob {
+public class SalaryJob implements Serializable {
     private String positionName;
     private Long jobCount;
     private Long minSalary;

@@ -1,26 +1,21 @@
 spring:
+  profiles:
+    active: local
   application:
     name: spring-crawler
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/boss_data?useSSL=false&characterEncoding=UTF-8
-    username: root
-    password: Alone117
-    type: com.zaxxer.hikari.HikariDataSource
+    username: your_db_username
+    password: your_db_password
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
-      auto-commit: true
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
   data:
     redis:
       host: 127.0.0.1
       port: 6379
-      database: 0
-      timeout: 1800000 # 使用毫秒格式，兼容 Redis Lettuce
-      password: Alone117
+      password: your_redis_password
   ai:
     ollama:
       base-url: http://localhost:11434 # Ollama 服务地址
@@ -30,36 +25,14 @@ spring:
           format: json # 建议模型返回 JSON 格式
 server:
   port: 8081
-logging:
-  level:
-    root: INFO
-    org.mybatis: ERROR
-    com.david.hlp.crawler: INFO
-    org.springframework: INFO
-    org.hibernate: ERROR
-    org.apache: ERROR
-    org.openqa.selenium: ERROR
 
-# MyBatis & MyBatis-Plus 配置
 mybatis-plus:
-  logger:
-    level: ERROR
-  global-config:
-    db-config:
-      id-type: auto
   configuration:
-    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-    default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
     map-underscore-to-camel-case: true
-    cache-enabled: false
   mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: com.david.hlp.crawler.boss.entity
 
-# WebDriver配置
 webdriver:
   chrome:
-    driver: /home/david/Driver/chromedriver-linux64-136/chromedriver
+    driver: /path/to/chromedriver
     headless: true
-    disable-gpu: true
-    no-sandbox: true
-    disable-dev-shm-usage: true

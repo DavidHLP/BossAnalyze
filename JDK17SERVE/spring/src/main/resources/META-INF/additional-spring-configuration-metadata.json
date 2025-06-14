@@ -1,0 +1,231 @@
+{
+    "groups": [
+        {
+            "name": "minio",
+            "type": "com.david.hlp.web.config.MinioProperties",
+            "sourceType": "com.david.hlp.web.config.MinioProperties",
+            "description": "MinIO 对象存储配置"
+        },
+        {
+            "name": "application.security.jwt",
+            "type": "com.david.hlp.web.config.JwtProperties",
+            "sourceType": "com.david.hlp.web.config.JwtProperties",
+            "description": "JWT 认证配置"
+        },
+        {
+            "name": "hadoop",
+            "type": "com.david.hlp.web.config.HadoopProperties",
+            "sourceType": "com.david.hlp.web.config.HadoopProperties",
+            "description": "Hadoop 配置"
+        },
+        {
+            "name": "hadoop.hdfs",
+            "type": "com.david.hlp.web.config.HadoopHdfsProperties",
+            "sourceType": "com.david.hlp.web.config.HadoopHdfsProperties",
+            "description": "Hadoop HDFS 配置"
+        },
+        {
+            "name": "hdfs",
+            "type": "com.david.hlp.web.config.HdfsProperties",
+            "sourceType": "com.david.hlp.web.config.HdfsProperties",
+            "description": "HDFS 文件系统配置"
+        },
+        {
+            "name": "hdfs.log",
+            "type": "com.david.hlp.web.config.HdfsLogProperties",
+            "sourceType": "com.david.hlp.web.config.HdfsLogProperties",
+            "description": "HDFS 日志配置"
+        },
+        {
+            "name": "hdfs.log.cache",
+            "type": "com.david.hlp.web.config.HdfsLogCacheProperties",
+            "sourceType": "com.david.hlp.web.config.HdfsLogCacheProperties",
+            "description": "HDFS 日志缓存配置"
+        },
+        {
+            "name": "hdfs.log.flush",
+            "type": "com.david.hlp.web.config.HdfsLogFlushProperties",
+            "sourceType": "com.david.hlp.web.config.HdfsLogFlushProperties",
+            "description": "HDFS 日志刷新配置"
+        }
+    ],
+    "properties": [
+        {
+            "name": "minio.endpoint",
+            "type": "java.lang.String",
+            "description": "MinIO 服务地址",
+            "defaultValue": "http://127.0.0.1:9000"
+        },
+        {
+            "name": "minio.access-key",
+            "type": "java.lang.String",
+            "description": "MinIO 访问密钥",
+            "defaultValue": "your_minio_access_key"
+        },
+        {
+            "name": "minio.secret-key",
+            "type": "java.lang.String",
+            "description": "MinIO 密钥",
+            "defaultValue": "your_minio_secret_key"
+        },
+        {
+            "name": "minio.bucket-name",
+            "type": "java.lang.String",
+            "description": "默认存储桶名称",
+            "defaultValue": "default-bucket"
+        },
+        {
+            "name": "minio.secure",
+            "type": "java.lang.Boolean",
+            "description": "是否使用 HTTPS",
+            "defaultValue": false
+        },
+        {
+            "name": "minio.connect-timeout",
+            "type": "java.lang.Long",
+            "description": "连接超时时间(毫秒)",
+            "defaultValue": 10000
+        },
+        {
+            "name": "minio.read-timeout",
+            "type": "java.lang.Long",
+            "description": "读取超时时间(毫秒)",
+            "defaultValue": 10000
+        },
+        {
+            "name": "application.security.jwt.secret-key",
+            "type": "java.lang.String",
+            "description": "JWT 签名密钥，建议使用强随机字符串",
+            "defaultValue": "your_jwt_secret_key_here"
+        },
+        {
+            "name": "application.security.jwt.expiration",
+            "type": "java.lang.Long",
+            "description": "JWT 过期时间(毫秒)",
+            "defaultValue": 86400000
+        },
+        {
+            "name": "application.security.jwt.refresh-token.expiration",
+            "type": "java.lang.Long",
+            "description": "刷新令牌过期时间(毫秒)",
+            "defaultValue": 604800000
+        },
+        {
+            "name": "hadoop.home-dir",
+            "type": "java.lang.String",
+            "description": "Hadoop 主目录路径",
+            "defaultValue": "/usr/local/hadoop"
+        },
+        {
+            "name": "hadoop.tmp-dir",
+            "type": "java.lang.String",
+            "description": "Hadoop 临时目录",
+            "defaultValue": "/tmp/hadoop-${user.name}"
+        },
+        {
+            "name": "hdfs.default-fs",
+            "type": "java.lang.String",
+            "description": "HDFS 默认文件系统地址",
+            "defaultValue": "hdfs://localhost:9000"
+        },
+        {
+            "name": "hdfs.replication",
+            "type": "java.lang.Integer",
+            "description": "HDFS 文件副本数",
+            "defaultValue": 3
+        },
+        {
+            "name": "hadoop.security.authentication",
+            "type": "java.lang.String",
+            "description": "Hadoop 安全认证方式",
+            "defaultValue": "simple"
+        },
+        {
+            "name": "hadoop.http.authentication.type",
+            "type": "java.lang.String",
+            "description": "Hadoop HTTP 认证类型",
+            "defaultValue": "simple"
+        },
+        {
+            "name": "hadoop.http.authentication.signature.secret",
+            "type": "java.lang.String",
+            "description": "Hadoop HTTP 认证签名密钥",
+            "defaultValue": ""
+        },
+        {
+            "name": "hadoop.http.authentication.cookie.domain",
+            "type": "java.lang.String",
+            "description": "Hadoop HTTP 认证 Cookie 域名",
+            "defaultValue": ""
+        },
+        {
+            "name": "hadoop.hdfs.uri",
+            "type": "java.lang.String",
+            "description": "HDFS 服务地址",
+            "defaultValue": "hdfs://hadoop-single:9000"
+        },
+        {
+            "name": "hadoop.hdfs.user",
+            "type": "java.lang.String",
+            "description": "HDFS 操作用户",
+            "defaultValue": "root"
+        },
+        {
+            "name": "hdfs.log.cache.threshold",
+            "type": "java.lang.Integer",
+            "description": "HDFS 日志缓存条数阈值，达到后批量写入",
+            "defaultValue": 100
+        },
+        {
+            "name": "hdfs.log.flush.interval",
+            "type": "java.lang.Long",
+            "description": "HDFS 日志强制刷新间隔（毫秒），即使未达到阈值",
+            "defaultValue": 30000
+        }
+    ],
+    "hints": [
+        {
+            "name": "minio.secure",
+            "values": [
+                {
+                    "value": true,
+                    "description": "使用 HTTPS 协议"
+                },
+                {
+                    "value": false,
+                    "description": "使用 HTTP 协议"
+                }
+            ]
+        },
+        {
+            "name": "hadoop.security.authentication",
+            "values": [
+                {
+                    "value": "simple",
+                    "description": "简单认证模式"
+                },
+                {
+                    "value": "kerberos",
+                    "description": "Kerberos 认证模式"
+                }
+            ]
+        },
+        {
+            "name": "hadoop.http.authentication.type",
+            "values": [
+                {
+                    "value": "simple",
+                    "description": "简单 HTTP 认证"
+                },
+                {
+                    "value": "kerberos",
+                    "description": "Kerberos HTTP 认证"
+                },
+                {
+                    "value": "signature",
+                    "description": "签名认证"
+                }
+            ]
+        }
+    ]
+}

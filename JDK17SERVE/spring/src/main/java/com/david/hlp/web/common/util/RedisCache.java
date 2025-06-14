@@ -21,11 +21,11 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
-import cn.hutool.core.lang.TypeReference;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.david.hlp.web.common.interfaceI.CacheLoader;
 
 /**
  * Redis 工具类
@@ -44,7 +44,6 @@ public class RedisCache {
     private static final long DEFAULT_LEASE_TIME = 30;
     private static final long DEFAULT_WAIT_TIME = 10;
     private static final long CACHE_NULL_TTL = 2L; // 缓存空值的过期时间,单位：分钟
-    private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
     private static final DefaultRedisScript<Long> UNLOCK_SCRIPT;
 
     static {
@@ -542,32 +541,11 @@ public class RedisCache {
     }
 
     /**
-     * 缓存加载函数式接口
-     */
-    @FunctionalInterface
-    public interface CacheLoader<T> {
-        T load();
-
-        /**
-         * 创建一个空的 T 类型实例
-         * 子类可以覆盖此方法以提供特定的空实例
-         */
-        default T emptyInstance() {
-            try {
-                // 尝试通过反射创建实例
-                return (T) new Object();
-            } catch (Exception e) {
-                return null;
-            }
-        }
-    }
-
-    /**
      * 使用 Redisson 分布式锁解决缓存击穿问题
      */
-    public <T> T getWithMutex(final String key, final String lockKey,
-            final long waitTime, final long leaseTime,
-            final long cacheTimeout, final TimeUnit timeUnit,
+    public <T> T getWithMutex(final String key, final long cacheTimeout, final TimeUnit cacheTimeUnit,
+            final String lockKey,
+            final long waitTime, final long leaseTime, final TimeUnit lockTimeUnit,
             final CacheLoader<T> loader) {
         // 1. 先查缓存
         T value = getCacheObject(key);
@@ -578,7 +556,7 @@ public class RedisCache {
         // 2. 缓存未命中，使用 Redisson 获取分布式锁
         try {
             // 尝试获取锁
-            if (tryLock(lockKey, waitTime, leaseTime, timeUnit)) {
+            if (tryLock(lockKey, waitTime, leaseTime, lockTimeUnit)) {
                 try {
                     // 3. 获取锁成功,再次检查缓存(双重检查)
                     value = getCacheObject(key);
@@ -593,7 +571,7 @@ public class RedisCache {
                         T emptyValue = loader.emptyInstance();
                         setCacheObject(key, value != null ? value : emptyValue,
                                 value != null ? cacheTimeout : CACHE_NULL_TTL,
-                                timeUnit);
+                                cacheTimeUnit);
                         return value;
                     } catch (Exception e) {
                         log.error("从数据源加载数据时发生异常, key: {}", key, e);
@@ -612,104 +590,5 @@ public class RedisCache {
             log.error("获取缓存失败, key: {}", key, e);
             throw new RuntimeException("获取缓存失败", e);
         }
-    }
-
-    /**
-     * 使用 Redisson 分布式锁解决缓存击穿问题（使用默认等待时间和租约时间）
-     */
-    public <T> T getWithMutex(final String key, final String lockKey,
-            final long cacheTimeout, final TimeUnit timeUnit,
-            final CacheLoader<T> loader) {
-        return getWithMutex(key, lockKey, DEFAULT_WAIT_TIME, DEFAULT_LEASE_TIME,
-                cacheTimeout, timeUnit, loader);
-    }
-
-    /**
-     * 使用逻辑过期时间获取缓存，适用于热点数据缓存重建
-     */
-    public <T> T getWithLogicalExpire(final String key, final String lockKey,
-            final long waitTime, final long leaseTime, final long cacheTimeout,
-            final TimeUnit timeUnit, final CacheLoader<T> loader) {
-        // 1. 查询缓存
-        String json = getCacheObject(key);
-        if (StrUtil.isBlank(json)) {
-            log.debug("缓存不存在, key: {}", key);
-            return null;
-        }
-
-        // 2. 反序列化缓存数据
-        RedisCacheVo<T> cacheVo = null;
-        try {
-            cacheVo = JSONUtil.toBean(json, new TypeReference<RedisCacheVo<T>>() {
-            }, false);
-            if (cacheVo == null || cacheVo.getData() == null) {
-                log.warn("缓存数据为空, key: {}", key);
-                return null;
-            }
-
-            // 3. 检查缓存是否过期
-            if (cacheVo.getCacheExpireTime().isAfter(LocalDateTime.now())) {
-                log.debug("缓存未过期, 直接返回, key: {}", key);
-                return cacheVo.getData();
-            }
-        } catch (Exception e) {
-            log.error("反序列化缓存数据异常, key: {}, json: {}", key, json, e);
-            return null;
-        }
-
-        // 4. 缓存已过期,尝试获取分布式锁进行重建
-        final T expiredData = cacheVo.getData();
-
-        // 5. 尝试获取分布式锁
-        if (!tryLock(lockKey, waitTime, leaseTime, timeUnit)) {
-            log.debug("获取分布式锁失败, 返回过期数据, key: {}, lockKey: {}", key, lockKey);
-            return expiredData; // 获取锁失败，返回旧数据
-        }
-
-        // 6. 获取锁成功,异步重建缓存
-        asyncRebuildCache(key, lockKey, cacheTimeout, timeUnit, loader);
-
-        // 7. 返回过期的数据
-        return expiredData;
-    }
-
-    /**
-     * 使用逻辑过期时间获取缓存（使用默认等待时间和租约时间）
-     */
-    public <T> T getWithLogicalExpire(final String key, final String lockKey,
-            final long cacheTimeout, final TimeUnit timeUnit,
-            final CacheLoader<T> loader) {
-        return getWithLogicalExpire(key, lockKey, DEFAULT_WAIT_TIME, DEFAULT_LEASE_TIME,
-                cacheTimeout, timeUnit, loader);
-    }
-
-    /**
-     * 异步重建缓存
-     */
-    private <T> void asyncRebuildCache(String key, String lockKey,
-            long cacheTimeout, TimeUnit timeUnit,
-            CacheLoader<T> loader) {
-        CACHE_REBUILD_EXECUTOR.submit(() -> {
-            try {
-                log.debug("开始异步重建缓存, key: {}", key);
-                // 1. 加载新数据
-                T newData = loader.load();
-
-                // 2. 更新缓存
-                if (newData != null) {
-                    setWithLogicalExpire(key, newData, cacheTimeout, timeUnit);
-                    log.debug("缓存重建成功, key: {}", key);
-                } else {
-                    log.warn("加载的数据为空,设置空值防止缓存穿透, key: {}", key);
-                    setCacheObject(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
-                }
-            } catch (Exception e) {
-                log.error("缓存重建异常, key: {}", key, e);
-            } finally {
-                // 3. 释放锁
-                unlock(lockKey);
-                log.debug("释放分布式锁, lockKey: {}", lockKey);
-            }
-        });
     }
 }

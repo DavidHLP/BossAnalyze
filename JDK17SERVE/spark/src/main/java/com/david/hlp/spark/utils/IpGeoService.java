@@ -32,7 +32,7 @@ public class IpGeoService {
 
     /**
      * 获取IP地址的地理信息
-     * 
+     *
      * @param ip IP地址
      * @return 包含国家名称和城市的地图，如果查询失败则返回空值
      */

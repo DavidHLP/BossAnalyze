@@ -46,7 +46,7 @@ public class ListBasicSet {
                 .option("fetchsize", "10000")
                 .load();
 
-        if(cityName != null && !cityName.equals("all")) {
+        if (cityName != null && !cityName.equals("all")) {
             query = query.where("city_name = '" + cityName + "'");
         }
 

@@ -1,11 +1,22 @@
 spring:
+  profiles:
+    active: local
   application:
-    name: SpringBootWork
+    name: SpringWb
+  cloud:
+    loadbalancer:
+      enabled: false
+    consul:
+      host: localhost # Consul 服务器的主机地址
+      port: 8500 # Consul 服务器的端口
+      discovery:
+        prefer-ip-address: true # 优先使用服务 IP 地址进行注册
+        service-name: ${spring.application.name} # 使用 Spring 应用名作为服务名进行注册
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/blog_data?useSSL=false&characterEncoding=UTF-8
-    username: root
-    password: Alone117
+    username: your_db_username
+    password: your_db_password
     type: com.zaxxer.hikari.HikariDataSource
     hikari:
       minimum-idle: 5
@@ -20,8 +31,8 @@ spring:
       host: 127.0.0.1
       port: 27017
       database: resumedb
-      username: root
-      password: Alone117
+      username: your_mongodb_username
+      password: your_mongodb_password
       authentication-database: admin
     redis:
       host: 127.0.0.1
@@ -35,6 +46,16 @@ spring:
           max-wait: -1 # 最大阻塞等待时间(负数表示无限制)
           max-idle: 5 # 最大空闲连接数
           min-idle: 0 # 最小空闲连接数
+  mail:
+    host: smtp.163.com # 你邮箱的smtp地址
+    username: your_email@example.com # 申请了smtp的邮箱
+    password: your_smtp_password # SMTP服务的秘钥
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
@@ -51,8 +72,8 @@ spring:
 # MinIO配置
 minio:
   endpoint: http://127.0.0.1:18988
-  accessKey: root
-  secretKey: Alone117
+  accessKey: your_minio_access_key
+  secretKey: your_minio_secret_key
   bucketName: default-bucket
   # 可选配置
   secure: false # 如果使用HTTPS则设为true
@@ -62,7 +83,7 @@ minio:
 application:
   security:
     jwt:
-      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      secret-key: your_jwt_secret_key_here # 请替换为安全的随机字符串
       expiration: 86400000 # JWT 过期时间，1 天（毫秒）
       refresh-token:
         expiration: 604800000 # 刷新令牌过期时间，7 天（毫秒）
@@ -95,7 +116,7 @@ hadoop:
 hdfs:
   log:
     cache:
-      threshold: 100  # 缓存日志条数阈值，达到后批量写入
+      threshold: 100 # 缓存日志条数阈值，达到后批量写入
     flush:
       interval: 30000 # 强制刷新间隔（毫秒），即使未达到阈值
 

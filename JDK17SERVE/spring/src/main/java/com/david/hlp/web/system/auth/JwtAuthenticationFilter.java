@@ -41,6 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       "/api/auth/refresh-token",
       "/api/repeater/auth/login",
       "/api/auth/sendRegisterEmail",
+      "/actuator/health",
   };
 
   /**

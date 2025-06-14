@@ -1,5 +1,6 @@
 package com.david.hlp.web.boss.model;
 
+import java.io.Serializable;
 import java.util.List;
 
 import lombok.AllArgsConstructor;
@@ -7,14 +8,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * 职位分析数据对象
- */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class JobAnalysisData {
+public class JobAnalysisData implements Serializable {
     private String positionId;
     private String positionName;
     private String cityName;

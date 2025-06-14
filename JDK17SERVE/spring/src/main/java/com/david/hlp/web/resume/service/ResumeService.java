@@ -1,6 +1,7 @@
 package com.david.hlp.web.resume.service;
 
 import com.david.hlp.web.common.enums.RedisKeyCommon;
+import com.david.hlp.web.common.enums.RedisLockKeyCommon;
 import com.david.hlp.web.common.result.PageInfo;
 import com.david.hlp.web.common.util.RedisCache;
 import com.mongodb.client.result.DeleteResult;
@@ -74,9 +75,12 @@ public class ResumeService {
 
         return redisCache.getWithMutex(
                 key,
-                lockKey,
                 RedisKeyCommon.RESUME_LIST_KEY.getTimeout(),
                 RedisKeyCommon.RESUME_LIST_KEY.getTimeUnit(),
+                lockKey,
+                RedisLockKeyCommon.RESUME_LIST_LOCK_KEY.getWaitTime(),
+                RedisLockKeyCommon.RESUME_LIST_LOCK_KEY.getLeaseTime(),
+                RedisLockKeyCommon.RESUME_LIST_LOCK_KEY.getTimeUnit(),
                 () -> PageInfo.of(findAllAsJson(pageable, name, experience, jobTarget)));
     }
 
