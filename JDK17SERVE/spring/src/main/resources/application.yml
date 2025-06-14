@@ -5,7 +5,7 @@ spring:
     name: SpringWb
   cloud:
     loadbalancer:
-      enabled: false
+      enabled: true
     consul:
       host: localhost # Consul 服务器的主机地址
       port: 8500 # Consul 服务器的端口

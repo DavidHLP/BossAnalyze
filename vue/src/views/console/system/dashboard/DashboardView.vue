@@ -154,8 +154,8 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, onMounted, ref, reactive, computed, watch } from 'vue';
+<script setup lang="ts">
+import { onMounted, ref, reactive, computed, watch } from 'vue';
 import { getAccessLogStats } from '@/api/log/accesslog';
 import type { AccessLogStats } from '@/api/log/accesslog.d';
 import {
@@ -173,17 +173,6 @@ interface IpTableItem {
   country_name?: string;
   city?: string;
 }
-
-export default defineComponent({
-  name: 'DashboardView',
-  components: {
-    Monitor,
-    User,
-    Platform,
-    Connection,
-    InfoFilled,
-  },
-  setup() {
     // 响应式状态
     const loading = ref(true);
     const statsData = reactive<AccessLogStats>({
@@ -825,33 +814,32 @@ export default defineComponent({
       fetchStatsData();
     });
 
-    return {
-      loading,
-      statsData,
-      dateRange,
-      currentPage,
-      pageSize,
-      ipSearchQuery,
-      handleSizeChange,
-      handleCurrentChange,
-      exportIpData,
-      heatmapRef,
-      browserChartRef,
-      httpMethodChartRef,
-      weekdayChartRef,
-      ipStatsChartRef,
-      ipTableData,
-      filteredIpTableData,
-      sortedAndFilteredIpData,
-      sortTable,
-      sortBy,
-      sortOrder,
-      ipDrawerVisible,
-      selectedIp,
-      showIpDetails,
-      closeIpDrawer
-    };
-  }
+// 导出所有模板中需要的变量和函数
+defineExpose({
+  loading,
+  statsData,
+  dateRange,
+  currentPage,
+  pageSize,
+  ipSearchQuery,
+  handleSizeChange,
+  handleCurrentChange,
+  exportIpData,
+  heatmapRef,
+  browserChartRef,
+  httpMethodChartRef,
+  weekdayChartRef,
+  ipStatsChartRef,
+  ipTableData,
+  filteredIpTableData,
+  sortedAndFilteredIpData,
+  sortTable,
+  sortBy,
+  sortOrder,
+  ipDrawerVisible,
+  selectedIp,
+  showIpDetails,
+  closeIpDrawer
 });
 </script>
 

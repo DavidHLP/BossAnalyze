@@ -1,11 +1,41 @@
 <!DOCTYPE html>
 <html lang="" class="dark">
-  <head>
-    <meta charset="UTF-8">
-    <title>Vite App</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Vite App</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+  <script>
+    // 创建一个MutationObserver实例来监控DOM变化
+    const observer = new MutationObserver((mutations) => {
+      // 检查每次DOM变化时是否有.vue-devtools__panel被添加
+      const devToolsPanel = document.querySelector('.vue-devtools__panel');
+      if (devToolsPanel) {
+        devToolsPanel.remove();
+        console.log('Vue DevTools panel has been removed');
+      }
+    });
+
+    // 在DOM加载完成后开始监控
+    document.addEventListener('DOMContentLoaded', () => {
+      // 立即检查一次
+      const devToolsPanel = document.querySelector('.vue-devtools__panel');
+      if (devToolsPanel) {
+        devToolsPanel.remove();
+        console.log('Vue DevTools panel has been removed');
+      }
+
+      // 开始监控整个文档的DOM变化
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    });
+  </script>
+</body>
+
 </html>
