@@ -1,9 +1,9 @@
 package com.david.hlp.web.resume.controller;
 
-import com.david.hlp.web.common.result.PageInfo;
-import com.david.hlp.web.common.result.Result;
 import com.david.hlp.web.common.enums.ResultCode;
 import com.david.hlp.web.common.controller.BaseController;
+import com.david.hlp.web.common.entity.PageInfo;
+import com.david.hlp.web.common.entity.Result;
 import com.david.hlp.web.resume.service.ResumeService;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;

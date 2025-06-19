@@ -1,11 +1,21 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import { useUserStore } from '@/stores/user/userStore'
-import { useRouterStore } from '@/stores/router/routerStore'
+import { useUserStore } from '@/store/user/userStore'
+import { useRouterStore } from '@/store/router/routerStore'
 import type { Router } from '@/router/index.d'
 import type { Permissions } from '@/api/auth/auth.d'
+import Layout from '@/layout/main.vue'
+import nprogress from 'nprogress'
+import 'nprogress/nprogress.css'
+
 // 添加token过期时间检查
 const TOKEN_EXPIRE_TIME = 24 * 60 * 60 * 1000 // 24小时
 const TOKEN_CHECK_INTERVAL = 5 * 60 * 1000 // 5分钟检查一次
+
+// 配置nprogress
+nprogress.configure({ easing: 'ease', speed: 300 })
+
+// 白名单路径，不显示进度条
+const whiteList = ['/download']
 
 // 基础路由（无需权限）
 const baseRoutes: RouteRecordRaw[] = [
@@ -13,11 +23,22 @@ const baseRoutes: RouteRecordRaw[] = [
     path: '/',
     name: 'home',
     meta: {
-      type: 'M' ,
+      type: 'M',
       title: '首页',
-      requiresAuth: true
+      requiresAuth: true,
     },
     component: () => import('@/views/front/home/HomeView.vue'),
+  },
+  {
+    path: '/editor',
+    component: Layout,
+    children: [
+      {
+        path: '/editor',
+        name: 'editor',
+        component: () => import('@/views/editor/editor.vue'),
+      },
+    ],
   },
   {
     path: '/login',
@@ -25,7 +46,7 @@ const baseRoutes: RouteRecordRaw[] = [
     meta: {
       type: 'M',
       title: '登录',
-      requiresAuth: false
+      requiresAuth: false,
     },
     component: () => import('@/views/front/login/LoginView.vue'),
   },
@@ -35,7 +56,7 @@ const baseRoutes: RouteRecordRaw[] = [
     meta: {
       type: 'M',
       title: '注册',
-      requiresAuth: false
+      requiresAuth: false,
     },
     component: () => import('@/views/front/register/RegisterView.vue'),
   },
@@ -45,10 +66,10 @@ const baseRoutes: RouteRecordRaw[] = [
     meta: {
       type: 'M',
       title: '关于我们',
-      requiresAuth: true
+      requiresAuth: true,
     },
     component: () => import('@/views/front/about/AboutView.vue'),
-  }
+  },
 ]
 
 const Module = import.meta.glob('@/views/**/*.vue')
@@ -69,11 +90,10 @@ export function transformRoutes(backendRoutes: Router[]): RouteRecordRaw[] {
       redirect: route.redirect || undefined,
       meta: {
         ...route.meta,
-        permission: route.permission
+        permission: route.permission,
       },
-      children: route.children && route.children.length > 0
-        ? transformRoutes(route.children)
-        : undefined,
+      children:
+        route.children && route.children.length > 0 ? transformRoutes(route.children) : undefined,
     })
   })
   return data
@@ -152,29 +172,40 @@ export const checkTokenValidity = (): boolean => {
 
 // 完整的路由守卫
 router.beforeEach(async (to, from, next) => {
+  // 启动进度条，除非是白名单路径
+  if (!whiteList.includes(to.path)) {
+    nprogress.start()
+  }
+
+  // 阻止访问社区编辑器页面
+  if (['/community/editor'].includes(to.path)) {
+    next({ ...from })
+    return
+  }
+
   // 1. 检查是否为公开路径
-  const publicPaths = ['/login', '/register', '/', '/about'];
-  const isPublicPath = publicPaths.includes(to.path);
+  const publicPaths = ['/login', '/register', '/', '/about']
+  const isPublicPath = publicPaths.includes(to.path)
 
   // 2. 获取token
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token')
 
   // 3. 如果已有token且尝试访问登录/注册页，重定向到首页
   if ((to.path === '/login' || to.path === '/register') && token) {
-    next('/');
-    return;
+    next('/')
+    return
   }
 
   // 4. 如果是公开路径，直接放行
   if (isPublicPath) {
-    next();
-    return;
+    next()
+    return
   }
 
   // 5. 如果没有token，重定向到登录页
   if (!token) {
-    next(`/login?redirect=${encodeURIComponent(to.fullPath)}`);
-    return;
+    next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
+    return
   }
 
   // 5. 如果需要权限检查，走原有的权限检查逻辑
@@ -221,7 +252,7 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // 6. 其它情况放行
-  next();
+  next()
 })
 
 // 启动定期检查token有效性和权限
@@ -246,7 +277,10 @@ export const startPermissionMonitor = () => {
 }
 
 // 更新路由过滤方法，支持递归处理子路由
-export function filterRoutes(routes: RouteRecordRaw[], permissions: Permissions[]): RouteRecordRaw[] {
+export function filterRoutes(
+  routes: RouteRecordRaw[],
+  permissions: Permissions[],
+): RouteRecordRaw[] {
   return routes.filter((route) => {
     let hasAuth = true
 
@@ -265,12 +299,20 @@ export function filterRoutes(routes: RouteRecordRaw[], permissions: Permissions[
 }
 
 // 更新权限验证方法，支持多种权限验证模式
-export function hasPermission(userPermissions: Permissions[], requiredPermissions: Permissions): boolean {
+export function hasPermission(
+  userPermissions: Permissions[],
+  requiredPermissions: Permissions,
+): boolean {
   if (!requiredPermissions) return true
   if (!userPermissions) return false
 
   // 只要有一个权限符合即可访问
   return userPermissions.includes(requiredPermissions)
 }
+
+// 路由后置守卫，完成进度条
+router.afterEach(() => {
+  nprogress.done()
+})
 
 export default router

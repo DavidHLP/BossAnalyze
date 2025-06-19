@@ -6,38 +6,26 @@ import type { AccessLogStats } from './accesslog.d';
  */
 export async function getAccessLogStats(): Promise<AccessLogStats> {
   try {
-    const response = await request<Promise<AccessLogStats>>({
+    const response = await request<AccessLogStats>({
       url: '/api/v1/system/logs/stats',
       method: 'get'
     });
 
-    // 解构响应数据
-    const responseData = response as unknown as AccessLogStats;
+    // 后端现在直接返回符合接口格式的数据，无需额外转换
+    const statsData = response || {} as AccessLogStats;
 
-    if (responseData ) {
-      // 确保返回的数据符合 AccessLogStats 接口
-      const statsData = responseData || {} as AccessLogStats;
-
-      // 计算派生指标
-      const totalVisits = calculateTotalVisits(statsData.httpMethods);
-      const uniqueIps = Object.keys(statsData.ipStats || {}).length;
-
-      // 设置默认值，确保所有必需属性都有值
-      return {
-        heatmap: statsData.heatmap || { minute_heatmap: {}, hour_heatmap: {} },
-        ipStats: statsData.ipStats || {},
-        httpMethods: statsData.httpMethods || {},
-        weekdayStats: statsData.weekdayStats || {},
-        browserStats: statsData.browserStats || {},
-        // 计算得到的指标
-        totalVisits: totalVisits,
-        uniqueIps: uniqueIps,
-        avgResponseTime: 0, // 后端暂未提供此数据
-        errorRate: 0 // 后端暂未提供此数据
-      };
-    } else {
-      throw new Error('获取访问日志统计失败');
-    }
+    // 设置默认值，确保所有必需属性都有值
+    return {
+      heatmap: statsData.heatmap || { minute_heatmap: {}, hour_heatmap: {} },
+      ipStats: statsData.ipStats || {},
+      httpMethods: statsData.httpMethods || {},
+      weekdayStats: statsData.weekdayStats || {},
+      browserStats: statsData.browserStats || {},
+      totalVisits: statsData.totalVisits || 0,
+      uniqueIps: statsData.uniqueIps || 0,
+      avgResponseTime: statsData.avgResponseTime || 0,
+      errorRate: statsData.errorRate || 0
+    };
   } catch (error) {
     console.error('获取访问日志统计出错:', error);
     // 返回一个带有默认值的空数据对象，避免前端报错
@@ -56,7 +44,7 @@ export async function getAccessLogStats(): Promise<AccessLogStats> {
 }
 
 /**
- * 计算总访问量
+ * 计算总访问量（备用函数，现在后端直接提供）
  */
 function calculateTotalVisits(httpMethods: Record<string, number> = {}): number {
   return Object.values(httpMethods).reduce((sum, count) => sum + count, 0);

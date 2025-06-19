@@ -2,7 +2,7 @@ package com.david.hlp.web.common.interfaceI;
 
 import java.util.List;
 
-import com.david.hlp.web.common.result.PageInfo;
+import com.david.hlp.web.common.entity.PageInfo;
 /**
  * 基础Service接口
  * @param <T> 实体类型

@@ -1,9 +1,8 @@
 package com.david.hlp.web.resume.service;
 
-import com.david.hlp.web.common.enums.RedisKeyCommon;
-import com.david.hlp.web.common.enums.RedisLockKeyCommon;
-import com.david.hlp.web.common.result.PageInfo;
-import com.david.hlp.web.common.util.RedisCache;
+import com.david.hlp.web.common.entity.PageInfo;
+import com.david.hlp.web.common.enums.RedisKeyEnum;
+import com.david.hlp.commons.utils.RedisCacheHelper;
 import com.mongodb.client.result.DeleteResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +38,7 @@ public class ResumeService {
     private static final String JOB_TARGET_FIELD = "jobTarget";
 
     private final MongoTemplate mongoTemplate;
-    private final RedisCache redisCache;
+    private final RedisCacheHelper redisCacheHelper;
 
     /**
      * 分页查询简历列表
@@ -71,16 +70,11 @@ public class ResumeService {
     public PageInfo<Map<String, Object>> searchResumes(Long userId, Pageable pageable, String name,
             String experience, String jobTarget) {
         String key = buildCacheKey(userId, pageable, name, experience, jobTarget);
-        String lockKey = buildCacheKey(userId, pageable, name, experience, jobTarget, "lock");
 
-        return redisCache.getWithMutex(
+        return (PageInfo<Map<String, Object>>) redisCacheHelper.getOrLoadObject(
                 key,
-                RedisKeyCommon.RESUME_LIST_KEY.getTimeout(),
-                RedisKeyCommon.RESUME_LIST_KEY.getTimeUnit(),
-                lockKey,
-                RedisLockKeyCommon.RESUME_LIST_LOCK_KEY.getWaitTime(),
-                RedisLockKeyCommon.RESUME_LIST_LOCK_KEY.getLeaseTime(),
-                RedisLockKeyCommon.RESUME_LIST_LOCK_KEY.getTimeUnit(),
+                PageInfo.class,
+                RedisKeyEnum.RESUME_LIST_KEY.getTimeout(),
                 () -> PageInfo.of(findAllAsJson(pageable, name, experience, jobTarget)));
     }
 
@@ -173,8 +167,12 @@ public class ResumeService {
      * 构建缓存键
      */
     private String buildCacheKey(Long userId, Pageable pageable, String... params) {
-        String prefix = RedisKeyCommon.RESUME_LIST_KEY.getKey() + userId + ":" +
-                pageable.getPageNumber() + ":" + pageable.getPageSize();
+        String prefix = String.format("%s%d:%d:%d",
+                RedisKeyEnum.RESUME_LIST_KEY.getKey(),
+                userId,
+                pageable.getPageNumber(),
+                pageable.getPageSize());
+
         return Arrays.stream(params)
                 .filter(Objects::nonNull)
                 .reduce(prefix, (key, param) -> key + ":" + param);
@@ -184,8 +182,8 @@ public class ResumeService {
      * 清除用户相关缓存
      */
     private void clearUserCache(Long userId) {
-        String pattern = RedisKeyCommon.RESUME_LIST_KEY.getKey() + userId + ":*";
-        redisCache.deleteByPattern(pattern);
+        String pattern = RedisKeyEnum.RESUME_LIST_KEY.getKey() + userId + ":*";
+        redisCacheHelper.deleteByPattern(pattern);
     }
 
     /**

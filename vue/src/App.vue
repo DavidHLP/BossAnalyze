@@ -26,6 +26,11 @@
 // 引入Snackbar组件
 import { useSnackbar } from '@/composables/useSnackbar'
 const { snackbar, hideSnackbar } = useSnackbar()
+import AOS from 'aos'
+import { onMounted } from 'vue'
+import 'aos/dist/aos.css'
+
+onMounted(() => AOS.init({ once: true }))
 </script>
 
 <style lang="scss">

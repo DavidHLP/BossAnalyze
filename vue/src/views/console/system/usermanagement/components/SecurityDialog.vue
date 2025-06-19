@@ -1,26 +1,103 @@
 <template>
-  <el-dialog v-model="dialogVisible" title="安全验证" width="400px" center class="blue-dialog">
-    <div class="delete-warning">
-      <i class="el-icon-warning warning-icon"></i>
-      <p>{{ warningMessage }}</p>
+  <el-dialog
+    v-model="dialogVisible"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+    destroy-on-close
+    center
+    class="security-dialog"
+  >
+    <template #header>
+      <div class="dialog-title">
+        <el-icon class="title-icon"><WarningFilled /></el-icon>
+        <span>安全验证</span>
+      </div>
+    </template>
+
+    <div class="security-content">
+      <!-- 警告区域 -->
+      <div class="warning-section">
+        <div class="warning-icon-wrapper">
+          <el-icon class="warning-icon"><Warning /></el-icon>
+        </div>
+        <h4 class="warning-title">操作风险提醒</h4>
+        <p class="warning-message">{{ warningMessage }}</p>
+      </div>
+
+      <!-- 表单区域 -->
+      <el-form class="security-form" label-position="top">
+        <el-form-item class="security-field">
+          <template #label>
+            <el-icon class="field-icon"><Lock /></el-icon>
+            <span>当前密码</span>
+          </template>
+          <el-input
+            v-model="password"
+            type="password"
+            :placeholder="passwordPlaceholder"
+            show-password
+            class="security-input"
+            :class="{ 'security-input-error': inputError }"
+            @keyup.enter="handleConfirm"
+            @input="clearError"
+            clearable
+            autofocus
+          >
+            <template #prefix>
+              <el-icon><Key /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+      </el-form>
+
+      <!-- 安全提示 -->
+      <div class="security-tips">
+        <div class="tips-title">
+          <el-icon class="tips-icon"><InfoFilled /></el-icon>
+          <span>安全提示</span>
+        </div>
+        <p class="tips-content">
+          为了您的账户安全，请输入当前登录密码以确认此操作。此操作执行后将无法撤销。
+        </p>
+      </div>
     </div>
-    <el-form label-width="100px" class="delete-form">
-      <el-form-item label="当前密码" required>
-        <el-input v-model="password" type="password" :placeholder="passwordPlaceholder" show-password
-          class="rounded-input" />
-      </el-form-item>
-    </el-form>
+
     <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="handleCancel" round>取消</el-button>
-        <el-button type="danger" @click="handleConfirm" :loading="loading" round>{{ confirmButtonText }}</el-button>
+      <div class="security-footer">
+        <el-button
+          @click="handleCancel"
+          class="security-btn cancel-btn"
+          size="large"
+        >
+          <el-icon class="btn-icon"><Close /></el-icon>
+          取消操作
+        </el-button>
+        <el-button
+          @click="handleConfirm"
+          :loading="loading"
+          class="security-btn danger-btn"
+          size="large"
+          :disabled="!password.trim()"
+        >
+          <el-icon class="btn-icon" v-if="!loading"><Check /></el-icon>
+          {{ loading ? '验证中...' : confirmButtonText }}
+        </el-button>
       </div>
     </template>
   </el-dialog>
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+import {
+  WarningFilled,
+  Warning,
+  Lock,
+  Key,
+  InfoFilled,
+  Close,
+  Check
+} from '@element-plus/icons-vue'
 
 const props = defineProps({
   visible: {
@@ -33,102 +110,68 @@ const props = defineProps({
   },
   warningMessage: {
     type: String,
-    default: '删除操作不可恢复，请确认您的操作'
+    default: '此操作将永久删除相关数据，删除后无法恢复，请谨慎操作！'
   },
   passwordPlaceholder: {
     type: String,
-    default: '请输入您的登录密码以确认操作'
+    default: '请输入您的当前登录密码以确认此操作'
   },
   confirmButtonText: {
     type: String,
-    default: '确认删除'
+    default: '确认执行'
   }
 })
 
 const emit = defineEmits(['update:visible', 'confirm', 'cancel'])
 
-const dialogVisible = ref(props.visible)
+const dialogVisible = computed({
+  get: () => props.visible,
+  set: (val) => emit('update:visible', val)
+})
+
 const password = ref('')
+const inputError = ref(false)
 
-watch(() => props.visible, (newVal) => {
-  dialogVisible.value = newVal
-})
+// 清除输入错误状态
+const clearError = () => {
+  inputError.value = false
+}
 
-watch(dialogVisible, (newVal) => {
-  emit('update:visible', newVal)
-})
+// 显示输入错误
+const showError = () => {
+  inputError.value = true
+  setTimeout(() => {
+    inputError.value = false
+  }, 600)
+}
 
+// 处理确认操作
 const handleConfirm = () => {
+  if (!password.value.trim()) {
+    showError()
+    return
+  }
   emit('confirm', password.value)
 }
 
+// 处理取消操作
 const handleCancel = () => {
   password.value = ''
+  inputError.value = false
   emit('cancel')
   dialogVisible.value = false
 }
+
+// 监听对话框关闭，重置状态
+watch(() => props.visible, (newVal) => {
+  if (!newVal) {
+    password.value = ''
+    inputError.value = false
+  }
+})
 </script>
 
 <style lang="scss" scoped>
-.blue-dialog {
-  :deep(.el-dialog__header) {
-    padding: 20px;
-    margin: 0;
-    text-align: center;
-    border-bottom: 1px solid #f0f0f0;
-    font-size: 18px;
-    font-weight: bold;
-    color: #303133;
-  }
-
-  :deep(.el-dialog__body) {
-    padding: 20px;
-  }
-
-  :deep(.el-dialog__footer) {
-    padding: 15px 20px;
-    border-top: 1px solid #f0f0f0;
-  }
-}
-
-.delete-warning {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 15px;
-  background-color: rgba(245, 108, 108, 0.1);
-  border-radius: 4px;
-
-  .warning-icon {
-    font-size: 32px;
-    color: #F56C6C;
-    margin-bottom: 10px;
-  }
-
-  p {
-    color: #606266;
-    text-align: center;
-    line-height: 1.5;
-    margin: 0;
-  }
-}
-
-.delete-form {
-  margin-top: 20px;
-}
-
-.rounded-input {
-  border-radius: 20px;
-
-  :deep(.el-input__wrapper) {
-    border-radius: 20px;
-  }
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
+// 引用集中管理的样式文件
+@use '../usermanagement.scss' as *;
 </style>

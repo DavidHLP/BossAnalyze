@@ -21,7 +21,7 @@ export interface Role {
   userId?: number
   permissions?: Permissions[]
   routers?: Router[]
-  [property: string]
+  [property: string]: any
 }
 
 export interface UserBaseInfo {
@@ -39,5 +39,5 @@ export interface UserBaseInfo {
   userId?: number
   username?: string
   roleName?: string
-  [property: string]
+  [property: string]: any
 }

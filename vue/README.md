@@ -188,7 +188,7 @@ src/
 ├── components/          # 公共组件
 ├── composables/         # 组合式函数
 ├── router/              # 路由配置
-├── stores/              # Pinia 状态管理
+├── store/              # Pinia 状态管理
 │   ├── user/            # 用户状态
 │   ├── router/          # 路由状态
 │   └── ...

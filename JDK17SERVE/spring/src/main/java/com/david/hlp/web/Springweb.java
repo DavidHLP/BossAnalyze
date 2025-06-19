@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableScheduling
 @EnableDiscoveryClient
-@EnableFeignClients(basePackages = "com.david.hlp.web.boss.client")
+@EnableFeignClients
 @EnableAspectJAutoProxy(exposeProxy = true)
 public class Springweb {
 

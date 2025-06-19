@@ -16,6 +16,7 @@
 	<name>JDK17Service</name>
 	<description>JDK17Service</description>
 	<modules>
+		<module>commons</module>
 		<module>spring</module>
 		<module>crawler</module>
 		<module>spark</module>
@@ -63,6 +64,12 @@
 	</properties>
 	<dependencyManagement>
 		<dependencies>
+			<!-- 内部模块版本管理 -->
+			<dependency>
+				<groupId>com.david.hlp</groupId>
+				<artifactId>commons</artifactId>
+				<version>${project.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>org.springframework.cloud</groupId>
 				<artifactId>spring-cloud-starter-openfeign</artifactId>
@@ -79,25 +86,21 @@
 				<artifactId>spark-core_${scala.version}</artifactId>
 				<version>${spark.version}</version>
 			</dependency>
-
 			<dependency>
 				<groupId>org.apache.spark</groupId>
 				<artifactId>spark-sql_${scala.version}</artifactId>
 				<version>${spark.version}</version>
 			</dependency>
-
 			<dependency>
 				<groupId>org.apache.spark</groupId>
 				<artifactId>spark-streaming_${scala.version}</artifactId>
 				<version>${spark.version}</version>
 			</dependency>
-
 			<dependency>
 				<groupId>org.apache.spark</groupId>
 				<artifactId>spark-sql-kafka-0-10_${scala.version}</artifactId>
 				<version>${spark.version}</version>
 			</dependency>
-
 			<dependency>
 				<groupId>cn.hutool</groupId>
 				<artifactId>hutool-all</artifactId>

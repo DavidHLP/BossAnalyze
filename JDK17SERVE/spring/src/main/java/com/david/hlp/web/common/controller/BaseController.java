@@ -3,7 +3,7 @@ package com.david.hlp.web.common.controller;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.david.hlp.web.system.entity.auth.AuthUser;
+import com.david.hlp.web.system.auth.entity.auth.AuthUser;
 
 import lombok.extern.slf4j.Slf4j;
 

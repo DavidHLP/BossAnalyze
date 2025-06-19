@@ -12,6 +12,11 @@
 	<name>spring-web</name>
 	<description>spring-web</description>
 	<dependencies>
+		<!-- 通用工具类模块 -->
+		<dependency>
+			<groupId>com.david.hlp</groupId>
+			<artifactId>commons</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-configuration-processor</artifactId>
@@ -106,10 +111,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-aop</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

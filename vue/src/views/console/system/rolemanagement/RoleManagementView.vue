@@ -1,95 +1,318 @@
 <template>
-  <div class="role-management-container">
-    <div class="custom-card">
-      <div class="card-header">
-        <h2 class="card-title">角色列表</h2>
-        <div class="header-buttons">
-          <el-button class="guide-button" plain @click="showPermissionGuide">
-            <el-icon><Document /></el-icon>
+  <div class="role-management-layout">
+    <!-- 页面头部 -->
+    <section class="page-header">
+      <div class="header-content">
+        <div class="title-section">
+          <h1 class="page-title">
+            <el-icon class="title-icon">
+              <UserFilled />
+            </el-icon>
+            角色权限管理
+          </h1>
+          <p class="page-description">统一管理系统角色权限，确保数据安全与访问控制</p>
+        </div>
+        <div class="header-actions">
+          <el-button class="guide-btn" @click="showPermissionGuide">
+            <el-icon>
+              <QuestionFilled />
+            </el-icon>
             权限说明
           </el-button>
-          <el-button type="primary" class="add-button" @click="handleAddRole">
-            <el-icon><Plus /></el-icon>
-            添加角色
+          <el-button type="primary" class="add-role-btn" @click="handleAddRole">
+            <el-icon>
+              <Plus />
+            </el-icon>
+            新建角色
           </el-button>
         </div>
       </div>
-      <div class="divider"></div>
-      <el-table
-        :data="roleList"
-        v-loading="loading"
-        :row-class-name="tableRowClassName"
-        border
-        stripe
-        highlight-current-row
-        class="custom-table"
-      >
-        <el-table-column prop="id" label="ID" width="70" align="center" />
-        <el-table-column prop="roleName" label="角色名称" width="140" />
-        <el-table-column prop="remark" label="描述" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="80" align="center">
-          <template #default="scope">
-            <span class="status-tag" :class="scope.row.status === 1 ? 'status-active' : 'status-inactive'">
-              {{ scope.row.status === 1 ? '启用' : '禁用' }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="160" align="center" />
-        <el-table-column label="操作" width="230" align="center" fixed="right">
-          <template #default="scope">
-            <div class="action-buttons">
-              <el-button size="small" text circle @click="handleEdit(scope.row)" class="action-button edit" title="编辑角色">
-                <el-icon color="#409efc"><Edit /></el-icon>
-              </el-button>
+    </section>
 
-              <el-button size="small" text circle @click="handlePermissions(scope.row)" class="action-button permission" title="设置权限">
-                <el-icon color="#409efc"><Setting /></el-icon>
-              </el-button>
+    <!-- 统计信息卡片 -->
+    <section class="stats-section">
+      <div class="stats-grid">
+        <div class="stat-card total">
+          <div class="stat-icon">
+            <el-icon>
+              <Collection />
+            </el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ roleList.length }}</div>
+            <div class="stat-label">总角色数</div>
+          </div>
+        </div>
 
-              <el-button
-                size="small"
-                type="danger"
-                text
-                circle
-                @click="handleDelete(scope.row)"
-                :disabled="scope.row.roleName === 'ADMIN' || scope.row.roleName === 'USER'"
-                class="action-button delete"
-                title="删除角色"
-              >
-                <el-icon><Delete /></el-icon>
-              </el-button>
+        <div class="stat-card active">
+          <div class="stat-icon">
+            <el-icon>
+              <Check />
+            </el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ activeRoleCount }}</div>
+            <div class="stat-label">启用角色</div>
+          </div>
+        </div>
+
+        <div class="stat-card system">
+          <div class="stat-icon">
+            <el-icon>
+              <Lock />
+            </el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ systemRoleCount }}</div>
+            <div class="stat-label">系统角色</div>
+          </div>
+        </div>
+
+        <div class="stat-card custom">
+          <div class="stat-icon">
+            <el-icon>
+              <User />
+            </el-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ customRoleCount }}</div>
+            <div class="stat-label">自定义角色</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 主内容区域 -->
+    <section class="main-content">
+      <div class="content-card">
+        <!-- 工具栏 -->
+        <div class="toolbar">
+          <div class="search-section">
+            <el-input v-model="searchQuery" placeholder="搜索角色名称或描述..." class="search-input" clearable
+              @input="handleSearch">
+              <template #prefix>
+                <el-icon>
+                  <Search />
+                </el-icon>
+              </template>
+            </el-input>
+          </div>
+
+          <div class="filter-section">
+            <el-select v-model="statusFilter" placeholder="状态筛选" class="status-filter" clearable @change="handleFilter">
+              <el-option label="全部状态" value="" />
+              <el-option label="启用" :value="1" />
+              <el-option label="禁用" :value="0" />
+            </el-select>
+
+            <el-select v-model="typeFilter" placeholder="类型筛选" class="type-filter" clearable @change="handleFilter">
+              <el-option label="全部类型" value="" />
+              <el-option label="系统角色" value="system" />
+              <el-option label="自定义角色" value="custom" />
+            </el-select>
+          </div>
+
+          <div class="view-controls">
+            <el-radio-group v-model="viewMode" class="view-toggle">
+              <el-radio-button label="table">
+                <el-icon>
+                  <Grid />
+                </el-icon>
+              </el-radio-button>
+              <el-radio-button label="card">
+                <el-icon>
+                  <Menu />
+                </el-icon>
+              </el-radio-button>
+            </el-radio-group>
+          </div>
+        </div>
+
+        <!-- 表格视图 -->
+        <div v-if="viewMode === 'table'" class="table-container">
+          <el-table :data="filteredRoleList" v-loading="loading" :row-class-name="tableRowClassName"
+            class="modern-table" empty-text="暂无角色数据" :default-sort="{ prop: 'createTime', order: 'descending' }"
+            @sort-change="handleSortChange">
+            <!-- 复选框列 -->
+            <el-table-column type="selection" width="50" align="center" />
+
+            <!-- 角色信息 -->
+            <el-table-column label="角色信息" min-width="200">
+              <template #default="{ row }">
+                <div class="role-info-cell">
+                  <div class="role-avatar">
+                    <el-icon v-if="isSystemRole(row.roleName)" class="system-icon">
+                      <Lock />
+                    </el-icon>
+                    <el-icon v-else class="custom-icon">
+                      <User />
+                    </el-icon>
+                  </div>
+                  <div class="role-details">
+                    <div class="role-name-row">
+                      <span class="role-name">{{ row.roleName }}</span>
+                      <el-tag v-if="isSystemRole(row.roleName)" type="danger" size="small" class="role-tag">
+                        系统
+                      </el-tag>
+                    </div>
+                    <div class="role-description">{{ row.remark || '暂无描述' }}</div>
+                    <div class="role-meta">
+                      <span class="role-id">ID: {{ row.id }}</span>
+                      <span class="role-time">{{ formatTime(row.createTime) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+
+            <!-- 权限统计 -->
+            <el-table-column label="权限统计" width="120" align="center">
+              <template #default="{ row }">
+                <div class="permission-stats">
+                  <div class="permission-count">
+                    <span class="count-number">{{ row.routers?.length || 0 }}</span>
+                    <span class="count-label">个权限</span>
+                  </div>
+                  <el-progress :percentage="getPermissionPercentage(row)" :stroke-width="6" :show-text="false"
+                    :color="getProgressColor(row)" />
+                </div>
+              </template>
+            </el-table-column>
+
+            <!-- 状态 -->
+            <el-table-column label="状态" width="100" align="center">
+              <template #default="{ row }">
+                <el-switch v-model="row.status" :active-value="1" :inactive-value="0"
+                  :disabled="isSystemRole(row.roleName)" @change="handleStatusChange(row)" />
+              </template>
+            </el-table-column>
+
+            <!-- 操作 -->
+            <el-table-column label="操作" width="180" align="center" fixed="right">
+              <template #default="{ row }">
+                <div class="action-group">
+                  <el-tooltip content="查看详情" placement="top">
+                    <el-button type="primary" link @click="handleViewDetail(row)" class="action-btn">
+                      <el-icon>
+                        <View />
+                      </el-icon>
+                    </el-button>
+                  </el-tooltip>
+
+                  <el-tooltip content="编辑角色" placement="top">
+                    <el-button type="warning" link @click="handleEdit(row)" class="action-btn">
+                      <el-icon>
+                        <Edit />
+                      </el-icon>
+                    </el-button>
+                  </el-tooltip>
+
+                  <el-tooltip content="权限设置" placement="top">
+                    <el-button type="success" link @click="handlePermissions(row)">
+                      <el-icon>
+                        <Setting />
+                      </el-icon>
+                    </el-button>
+                  </el-tooltip>
+
+                  <el-tooltip :content="isSystemRole(row.roleName) ? '系统角色不能删除' : '删除角色'" placement="top">
+                    <el-button type="danger" link @click="handleDelete(row)" :disabled="isSystemRole(row.roleName)">
+                      <el-icon>
+                        <Delete />
+                      </el-icon>
+                    </el-button>
+                  </el-tooltip>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- 卡片视图 -->
+        <div v-else class="card-view-container">
+          <div class="role-cards-grid">
+            <div v-for="role in filteredRoleList" :key="role.id" class="role-card"
+              :class="{ 'system-role': isSystemRole(role.roleName || '') }">
+              <div class="card-header">
+                <div class="role-avatar-large">
+                  <el-icon v-if="isSystemRole(role.roleName || '')">
+                    <Lock />
+                  </el-icon>
+                  <el-icon v-else>
+                    <User />
+                  </el-icon>
+                </div>
+                <div class="role-status">
+                  <el-switch v-model="role.status" :active-value="1" :inactive-value="0"
+                    :disabled="isSystemRole(role.roleName || '')" @change="handleStatusChange(role)" size="small" />
+                </div>
+              </div>
+
+              <div class="card-content">
+                <div class="role-title">
+                  <h3 class="role-name">{{ role.roleName }}</h3>
+                  <el-tag v-if="isSystemRole(role.roleName || '')" type="danger" size="small">
+                    系统
+                  </el-tag>
+                </div>
+
+                <p class="role-desc">{{ role.remark || '暂无描述' }}</p>
+
+                <div class="role-stats">
+                  <div class="stat-item">
+                    <span class="stat-value">{{ role.routers?.length || 0 }}</span>
+                    <span class="stat-text">权限</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-value">{{ formatTime(role.createTime || '') }}</span>
+                    <span class="stat-text">创建时间</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <el-button-group class="action-group">
+                  <el-button size="small" @click="handleEdit(role)">
+                    <el-icon>
+                      <Edit />
+                    </el-icon>
+                    编辑
+                  </el-button>
+                  <el-button size="small" @click="handlePermissions(role)">
+                    <el-icon>
+                      <Setting />
+                    </el-icon>
+                    权限
+                  </el-button>
+                  <el-button size="small" type="danger" :disabled="isSystemRole(role.roleName || '')"
+                    @click="handleDelete(role)">
+                    <el-icon>
+                      <Delete />
+                    </el-icon>
+                    删除
+                  </el-button>
+                </el-button-group>
+              </div>
             </div>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <RoleDialog
-      v-model:visible="dialogVisible"
-      v-model:roleData="currentRole"
-      :is-edit="isEdit"
-      @cancel="handleDialogCancel"
-      @confirm="handleDialogConfirm"
-    />
+    <!-- 对话框组件 -->
+    <RoleDialog v-model:visible="dialogVisible" v-model:roleData="currentRole" :is-edit="isEdit"
+      @cancel="handleDialogCancel" @confirm="handleDialogConfirm" />
 
-    <PermissionsDialog
-      v-model:visible="permDialogVisible"
-      :current-role="currentRole"
-      :routers-tree="routersTree"
-      :default-checked-menus="defaultCheckedMenus"
-      :loading="loading"
-      @save="savePermissions"
-      @reset="resetPermissions"
-      @close="cleanupPermissionDialog"
-      @update:checked-menus="handleCheckedKeysChange"
-    />
+    <PermissionsDialog v-model:visible="permDialogVisible" :current-role="currentRole" :routers-tree="routersTree"
+      :default-checked-menus="defaultCheckedMenus" :loading="loading" @save="savePermissions" @reset="resetPermissions"
+      @close="cleanupPermissionDialog" @update:checked-menus="handleCheckedKeysChange" />
 
     <Permissionsdocumentation v-model:dialogVisible="guideDialogVisible" />
   </div>
 </template>
 
 <script setup lang="ts" name="RoleManagementComponent">
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, onMounted, watch, nextTick, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getRoleList, addRole, editRole, deleteRole, updateRoleRouters } from '@/api/auth/auth';
 import { getUserRoutes } from '@/api/router/router';
@@ -98,7 +321,22 @@ import type { Role } from '@/api/auth/auth.d';
 import Permissionsdocumentation from '@/views/console/system/rolemanagement/components/PermissionsDocumentation.vue';
 import PermissionsDialog from '@/views/console/system/rolemanagement/components/PermissionsDialog.vue';
 import RoleDialog from '@/views/console/system/rolemanagement/components/RoleDialog.vue';
-import { Document, Plus } from '@element-plus/icons-vue';
+import {
+  UserFilled,
+  QuestionFilled,
+  Plus,
+  Collection,
+  Check,
+  Lock,
+  User,
+  Search,
+  Grid,
+  Menu,
+  View,
+  Edit,
+  Setting,
+  Delete
+} from '@element-plus/icons-vue';
 
 // 状态变量
 const roleList = ref<Role[]>([]);
@@ -123,6 +361,108 @@ const menuTreeRef = ref();
 const guideDialogVisible = ref(false);
 const currentRoleId = ref<number | null>(null);
 
+// 新增状态变量
+const searchQuery = ref('');
+const statusFilter = ref('');
+const typeFilter = ref('');
+const viewMode = ref('table');
+
+// 计算属性
+const activeRoleCount = computed(() =>
+  roleList.value.filter(role => role.status === 1).length
+);
+
+const systemRoleCount = computed(() =>
+  roleList.value.filter(role => isSystemRole(role.roleName || '')).length
+);
+
+const customRoleCount = computed(() =>
+  roleList.value.filter(role => !isSystemRole(role.roleName || '')).length
+);
+
+const filteredRoleList = computed(() => {
+  let filtered = roleList.value;
+
+  // 搜索过滤
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(role =>
+      role.roleName?.toLowerCase().includes(query) ||
+      (role.remark && role.remark.toLowerCase().includes(query))
+    );
+  }
+
+  // 状态过滤
+  if (statusFilter.value !== '') {
+    filtered = filtered.filter(role => role.status === Number(statusFilter.value));
+  }
+
+  // 类型过滤
+  if (typeFilter.value) {
+    if (typeFilter.value === 'system') {
+      filtered = filtered.filter(role => isSystemRole(role.roleName || ''));
+    } else if (typeFilter.value === 'custom') {
+      filtered = filtered.filter(role => !isSystemRole(role.roleName || ''));
+    }
+  }
+
+  return filtered;
+});
+
+// 工具函数
+const isSystemRole = (roleName: string) => {
+  return roleName === 'ADMIN' || roleName === 'USER';
+};
+
+const formatTime = (time: string) => {
+  if (!time) return '--';
+  return new Date(time).toLocaleDateString('zh-CN');
+};
+
+const getPermissionPercentage = (role: Role) => {
+  const maxPermissions = 20; // 假设最大权限数为20
+  const currentPermissions = role.routers?.length || 0;
+  return Math.min((currentPermissions / maxPermissions) * 100, 100);
+};
+
+const getProgressColor = (role: Role) => {
+  const percentage = getPermissionPercentage(role);
+  if (percentage >= 80) return '#67c23a';
+  if (percentage >= 50) return '#e6a23c';
+  return '#f56c6c';
+};
+
+// 事件处理函数
+const handleSearch = () => {
+  // 搜索逻辑在计算属性中处理
+};
+
+const handleFilter = () => {
+  // 过滤逻辑在计算属性中处理
+};
+
+const handleSortChange = (sortInfo: any) => {
+  // 处理排序
+  console.log('排序变化:', sortInfo);
+};
+
+const handleStatusChange = async (role: Role) => {
+  try {
+    await editRole({ ...role });
+    ElMessage.success('状态更新成功');
+    fetchRoleList();
+  } catch (error) {
+    console.error('状态更新失败:', error);
+    ElMessage.error('状态更新失败');
+    // 恢复原状态
+    role.status = role.status === 1 ? 0 : 1;
+  }
+};
+
+const handleViewDetail = (role: Role) => {
+  // 查看详情逻辑
+  console.log('查看详情:', role);
+};
 
 // 获取角色列表
 const fetchRoleList = async () => {
@@ -216,7 +556,7 @@ const handleDelete = (role: Role) => {
       console.error('删除角色失败:', error);
       ElMessage.error('删除角色失败');
     }
-  }).catch(() => {});
+  }).catch(() => { });
 };
 
 // 打开权限设置
@@ -429,98 +769,5 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.role-management-container {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 80vh;
-  background: #f6f8fa;
-  padding: 8px 0 0 0;
-}
-
-.custom-card {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04);
-  padding: 20px 24px 16px 24px;
-  width: 100%;
-  max-width: 98vw;
-  min-width: 0;
-  margin: 0;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.card-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #222;
-  margin: 0;
-  letter-spacing: 1px;
-}
-
-.header-buttons {
-  display: flex;
-  gap: 16px;
-}
-
-.divider {
-  height: 1px;
-  background: #f0f0f0;
-  margin: 12px 0 16px 0;
-}
-
-.custom-table {
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  font-size: 16px;
-}
-
-.el-table th {
-  background: #f7f9fa !important;
-  color: #666;
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.el-table .el-table__row {
-  font-size: 16px;
-}
-
-.el-table .el-table__row:hover {
-  background: #f5f7fa !important;
-}
-
-.status-tag {
-  padding: 2px 12px;
-  border-radius: 8px;
-  font-size: 15px;
-  &.status-active {
-    background: #e6f7e6;
-    color: #52c41a;
-  }
-  &.status-inactive {
-    background: #fff1f0;
-    color: #f5222d;
-  }
-}
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-@media (max-width: 1200px) {
-  .custom-card {
-    max-width: 100vw;
-    padding: 8px 2px;
-  }
-}
+@use './rolemanagement.scss' as *;
 </style>

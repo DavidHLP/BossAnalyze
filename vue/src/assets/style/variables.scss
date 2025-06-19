@@ -1,114 +1,139 @@
-// 全局颜色变量
+// ==============================================
+// 项目核心变量定义 - Material Design风格
+// ==============================================
+
+// 主题色系 - 亮蓝色方案
 :root {
-  // 主题颜色
-  --primary-color: #3B82F6; // 主蓝色
-  --primary-dark: #2563EB; // 深色蓝色
-  --primary-light: #E0F2FE; // 激活背景色
-  
-  // 文本颜色
+  // ==================== 主题颜色 ====================
+  --primary-color: #3b82f6; // 主蓝色
+  --primary-dark: #2563eb; // 深蓝色
+  --primary-light: #e0f2fe; // 浅蓝色背景
+  --primary-lighter: #f0f9ff; // 更浅的蓝色背景
+
+  // ==================== 功能色系 ====================
+  --success-color: #10b981; // 成功色 - 绿色
+  --warning-color: #f59e0b; // 警告色 - 橙色
+  --error-color: #ef4444; // 错误色 - 红色
+  --info-color: #3b82f6; // 信息色 - 蓝色
+
+  // ==================== 中性色系 ====================
   --text-primary: #344767; // 主要文本
-  --text-secondary: #67748E; // 次要文本
-  
-  // 状态颜色
-  --success-color: #10B981; // 成功/正值
-  --danger-color: #EF4444; // 危险/负值
-  --warning-color: #F59E0B; // 警告
-  --info-color: #3B82F6; // 信息
-  
-  // 背景颜色
-  --background-color: #F9FAFB; // 主背景
-  --card-color: #FFFFFF; // 卡片背景
-  
-  // 边框颜色
-  --border-color: #E5E7EB;
-  
-  // 阴影
-  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --box-shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.12);
-  
-  // 间距
+  --text-secondary: #67748e; // 次要文本
+  --text-disabled: #9ca3af; // 禁用文本
+  --text-inverse: #ffffff; // 反色文本
+
+  // ==================== 背景色系 ====================
+  --background-primary: #f9fafb; // 主背景
+  --background-secondary: #f3f4f6; // 次要背景
+  --background-card: #ffffff; // 卡片背景
+  --background-overlay: rgba(0, 0, 0, 0.5); // 遮罩背景
+
+  // ==================== 边框色系 ====================
+  --border-light: #e5e7eb; // 浅色边框
+  --border-medium: #d1d5db; // 中等边框
+  --border-dark: #9ca3af; // 深色边框
+
+  // ==================== 阴影系统 ====================
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.16);
+
+  // ==================== 间距系统 ====================
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 20px;
   --spacing-xl: 24px;
-  
-  // 边框圆角
-  --border-radius-sm: 6px;
-  --border-radius-md: 8px;
-  --border-radius-lg: 12px;
-  
-  // 字体大小
+  --spacing-xxl: 32px;
+  --spacing-xxxl: 48px;
+
+  // ==================== 边框圆角 ====================
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 50%;
+
+  // ==================== 字体系统 ====================
+  --font-family-sans:
+    'Inter', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-serif: 'Noto Serif SC', 'Times New Roman', serif;
+  --font-family-mono: 'Fira Code', 'Monaco', 'Consolas', 'Courier New', monospace;
+
   --font-size-xs: 10px;
   --font-size-sm: 12px;
   --font-size-md: 14px;
   --font-size-lg: 16px;
   --font-size-xl: 18px;
   --font-size-xxl: 24px;
-  
-  // 渐变
-  --gradient-primary: linear-gradient(45deg, #3B82F6, #60A5FA, #93C5FD);
-  --gradient-success: linear-gradient(45deg, #10B981, #34D399);
-  --gradient-info: linear-gradient(45deg, #3B82F6, #60A5FA);
+  --font-size-xxxl: 32px;
 
-  // 布局相关
-  --sidebar-width: 250px;
-  --sidebar-width-collapsed: 64px;
-  --header-height: 70px;
-  --content-padding: 24px;
-  --content-max-width: 1200px;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 
-  // 组件相关
-  --input-height: 40px;
-  --button-height: 40px;
-  --button-font-size: 14px;
-  --input-font-size: 14px;
-  --border-width: 1px;
+  // ==================== 行高系统 ====================
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
 
-  // 动画
-  --transition-duration: 0.3s;
-  --transition-timing: ease;
+  // ==================== 布局系统 ====================
+  --layout-sidebar-width: 250px;
+  --layout-sidebar-collapsed: 64px;
+  --layout-header-height: 70px;
+  --layout-content-padding: 24px;
+  --layout-max-width: 1200px;
 
-  // 菜单相关
-  --menu-text-color: #67748E;
-  --menu-active-text-color: #3B82F6;
-  --menu-active-bg: #E0F2FE;
-  --menu-hover-bg: #F1F5F9;
-  --menu-item-height: 50px;
-  --menu-icon-size: 18px;
+  // ==================== 组件尺寸 ====================
+  --component-height-sm: 32px;
+  --component-height-md: 40px;
+  --component-height-lg: 48px;
 
-  // 表格相关
-  --table-header-bg: #F8FAFE;
-  --table-row-hover-bg: #F0F7FF;
-  --table-border-color: #E5E7EB;
-  --table-cell-padding: 12px;
+  // ==================== 动画系统 ====================
+  --transition-fast: 0.15s;
+  --transition-normal: 0.3s;
+  --transition-slow: 0.5s;
+  --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
 
-  // 卡片相关
-  --card-padding: 24px;
-  --card-header-padding: 16px;
-  --card-border-radius: 12px;
-  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --card-shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.12);
+  // ==================== Z-index 层级 ====================
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
 
-  // 对话框相关
-  --dialog-header-bg: var(--primary-color);
-  --dialog-header-color: #FFFFFF;
-  --dialog-border-radius: 12px;
-  --dialog-padding: 24px;
-
-  // 标签相关
-  --tag-padding: 4px 12px;
-  --tag-border-radius: 16px;
-  --tag-font-size: 12px;
-
-  // 响应式断点
+  // ==================== 响应式断点 ====================
   --breakpoint-sm: 576px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 992px;
   --breakpoint-xl: 1200px;
+  --breakpoint-xxl: 1400px;
 }
 
-// 全局混入
+// ==============================================
+// SCSS 变量映射（兼容性）
+// ==============================================
+$primary-color: var(--primary-color);
+$primary-dark: var(--primary-dark);
+$primary-light: var(--primary-light);
+$success-color: var(--success-color);
+$warning-color: var(--warning-color);
+$error-color: var(--error-color);
+$info-color: var(--info-color);
+$text-primary: var(--text-primary);
+$text-secondary: var(--text-secondary);
+$background-primary: var(--background-primary);
+$background-card: var(--background-card);
+$border-light: var(--border-light);
+
+// ==============================================
+// 工具混入 (Mixins)
+// ==============================================
 @mixin flex-center {
   display: flex;
   align-items: center;
@@ -127,80 +152,152 @@
   justify-content: flex-start;
 }
 
-@mixin flex-end {
+@mixin flex-column {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: column;
 }
 
-@mixin hover-transform {
-  transition: transform var(--transition-duration) var(--transition-timing);
+@mixin hover-lift {
+  transition: transform var(--transition-normal) var(--transition-timing);
   &:hover {
     transform: translateY(-2px);
   }
 }
 
-@mixin card-hover {
-  transition: box-shadow var(--transition-duration) var(--transition-timing);
+@mixin card-shadow {
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition-normal) var(--transition-timing);
+
   &:hover {
-    box-shadow: var(--card-shadow-hover);
+    box-shadow: var(--shadow-lg);
   }
 }
 
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin text-clamp($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@mixin glass-effect {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+// 响应式混入
 @mixin responsive($breakpoint) {
   @if $breakpoint == sm {
-    @media (max-width: var(--breakpoint-sm)) { @content; }
+    @media (max-width: #{var(--breakpoint-sm)}) {
+      @content;
+    }
   }
   @if $breakpoint == md {
-    @media (max-width: var(--breakpoint-md)) { @content; }
+    @media (max-width: #{var(--breakpoint-md)}) {
+      @content;
+    }
   }
   @if $breakpoint == lg {
-    @media (max-width: var(--breakpoint-lg)) { @content; }
+    @media (max-width: #{var(--breakpoint-lg)}) {
+      @content;
+    }
   }
   @if $breakpoint == xl {
-    @media (max-width: var(--breakpoint-xl)) { @content; }
+    @media (max-width: #{var(--breakpoint-xl)}) {
+      @content;
+    }
   }
 }
 
-// 全局样式重置
-* {
+// ==============================================
+// 全局基础样式
+// ==============================================
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: 'Inter', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-family-sans);
   font-size: var(--font-size-md);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
   color: var(--text-primary);
-  background-color: var(--background-color);
-  line-height: 1.5;
+  background-color: var(--background-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+// ==============================================
 // 滚动条样式
+// ==============================================
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-sm);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-  
+  background: var(--border-medium);
+  border-radius: var(--radius-sm);
+
   &:hover {
-    background: #a8a8a8;
+    background: var(--border-dark);
   }
 }
 
+// ==============================================
 // 文本选择样式
+// ==============================================
 ::selection {
   background-color: var(--primary-light);
   color: var(--primary-color);
+}
+
+::-moz-selection {
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+}
+
+// ==============================================
+// 焦点样式
+// ==============================================
+:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+// ==============================================
+// 工具类
+// ==============================================
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

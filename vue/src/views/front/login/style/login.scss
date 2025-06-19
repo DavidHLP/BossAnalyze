@@ -1,3 +1,6 @@
+// 首先导入项目的全局变量
+@use '@/assets/style/variables.scss' as *;
+
 // 登录页样式变量
 $login-box-width: 380px;
 $login-box-radius: 12px;
@@ -9,3 +12,19 @@ $login-subtitle-size: 14px;
 $footer-font-size: 12px;
 $el-button-transition: all 0.3s ease;
 $el-checkbox-color: #3B82F6;
+
+// 登录页特有的变量定义，基于全局变量
+$background-color: $background-primary;
+$card-background: $background-card;
+$box-shadow: var(--shadow-md);
+$logo-icon-color: $primary-color;
+$text-on-primary: var(--text-inverse);
+$secondary-opacity: 0.7;
+$form-radius: var(--radius-md);
+$border-width: 1px;
+$border-color: $border-light;
+$input-font-size: var(--font-size-md);
+$input-height: var(--component-height-md);
+$button-height: var(--component-height-md);
+$button-font-size: var(--font-size-md);
+$primary-dark: var(--primary-dark);

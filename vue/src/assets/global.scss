@@ -1,0 +1,466 @@
+// ==============================================
+// 全局样式 - 统一主题风格
+// ==============================================
+
+// 导入核心变量和主题
+@use './style/variables.scss' as *;
+@use './style/theme.scss' as *;
+
+// ==============================================
+// 应用特定变量（向后兼容）
+// ==============================================
+:root {
+  // 编辑器主题色
+  --theme: var(--primary-color);
+  --bg-theme: var(--text-primary);
+  --font-color: var(--text-primary);
+  --background: var(--background-card);
+  --strong-color: var(--primary-dark);
+  --toolbar-bg: var(--text-primary);
+  --body-background: var(--background-primary);
+  --button: var(--primary-color);
+  --max-width: var(--layout-max-width);
+  --writable-font-color: var(--text-secondary);
+
+  // Element Plus 主色覆盖
+  --el-color-primary: var(--primary-color) !important;
+
+  // 字体系统
+  --font-noto-serif-sc: var(--font-family-serif);
+  --font-noto-sans-sc: var(--font-family-sans);
+}
+
+// ==============================================
+// 通用组件样式
+// ==============================================
+
+// 按钮基础样式
+.btn {
+  border: none;
+  outline: none;
+  padding: var(--spacing-sm);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-sans);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal) var(--transition-timing);
+
+  &:hover {
+    @include hover-lift;
+  }
+}
+
+// 涟漪效果
+a.ripple-effect {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background: rgba(var(--text-primary), 0.2);
+    transform: translate(-50%, -50%);
+    content: '';
+    border-radius: var(--radius-full);
+  }
+
+  @keyframes ripple {
+    from {
+      height: 0;
+      width: 0;
+      opacity: 0.6;
+    }
+    to {
+      height: 500%;
+      width: 300%;
+      opacity: 0;
+    }
+  }
+
+  &:active::after {
+    animation: ripple 1s var(--transition-timing);
+  }
+}
+
+// ==============================================
+// 导航相关样式
+// ==============================================
+.nav {
+  flex: 1;
+  display: flex;
+  margin-left: var(--spacing-xxxl);
+  font-weight: var(--font-weight-medium);
+
+  & > li {
+    list-style: none;
+    margin: 0 var(--spacing-lg);
+    height: var(--layout-header-height);
+    line-height: var(--layout-header-height);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color var(--transition-normal) var(--transition-timing);
+
+    a {
+      color: inherit;
+      text-decoration: none;
+
+      &:hover {
+        color: var(--primary-color);
+      }
+    }
+  }
+}
+
+// 活跃导航项
+.checked {
+  color: var(--primary-color);
+  position: relative;
+  font-weight: var(--font-weight-semibold);
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    height: 4px;
+    width: 60%;
+    left: 0;
+    background-color: var(--primary-color);
+    border-radius: var(--radius-sm);
+  }
+
+  a {
+    color: var(--primary-color) !important;
+  }
+}
+
+// 导航图标
+.iconfont.nav-icon {
+  margin-right: var(--spacing-sm);
+  font-size: var(--font-size-lg);
+}
+
+// ==============================================
+// 布局工具类
+// ==============================================
+.center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.tac {
+  text-align: center;
+}
+
+// Flex 布局工具类
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  @include flex-center;
+}
+
+.flex-between {
+  @include flex-between;
+}
+
+.flex-start {
+  @include flex-start;
+}
+
+.flex-column {
+  @include flex-column;
+}
+
+.flex-space-around {
+  justify-content: space-around;
+}
+
+.flex-space-between {
+  justify-content: space-between;
+}
+
+.flex-align-center {
+  align-items: center;
+}
+
+// ==============================================
+// 头部和LOGO样式
+// ==============================================
+#header {
+  white-space: nowrap;
+  z-index: var(--z-sticky);
+  position: relative;
+}
+
+.absolute {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.logo {
+  cursor: pointer;
+  transition: transform var(--transition-slow) var(--transition-timing);
+
+  &:hover {
+    will-change: transform;
+    transform: scale(0.95);
+  }
+}
+
+// ==============================================
+// 交互效果
+// ==============================================
+.hover {
+  cursor: pointer;
+  transition: opacity var(--transition-normal) var(--transition-timing);
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
+.pointer {
+  cursor: pointer;
+}
+
+// ==============================================
+// 内容卡片
+// ==============================================
+.content-card {
+  color: var(--text-primary);
+  background: var(--background-card);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-family-sans);
+  @include card-shadow;
+}
+
+// ==============================================
+// 间距工具类
+// ==============================================
+.ml-20 {
+  margin-left: var(--spacing-lg);
+}
+.ml-10 {
+  margin-left: var(--spacing-sm);
+}
+.mt-20 {
+  margin-top: var(--spacing-lg);
+}
+.mb-20 {
+  margin-bottom: var(--spacing-lg);
+}
+.mb-10 {
+  margin-bottom: var(--spacing-sm);
+}
+.mr-20 {
+  margin-right: var(--spacing-lg);
+}
+.mr-10 {
+  margin-right: var(--spacing-sm);
+}
+
+// ==============================================
+// 按钮变体
+// ==============================================
+.primary,
+.plain {
+  color: var(--text-inverse);
+  margin-right: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  border: none;
+  transition: all var(--transition-normal) var(--transition-timing);
+
+  &:hover {
+    @include hover-lift;
+    opacity: 0.9;
+  }
+}
+
+.primary {
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+}
+
+.plain {
+  background: var(--background-secondary);
+  color: var(--text-primary);
+}
+
+// 渐变按钮
+.linear-color-btn {
+  outline: none;
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  margin-right: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-normal) var(--transition-timing);
+
+  &:hover {
+    @include hover-lift;
+    opacity: 0.9;
+  }
+}
+
+// ==============================================
+// 列表样式
+// ==============================================
+.none {
+  list-style: none;
+}
+
+.list-style-init {
+  list-style: none;
+
+  li {
+    cursor: pointer;
+    margin-top: var(--spacing-sm);
+    transition: opacity var(--transition-normal) var(--transition-timing);
+
+    &:hover {
+      opacity: 0.7;
+    }
+  }
+}
+
+// ==============================================
+// 文本样式
+// ==============================================
+.clicked {
+  color: var(--primary-color) !important;
+}
+
+.no-wrap {
+  white-space: nowrap;
+}
+
+.no-select {
+  user-select: none;
+}
+
+.bold {
+  font-weight: var(--font-weight-bold);
+}
+
+// 文本截断
+.line-1 {
+  @include text-ellipsis;
+}
+
+.line-2 {
+  @include text-clamp(2);
+}
+
+.line-4 {
+  @include text-clamp(4);
+}
+
+// 字体系列
+.noto-serif-sc {
+  font-family: var(--font-family-serif);
+}
+
+.noto-sans-sc {
+  font-family: var(--font-family-sans);
+}
+
+// ==============================================
+// 标题样式
+// ==============================================
+.slide-title {
+  position: relative;
+  margin-bottom: var(--spacing-lg);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    height: 4px;
+    width: var(--spacing-lg);
+    background: var(--gradient-primary);
+    bottom: -var(--spacing-sm);
+    border-radius: var(--radius-sm);
+  }
+}
+
+// 字体大小工具类
+.font-20 {
+  font-size: var(--font-size-xl);
+}
+.font-25 {
+  font-size: var(--font-size-xxl);
+}
+
+// ==============================================
+// 特殊组件
+// ==============================================
+.covers-container {
+  margin-top: var(--spacing-sm);
+
+  .cover-item {
+    width: 100px;
+    height: 100px;
+    border-radius: var(--radius-lg);
+    @include card-shadow;
+  }
+}
+
+// ==============================================
+// 进度条样式定制
+// ==============================================
+#nprogress {
+  .bar {
+    background: var(--primary-color);
+  }
+
+  .spinner-icon {
+    border-top-color: var(--primary-color);
+    border-left-color: var(--primary-color);
+  }
+}
+
+// ==============================================
+// 动画效果
+// ==============================================
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn var(--transition-normal) var(--transition-timing);
+}
+
+.slide-in {
+  animation: slideIn var(--transition-normal) var(--transition-timing);
+}

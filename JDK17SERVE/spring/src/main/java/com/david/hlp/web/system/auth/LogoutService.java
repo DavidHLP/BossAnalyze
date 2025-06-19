@@ -8,7 +8,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.stereotype.Service;
 
-import com.david.hlp.web.system.mapper.TokenMapper;
+import com.david.hlp.web.system.auth.mapper.TokenMapper;
 
 import java.util.List;
 /**

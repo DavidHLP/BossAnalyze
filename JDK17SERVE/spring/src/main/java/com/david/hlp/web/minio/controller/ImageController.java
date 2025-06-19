@@ -1,8 +1,8 @@
 package com.david.hlp.web.minio.controller;
 
 import com.david.hlp.web.common.enums.ResultCode;
-import com.david.hlp.web.common.result.Result;
 import com.david.hlp.web.common.controller.BaseController;
+import com.david.hlp.web.common.entity.Result;
 import com.david.hlp.web.minio.model.ImageResponse;
 import com.david.hlp.web.minio.service.MinioService;
 import lombok.extern.slf4j.Slf4j;

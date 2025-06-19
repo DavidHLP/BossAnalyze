@@ -57,12 +57,12 @@ import { ref, computed } from 'vue'
 import { ElForm, ElFormItem, ElInput, ElButton, ElMessage, ElCheckbox, ElLink, ElIcon } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { login } from '@/api/auth/auth'
-import { useUserStore } from '@/stores/user/userStore'
+import { useUserStore } from '@/store/user/userStore'
 import { setupAsyncRoutes } from '@/router/index'
 import { useRouter } from 'vue-router'
 import type { Token } from '@/api/auth/auth.d'
-import { useTokenStore } from '@/stores/token/tokenStore'
-import { useRouterStore } from '@/stores/router/routerStore'
+import { useTokenStore } from '@/store/token/tokenStore'
+import { useRouterStore } from '@/store/router/routerStore'
 
 const email = ref('lysf15520112973@163.com')
 const password = ref('#Alone117')
