@@ -79,3 +79,5 @@ playwright-report/
 
 .windsurf/
 artifacts/
+
+*.zip

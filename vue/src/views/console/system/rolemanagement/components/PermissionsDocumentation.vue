@@ -456,5 +456,5 @@ const faqList = ref([
 </script>
 
 <style scoped lang="scss">
-@import '../rolemanagement.scss';
+@use '../rolemanagement.scss' as *;
 </style>
