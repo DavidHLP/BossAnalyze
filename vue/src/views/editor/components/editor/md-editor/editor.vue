@@ -21,12 +21,15 @@ const editorStore = useEditorStore()
     v-model="editorStore.MDContent"
     :style="{
       height: 'calc(100vh - 40px)',
-      borderLeft: isDark ? 'none' : '1px solid #ddd',
-      borderBottomLeftRadius: '10px',
-      borderBottomRightRadius: '10px',
+      borderLeft: isDark ? 'none' : '1px solid var(--border-light)',
+      borderBottomLeftRadius: 'var(--radius-lg)',
+      borderBottomRightRadius: 'var(--radius-lg)',
       minWidth: '550px',
       width: `${left}px`,
-      background: '#fff'
+      background: 'var(--background-card)',
+      fontFamily: 'var(--font-family-mono)',
+      fontSize: 'var(--font-size-md)',
+      lineHeight: 'var(--line-height-relaxed)'
     }"
     :autofocus="true"
     :indent-with-tab="true"

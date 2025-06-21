@@ -1,25 +1,383 @@
+// ==============================================
+// Markdown编辑器样式 - 现代化设计
+// ==============================================
+
+// 导入设计系统
+@use '@/assets/style/variables.scss' as *;
+@use '@/assets/style/darktheme.scss' as *;
+
+// CodeMirror 编辑器样式重写
 .cm-editor {
-  font-size: 14px;
+  background: var(--background-card) !important;
+  color: var(--text-primary) !important;
+  border-bottom-left-radius: var(--radius-lg) !important;
+  border-bottom-right-radius: var(--radius-lg) !important;
+  font-family: var(--font-family-mono) !important;
+  font-size: var(--font-size-md) !important;
+  line-height: var(--line-height-relaxed) !important;
+  border: 1px solid var(--border-light) !important;
+  border-top: none !important;
+  
+  // 聚焦状态
   &.cm-focused {
-    outline: none;
+    outline: none !important;
+    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
   }
 }
 
-.cm-scroller {
-  overflow-y: scroll;
-  overflow-x: hidden;
-  padding-bottom: 30px;
+// 编辑器内容区域
+.cm-content {
+  padding: var(--spacing-xl) !important;
+  min-height: calc(100vh - 100px) !important;
+  caret-color: var(--primary-color) !important;
+}
 
-  .cm-gutters + .cm-content[contenteditable='true'] {
-    margin: 0;
+// 编辑器滚动区域
+.cm-scroller {
+  font-family: var(--font-family-mono) !important;
+  line-height: var(--line-height-relaxed) !important;
+  
+  // 滚动条样式
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--background-secondary);
+    border-radius: var(--radius-sm);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: var(--radius-sm);
+
+    &:hover {
+      background: var(--border-dark);
+    }
+  }
+}
+
+// 行号样式
+.cm-gutters {
+  background: var(--background-secondary) !important;
+  border-right: 1px solid var(--border-light) !important;
+  color: var(--text-disabled) !important;
+  font-family: var(--font-family-mono) !important;
+  border-bottom-left-radius: var(--radius-lg) !important;
+  
+  .cm-gutter {
+    &.cm-lineNumbers {
+      .cm-gutterElement {
+        padding: 0 var(--spacing-sm) !important;
+        font-size: var(--font-size-sm) !important;
+        transition: color var(--transition-normal) var(--transition-timing) !important;
+        
+        &:hover {
+          color: var(--text-secondary) !important;
+        }
+      }
+    }
+  }
+}
+
+// 活跃行高亮
+.cm-activeLine {
+  background: var(--primary-lighter) !important;
+}
+
+.cm-activeLineGutter {
+  background: var(--primary-light) !important;
+  color: var(--primary-color) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+// 选择文本高亮
+.cm-selectionBackground {
+  background: var(--primary-light) !important;
+}
+
+// 光标样式
+.cm-cursor {
+  border-left: 2px solid var(--primary-color) !important;
+  margin-left: -1px !important;
+}
+
+// 搜索匹配高亮
+.cm-searchMatch {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border: 1px solid var(--warning-color) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.cm-searchMatch-selected {
+  background: rgba(245, 158, 11, 0.4) !important;
+}
+
+// Markdown 语法高亮
+.cm-line {
+  // 标题样式
+  .cm-header {
+    font-weight: var(--font-weight-bold) !important;
+    color: var(--primary-color) !important;
+  }
+  
+  .cm-header1 { font-size: 1.5em !important; }
+  .cm-header2 { font-size: 1.3em !important; }
+  .cm-header3 { font-size: 1.2em !important; }
+  .cm-header4 { font-size: 1.1em !important; }
+  .cm-header5 { font-size: 1.05em !important; }
+  .cm-header6 { font-size: 1em !important; }
+  
+  // 强调文本
+  .cm-emphasis {
+    font-style: italic !important;
+    color: var(--text-secondary) !important;
+  }
+  
+  .cm-strong {
+    font-weight: var(--font-weight-bold) !important;
+    color: var(--text-primary) !important;
+  }
+  
+  // 代码
+  .cm-inlineCode {
+    background: var(--primary-lighter) !important;
+    color: var(--primary-color) !important;
+    padding: 2px 4px !important;
+    border-radius: var(--radius-sm) !important;
+    font-family: var(--font-family-mono) !important;
+  }
+  
+  // 链接
+  .cm-link {
+    color: var(--primary-color) !important;
+    text-decoration: underline !important;
+    
+    &:hover {
+      opacity: 0.8 !important;
+    }
+  }
+  
+  // 列表标记
+  .cm-list {
+    color: var(--primary-color) !important;
+    font-weight: var(--font-weight-semibold) !important;
+  }
+  
+  // 引用
+  .cm-quote {
+    color: var(--text-secondary) !important;
+    font-style: italic !important;
+    border-left: 3px solid var(--primary-color) !important;
+    padding-left: var(--spacing-sm) !important;
+    margin-left: var(--spacing-sm) !important;
+  }
+  
+  // 删除线
+  .cm-strikethrough {
+    text-decoration: line-through !important;
+    color: var(--text-disabled) !important;
+  }
+}
+
+// 代码块样式
+.cm-foldGutter {
+  width: 16px !important;
+  
+  .cm-gutterElement {
+    text-align: center !important;
+    color: var(--text-disabled) !important;
+    cursor: pointer !important;
+    
+    &:hover {
+      color: var(--primary-color) !important;
+    }
+  }
+}
+
+// 折叠标记
+.cm-foldPlaceholder {
+  background: var(--background-secondary) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-secondary) !important;
+  padding: 0 var(--spacing-sm) !important;
+}
+
+// 工具提示
+.cm-tooltip {
+  background: var(--background-card) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-primary) !important;
+  padding: var(--spacing-sm) !important;
+  @include card-shadow;
+
+  .cm-tooltip-arrow {
+    &:before {
+      border-top-color: var(--border-light) !important;
+    }
+    
+    &:after {
+      border-top-color: var(--background-card) !important;
+    }
+  }
+}
+
+// 自动完成下拉菜单
+.cm-completionIcon {
+  opacity: 0.7 !important;
+}
+
+.cm-completionLabel {
+  color: var(--text-primary) !important;
+}
+
+.cm-completionDetail {
+  color: var(--text-secondary) !important;
+  font-style: italic !important;
+}
+
+// 面板样式（搜索、替换等）
+.cm-panels {
+  background: var(--background-secondary) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: var(--radius-md) !important;
+  
+  .cm-panel {
+    padding: var(--spacing-md) !important;
+    
+    input {
+      background: var(--background-card) !important;
+      border: 1px solid var(--border-light) !important;
+      border-radius: var(--radius-sm) !important;
+      color: var(--text-primary) !important;
+      padding: var(--spacing-xs) var(--spacing-sm) !important;
+      
+      &:focus {
+        outline: none !important;
+        border-color: var(--primary-color) !important;
+      }
+    }
+    
+    button {
+      background: var(--primary-color) !important;
+      border: none !important;
+      border-radius: var(--radius-sm) !important;
+      color: var(--text-inverse) !important;
+      padding: var(--spacing-xs) var(--spacing-sm) !important;
+      cursor: pointer !important;
+      
+      &:hover {
+        background: var(--primary-dark) !important;
+      }
+    }
+  }
+}
+
+// ==============================================
+// 暗色主题适配
+// ==============================================
+[data-theme='dark'] {
+  .cm-editor {
+    background: var(--background-card) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  .cm-gutters {
+    background: var(--background-secondary) !important;
+    border-right-color: var(--border-light) !important;
+    color: var(--text-disabled) !important;
+  }
+
+  .cm-activeLine {
+    background: rgba(96, 165, 250, 0.05) !important;
+  }
+
+  .cm-activeLineGutter {
+    background: rgba(96, 165, 250, 0.1) !important;
+    color: var(--primary-color) !important;
+  }
+
+  .cm-selectionBackground {
+    background: rgba(96, 165, 250, 0.2) !important;
   }
 
   .cm-line {
-    line-height: inherit;
+    .cm-header {
+      color: var(--primary-color) !important;
+    }
+    
+    .cm-inlineCode {
+      background: rgba(96, 165, 250, 0.1) !important;
+      color: var(--primary-color) !important;
+    }
+    
+    .cm-quote {
+      color: var(--text-secondary) !important;
+      border-left-color: var(--primary-color) !important;
   }
 }
 
-.ͼ1 .cm-scroller {
-  font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
-  line-height: 20px;
+  .cm-tooltip {
+    background: var(--background-card) !important;
+    border-color: var(--border-light) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .cm-panels {
+    background: var(--background-secondary) !important;
+    border-color: var(--border-light) !important;
+    
+    .cm-panel {
+      input {
+        background: var(--background-card) !important;
+        border-color: var(--border-light) !important;
+        color: var(--text-primary) !important;
+      }
+    }
+  }
+}
+
+// ==============================================
+// 响应式设计
+// ==============================================
+@include responsive(md) {
+  .cm-content {
+    padding: var(--spacing-lg) !important;
+  }
+  
+  .cm-gutters {
+    .cm-gutter.cm-lineNumbers .cm-gutterElement {
+      padding: 0 var(--spacing-xs) !important;
+      font-size: var(--font-size-xs) !important;
+    }
+  }
+}
+
+@include responsive(sm) {
+  .cm-content {
+    padding: var(--spacing-md) !important;
+  }
+  
+  .cm-editor {
+    font-size: var(--font-size-sm) !important;
+  }
+}
+
+// ==============================================
+// 动画效果
+// ==============================================
+.cm-editor {
+  transition: all var(--transition-normal) var(--transition-timing);
+}
+
+.cm-line {
+  transition: background-color var(--transition-fast) var(--transition-timing);
+}
+
+.cm-gutterElement {
+  transition: all var(--transition-fast) var(--transition-timing);
 }

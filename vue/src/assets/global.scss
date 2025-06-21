@@ -5,6 +5,7 @@
 // 导入核心变量和主题
 @use './style/variables.scss' as *;
 @use './style/theme.scss' as *;
+@use './style/darktheme.scss' as *;
 
 // ==============================================
 // 应用特定变量（向后兼容）

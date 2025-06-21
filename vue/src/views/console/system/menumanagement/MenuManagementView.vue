@@ -1,60 +1,104 @@
 <template>
-  <div class="menu-management-container">
-    <!-- 顶部操作区 -->
-    <div class="action-bar">
-      <div class="action-left">
-        <el-button type="primary" @click="handleAdd" class="action-button">
-          <el-icon>
-            <Plus />
-          </el-icon>
-          <span>添加菜单</span>
-        </el-button>
-        <el-button type="success" @click="expandAll" class="action-button">
-          <el-icon>
-            <Expand />
-          </el-icon>
-          <span>展开全部</span>
-        </el-button>
-        <el-button type="info" @click="collapseAll" class="action-button">
-          <el-icon>
-            <Fold />
-          </el-icon>
-          <span>折叠全部</span>
-        </el-button>
+  <div class="menu-management-wrapper">
+    <!-- 现代化顶部操作栏 -->
+    <div class="modern-action-bar">
+      <!-- 主要操作区域 -->
+      <div class="primary-actions">
+        <div class="action-group primary">
+          <el-button type="primary" size="default" @click="handleAdd" class="action-btn primary-action">
+            <el-icon class="btn-icon">
+              <Plus />
+            </el-icon>
+            <span class="btn-label">新建菜单</span>
+          </el-button>
+        </div>
+
+        <div class="action-divider"></div>
+
+        <div class="action-group secondary">
+          <el-tooltip content="展开所有菜单节点" placement="bottom">
+            <el-button size="default" @click="expandAll" class="action-btn tree-action expand-btn">
+              <el-icon class="btn-icon">
+                <Expand />
+              </el-icon>
+              <span class="btn-label desktop-only">展开</span>
+            </el-button>
+          </el-tooltip>
+
+          <el-tooltip content="折叠所有菜单节点" placement="bottom">
+            <el-button size="default" @click="collapseAll" class="action-btn tree-action collapse-btn">
+              <el-icon class="btn-icon">
+                <Fold />
+              </el-icon>
+              <span class="btn-label desktop-only">折叠</span>
+            </el-button>
+          </el-tooltip>
+        </div>
       </div>
-      <div class="action-right">
-        <el-button type="primary" plain @click="toggleSidebar" class="toggle-sidebar-btn">
-          <el-icon>
-            <component :is="isSidebarCollapsed ? 'Expand' : 'Fold'" />
-          </el-icon>
-          <span class="hidden-sm-and-down">{{ isSidebarCollapsed ? '展开侧栏' : '折叠侧栏' }}</span>
-        </el-button>
+
+      <!-- 次要操作区域 -->
+      <div class="secondary-actions">
+        <div class="action-group tools">
+          <el-tooltip content="刷新菜单数据" placement="bottom">
+            <el-button size="default" @click="loadData" class="action-btn tool-action refresh-btn">
+              <el-icon class="btn-icon">
+                <Refresh />
+              </el-icon>
+            </el-button>
+          </el-tooltip>
+
+          <div class="action-separator"></div>
+
+          <el-tooltip :content="isSidebarCollapsed ? '展开详情面板' : '收起详情面板'" placement="bottom">
+            <el-button size="default" @click="toggleSidebar" class="action-btn tool-action toggle-btn">
+              <el-icon class="btn-icon">
+                <component :is="isSidebarCollapsed ? 'ArrowRight' : 'ArrowLeft'" />
+              </el-icon>
+              <span class="btn-label mobile-hidden">{{ isSidebarCollapsed ? '展开' : '收起' }}</span>
+            </el-button>
+          </el-tooltip>
+        </div>
+      </div>
+
+      <!-- 状态指示器 -->
+      <div class="status-indicators" v-if="tableData.length > 0">
+        <div class="status-item">
+          <span class="status-label">菜单总数</span>
+          <span class="status-value">{{ totalMenuCount }}</span>
+        </div>
+        <div class="status-divider"></div>
+        <div class="status-item">
+          <span class="status-label">当前选中</span>
+          <span class="status-value">{{ currentNode?.name || '无' }}</span>
+        </div>
       </div>
     </div>
 
-    <!-- 主内容区 - 分割面板 -->
-    <el-row :gutter="20" class="content-panel">
-      <!-- 左侧树形菜单 -->
-      <LeftView
-        :table-data="tableData"
-        :expanded-keys="expandedKeys"
-        :is-sidebar-collapsed="isSidebarCollapsed"
-        @node-click="handleNodeClick"
-        @node-drag-end="handleDragEnd"
-        @edit="handleEdit"
-        @delete="handleDelete" />
+    <!-- 主内容区域 -->
+    <div class="menu-content-container">
+      <el-row :gutter="20" class="content-row">
+        <!-- 左侧树形菜单 -->
+        <LeftView
+          :table-data="tableData"
+          :expanded-keys="expandedKeys"
+          :is-sidebar-collapsed="isSidebarCollapsed"
+          @node-click="handleNodeClick"
+          @node-drag-end="handleDragEnd"
+          @edit="handleEdit"
+          @delete="handleDelete" />
 
-      <!-- 右侧详情信息 -->
-      <RightView
-        :current-node="currentNode"
-        :is-sidebar-collapsed="isSidebarCollapsed"
-        :description-columns="descriptionColumns"
-        @edit="handleEdit"
-        @add-child="handleAddChild"
-        @delete="handleDelete" />
-    </el-row>
+        <!-- 右侧详情信息 -->
+        <RightView
+          :current-node="currentNode"
+          :is-sidebar-collapsed="isSidebarCollapsed"
+          :description-columns="descriptionColumns"
+          @edit="handleEdit"
+          @add-child="handleAddChild"
+          @delete="handleDelete" />
+      </el-row>
+    </div>
 
-    <!-- 编辑对话框 - 使用独立组件 -->
+    <!-- 编辑对话框 -->
     <MenuDialog
       v-model="editDialogVisible"
       :title="dialogTitle"
@@ -64,24 +108,30 @@
       @cancel="editDialogVisible = false"
     />
 
-    <!-- 添加拖拽确认对话框 -->
-    <el-dialog v-model="dragConfirmVisible" title="确认菜单位置修改" width="30%" :close-on-click-modal="false"
-      :close-on-press-escape="false" :show-close="false" class="confirm-dialog">
+    <!-- 拖拽确认对话框 -->
+    <el-dialog
+      v-model="dragConfirmVisible"
+      title="确认菜单位置修改"
+      width="480px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="false"
+      class="drag-confirm-dialog">
       <div class="confirm-content">
         <el-icon class="warning-icon">
           <Warning />
         </el-icon>
-        <span>
-          确定要将菜单 "<strong>{{ dragInfo?.nodeName || '' }}</strong>"
+        <div class="confirm-text">
+          确定要将菜单 "<span class="highlight-text">{{ dragInfo?.nodeName || '' }}</span>"
           {{ dragInfo?.dropType === 'inner' ? '移动到' : '移动到与' }}
-          "<strong>{{ dragInfo?.targetName || '' }}</strong>"
+          "<span class="highlight-text">{{ dragInfo?.targetName || '' }}</span>"
           {{ dragInfo?.dropType === 'inner' ? '内部' : '同级' }}吗？
-        </span>
+        </div>
       </div>
       <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="cancelDragChange">取消</el-button>
-          <el-button type="primary" @click="confirmDragChange">确认</el-button>
+        <div class="dialog-actions">
+          <el-button @click="cancelDragChange" class="dialog-btn">取消</el-button>
+          <el-button type="primary" @click="confirmDragChange" class="dialog-btn">确认</el-button>
         </div>
       </template>
     </el-dialog>
@@ -100,6 +150,17 @@ import LeftView from './components/LeftView.vue'
 import MenuDialog from './components/MenuDialog.vue'
 import RightView from './components/RightView.vue'
 
+// 添加新图标导入
+import {
+  Plus,
+  Expand,
+  Fold,
+  Warning,
+  Refresh,
+  ArrowLeft,
+  ArrowRight
+} from '@element-plus/icons-vue'
+
 // 响应式数据
 const tableData = ref<Router[]>([])
 const expandedKeys = ref<number[]>([])
@@ -117,6 +178,21 @@ const descriptionColumns = computed(() => {
   if (width.value < 768) return 1
   if (width.value < 1200 || isSidebarCollapsed.value) return 1
   return 2
+})
+
+// 计算菜单总数
+const totalMenuCount = computed(() => {
+  const countNodes = (nodes: Router[]): number => {
+    let count = 0
+    nodes.forEach(node => {
+      count++
+      if (node.children?.length) {
+        count += countNodes(node.children)
+      }
+    })
+    return count
+  }
+  return countNodes(tableData.value)
 })
 
 // 监听屏幕尺寸变化，自动调整侧边栏状态
@@ -558,182 +634,5 @@ const handleSubmit = async (data: RouterWithMeta, isAdd: boolean) => {
 </script>
 
 <style scoped lang="scss">
-.menu-management-container {
-  padding: 16px;
-  height: calc(92vh - 60px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-
-  .action-bar {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 16px;
-    background: #f9f9f9;
-    padding: 12px;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-
-    .action-button {
-      margin-right: 8px;
-      transition: all 0.3s;
-
-      &:hover {
-        transform: translateY(-2px);
-      }
-    }
-
-    .toggle-sidebar-btn {
-      transition: all 0.3s;
-    }
-  }
-
-  .content-panel {
-    flex: 1;
-    overflow: hidden;
-
-    .sidebar-col, .content-col {
-      height: 100%;
-      transition: all 0.3s ease;
-
-      .el-card {
-        height: 100%;
-        border-radius: 8px;
-        transition: all 0.3s;
-        overflow: hidden;
-
-        &:hover {
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-        }
-
-        .el-card__header {
-          padding: 12px 16px;
-          background-color: #f5f7fa;
-        }
-
-        .el-card__body {
-          padding: 16px;
-          height: calc(100% - 56px);
-          overflow: hidden;
-        }
-      }
-    }
-  }
-
-  .card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    .card-title {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 500;
-      color: #303133;
-    }
-  }
-
-  .tree-card {
-    .search-wrapper {
-      margin-top: 8px;
-
-      .search-input {
-        width: 100%;
-      }
-    }
-  }
-
-  .confirm-dialog {
-    .confirm-content {
-      display: flex;
-      align-items: center;
-      padding: 16px 0;
-
-      .warning-icon {
-        font-size: 24px;
-        color: #E6A23C;
-        margin-right: 12px;
-      }
-    }
-
-    .dialog-footer {
-      padding-top: 16px;
-      text-align: right;
-    }
-  }
-
-  .details-container {
-    .details-info {
-      margin-bottom: 24px;
-
-      .el-descriptions__label {
-        font-weight: 500;
-      }
-
-      .status-tag, .feature-tag {
-        font-weight: normal;
-      }
-
-      .icon-preview {
-        display: flex;
-        align-items: center;
-
-        .el-icon {
-          margin-right: 8px;
-        }
-      }
-    }
-
-    .action-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-
-      .detail-button {
-        transition: all 0.3s;
-
-        &:hover {
-          transform: translateY(-2px);
-        }
-      }
-    }
-  }
-
-  .empty-state {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    .el-empty {
-      padding: 40px 0;
-    }
-  }
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .menu-management-container {
-    .action-bar {
-      flex-direction: column;
-
-      .action-left {
-        margin-bottom: 12px;
-      }
-
-      .action-right {
-        display: flex;
-        justify-content: flex-end;
-      }
-    }
-
-    .action-group {
-      flex-direction: column;
-
-      .detail-button {
-        width: 100%;
-      }
-    }
-  }
-}
+@use './menumanagement.scss' as *;
 </style>

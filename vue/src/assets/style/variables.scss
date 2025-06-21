@@ -152,6 +152,12 @@ $border-light: var(--border-light);
   justify-content: flex-start;
 }
 
+@mixin flex-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 @mixin flex-column {
   display: flex;
   flex-direction: column;

@@ -132,7 +132,7 @@
                 <div class="role-preview-avatar">
                   <el-icon>
                     <UserFilled v-if="localRoleData.roleName !== 'ADMIN'" />
-                    <Crown v-else />
+                    <Star v-else />
                   </el-icon>
                 </div>
                 <div class="role-preview-details">
@@ -200,7 +200,7 @@ import {
   CircleCheckFilled,
   CircleCloseFilled,
   View,
-  Crown
+  Star
 } from '@element-plus/icons-vue';
 
 const props = defineProps<{

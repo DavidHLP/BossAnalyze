@@ -14,24 +14,15 @@ startGuide()
 </script>
 
 <template>
-  <Header
-    @download-dynamic="(filename: string) => downloadDynamic(true, filename)"
-    @download-picture="(filename: string) => downloadDynamic(false, filename)"
-    @download-native="downloadNative"
-    @download-md="downloadMD"
-    @import-md="importMD"
-  />
+  <Header @download-dynamic="(filename: string) => downloadDynamic(true, filename)"
+    @download-picture="(filename: string) => downloadDynamic(false, filename)" @download-native="downloadNative"
+    @download-md="downloadMD" @import-md="importMD" />
   <div id="editor">
     <Editor />
     <markdown-render class="markdown-render" @upload-avatar="setAvatar" />
     <el-tooltip content="导出PDF文件" v-if="showExport">
-      <i
-        data-aos="fade-in"
-        data-aos-duration="800"
-        data-aos-offset="50"
-        class="iconfont icon-export hover pointer standby-export"
-        @click="downloadDynamic(true)"
-      ></i>
+      <i data-aos="fade-in" data-aos-duration="800" data-aos-offset="50"
+        class="iconfont icon-export hover pointer standby-export" @click="downloadDynamic(true)"></i>
     </el-tooltip>
   </div>
 </template>
@@ -40,11 +31,13 @@ startGuide()
 #editor {
   display: flex;
   position: relative;
+
   .markdown-render {
     flex: 1;
     margin: 0 10px;
     border-radius: 10px;
   }
+
   .standby-export {
     position: absolute;
     top: 120px;

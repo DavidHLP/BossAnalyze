@@ -1,0 +1,296 @@
+// ==============================================
+// 暗色主题样式 - Material Design 暗色方案
+// ==============================================
+
+// 导入核心变量
+@use './variables.scss' as *;
+
+// ==============================================
+// 暗色主题变量
+// ==============================================
+[data-theme='dark'] {
+  // ==================== 主题颜色 ====================
+  --primary-color: #60a5fa; // 亮蓝色（暗色主题下更亮）
+  --primary-dark: #3b82f6; // 中蓝色
+  --primary-light: rgba(96, 165, 250, 0.1); // 浅蓝色背景
+  --primary-lighter: rgba(96, 165, 250, 0.05); // 更浅的蓝色背景
+
+  // ==================== 功能色系 ====================
+  --success-color: #34d399; // 成功色 - 亮绿色
+  --warning-color: #fbbf24; // 警告色 - 亮橙色
+  --error-color: #f87171; // 错误色 - 亮红色
+  --info-color: #60a5fa; // 信息色 - 亮蓝色
+
+  // ==================== 中性色系 ====================
+  --text-primary: #f8fafc; // 主要文本 - 浅色
+  --text-secondary: #cbd5e1; // 次要文本 - 中等浅色
+  --text-disabled: #64748b; // 禁用文本 - 暗色
+  --text-inverse: #1e293b; // 反色文本 - 深色
+
+  // ==================== 背景色系 ====================
+  --background-primary: #0f172a; // 主背景 - 深蓝黑
+  --background-secondary: #1e293b; // 次要背景 - 深蓝灰
+  --background-card: #334155; // 卡片背景 - 中等深度
+  --background-overlay: rgba(0, 0, 0, 0.8); // 遮罩背景
+
+  // ==================== 边框色系 ====================
+  --border-light: #475569; // 浅色边框
+  --border-medium: #64748b; // 中等边框
+  --border-dark: #94a3b8; // 深色边框
+
+  // ==================== 阴影系统 ====================
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.6);
+
+  // ==================== 应用特定变量 ====================
+  --theme: var(--primary-color);
+  --bg-theme: var(--background-card);
+  --font-color: var(--text-primary);
+  --background: var(--background-card);
+  --strong-color: var(--primary-color);
+  --toolbar-bg: var(--background-secondary);
+  --body-background: var(--background-primary);
+  --button: var(--primary-color);
+  --writable-font-color: var(--text-secondary);
+
+  // ==================== 菜单系统 ====================
+  --menu-text-color: var(--text-secondary);
+  --menu-active-text-color: var(--primary-color);
+  --menu-active-bg: rgba(96, 165, 250, 0.1);
+  --menu-hover-bg: var(--background-secondary);
+
+  // ==================== 表格系统 ====================
+  --table-header-bg: var(--background-secondary);
+  --table-row-hover-bg: rgba(96, 165, 250, 0.05);
+  --table-border-color: var(--border-light);
+
+  // ==================== 对话框系统 ====================
+  --dialog-header-bg: var(--background-secondary);
+  --dialog-header-color: var(--text-primary);
+
+  // ==================== 导航栏特定 ====================
+  --navbar-bg: var(--background-card);
+  --navbar-shadow: var(--shadow-lg);
+  --navbar-brand-color: var(--text-primary);
+
+  // ==================== 侧边栏特定 ====================
+  --sidebar-bg: var(--background-card);
+  --sidebar-shadow: var(--shadow-lg);
+  --sidebar-border: var(--border-light);
+
+  // ==================== 面包屑 ====================
+  --breadcrumb-text-color: var(--text-secondary);
+  --breadcrumb-active-color: var(--text-primary);
+
+  // ==================== Element Plus 暗色主题 ====================
+  --el-color-primary: var(--primary-color);
+  --el-color-primary-dark-2: var(--primary-dark);
+  --el-color-primary-light-3: var(--primary-light);
+  --el-color-primary-light-5: var(--primary-lighter);
+  --el-color-success: var(--success-color);
+  --el-color-warning: var(--warning-color);
+  --el-color-danger: var(--error-color);
+  --el-color-info: var(--info-color);
+
+  --el-bg-color: var(--background-card);
+  --el-bg-color-page: var(--background-primary);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-secondary);
+  --el-text-color-secondary: var(--text-disabled);
+  --el-border-color: var(--border-light);
+  --el-border-color-light: var(--border-light);
+  --el-border-color-lighter: rgba(71, 85, 105, 0.5);
+}
+
+// ==============================================
+// 暗色主题特定组件样式
+// ==============================================
+[data-theme='dark'] {
+  
+  // 滚动条样式
+  ::-webkit-scrollbar-track {
+    background: var(--background-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+
+    &:hover {
+      background: var(--border-dark);
+    }
+  }
+
+  // 文本选择样式
+  ::selection {
+    background-color: rgba(96, 165, 250, 0.3);
+    color: var(--text-primary);
+  }
+
+  ::-moz-selection {
+    background-color: rgba(96, 165, 250, 0.3);
+    color: var(--text-primary);
+  }
+
+  // Element Plus 组件暗色适配
+  .el-menu {
+    background-color: var(--background-card) !important;
+    
+    .el-menu-item,
+    .el-sub-menu__title {
+      color: var(--menu-text-color);
+      
+      &:hover {
+        background-color: var(--menu-hover-bg) !important;
+        color: var(--menu-active-text-color);
+      }
+      
+      &.is-active {
+        background-color: var(--menu-active-bg) !important;
+        color: var(--menu-active-text-color) !important;
+      }
+    }
+  }
+
+  .el-card {
+    background-color: var(--background-card);
+    border-color: var(--border-light);
+    
+    .el-card__header {
+      background-color: var(--background-secondary);
+      border-bottom-color: var(--border-light);
+    }
+  }
+
+  .el-table {
+    background-color: var(--background-card);
+    color: var(--text-primary);
+    
+    .el-table__header-wrapper {
+      .el-table__header {
+        th {
+          background-color: var(--table-header-bg);
+          color: var(--text-primary);
+          border-bottom-color: var(--border-light);
+        }
+      }
+    }
+    
+    .el-table__body-wrapper {
+      .el-table__body {
+        tr {
+          &:hover {
+            background-color: var(--table-row-hover-bg) !important;
+          }
+          
+          td {
+            border-bottom-color: var(--table-border-color);
+          }
+        }
+      }
+    }
+  }
+
+  .el-input {
+    .el-input__wrapper {
+      background-color: var(--background-secondary);
+      border-color: var(--border-light);
+      
+      .el-input__inner {
+        color: var(--text-primary);
+        
+        &::placeholder {
+          color: var(--text-disabled);
+        }
+      }
+      
+      &:hover {
+        border-color: var(--border-medium);
+      }
+      
+      &.is-focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+      }
+    }
+  }
+
+  .el-dialog {
+    background-color: var(--background-card);
+    
+    .el-dialog__header {
+      background: var(--dialog-header-bg);
+      color: var(--dialog-header-color);
+      border-bottom: 1px solid var(--border-light);
+    }
+    
+    .el-dialog__body {
+      color: var(--text-primary);
+    }
+    
+    .el-dialog__footer {
+      border-top-color: var(--border-light);
+    }
+  }
+
+  .el-dropdown-menu {
+    background-color: var(--background-card);
+    border-color: var(--border-light);
+    
+    .el-dropdown-menu__item {
+      color: var(--text-primary);
+      
+      &:hover {
+        background-color: var(--menu-hover-bg);
+        color: var(--menu-active-text-color);
+      }
+    }
+  }
+
+  .el-tooltip__popper {
+    background-color: var(--background-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  // 消息提示暗色适配
+  .el-message {
+    background-color: var(--background-card);
+    border-color: var(--border-light);
+    color: var(--text-primary);
+    
+    &.el-message--success {
+      border-color: rgba(52, 211, 153, 0.3);
+      background-color: rgba(52, 211, 153, 0.1);
+      color: var(--success-color);
+    }
+    
+    &.el-message--warning {
+      border-color: rgba(251, 191, 36, 0.3);
+      background-color: rgba(251, 191, 36, 0.1);
+      color: var(--warning-color);
+    }
+    
+    &.el-message--error {
+      border-color: rgba(248, 113, 113, 0.3);
+      background-color: rgba(248, 113, 113, 0.1);
+      color: var(--error-color);
+    }
+    
+    &.el-message--info {
+      border-color: rgba(96, 165, 250, 0.3);
+      background-color: rgba(96, 165, 250, 0.1);
+      color: var(--info-color);
+    }
+  }
+}
+
+// ==============================================
+// 暗色主题切换动画
+// ==============================================
+* {
+  transition: background-color var(--transition-normal) var(--transition-timing),
+              border-color var(--transition-normal) var(--transition-timing),
+              color var(--transition-normal) var(--transition-timing);
+}
