@@ -215,8 +215,8 @@ export function useToolBarConfig(emit: any) {
   const keyboardEvent = useThrottleFn(function (event: KeyboardEvent) {
     const selection = getSelection() as Selection
     const focusNode = <HTMLElement>selection.focusNode
+    // Removed writable check since rich-text editor was removed
     if (
-      editorStore.writable &&
       event.key == 'Enter' &&
       focusNode.tagName?.toLowerCase() == 'blockquote'
     ) {

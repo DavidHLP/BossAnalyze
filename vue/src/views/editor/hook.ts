@@ -133,8 +133,8 @@ export function useDownLoad(type: Ref<string>) {
   }
 
   const downloadNative = () => {
-    editorStore.setNativeContent((<HTMLElement>queryDOM('.jufe')).innerHTML)
-    router.push({ path: '/download', query: { type: type.value } })
+    // Native download functionality removed along with rich-text editor
+    warningMessage('原生导出功能已移除，请使用PDF导出')
   }
 
   const downloadMD = () => {
@@ -153,10 +153,6 @@ export function useDownLoad(type: Ref<string>) {
 
 export function useImportMD(resumeType: string) {
   function importMD(file: File) {
-    const { writable } = useEditorStore()
-    if (writable) {
-      return warningMessage('请先切换到Markdown模式')
-    }
     const reader = new FileReader(),
       { setMDContent } = useEditorStore()
     reader.readAsText(file, 'utf-8')

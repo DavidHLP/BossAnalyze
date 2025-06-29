@@ -1,24 +1,15 @@
 <script setup lang="ts">
-import RichEditor from './rich-editor/editor.vue'
 import MDEditor from './md-editor/editor.vue'
-import { useResumeType, useAvatar } from '../../hook'
-import { reactiveWritable, useMoveLayout, injectWritableModeAvatarEvent } from './hook'
+import { useMoveLayout } from './hook'
 
-const { resumeType } = useResumeType()
 const { left, down } = useMoveLayout()
-
-const { setAvatar } = useAvatar(resumeType.value)
-const { writable } = reactiveWritable(resumeType.value)
-
-injectWritableModeAvatarEvent(writable, setAvatar)
 </script>
 
 <template>
   <div class="editor-container">
     <!-- 编辑器内容区 -->
     <div class="editor-content">
-      <RichEditor :left="left" v-if="writable" />
-      <MDEditor :left="left" v-if="!writable" />
+      <MDEditor :left="left" />
     </div>
 
     <!-- 分割线拖拽器 -->

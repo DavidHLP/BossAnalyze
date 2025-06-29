@@ -126,10 +126,5 @@ export const markdownModeToolbarConfig = [
     icon: 'table',
     command: 'insertTable',
     tip: '插入表格'
-  },
-  {
-    icon: 'write',
-    command: 'toContentMode',
-    tip: '切换至内容模式'
   }
 ]

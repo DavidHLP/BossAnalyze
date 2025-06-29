@@ -46,16 +46,6 @@ const { isDark } = useThemeConfig()
         </el-tooltip>
       </div>
     </div>
-
-    <!-- 编辑器切换按钮 -->
-    <div class="toolbar-actions">
-      <el-tooltip content="切换到富文本模式" placement="bottom" effect="dark">
-        <button @click="$emit('toggle-editor-mode')" class="toolbar-btn toolbar-btn--toggle">
-          <i class="iconfont icon-rich-text btn-icon"></i>
-          <span class="btn-text">Rich</span>
-        </button>
-      </el-tooltip>
-    </div>
   </div>
 
   <!-- 模态框 -->
@@ -242,12 +232,6 @@ const { isDark } = useThemeConfig()
   .toolbar-btn:hover & {
     transform: scale(1.1);
   }
-}
-
-// 工具栏操作区
-.toolbar-actions {
-  @include flex-center;
-  gap: var(--spacing-sm);
 }
 
 // 响应式设计

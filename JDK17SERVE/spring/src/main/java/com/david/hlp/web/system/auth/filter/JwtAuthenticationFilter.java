@@ -64,11 +64,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     String method = request.getMethod();
     String userAgent = request.getHeader("User-Agent");
     long timestamp = System.currentTimeMillis();
-
-    // 使用键值对格式记录日志，便于后期数据分析
-    log.info("ACCESS|ts={}|ip={}|path={}|method={}|ua={}",
-        timestamp, clientIP, path, method, userAgent != null ? userAgent : "-");
-
     // 总是允许 OPTIONS 请求通过（CORS预检请求）
     if (request.getMethod().equals("OPTIONS")) {
       filterChain.doFilter(request, response);
@@ -132,7 +127,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       response.getWriter().write(e.getMessage());
       return;
     }
-
+    // 使用键值对格式记录日志，便于后期数据分析
+    log.info("ACCESS|ts={}|ip={}|path={}|method={}|ua={}",
+        timestamp, clientIP, path, method, userAgent != null ? userAgent : "-");
     filterChain.doFilter(request, response);
   }
 }
