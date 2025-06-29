@@ -1,49 +1,59 @@
 import request from '@/utils/request/request'
-import type { ResumeData } from './resume.d'
-import type { PageInfo } from '@/types/common'
-export const getResumeList = (params: { page: number; size: number}): Promise<PageInfo<ResumeData>> => {
-  return request({
-    url: '/api/resume/list',
-    method: 'GET',
-    params
-  })
-}
+import type { Resume } from './resume.d'
 
-export const getResumeDetail = (id: string): Promise<ResumeData> => {
-  return request({
-    url: `/api/resume/get`,
-    method: 'GET',
-    params: {
-      id
-    }
-  })
-}
-
-// 保存简历数据
-export const saveResumeData = (data: ResumeData): Promise<boolean> => {
+/**
+ * 获取当前用户的所有简历
+ */
+export const getResumes = (): Promise<Resume[]> => {
   return request({
     url: '/api/resume',
-    method: 'PUT',
+    method: 'get'
+  })
+}
+
+/**
+ * 根据ID获取简历详情
+ * @param id 简历ID
+ */
+export const getResumeById = (id: string): Promise<Resume> => {
+  return request({
+    url: `/api/resume/${id}`,
+    method: 'get'
+  })
+}
+
+/**
+ * 创建新简历
+ * @param data 简历数据
+ */
+export const createResume = (data: Partial<Resume>): Promise<Resume> => {
+  return request({
+    url: '/api/resume',
+    method: 'post',
     data
   })
 }
 
-// 添加新简历
-export const addResume = (data: ResumeData): Promise<ResumeData> => {
+/**
+ * 更新简历
+ * @param id 简历ID
+ * @param data 简历数据
+ */
+export const updateResume = (id: string, data: Partial<Resume>): Promise<Resume> => {
   return request({
-    url: '/api/resume',
-    method: 'POST',
+    url: `/api/resume/${id}`,
+    method: 'put',
     data
   })
 }
 
-// 删除简历
-export const deleteResume = (id: string): Promise<boolean> => {
+/**
+ * 删除简历
+ * @param id 简历ID
+ */
+export const deleteResume = (id: string): Promise<void> => {
   return request({
-    url: '/api/resume',
-    method: 'DELETE',
-    params: {
-      id
-    }
+    url: `/api/resume/${id}`,
+    method: 'delete'
   })
 }

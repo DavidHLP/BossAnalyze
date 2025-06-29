@@ -5,7 +5,21 @@ import { onActivated, ref } from 'vue'
 const total = ref(0)
 onActivated(() => {
   ;(async () => {
-    total.value = parseInt((await getExportCount()) as string)
+    try {
+      const count = await getExportCount()
+      // 处理可能的非JSON数据
+      if (typeof count === 'string') {
+        const numericValue = parseInt(count, 10)
+        total.value = isNaN(numericValue) ? 0 : numericValue
+      } else if (typeof count === 'number') {
+        total.value = count
+      } else {
+        total.value = 0
+      }
+    } catch (error) {
+      console.warn('获取导出统计失败:', error)
+      total.value = 0
+    }
   })()
 })
 </script>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import outNav from '@/common/nav/outNav'
+import { outNav } from '@/common/nav/outNav'
 </script>
 
 <template>

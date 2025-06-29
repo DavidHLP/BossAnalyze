@@ -6,12 +6,12 @@ const nav = [
   },
   {
     name: '简历模板',
-    path: '/template',
+    path: '/editor',
     tooltip: false,
   },
   {
     name: '语法助手',
-    path: '/syntax/helper',
+    path: '/about',
     tooltip: false,
   },
 ]

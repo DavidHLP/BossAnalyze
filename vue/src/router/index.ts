@@ -36,9 +36,25 @@ const baseRoutes: RouteRecordRaw[] = [
       {
         path: '/editor',
         name: 'editor',
-        component: () => import('@/views/editor/editor.vue'),
+        component: () => import('@/views/resume/editor.vue'),
       },
     ],
+  },
+  {
+    path: '/resumelist',
+    // component: Layout,
+    children: [
+      {
+        path: '/resumelist',
+        name: 'resumelist',
+        meta: {
+          type: 'M',
+          title: '我的简历',
+          requiresAuth: true
+        },
+        component: () => import('@/views/resume/resumelist.vue')
+      }
+    ]
   },
   {
     path: '/login',

@@ -1,17 +1,17 @@
 const homeNav = [
   {
     name: '简历制作',
-    path: '/template',
+    path: '/editor',
     tooltip: false,
   },
   {
     name: '语法助手',
-    path: '/syntax/helper',
+    path: '/about',
     tooltip: false,
   },
   {
     name: '更新记录',
-    path: '/update/line',
+    path: '/about',
     tooltip: false,
   },
 ]

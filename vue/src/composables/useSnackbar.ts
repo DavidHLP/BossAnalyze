@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ElNotification } from 'element-plus'
 
 interface SnackbarOptions {
   text: string
@@ -7,6 +7,7 @@ interface SnackbarOptions {
   visible: boolean
 }
 
+import { ref } from 'vue'
 const snackbar = ref<SnackbarOptions>({
   text: '',
   color: 'success',
@@ -22,6 +23,18 @@ export function useSnackbar() {
       timeout,
       visible: true
     }
+
+    ElNotification({
+      title: '提示',
+      message: text,
+      type: color,
+      duration: timeout,
+      position: 'top-right'
+    })
+
+    setTimeout(() => {
+      hideSnackbar()
+    }, timeout)
   }
 
   const hideSnackbar = () => {

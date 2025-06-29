@@ -40,7 +40,14 @@ for (const [path, curModule] of moduleEntries) {
   ])
 }
 
-const match = (module: SubModule) => +(module.type.match(/^\d+/) as RegExpMatchArray)[0]
+const match = (module: SubModule) => {
+  const matchResult = module.type.match(/^\d+/)
+  if (matchResult) {
+    return +matchResult[0]
+  }
+  // 对于没有数字前缀的模板，返回0作为默认排序值
+  return 0
+}
 templates.value.sort((a, b) => match(b) - match(a))
 
 export function getPrimaryBGColor(type: string) {

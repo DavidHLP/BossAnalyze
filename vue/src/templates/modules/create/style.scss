@@ -1,6 +1,91 @@
 @import url('../../common.css');
 
-.markdown-transform-html {
+// 基础简历模板样式
+.jufe {
+  font-family: 'Noto Sans SC', sans-serif;
+  line-height: 1.6;
+  color: #374151;
   background: #fff;
-  font-size: 16px;
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+  
+  h1, h2, h3 {
+    color: #2563eb;
+    margin-bottom: 16px;
+  }
+  
+  h1 {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 24px;
+    font-weight: 700;
+  }
+  
+  h2 {
+    font-size: 20px;
+    border-bottom: 2px solid #2563eb;
+    padding-bottom: 6px;
+    margin-top: 32px;
+    font-weight: 600;
+  }
+  
+  h3 {
+    font-size: 16px;
+    margin-top: 20px;
+    font-weight: 600;
+  }
+  
+  p {
+    margin-bottom: 12px;
+  }
+  
+  ul, ol {
+    padding-left: 24px;
+    margin-bottom: 16px;
+  }
+  
+  li {
+    margin-bottom: 6px;
+  }
+  
+  strong {
+    color: #1f2937;
+    font-weight: 600;
+  }
+  
+  img {
+    max-width: 120px;
+    height: auto;
+    border-radius: 8px;
+    margin: 16px 0;
+    display: block;
+  }
+  
+  blockquote {
+    border-left: 4px solid #2563eb;
+    padding-left: 16px;
+    margin: 20px 0;
+    color: #6b7280;
+    font-style: italic;
+  }
+  
+  hr {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 32px 0;
+  }
+  
+  // 响应式设计
+  @media (max-width: 768px) {
+    padding: 16px;
+    
+    h1 {
+      font-size: 24px;
+    }
+    
+    h2 {
+      font-size: 18px;
+    }
+  }
 }

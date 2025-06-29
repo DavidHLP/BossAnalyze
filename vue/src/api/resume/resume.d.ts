@@ -41,3 +41,12 @@ export interface ResumeData {
   createdAt?: Date; // 创建时间
   updatedAt?: Date; // 更新时间
 }
+
+export interface Resume {
+  id: string;
+  userId: number;
+  title: string;
+  content: string;
+  createdAt: string; // or Date
+  updatedAt: string; // or Date
+}
