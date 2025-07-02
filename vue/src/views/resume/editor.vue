@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Clock } from '@element-plus/icons-vue'
 import Header from './components/header/header.vue'
 import MarkdownRender from '@/views/resume/components/preview/render.vue'
 import Editor from '@/views/resume/components/editor/editorContainer.vue'
+import VersionHistory from './components/VersionHistory.vue'
 import { useResumeType, useDownLoad, useImportMD, useAvatar, useShowExport } from './hook'
 import { startGuide } from './components/guide/guide'
-import useEditorStore from '@/store/modules/editor';
+import useEditorStore from '@/store/modules/editor'
+import type { ResumeVersion } from '@/api/resume/version'
 
 const { resumeType } = useResumeType()
 const { downloadDynamic, downloadNative, downloadMD } = useDownLoad(resumeType)
@@ -15,28 +19,76 @@ const { setAvatar } = useAvatar(resumeType.value)
 const { showExport } = useShowExport()
 startGuide()
 
-const route = useRoute();
-const editorStore = useEditorStore();
+const route = useRoute()
+const editorStore = useEditorStore()
+
+// 版本管理相关
+const versionDrawerVisible = ref(false)
+const currentResumeId = ref<string | null>(null)
+
+// 版本恢复回调
+const onVersionRestored = (version: ResumeVersion) => {
+  ElMessage.success(`已恢复到版本 V${version.versionNumber}`)
+  // 刷新编辑器内容
+  editorStore.initMDContent(resumeType.value)
+  versionDrawerVisible.value = false
+}
+
+// 版本创建回调
+const onVersionCreated = (version: ResumeVersion) => {
+  ElMessage.success('版本快照创建成功！')
+}
 
 onMounted(() => {
-    const resumeId = route.query.id as string | null;
-    editorStore.setResumeId(resumeId);
-    editorStore.initMDContent(resumeType.value);
+  const resumeId = route.query.id as string | null
+  currentResumeId.value = resumeId
+  editorStore.setResumeId(resumeId)
+  editorStore.initMDContent(resumeType.value)
 })
 </script>
 
 <template>
-  <Header @download-dynamic="(filename: string) => downloadDynamic(true, filename)"
-    @download-picture="(filename: string) => downloadDynamic(false, filename)" @download-native="downloadNative"
-    @download-md="downloadMD" @import-md="importMD" />
+  <Header
+    @download-dynamic="(filename: string) => downloadDynamic(true, filename)"
+    @download-picture="(filename: string) => downloadDynamic(false, filename)"
+    @download-native="downloadNative"
+    @download-md="downloadMD"
+    @import-md="importMD"
+  />
   <div id="editor">
     <Editor />
     <markdown-render class="markdown-render" @upload-avatar="setAvatar" />
     <el-tooltip content="导出PDF文件" v-if="showExport">
-      <i data-aos="fade-in" data-aos-duration="800" data-aos-offset="50"
-        class="iconfont icon-export hover pointer standby-export" @click="downloadDynamic(true)"></i>
+      <i
+        data-aos="fade-in"
+        data-aos-duration="800"
+        data-aos-offset="50"
+        class="iconfont icon-export hover pointer standby-export"
+        @click="downloadDynamic(true)"
+      ></i>
+    </el-tooltip>
+
+    <!-- 版本管理按钮 -->
+    <el-tooltip content="版本历史" v-if="currentResumeId">
+      <el-button
+        type="primary"
+        :icon="Clock"
+        class="version-btn"
+        @click="versionDrawerVisible = true"
+        circle
+      />
     </el-tooltip>
   </div>
+
+  <!-- 版本管理抽屉 -->
+  <el-drawer v-model="versionDrawerVisible" title="版本历史" direction="rtl" size="450px">
+    <VersionHistory
+      v-if="currentResumeId"
+      :resume-id="currentResumeId"
+      @version-restored="onVersionRestored"
+      @version-created="onVersionCreated"
+    />
+  </el-drawer>
 </template>
 
 <style lang="scss" scoped>
@@ -68,6 +120,21 @@ onMounted(() => {
     &:hover {
       color: var(--theme);
       background: #f8f8f8;
+    }
+  }
+
+  .version-btn {
+    position: absolute;
+    top: 180px;
+    right: 30px;
+    z-index: 3;
+    width: 45px;
+    height: 45px;
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+
+    &:hover {
+      transform: scale(1.1);
+      transition: transform 0.2s;
     }
   }
 }

@@ -1,6 +1,7 @@
 package com.david.hlp.web.resume.service;
 
 import com.david.hlp.commons.utils.RedisCacheHelper;
+import com.david.hlp.web.resume.entity.ResumeVersion;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,6 +25,7 @@ public class ResumeService {
 
     private final MongoTemplate mongoTemplate;
     private final RedisCacheHelper redisCacheHelper;
+    private final ResumeVersionService resumeVersionService;
 
     public List<Resume> getResumesByUserId(Long userId) {
         Query query = new Query(Criteria.where("user_id").is(userId));
@@ -43,7 +45,12 @@ public class ResumeService {
         resume.setUserId(userId);
         resume.setCreatedAt(new Date());
         resume.setUpdatedAt(new Date());
-        return mongoTemplate.save(resume);
+        Resume savedResume = mongoTemplate.save(resume);
+
+        // 创建初始版本
+        resumeVersionService.createVersion(savedResume, "创建简历", false);
+
+        return savedResume;
     }
 
     public Resume updateResume(String id, Resume resumeDetails, Long userId) {
@@ -51,15 +58,30 @@ public class ResumeService {
         if (existingResume == null) {
             return null; // or throw exception
         }
+
+        // 检查内容是否发生变化
+        boolean contentChanged = !Objects.equals(existingResume.getTitle(), resumeDetails.getTitle()) ||
+                !Objects.equals(existingResume.getContent(), resumeDetails.getContent());
+
         existingResume.setTitle(resumeDetails.getTitle());
         existingResume.setContent(resumeDetails.getContent());
         existingResume.setUpdatedAt(new Date());
-        return mongoTemplate.save(existingResume);
+        Resume savedResume = mongoTemplate.save(existingResume);
+
+        // 如果内容发生变化，创建新版本
+        if (contentChanged) {
+            resumeVersionService.createVersion(savedResume, "更新简历", false);
+        }
+
+        return savedResume;
     }
 
     public void deleteResume(String id, Long userId) {
         Resume existingResume = getResumeById(id, userId);
         if (existingResume != null) {
+            // 删除简历的所有版本历史
+            resumeVersionService.deleteVersionHistory(id, userId);
+            // 删除简历本身
             mongoTemplate.remove(existingResume);
         }
         // consider throwing exception if not found

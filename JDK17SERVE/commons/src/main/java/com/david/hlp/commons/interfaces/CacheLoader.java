@@ -15,7 +15,7 @@ public interface CacheLoader<T> {
 
     /**
      * 获取类型信息
-     * 
+     *
      * @return 泛型类型的 Class 对象
      */
     Class<T> getType();
@@ -34,4 +34,4 @@ public interface CacheLoader<T> {
             throw new UnsupportedOperationException("无法创建空实例: " + getType().getName(), e);
         }
     }
-} 
+}

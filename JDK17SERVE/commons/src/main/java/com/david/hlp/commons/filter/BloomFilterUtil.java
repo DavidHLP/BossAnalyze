@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * 基于Redis的布隆过滤器工具类
  * 用于解决缓存穿透问题，快速判断某个元素是否可能存在
- * 
+ *
  * @author david
  */
 @Slf4j
@@ -81,7 +81,7 @@ public class BloomFilterUtil {
 
     /**
      * 初始化布隆过滤器
-     * 
+     *
      * @param filterName 过滤器名称
      * @param capacity   预期元素数量
      * @param errorRate  误判率
@@ -104,7 +104,7 @@ public class BloomFilterUtil {
 
     /**
      * 使用默认参数初始化布隆过滤器
-     * 
+     *
      * @param filterName 过滤器名称
      */
     public void initBloomFilter(String filterName) {
@@ -113,7 +113,7 @@ public class BloomFilterUtil {
 
     /**
      * 添加元素到布隆过滤器
-     * 
+     *
      * @param filterName 过滤器名称
      * @param element    要添加的元素
      * @return 是否添加成功
@@ -150,7 +150,7 @@ public class BloomFilterUtil {
 
     /**
      * 检查元素是否可能存在于布隆过滤器中
-     * 
+     *
      * @param filterName 过滤器名称
      * @param element    要检查的元素
      * @return true表示可能存在，false表示肯定不存在
@@ -186,7 +186,7 @@ public class BloomFilterUtil {
 
     /**
      * 批量添加元素
-     * 
+     *
      * @param filterName 过滤器名称
      * @param elements   要添加的元素列表
      * @return 成功添加的元素数量
@@ -209,7 +209,7 @@ public class BloomFilterUtil {
 
     /**
      * 批量检查元素
-     * 
+     *
      * @param filterName 过滤器名称
      * @param elements   要检查的元素列表
      * @return 可能存在的元素列表
@@ -227,7 +227,7 @@ public class BloomFilterUtil {
 
     /**
      * 清空布隆过滤器
-     * 
+     *
      * @param filterName 过滤器名称
      */
     public void clear(String filterName) {
@@ -242,7 +242,7 @@ public class BloomFilterUtil {
 
     /**
      * 获取布隆过滤器统计信息
-     * 
+     *
      * @param filterName 过滤器名称
      * @return 统计信息字符串
      */

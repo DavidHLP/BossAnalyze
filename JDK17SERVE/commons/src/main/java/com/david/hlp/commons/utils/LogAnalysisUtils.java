@@ -48,7 +48,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 从User-Agent中提取浏览器信息
-     * 
+     *
      * @param userAgent User-Agent字符串
      * @return 浏览器信息
      */
@@ -81,7 +81,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 检测浏览器类型
-     * 
+     *
      * @param userAgent User-Agent字符串
      * @return 浏览器类型
      */
@@ -103,7 +103,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 提取浏览器版本
-     * 
+     *
      * @param userAgent User-Agent字符串
      * @param browser   浏览器类型
      * @return 浏览器版本
@@ -121,7 +121,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 检测操作系统
-     * 
+     *
      * @param userAgent User-Agent字符串
      * @return 操作系统
      */
@@ -136,7 +136,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 检测设备类型
-     * 
+     *
      * @param userAgent User-Agent字符串
      * @return 设备类型
      */
@@ -153,7 +153,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 获取浏览器市场排名
-     * 
+     *
      * @param browser 浏览器类型
      * @return 市场排名
      */
@@ -171,7 +171,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 判断是否为现代浏览器
-     * 
+     *
      * @param browser 浏览器类型
      * @return 是否为现代浏览器
      */
@@ -181,7 +181,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 计算访问强度等级
-     * 
+     *
      * @param count 访问次数
      * @return 强度等级
      */
@@ -197,7 +197,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 计算风险等级
-     * 
+     *
      * @param count   访问次数
      * @param isLocal 是否为本地IP
      * @return 风险等级
@@ -214,7 +214,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 获取HTTP方法描述
-     * 
+     *
      * @param method HTTP方法
      * @return 方法描述
      */
@@ -235,7 +235,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 判断是否为安全HTTP方法
-     * 
+     *
      * @param method HTTP方法
      * @return 是否为安全方法
      */
@@ -245,7 +245,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 判断是否为幂等HTTP方法
-     * 
+     *
      * @param method HTTP方法
      * @return 是否为幂等方法
      */
@@ -255,7 +255,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 获取星期几的中文名称
-     * 
+     *
      * @param weekday 星期几（1-7，1为周日）
      * @return 中文名称
      */
@@ -266,7 +266,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 判断是否为工作日
-     * 
+     *
      * @param weekday 星期几（1-7，1为周日）
      * @return 是否为工作日
      */
@@ -276,7 +276,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 判断是否为周末
-     * 
+     *
      * @param weekday 星期几（1-7，1为周日）
      * @return 是否为周末
      */
@@ -286,7 +286,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 计算数据质量评分
-     * 
+     *
      * @param parsedLines 成功解析的行数
      * @param totalLines  总行数
      * @return 质量评分（0-100）
@@ -300,7 +300,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 安全地解析Double值
-     * 
+     *
      * @param value 字符串值
      * @return Double值，解析失败返回null
      */
@@ -314,7 +314,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 安全地解析Integer值
-     * 
+     *
      * @param value 字符串值
      * @return Integer值，解析失败返回null
      */
@@ -328,7 +328,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 格式化当前时间为指定格式
-     * 
+     *
      * @param formatter 日期格式化器
      * @return 格式化后的时间字符串
      */
@@ -338,7 +338,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 获取日期格式化器
-     * 
+     *
      * @return 日期格式化器
      */
     public static DateTimeFormatter getDateFormatter() {
@@ -347,7 +347,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 获取小时格式化器
-     * 
+     *
      * @return 小时格式化器
      */
     public static DateTimeFormatter getHourFormatter() {
@@ -356,7 +356,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 获取分钟格式化器
-     * 
+     *
      * @return 分钟格式化器
      */
     public static DateTimeFormatter getMinuteFormatter() {
@@ -365,7 +365,7 @@ public final class LogAnalysisUtils {
 
     /**
      * 创建默认的浏览器信息
-     * 
+     *
      * @return 默认浏览器信息
      */
     private static BrowserStatistics.BrowserInfo createDefaultBrowserInfo() {

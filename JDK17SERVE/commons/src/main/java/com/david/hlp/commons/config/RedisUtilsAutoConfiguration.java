@@ -17,11 +17,11 @@ import com.david.hlp.commons.filter.BloomFilterUtil;
 
 /**
  * Redis工具类自动配置
- * 
+ *
  * @author david
  */
 @Configuration
-@ConditionalOnClass({RedisTemplate.class, RedissonClient.class})
+@ConditionalOnClass({ RedisTemplate.class, RedissonClient.class })
 @ComponentScan(basePackages = "com.david.hlp.commons")
 public class RedisUtilsAutoConfiguration {
 
@@ -48,15 +48,17 @@ public class RedisUtilsAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean({RedisLockUtil.class, RedisCacheUtil.class, BloomFilterUtil.class})
-    public RedisMutexUtil redisMutexUtil(RedisLockUtil redisLockUtil, RedisCacheUtil redisCacheUtil, BloomFilterUtil bloomFilterUtil) {
+    @ConditionalOnBean({ RedisLockUtil.class, RedisCacheUtil.class, BloomFilterUtil.class })
+    public RedisMutexUtil redisMutexUtil(RedisLockUtil redisLockUtil, RedisCacheUtil redisCacheUtil,
+            BloomFilterUtil bloomFilterUtil) {
         return new RedisMutexUtil(redisLockUtil, redisCacheUtil, bloomFilterUtil);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean({RedisCacheUtil.class, RedisMutexUtil.class, RedisLockUtil.class})
-    public RedisCacheHelper redisCacheHelper(RedisCacheUtil redisCacheUtil, RedisMutexUtil redisMutexUtil, RedisLockUtil redisLockUtil) {
+    @ConditionalOnBean({ RedisCacheUtil.class, RedisMutexUtil.class, RedisLockUtil.class })
+    public RedisCacheHelper redisCacheHelper(RedisCacheUtil redisCacheUtil, RedisMutexUtil redisMutexUtil,
+            RedisLockUtil redisLockUtil) {
         return new RedisCacheHelper(redisCacheUtil, redisMutexUtil, redisLockUtil);
     }
 }

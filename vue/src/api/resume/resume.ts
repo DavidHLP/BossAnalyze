@@ -1,5 +1,5 @@
 import request from '@/utils/request/request'
-import type { Resume } from './resume.d'
+import type { Resume } from './types'
 
 /**
  * 获取当前用户的所有简历

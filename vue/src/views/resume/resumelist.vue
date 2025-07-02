@@ -20,7 +20,9 @@ import {
   deleteResume as apiDeleteResume,
   updateResume,
 } from '@/api/resume/resume'
-import type { Resume } from '@/api/resume/resume.d'
+import type { Resume } from '@/api/resume/types'
+import VersionHistory from './components/VersionHistory.vue'
+import type { ResumeVersion } from '@/api/resume/version'
 import { default as template } from '@/templates/modules/10front_end/index'
 
 const router = useRouter()
@@ -33,6 +35,10 @@ const editingTitleId = ref<string | null>(null)
 const editingTitle = ref('')
 const tableRef = ref()
 const viewMode = ref<'table' | 'grid'>('grid')
+
+// 版本管理相关
+const versionDrawerVisible = ref(false)
+const versionResumeId = ref<string | null>(null)
 
 // 分页状态
 const currentPage = ref(1)
@@ -278,7 +284,27 @@ const handleActionCommand = (command: string, row: Resume) => {
     case 'delete':
       handleDeleteResume(row)
       break
+    case 'version':
+      showVersionHistory(row)
+      break
   }
+}
+
+// 显示版本历史
+const showVersionHistory = (resume: Resume) => {
+  versionResumeId.value = resume.id
+  versionDrawerVisible.value = true
+}
+
+// 版本管理回调
+const onVersionRestored = (version: ResumeVersion) => {
+  ElMessage.success(`已恢复到版本 V${version.versionNumber}`)
+  getResumeList() // 刷新列表
+  versionDrawerVisible.value = false
+}
+
+const onVersionCreated = (version: ResumeVersion) => {
+  ElMessage.success('版本快照创建成功！')
 }
 
 onMounted(() => {
@@ -314,7 +340,12 @@ onMounted(() => {
           </div>
 
           <div class="header-actions">
-            <el-button type="primary" :icon="Plus" @click="handleCreateResume" class="create-button">
+            <el-button
+              type="primary"
+              :icon="Plus"
+              @click="handleCreateResume"
+              class="create-button"
+            >
               新建简历
             </el-button>
           </div>
@@ -324,7 +355,7 @@ onMounted(() => {
       <!-- 主要内容区域 -->
       <div class="main-content">
         <div class="content-wrapper">
-                    <!-- 优化工具栏 -->
+          <!-- 优化工具栏 -->
           <div class="toolbar">
             <div class="toolbar-section">
               <div class="search-section">
@@ -495,10 +526,14 @@ onMounted(() => {
                     <div class="card-meta">
                       <div class="meta-item">
                         <el-icon class="meta-icon"><Clock /></el-icon>
-                        <span class="meta-text">{{ formatRelativeTime(resume.updatedAt) }}更新</span>
+                        <span class="meta-text"
+                          >{{ formatRelativeTime(resume.updatedAt) }}更新</span
+                        >
                       </div>
                       <div class="meta-item">
-                        <span class="meta-date">{{ formatDate(resume.createdAt).split(' ')[0] }}</span>
+                        <span class="meta-date">{{
+                          formatDate(resume.createdAt).split(' ')[0]
+                        }}</span>
                       </div>
                     </div>
                   </div>
@@ -624,6 +659,10 @@ onMounted(() => {
                       <el-button size="small" :icon="MoreFilled" class="action-btn more" />
                       <template #dropdown>
                         <el-dropdown-menu>
+                          <el-dropdown-item command="version">
+                            <el-icon><Clock /></el-icon>
+                            版本历史
+                          </el-dropdown-item>
                           <el-dropdown-item command="copy">
                             <el-icon><DocumentCopy /></el-icon>
                             复制简历
@@ -659,6 +698,16 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- 版本管理抽屉 -->
+    <el-drawer v-model="versionDrawerVisible" title="版本历史" direction="rtl" size="450px">
+      <VersionHistory
+        v-if="versionResumeId"
+        :resume-id="versionResumeId"
+        @version-restored="onVersionRestored"
+        @version-created="onVersionCreated"
+      />
+    </el-drawer>
   </div>
 </template>
 

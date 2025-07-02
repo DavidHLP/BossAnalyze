@@ -10,11 +10,10 @@ import lombok.extern.slf4j.Slf4j;
 import com.david.hlp.commons.interfaces.CacheLoader;
 import com.david.hlp.commons.filter.BloomFilterUtil;
 
-
 /**
  * Redis 互斥工具类
  * 处理缓存击穿、缓存穿透等并发问题
- * 
+ *
  * @author david
  */
 @Slf4j
@@ -40,7 +39,7 @@ public class RedisMutexUtil {
 
     /**
      * 使用布隆过滤器 + 分布式锁解决缓存击穿和穿透问题
-     * 
+     *
      * @param key           缓存键
      * @param element       布隆过滤器元素（用于判断数据是否可能存在）
      * @param bloomFilter   布隆过滤器名称
@@ -116,7 +115,7 @@ public class RedisMutexUtil {
 
     /**
      * 使用分布式锁解决缓存击穿问题（原有方法，保持兼容性）
-     * 
+     *
      * @param key           缓存键
      * @param cacheTimeout  缓存超时时间
      * @param cacheTimeUnit 缓存时间单位
@@ -175,7 +174,7 @@ public class RedisMutexUtil {
 
     /**
      * 使用布隆过滤器 + 分布式锁解决缓存问题（使用默认锁参数）
-     * 
+     *
      * @param key           缓存键
      * @param element       布隆过滤器元素
      * @param bloomFilter   布隆过滤器名称
@@ -193,7 +192,7 @@ public class RedisMutexUtil {
 
     /**
      * 使用布隆过滤器 + 分布式锁解决缓存问题（使用默认布隆过滤器名称和锁参数）
-     * 
+     *
      * @param key          缓存键
      * @param element      布隆过滤器元素
      * @param cacheTimeout 缓存超时时间（分钟）
@@ -208,7 +207,7 @@ public class RedisMutexUtil {
 
     /**
      * 使用分布式锁解决缓存击穿问题（使用默认锁参数）
-     * 
+     *
      * @param key           缓存键
      * @param cacheTimeout  缓存超时时间
      * @param cacheTimeUnit 缓存时间单位
@@ -224,7 +223,7 @@ public class RedisMutexUtil {
 
     /**
      * 简化版本：默认使用布隆过滤器自动处理缓存穿透和击穿问题
-     * 
+     *
      * @param key          缓存键
      * @param element      布隆过滤器元素
      * @param cacheTimeout 缓存超时时间（分钟）
@@ -238,7 +237,7 @@ public class RedisMutexUtil {
 
     /**
      * 简化版本：默认使用布隆过滤器（元素使用key作为element）
-     * 
+     *
      * @param key          缓存键
      * @param cacheTimeout 缓存超时时间（分钟）
      * @param loader       数据加载器
@@ -250,7 +249,7 @@ public class RedisMutexUtil {
 
     /**
      * 不使用布隆过滤器的版本：仅使用分布式锁处理缓存击穿问题
-     * 
+     *
      * @param key          缓存键
      * @param cacheTimeout 缓存超时时间（分钟）
      * @param loader       数据加载器
@@ -262,7 +261,7 @@ public class RedisMutexUtil {
 
     /**
      * 初始化布隆过滤器
-     * 
+     *
      * @param bloomFilter 布隆过滤器名称
      * @param capacity    预期容量
      * @param errorRate   错误率
@@ -274,7 +273,7 @@ public class RedisMutexUtil {
 
     /**
      * 初始化布隆过滤器（使用默认参数）
-     * 
+     *
      * @param bloomFilter 布隆过滤器名称
      */
     public void initBloomFilter(String bloomFilter) {
@@ -284,7 +283,7 @@ public class RedisMutexUtil {
 
     /**
      * 预加载数据到布隆过滤器
-     * 
+     *
      * @param bloomFilter 布隆过滤器名称
      * @param elements    要预加载的元素列表
      * @param capacity    预期容量
@@ -301,7 +300,7 @@ public class RedisMutexUtil {
 
     /**
      * 获取布隆过滤器统计信息
-     * 
+     *
      * @param bloomFilter 布隆过滤器名称
      * @return 统计信息
      */
@@ -311,7 +310,7 @@ public class RedisMutexUtil {
 
     /**
      * 清空布隆过滤器
-     * 
+     *
      * @param bloomFilter 布隆过滤器名称
      */
     public void clearBloomFilter(String bloomFilter) {
