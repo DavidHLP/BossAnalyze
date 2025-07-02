@@ -83,7 +83,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     Empty: typeof import('./src/components/empty.vue')['default']
     ExportTotal: typeof import('./src/components/exportTotal.vue')['default']
-    GitGraph: typeof import('./src/components/version-control/preview/GitGraph.vue')['default']
+    GitGraph: typeof import('./src/components/version-control/GitGraph.vue')['default']
     MarkdownView: typeof import('./src/components/markdown/MarkdownView.vue')['default']
     MdEditorElement: typeof import('./src/components/markdown/MdEditorElement.vue')['default']
     NavBar: typeof import('./src/components/navBar.vue')['default']

@@ -16,7 +16,7 @@ import java.util.ArrayList;
  * 类似Git的commit对象，记录每次提交的信息
  */
 @Data
-@Document(collection = "resume_commits")
+@Document(collection = "resumes")
 public class ResumeCommit implements Serializable {
 
     @Id
@@ -58,4 +58,7 @@ public class ResumeCommit implements Serializable {
 
     @Field("metadata")
     private java.util.Map<String, Object> metadata = new java.util.HashMap<>(); // 额外元数据
+
+    @Field("doc_type")
+    private String docType = "commit"; // 文档类型
 }

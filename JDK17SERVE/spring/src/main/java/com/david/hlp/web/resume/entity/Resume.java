@@ -11,7 +11,13 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
 
+/**
+ * 简历主实体类（包含版本控制元数据）
+ * 每个文档代表一份简历的元信息和当前状态
+ */
 @Data
 @Document(collection = "resumes")
 public class Resume implements Serializable {
@@ -46,12 +52,12 @@ public class Resume implements Serializable {
     @Field("repository_id")
     private String repositoryId;
 
-    @Field("has_version_control")
-    private Boolean hasVersionControl = false;
-
     @Field("branches")
     private Map<String, String> branches = new HashMap<>(); // branch -> commitId
 
     @Field("stash_stack")
-    private java.util.List<Map<String, Object>> stashStack = new java.util.ArrayList<>();
+    private List<Map<String, Object>> stashStack = new ArrayList<>();
+
+    @Field("doc_type")
+    private String docType = "meta"; // 文档类型，用于在同一集合中区分
 }
