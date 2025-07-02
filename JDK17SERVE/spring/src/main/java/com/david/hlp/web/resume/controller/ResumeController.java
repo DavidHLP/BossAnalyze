@@ -7,9 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import com.david.hlp.web.common.controller.BaseController;
 import com.david.hlp.web.common.entity.Result;
 import com.david.hlp.web.resume.entity.Resume;
-import com.david.hlp.web.resume.entity.ResumeVersion;
 import com.david.hlp.web.resume.service.ResumeService;
-import com.david.hlp.web.resume.service.ResumeVersionService;
 import org.springframework.http.HttpStatus;
 
 import java.util.List;
@@ -22,7 +20,6 @@ import java.util.List;
 public class ResumeController extends BaseController {
 
     private final ResumeService resumeService;
-    private final ResumeVersionService resumeVersionService;
 
     @GetMapping
     public Result<List<Resume>> getResumes() {
@@ -73,85 +70,190 @@ public class ResumeController extends BaseController {
         return Result.success(null);
     }
 
-    // ================== 版本管理相关 API ==================
+    // ================== Git风格版本管理 API ==================
 
     /**
-     * 获取简历版本历史
+     * 获取提交历史 (git log)
      */
-    @GetMapping("/{id}/versions")
-    public Result<List<ResumeVersion>> getVersionHistory(@PathVariable String id) {
+    @GetMapping("/{id}/commits")
+    public Result<List<Resume.Commit>> getCommitHistory(@PathVariable String id,
+            @RequestParam(required = false) String branch) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
-        List<ResumeVersion> versions = resumeVersionService.getVersionHistory(id, userId);
-        return Result.success(versions);
+        List<Resume.Commit> commits = resumeService.getCommitHistory(id, branch, userId);
+        return Result.success(commits);
     }
 
     /**
-     * 获取特定版本内容
+     * 获取特定提交 (git show)
      */
-    @GetMapping("/{id}/versions/{versionNumber}")
-    public Result<ResumeVersion> getVersion(@PathVariable String id, @PathVariable Integer versionNumber) {
+    @GetMapping("/{id}/commits/{commitId}")
+    public Result<Resume.Commit> getCommit(@PathVariable String id, @PathVariable String commitId) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
-        ResumeVersion version = resumeVersionService.getVersion(id, versionNumber, userId);
-        return version != null ? Result.success(version)
-                : Result.error(HttpStatus.NOT_FOUND.value(), "版本不存在");
+        Resume.Commit commit = resumeService.getCommit(id, commitId, userId);
+        return commit != null ? Result.success(commit)
+                : Result.error(HttpStatus.NOT_FOUND.value(), "提交不存在");
     }
 
     /**
-     * 恢复到指定版本
+     * 手动提交变更 (git commit)
      */
-    @PostMapping("/{id}/versions/{versionNumber}/restore")
-    public Result<Resume> restoreToVersion(@PathVariable String id, @PathVariable Integer versionNumber) {
+    @PostMapping("/{id}/commit")
+    public Result<Resume.Commit> commitChanges(@PathVariable String id,
+            @RequestBody Resume.CommitRequest request) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
         try {
-            Resume restoredResume = resumeVersionService.restoreToVersion(id, versionNumber, userId);
-            return Result.success(restoredResume);
+            Resume.Commit commit = resumeService.commitChanges(id, request.getTitle(),
+                    request.getContent(), request.getMessage(), request.getAuthor(), userId);
+            return Result.success(commit);
         } catch (RuntimeException e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
     }
 
     /**
-     * 手动创建版本快照
+     * 重置到指定提交 (git reset)
      */
-    @PostMapping("/{id}/versions")
-    public Result<ResumeVersion> createVersion(@PathVariable String id,
-            @RequestParam(required = false) String description) {
+    @PostMapping("/{id}/reset/{commitId}")
+    public Result<Resume> resetToCommit(@PathVariable String id, @PathVariable String commitId) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
-
-        Resume resume = resumeService.getResumeById(id, userId);
-        if (resume == null) {
-            return Result.error(HttpStatus.NOT_FOUND.value(), "简历不存在");
+        try {
+            Resume resume = resumeService.resetToCommit(id, commitId, userId);
+            return Result.success(resume);
+        } catch (RuntimeException e) {
+            return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
+    }
 
-        String changeDescription = description != null ? description : "手动创建快照";
-        ResumeVersion version = resumeVersionService.createVersion(resume, changeDescription, false);
-        return Result.success(version);
+    // ================== Git分支管理 API ==================
+
+    /**
+     * 获取所有分支 (git branch -a)
+     */
+    @GetMapping("/{id}/branches")
+    public Result<List<Resume.Branch>> getBranches(@PathVariable String id) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
+        }
+        List<Resume.Branch> branches = resumeService.getBranches(id, userId);
+        return Result.success(branches);
     }
 
     /**
-     * 清理旧版本
+     * 创建新分支 (git branch)
      */
-    @PostMapping("/{id}/versions/cleanup")
-    public Result<Void> cleanupOldVersions(@PathVariable String id,
-            @RequestParam(defaultValue = "10") int keepCount) {
+    @PostMapping("/{id}/branches")
+    public Result<Resume.Branch> createBranch(@PathVariable String id,
+            @RequestBody Resume.BranchRequest request) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
+        try {
+            Resume.Branch branch = resumeService.createBranch(id, request.getName(),
+                    request.getDescription(), request.getFromCommitId(), userId);
+            return Result.success(branch);
+        } catch (RuntimeException e) {
+            return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
+    }
 
-        resumeVersionService.cleanOldVersions(id, userId, keepCount);
-        return Result.success(null);
+    /**
+     * 切换分支 (git checkout)
+     */
+    @PostMapping("/{id}/checkout/{branchName}")
+    public Result<Resume> checkoutBranch(@PathVariable String id, @PathVariable String branchName) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
+        }
+        try {
+            Resume resume = resumeService.checkoutBranch(id, branchName, userId);
+            return Result.success(resume);
+        } catch (RuntimeException e) {
+            return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
+    }
+
+    /**
+     * 合并分支 (git merge)
+     */
+    @PostMapping("/{id}/merge")
+    public Result<Resume> mergeBranch(@PathVariable String id,
+            @RequestBody Resume.MergeRequest request) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
+        }
+        try {
+            Resume resume = resumeService.mergeBranch(id, request.getSourceBranch(),
+                    request.getTargetBranch(), request.getMessage(), userId);
+            return Result.success(resume);
+        } catch (RuntimeException e) {
+            return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
+    }
+
+    /**
+     * 删除分支 (git branch -d)
+     */
+    @DeleteMapping("/{id}/branches/{branchName}")
+    public Result<Void> deleteBranch(@PathVariable String id, @PathVariable String branchName) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
+        }
+        try {
+            resumeService.deleteBranch(id, branchName, userId);
+            return Result.success(null);
+        } catch (RuntimeException e) {
+            return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
+    }
+
+    // ================== Git标签管理 API ==================
+
+    /**
+     * 获取所有标签 (git tag -l)
+     */
+    @GetMapping("/{id}/tags")
+    public Result<List<Resume.Tag>> getTags(@PathVariable String id) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
+        }
+        List<Resume.Tag> tags = resumeService.getTags(id, userId);
+        return Result.success(tags);
+    }
+
+    /**
+     * 创建标签 (git tag)
+     */
+    @PostMapping("/{id}/tags")
+    public Result<Resume.Tag> createTag(@PathVariable String id,
+            @RequestBody Resume.TagRequest request) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
+        }
+        try {
+            Resume.Tag tag = resumeService.createTag(id, request.getName(),
+                    request.getCommitId(), request.getMessage(), userId);
+            return Result.success(tag);
+        } catch (RuntimeException e) {
+            return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
     }
 }

@@ -14,8 +14,10 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@antv/g6": "^5.0.49",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@element-plus/icons-vue": "^2.3.1",
+    "@gitgraph/js": "^1.4.0",
     "@popperjs/core": "^2.11.8",
     "@types/animejs": "^3.1.13",
     "@types/nprogress": "^0.2.3",

@@ -10,8 +10,6 @@ import VersionHistory from './components/VersionHistory.vue'
 import { useResumeType, useDownLoad, useImportMD, useAvatar, useShowExport } from './hook'
 import { startGuide } from './components/guide/guide'
 import useEditorStore from '@/store/modules/editor'
-import type { ResumeVersion } from '@/api/resume/version'
-
 const { resumeType } = useResumeType()
 const { downloadDynamic, downloadNative, downloadMD } = useDownLoad(resumeType)
 const { importMD } = useImportMD(resumeType.value)
@@ -26,17 +24,11 @@ const editorStore = useEditorStore()
 const versionDrawerVisible = ref(false)
 const currentResumeId = ref<string | null>(null)
 
-// 版本恢复回调
-const onVersionRestored = (version: ResumeVersion) => {
-  ElMessage.success(`已恢复到版本 V${version.versionNumber}`)
+// 版本刷新回调
+const onVersionRefresh = () => {
+  ElMessage.success('版本操作完成！')
   // 刷新编辑器内容
   editorStore.initMDContent(resumeType.value)
-  versionDrawerVisible.value = false
-}
-
-// 版本创建回调
-const onVersionCreated = (version: ResumeVersion) => {
-  ElMessage.success('版本快照创建成功！')
 }
 
 onMounted(() => {
@@ -81,12 +73,13 @@ onMounted(() => {
   </div>
 
   <!-- 版本管理抽屉 -->
-  <el-drawer v-model="versionDrawerVisible" title="版本历史" direction="rtl" size="450px">
+  <el-drawer v-model="versionDrawerVisible" title="Git版本管理" direction="rtl" size="600px">
     <VersionHistory
       v-if="currentResumeId"
       :resume-id="currentResumeId"
-      @version-restored="onVersionRestored"
-      @version-created="onVersionCreated"
+      :visible="versionDrawerVisible"
+      @update:visible="versionDrawerVisible = $event"
+      @refresh="onVersionRefresh"
     />
   </el-drawer>
 </template>

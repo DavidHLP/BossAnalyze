@@ -22,7 +22,6 @@ import {
 } from '@/api/resume/resume'
 import type { Resume } from '@/api/resume/types'
 import VersionHistory from './components/VersionHistory.vue'
-import type { ResumeVersion } from '@/api/resume/version'
 import { default as template } from '@/templates/modules/10front_end/index'
 
 const router = useRouter()
@@ -285,26 +284,20 @@ const handleActionCommand = (command: string, row: Resume) => {
       handleDeleteResume(row)
       break
     case 'version':
-      showVersionHistory(row)
+      openVersionHistory(row)
       break
   }
 }
 
 // 显示版本历史
-const showVersionHistory = (resume: Resume) => {
+const openVersionHistory = (resume: Resume) => {
   versionResumeId.value = resume.id
   versionDrawerVisible.value = true
 }
 
-// 版本管理回调
-const onVersionRestored = (version: ResumeVersion) => {
-  ElMessage.success(`已恢复到版本 V${version.versionNumber}`)
-  getResumeList() // 刷新列表
+const handleRefresh = () => {
   versionDrawerVisible.value = false
-}
-
-const onVersionCreated = (version: ResumeVersion) => {
-  ElMessage.success('版本快照创建成功！')
+  getResumeList()
 }
 
 onMounted(() => {
@@ -700,12 +693,18 @@ onMounted(() => {
     </div>
 
     <!-- 版本管理抽屉 -->
-    <el-drawer v-model="versionDrawerVisible" title="版本历史" direction="rtl" size="450px">
+    <el-drawer
+      v-model="versionDrawerVisible"
+      title="版本历史"
+      direction="rtl"
+      size="60%"
+      :destroy-on-close="true"
+    >
       <VersionHistory
         v-if="versionResumeId"
         :resume-id="versionResumeId"
-        @version-restored="onVersionRestored"
-        @version-created="onVersionCreated"
+        :visible="versionDrawerVisible"
+        @refresh="handleRefresh"
       />
     </el-drawer>
   </div>
