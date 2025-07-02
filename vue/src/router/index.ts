@@ -86,6 +86,16 @@ const baseRoutes: RouteRecordRaw[] = [
     },
     component: () => import('@/views/front/about/AboutView.vue'),
   },
+  {
+    path: '/version-control',
+    name: 'version-control',
+    meta: {
+      type: 'M',
+      title: '版本控制',
+      requiresAuth: true,
+    },
+    component: () => import('@/components/version-control/GitGraph.vue'),
+  },
 ]
 
 const Module = import.meta.glob('@/views/**/*.vue')

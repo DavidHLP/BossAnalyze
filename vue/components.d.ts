@@ -81,6 +81,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     Empty: typeof import('./src/components/empty.vue')['default']
     ExportTotal: typeof import('./src/components/exportTotal.vue')['default']
+    GitGraph: typeof import('./src/components/version-control/GitGraph.vue')['default']
     MarkdownView: typeof import('./src/components/markdown/MarkdownView.vue')['default']
     MdEditorElement: typeof import('./src/components/markdown/MdEditorElement.vue')['default']
     NavBar: typeof import('./src/components/navBar.vue')['default']
@@ -88,6 +89,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SelectTree: typeof import('./src/components/common/SelectTree.vue')['default']
+    SimpleGitGraph: typeof import('./src/components/git-graph/SimpleGitGraph.vue')['default']
     ToastModal: typeof import('./src/components/toast-modal/toastModal.vue')['default']
     UserQuickView: typeof import('./src/components/common/UserQuickView.vue')['default']
   }

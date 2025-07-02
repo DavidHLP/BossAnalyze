@@ -21,7 +21,6 @@ import {
   updateResume,
 } from '@/api/resume/resume'
 import type { Resume } from '@/api/resume/types'
-import VersionHistory from './components/VersionHistory.vue'
 import { default as template } from '@/templates/modules/10front_end/index'
 
 const router = useRouter()
@@ -34,10 +33,6 @@ const editingTitleId = ref<string | null>(null)
 const editingTitle = ref('')
 const tableRef = ref()
 const viewMode = ref<'table' | 'grid'>('grid')
-
-// 版本管理相关
-const versionDrawerVisible = ref(false)
-const versionResumeId = ref<string | null>(null)
 
 // 分页状态
 const currentPage = ref(1)
@@ -283,21 +278,7 @@ const handleActionCommand = (command: string, row: Resume) => {
     case 'delete':
       handleDeleteResume(row)
       break
-    case 'version':
-      openVersionHistory(row)
-      break
   }
-}
-
-// 显示版本历史
-const openVersionHistory = (resume: Resume) => {
-  versionResumeId.value = resume.id
-  versionDrawerVisible.value = true
-}
-
-const handleRefresh = () => {
-  versionDrawerVisible.value = false
-  getResumeList()
 }
 
 onMounted(() => {
@@ -652,10 +633,6 @@ onMounted(() => {
                       <el-button size="small" :icon="MoreFilled" class="action-btn more" />
                       <template #dropdown>
                         <el-dropdown-menu>
-                          <el-dropdown-item command="version">
-                            <el-icon><Clock /></el-icon>
-                            版本历史
-                          </el-dropdown-item>
                           <el-dropdown-item command="copy">
                             <el-icon><DocumentCopy /></el-icon>
                             复制简历
@@ -691,22 +668,6 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
-    <!-- 版本管理抽屉 -->
-    <el-drawer
-      v-model="versionDrawerVisible"
-      title="版本历史"
-      direction="rtl"
-      size="60%"
-      :destroy-on-close="true"
-    >
-      <VersionHistory
-        v-if="versionResumeId"
-        :resume-id="versionResumeId"
-        :visible="versionDrawerVisible"
-        @refresh="handleRefresh"
-      />
-    </el-drawer>
   </div>
 </template>
 
