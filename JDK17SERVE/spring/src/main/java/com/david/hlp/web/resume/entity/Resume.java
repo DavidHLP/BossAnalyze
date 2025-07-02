@@ -9,6 +9,8 @@ import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Map;
+import java.util.HashMap;
 
 @Data
 @Document(collection = "resumes")
@@ -33,4 +35,23 @@ public class Resume implements Serializable {
     @LastModifiedDate
     @Field("updated_at")
     private Date updatedAt;
+
+    // 版本控制相关字段
+    @Field("current_branch")
+    private String currentBranch = "main";
+
+    @Field("head_commit")
+    private String headCommit;
+
+    @Field("repository_id")
+    private String repositoryId;
+
+    @Field("has_version_control")
+    private Boolean hasVersionControl = false;
+
+    @Field("branches")
+    private Map<String, String> branches = new HashMap<>(); // branch -> commitId
+
+    @Field("stash_stack")
+    private java.util.List<Map<String, Object>> stashStack = new java.util.ArrayList<>();
 }

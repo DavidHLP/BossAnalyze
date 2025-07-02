@@ -94,7 +94,7 @@ const baseRoutes: RouteRecordRaw[] = [
       title: '版本控制',
       requiresAuth: true,
     },
-    component: () => import('@/components/version-control/GitGraph.vue'),
+    component: () => import('@/components/version-control/version-control.vue'),
   },
 ]
 

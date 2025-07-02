@@ -42,11 +42,31 @@ export interface ResumeData {
   updatedAt?: Date; // 更新时间
 }
 
+/**
+ * 简历基础模型 (包含版本控制)
+ */
 export interface Resume {
-  id: string;
-  userId: number;
-  title: string;
-  content: string;
-  createdAt: string; // or Date
-  updatedAt: string; // or Date
+  id: string
+  userId: number
+  title: string
+  content: string
+  createdAt: Date
+  updatedAt: Date
+  // 版本控制相关字段
+  currentBranch: string
+  headCommit?: string
+  repositoryId?: string
+  hasVersionControl: boolean
+  branches: Record<string, string>
+  stashStack: Array<Record<string, unknown>>
 }
+
+/**
+ * 简历创建数据传输对象
+ */
+export type ResumeCreate = Omit<Resume, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
+
+/**
+ * 简历更新数据传输对象
+ */
+export type ResumeUpdate = Partial<ResumeCreate>

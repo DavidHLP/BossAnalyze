@@ -3586,7 +3586,7 @@ electron-to-chromium@^1.5.173:
   resolved "https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.5.178.tgz#6fc4d69eb5275bb13068931448fd822458901fbb"
   integrity sha512-wObbz/ar3Bc6e4X5vf0iO8xTN8YAjN/tgiAOJLr7yjYFtP9wAjq8Mb5h0yn6kResir+VYx2DXBj9NNobs0ETSA==
 
-element-plus@^2.9.4:
+element-plus@^2.10.2:
   version "2.10.2"
   resolved "https://registry.npmjs.org/element-plus/-/element-plus-2.10.2.tgz#5eb8ea6aa54cfdd88b903d7d65b623bdaeaf899d"
   integrity sha512-p2KiAa0jEGXrzdlTAfpiS7HQFAhla4gvx6H7RuDf+OO0uC3DGpolxvdHjFR8gt7+vaWyxQNcHa1sAdBkmjqlgA==

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import Header from './components/header/header.vue'
 import MarkdownRender from '@/views/resume/components/preview/render.vue'
 import Editor from '@/views/resume/components/editor/editorContainer.vue'
+import ResumeVersionControl from './components/version-control/resumeVersionControl.vue'
 import { useResumeType, useDownLoad, useImportMD, useAvatar, useShowExport } from './hook'
 import { startGuide } from './components/guide/guide'
 import useEditorStore from '@/store/modules/editor'
@@ -26,32 +27,49 @@ onMounted(() => {
 </script>
 
 <template>
-  <Header
-    @download-dynamic="(filename: string) => downloadDynamic(true, filename)"
-    @download-picture="(filename: string) => downloadDynamic(false, filename)"
-    @download-native="downloadNative"
-    @download-md="downloadMD"
-    @import-md="importMD"
-  />
-  <div id="editor">
-    <Editor />
-    <markdown-render class="markdown-render" @upload-avatar="setAvatar" />
-    <el-tooltip content="导出PDF文件" v-if="showExport">
-      <i
-        data-aos="fade-in"
-        data-aos-duration="800"
-        data-aos-offset="50"
-        class="iconfont icon-export hover pointer standby-export"
-        @click="downloadDynamic(true)"
-      ></i>
-    </el-tooltip>
+  <div class="resume-editor-container">
+    <!-- 版本控制组件 -->
+    <ResumeVersionControl />
+
+    <!-- 原有的编辑器头部 -->
+    <Header
+      @download-dynamic="(filename: string) => downloadDynamic(true, filename)"
+      @download-picture="(filename: string) => downloadDynamic(false, filename)"
+      @download-native="downloadNative"
+      @download-md="downloadMD"
+      @import-md="importMD"
+    />
+
+    <!-- 编辑器主体 -->
+    <div id="editor">
+      <Editor />
+      <markdown-render class="markdown-render" @upload-avatar="setAvatar" />
+      <el-tooltip content="导出PDF文件" v-if="showExport">
+        <i
+          data-aos="fade-in"
+          data-aos-duration="800"
+          data-aos-offset="50"
+          class="iconfont icon-export hover pointer standby-export"
+          @click="downloadDynamic(true)"
+        ></i>
+      </el-tooltip>
+    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
+.resume-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
 #editor {
   display: flex;
   position: relative;
+  flex: 1;
+  overflow: hidden;
 
   .markdown-render {
     flex: 1;
