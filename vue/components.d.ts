@@ -9,9 +9,11 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     BaseLayout: typeof import('./src/components/layout/BaseLayout.vue')['default']
+    Editor: typeof import('./src/components/version-control/editor/editor.vue')['default']
     EditTree: typeof import('./src/components/common/EditTree.vue')['default']
     ElAffix: typeof import('element-plus/es')['ElAffix']
     ElAlert: typeof import('element-plus/es')['ElAlert']
+    ElAside: typeof import('element-plus/es')['ElAside']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']
     ElBacktop: typeof import('element-plus/es')['ElBacktop']
     ElBadge: typeof import('element-plus/es')['ElBadge']
@@ -81,6 +83,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     Empty: typeof import('./src/components/empty.vue')['default']
     ExportTotal: typeof import('./src/components/exportTotal.vue')['default']
+    GitGraph: typeof import('./src/components/version-control/preview/GitGraph.vue')['default']
     MarkdownView: typeof import('./src/components/markdown/MarkdownView.vue')['default']
     MdEditorElement: typeof import('./src/components/markdown/MdEditorElement.vue')['default']
     NavBar: typeof import('./src/components/navBar.vue')['default']
@@ -88,8 +91,11 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SelectTree: typeof import('./src/components/common/SelectTree.vue')['default']
+    SimpleGitGraph: typeof import('./src/components/git-graph/SimpleGitGraph.vue')['default']
     ToastModal: typeof import('./src/components/toast-modal/toastModal.vue')['default']
     UserQuickView: typeof import('./src/components/common/UserQuickView.vue')['default']
+    VersionControl: typeof import('./src/components/version-control/version-control.vue')['default']
+    VersionHistoryGraph: typeof import('./src/components/version-control/VersionHistoryGraph.vue')['default']
   }
   export interface GlobalDirectives {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

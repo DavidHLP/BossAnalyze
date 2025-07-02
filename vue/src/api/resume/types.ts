@@ -42,81 +42,31 @@ export interface ResumeData {
   updatedAt?: Date; // 更新时间
 }
 
+/**
+ * 简历基础模型 (包含版本控制)
+ */
 export interface Resume {
-  id: string;
-  userId: number;
-  title: string;
-  content: string;
-  // Git-like 字段
-  currentBranch: string;
-  headCommitId: string;
-  branches: Branch[];
-  commits: Commit[];
-  tags: Tag[];
-  createdAt: string; // or Date
-  updatedAt: string; // or Date
+  id: string
+  userId: number
+  title: string
+  content: string
+  createdAt: Date
+  updatedAt: Date
+  // 版本控制相关字段
+  currentBranch: string
+  headCommit?: string
+  repositoryId?: string
+  hasVersionControl: boolean
+  branches: Record<string, string>
+  stashStack: Array<Record<string, unknown>>
 }
 
-// Git分支
-export interface Branch {
-  name: string;
-  headCommitId: string;
-  description: string;
-  createdAt: string;
-  isDefault: boolean;
-  createdBy: string;
-}
+/**
+ * 简历创建数据传输对象
+ */
+export type ResumeCreate = Omit<Resume, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 
-// Git提交
-export interface Commit {
-  commitId: string;
-  parentCommitIds: string[];
-  branch: string;
-  title: string;
-  content: string;
-  commitMessage: string;
-  author: string;
-  commitTime: string;
-  changesSummary: string;
-  isMergeCommit: boolean;
-  mergedFromBranch?: string;
-}
-
-// Git标签
-export interface Tag {
-  name: string;
-  commitId: string;
-  message: string;
-  createdAt: string;
-  createdBy: string;
-  tagType: string;
-}
-
-// 请求类型
-export interface CommitRequest {
-  title: string;
-  content: string;
-  message: string;
-  author?: string;
-}
-
-export interface BranchRequest {
-  name: string;
-  description: string;
-  fromCommitId?: string;
-}
-
-export interface MergeRequest {
-  sourceBranch: string;
-  targetBranch: string;
-  message?: string;
-}
-
-export interface TagRequest {
-  name: string;
-  commitId?: string;
-  message: string;
-}
-
-// 兼容性类型别名
-export type ResumeSnapshot = Commit;
+/**
+ * 简历更新数据传输对象
+ */
+export type ResumeUpdate = Partial<ResumeCreate>

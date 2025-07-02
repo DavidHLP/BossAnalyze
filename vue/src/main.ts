@@ -13,7 +13,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
 // 项目核心模块
 import App from './App.vue'
-import router from './router'
+import router from '@/router'
 import { setupAsyncRoutes, startPermissionMonitor, hasPermission } from '@/router'
 import { useUserStore } from '@/store/user/userStore'
 
