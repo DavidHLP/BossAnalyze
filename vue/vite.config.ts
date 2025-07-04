@@ -51,7 +51,7 @@ export default (mode) => {
   return defineConfig({
     plugins: [
       vue(),
-      vueDevTools(),
+      // vueDevTools(),
       vueSetupName(),
       AutoImport({
         resolvers: [ElementPlusResolver()],

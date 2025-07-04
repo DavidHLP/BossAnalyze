@@ -3,12 +3,10 @@ package com.david.hlp.web.resume.controller;
 import com.david.hlp.web.common.controller.BaseController;
 import com.david.hlp.web.common.entity.Result;
 import com.david.hlp.web.resume.entity.Resume;
-import com.david.hlp.web.resume.entity.ResumeCommit;
 import com.david.hlp.web.resume.service.ResumeVersionControlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -123,14 +121,14 @@ public class ResumeVersionController extends BaseController {
      * 获取提交历史
      */
     @GetMapping("/history")
-    public Result<List<ResumeCommit>> getCommitHistory(@PathVariable String resumeId) {
+    public Result<List<Resume>> getCommitHistory(@PathVariable String resumeId) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
 
         try {
-            List<ResumeCommit> history = versionControlService.getCommitHistory(resumeId, userId);
+            List<Resume> history = versionControlService.getCommitHistory(resumeId, userId);
             return Result.success(history);
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
@@ -257,7 +255,7 @@ public class ResumeVersionController extends BaseController {
      * 获取最近的提交记录（用于快速回溯）
      */
     @GetMapping("/recent")
-    public Result<List<ResumeCommit>> getRecentCommits(@PathVariable String resumeId,
+    public Result<List<Resume>> getRecentCommits(@PathVariable String resumeId,
             @RequestParam(defaultValue = "10") int limit) {
         Long userId = getCurrentUserId();
         if (userId == null) {
@@ -269,7 +267,7 @@ public class ResumeVersionController extends BaseController {
                 limit = 10; // 默认限制
             }
 
-            List<ResumeCommit> recentCommits = versionControlService.getRecentCommits(resumeId, userId, limit);
+            List<Resume> recentCommits = versionControlService.getRecentCommits(resumeId, userId, limit);
             return Result.success(recentCommits);
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
@@ -280,7 +278,7 @@ public class ResumeVersionController extends BaseController {
      * 获取两个提交之间的差异
      */
     @GetMapping("/diff")
-    public Result<List<ResumeCommit>> getCommitsBetween(@PathVariable String resumeId,
+    public Result<List<Resume>> getCommitsBetween(@PathVariable String resumeId,
             @RequestParam String fromCommit,
             @RequestParam String toCommit) {
         Long userId = getCurrentUserId();
@@ -289,7 +287,7 @@ public class ResumeVersionController extends BaseController {
         }
 
         try {
-            List<ResumeCommit> commits = versionControlService.getCommitsBetween(resumeId, userId, fromCommit,
+            List<Resume> commits = versionControlService.getCommitsBetween(resumeId, userId, fromCommit,
                     toCommit);
             return Result.success(commits);
         } catch (Exception e) {

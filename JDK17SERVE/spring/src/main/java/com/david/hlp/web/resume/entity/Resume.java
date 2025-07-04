@@ -8,15 +8,15 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
-import java.util.ArrayList;
+import java.util.Map;
 
 /**
- * 简历主实体类（包含版本控制元数据）
- * 每个文档代表一份简历的元信息和当前状态
+ * 简历实体类，用于在同一集合中存储简历元数据（meta）和提交历史（commit）
+ * 通过 'doc_type' 字段区分
  */
 @Data
 @Document(collection = "resumes")
@@ -28,11 +28,15 @@ public class Resume implements Serializable {
     @Field("user_id")
     private Long userId;
 
+    @Field("content")
+    private String content; // 对于 "meta" 是当前内容, "commit" 是快照
+
+    @Field("doc_type")
+    private String docType; // "meta" or "commit"
+
+    // "meta" type fields
     @Field("title")
     private String title;
-
-    @Field("content")
-    private String content;
 
     @CreatedDate
     @Field("created_at")
@@ -42,7 +46,6 @@ public class Resume implements Serializable {
     @Field("updated_at")
     private Date updatedAt;
 
-    // 版本控制相关字段
     @Field("current_branch")
     private String currentBranch = "main";
 
@@ -58,6 +61,34 @@ public class Resume implements Serializable {
     @Field("stash_stack")
     private List<Map<String, Object>> stashStack = new ArrayList<>();
 
-    @Field("doc_type")
-    private String docType = "meta"; // 文档类型，用于在同一集合中区分
+    // "commit" type fields
+    @Field("resume_id")
+    private String resumeId; // 关联的简历ID
+
+    @Field("message")
+    private String message; // 提交信息
+
+    @Field("branch")
+    private String branch; // 所属分支
+
+    @Field("parent_commits")
+    private List<String> parentCommits = new ArrayList<>(); // 父提交ID列表（支持merge）
+
+    @Field("commit_type")
+    private String commitType = "normal"; // normal, merge, cherry-pick
+
+    @Field("author")
+    private String author; // 提交者
+
+    @Field("author_email")
+    private String authorEmail;
+
+    @Field("commit_time")
+    private Date commitTime;
+
+    @Field("tree_hash")
+    private String treeHash; // 内容哈希，用于快速比较
+
+    @Field("metadata")
+    private Map<String, Object> metadata = new HashMap<>(); // 额外元数据
 }

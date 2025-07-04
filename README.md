@@ -152,7 +152,7 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 | `src/views/console/` | 管理后台页面 |
 | `src/views/front/`   | 前台展示页面 |
 | `src/components/`    | 公共组件     |
-| `src/store/`        | 状态管理     |
+| `src/store/`         | 状态管理     |
 | `src/api/`           | 接口请求封装 |
 
 ## 🖼️ 项目展示

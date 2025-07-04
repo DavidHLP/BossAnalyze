@@ -1,6 +1,5 @@
 package com.david.hlp.web.resume.service;
 
-import com.david.hlp.commons.utils.RedisCacheHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -9,11 +8,9 @@ import org.springframework.stereotype.Service;
 import com.david.hlp.web.resume.entity.Resume;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import com.david.hlp.web.resume.entity.ResumeCommit;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Objects;
 import java.util.ArrayList;
 import java.util.UUID;
 
@@ -26,7 +23,6 @@ import java.util.UUID;
 public class ResumeService {
 
     private final MongoTemplate mongoTemplate;
-    private final RedisCacheHelper redisCacheHelper;
     private final ResumeVersionControlService versionControlService;
 
     public List<Resume> getResumesByUserId(Long userId) {
@@ -89,8 +85,8 @@ public class ResumeService {
         Resume existingResume = getResumeById(id, userId);
         if (existingResume != null) {
             // 同时删除所有关联的commit
-            Query commitsQuery = new Query(Criteria.where("resumeId").is(id).and("docType").is("commit"));
-            mongoTemplate.remove(commitsQuery, ResumeCommit.class);
+            Query commitsQuery = new Query(Criteria.where("resume_id").is(id).and("doc_type").is("commit"));
+            mongoTemplate.remove(commitsQuery, Resume.class);
 
             // 删除简历元数据
             mongoTemplate.remove(existingResume);
