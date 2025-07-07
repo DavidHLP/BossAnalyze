@@ -91,7 +91,6 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SelectTree: typeof import('./src/components/common/SelectTree.vue')['default']
-    SimpleGitGraph: typeof import('./src/components/git-graph/SimpleGitGraph.vue')['default']
     ToastModal: typeof import('./src/components/toast-modal/toastModal.vue')['default']
     UserQuickView: typeof import('./src/components/common/UserQuickView.vue')['default']
     VersionControl: typeof import('./src/components/version-control/version-control.vue')['default']

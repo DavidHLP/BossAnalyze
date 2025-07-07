@@ -31,7 +31,7 @@ public class LogServiceImp {
         @Scheduled(fixedRate = 5 * 60 * 1000) // 每5分钟执行一次
         public void analyzeLogs() {
                 log.info("开始执行日志分析任务...");
-                String logsDir = "hdfs://hadoop-single:9000/logs/";
+                String logsDir = "hdfs://mycluster/logs/";
 
                 try {
                         LocalDateTime analysisStartTime = LocalDateTime.now();
@@ -77,17 +77,6 @@ public class LogServiceImp {
         }
 
         private Dataset<Row> loadAndParseLogs(String logsDir) {
-                // 注册UDF函数
-                sparkSession.udf().register("parse_timestamp",
-                                (String timestampStr) -> {
-                                        try {
-                                                return Long.parseLong(timestampStr);
-                                        } catch (NumberFormatException e) {
-                                                return 0L;
-                                        }
-                                },
-                                DataTypes.LongType);
-
                 // 读取日志文件并解析
                 return sparkSession.read()
                                 .option("mode", "PERMISSIVE")
@@ -105,8 +94,9 @@ public class LogServiceImp {
                                                                 .as("method"),
                                                 functions.regexp_extract(functions.col("value"), "ua=([^|]+)", 1)
                                                                 .as("user_agent"))
-                                .withColumn("timestamp_ms",
-                                                functions.callUDF("parse_timestamp", functions.col("timestamp_str")))
+                                .withColumn("timestamp_ms", functions.coalesce(
+                                                functions.col("timestamp_str").cast(DataTypes.LongType),
+                                                functions.lit(0L)))
                                 .withColumn("timestamp",
                                                 functions.from_unixtime(functions.col("timestamp_ms").divide(1000),
                                                                 "yyyy-MM-dd HH:mm:ss"))

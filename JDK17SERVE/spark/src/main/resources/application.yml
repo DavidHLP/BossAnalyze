@@ -1,6 +1,4 @@
 spring:
-  profiles:
-    active: local
   application:
     name: SpringSpark
   cloud:
@@ -16,7 +14,7 @@ spring:
       port: 6379
       database: 0
       timeout: 1800000 # 使用毫秒格式，兼容 Redis Lettuce
-      password: your_redis_password
+      password: Alone117
       lettuce:
         pool:
           max-active: 20 # 最大连接数
@@ -42,9 +40,15 @@ spark:
   app:
     name: springboot-spark
   master:
-    uri: local[2]
+    uri: spark://hadoop-master1:7077,hadoop-master2:7077,hadoop-master3:7077
+  deploy:
+    zookeeper:
+      url: zoo1:2181,zoo2:2181,zoo3:2181
+      dir: /spark
+  eventLog:
+    dir: hdfs://mycluster/spark-logs/
   redis:
-    key-prefix: "spark:job:"
+    key-prefix: 'spark:job:'
     host: localhost
     port: 6379
     password: your_redis_password

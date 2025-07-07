@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+<!-- Put site-specific property overrides in this file. -->
+<configuration>
+  <property>
+    <name>dfs.hosts</name>
+    <value>/opt/hadoop/etc/hadoop/conf/dfs.include</value>
+  </property>
+  <property>
+    <name>dfs.hosts.exclude</name>
+    <value>/opt/hadoop/etc/hadoop/conf/dfs.exclude</value>
+  </property>
+  <!-- 配置副本数量 -->
+  <property>
+    <name>dfs.replication</name>
+    <value>3</value>
+  </property>
+  <!-- 禁用HDFS权限检查 -->
+  <property>
+    <name>dfs.permissions</name>
+    <value>false</value>
+  </property>
+  <!-- 设置NameNode存储目录 -->
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>/data/hdfs/namenode</value>
+  </property>
+  <!-- 设置DataNode存储目录 -->
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>/data/hdfs/datanode</value>
+  </property>
+  <!-- 自动失效切换时的首选活跃节点 -->
+  <!--
+  <property>
+    <name>dfs.ha.automatic-failover.preferred-active</name>
+    <value>nn1</value>
+  </property>
+  -->
+  <!-- 配置高可用集群 -->
+  <property>
+    <name>dfs.nameservices</name>
+    <value>mycluster</value>
+  </property>
+  <property>
+    <name>dfs.ha.namenodes.mycluster</name>
+    <value>nn1,nn2,nn3</value>
+  </property>
+  <!-- NameNode 节点的 RPC 地址 -->
+  <property>
+    <name>dfs.namenode.rpc-address.mycluster.nn1</name>
+    <value>hadoop-master1:8020</value>
+  </property>
+  <property>
+    <name>dfs.namenode.rpc-address.mycluster.nn2</name>
+    <value>hadoop-master2:8020</value>
+  </property>
+  <property>
+    <name>dfs.namenode.rpc-address.mycluster.nn3</name>
+    <value>hadoop-master3:8020</value>
+  </property>
+  <!-- NameNode 节点的 HTTP 地址 -->
+  <property>
+    <name>dfs.namenode.http-address.mycluster.nn1</name>
+    <value>hadoop-master1:9870</value>
+  </property>
+  <property>
+    <name>dfs.namenode.http-address.mycluster.nn2</name>
+    <value>hadoop-master2:9870</value>
+  </property>
+  <property>
+    <name>dfs.namenode.http-address.mycluster.nn3</name>
+    <value>hadoop-master3:9870</value>
+  </property>
+  <!-- <property>
+    <name>dfs.ha.automatic-failover.preferred-active</name>
+    <value>nn1</value>
+  </property> -->
+  <!-- 共享编辑日志的目录 -->
+  <property>
+    <name>dfs.namenode.shared.edits.dir</name>
+    <value>qjournal://hadoop-master1:8485;hadoop-master2:8485;hadoop-master3:8485/mycluster</value>
+  </property>
+  <!-- 配置客户端失效切换 -->
+  <property>
+    <name>dfs.client.failover.proxy.provider.mycluster</name>
+    <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+  </property>
+  <!-- 配置在安全模式下不允许成为活跃节点 -->
+  <!--
+  <property>
+    <name>dfs.ha.nn.not-become-active-in-safemode</name>
+    <value>true</value>
+  </property>
+  -->
+  <!-- 日志节点的目录 -->
+  <property>
+    <name>dfs.journalnode.edits.dir</name>
+    <value>/data/hdfs/journal/node/local/data</value>
+  </property>
+  <!-- 启用自动失效切换 -->
+  <property>
+    <name>dfs.ha.automatic-failover.enabled</name>
+    <value>true</value>
+  </property>
+  <!-- SSH fencing 配置 -->
+  <property>
+    <name>dfs.ha.fencing.methods</name>
+    <value>sshfence</value>
+  </property>
+  <property>
+    <name>dfs.ha.fencing.ssh.connect-timeout</name>
+    <value>30000</value>
+    <!-- 设置为 30 秒 -->
+  </property>
+  <property>
+    <name>dfs.ha.fencing.ssh.timeout</name>
+    <value>60000</value>
+    <!-- 设置为 60 秒 -->
+  </property>
+  <property>
+    <name>dfs.ha.fencing.ssh.private-key-files</name>
+    <value>/root/.ssh/id_rsa</value>
+  </property>
+  <property>
+    <name>ha.zookeeper.quorum</name>
+    <value>zoo1:2181,zoo2:2181,zoo3:2181</value>
+  </property>
+</configuration>

@@ -97,19 +97,19 @@ server:
 logging:
   level:
     root: INFO
-    "[org.springframework.boot.autoconfigure]": WARN
-    "[org.springframework]": WARN
-    "[com.david.hlp.Spring.system.mapper]": WARN
-    "[org.mybatis]": WARN
-    "[com.david.hlp.Spring.boss]": WARN
-    "[com.david.hlp.Spring.common.util.aspect]": WARN
-    "[com.david.hlp.Spring.common.util.datasource]": WARN
-    "[org.springframework.jdbc]": WARN
+    '[org.springframework.boot.autoconfigure]': WARN
+    '[org.springframework]': WARN
+    '[com.david.hlp.Spring.system.mapper]': WARN
+    '[org.mybatis]': WARN
+    '[com.david.hlp.Spring.boss]': WARN
+    '[com.david.hlp.Spring.common.util.aspect]': WARN
+    '[com.david.hlp.Spring.common.util.datasource]': WARN
+    '[org.springframework.jdbc]': WARN
 
 # HDFS配置
 hadoop:
   hdfs:
-    uri: hdfs://hadoop-single:9000
+    uri: hdfs://mycluster
     user: root
 
 # HDFS日志缓存配置

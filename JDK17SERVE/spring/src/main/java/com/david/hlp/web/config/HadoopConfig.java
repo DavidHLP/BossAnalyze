@@ -13,21 +13,34 @@ import java.net.URISyntaxException;
 
 /**
  * Hadoop配置类
- * 提供Hadoop连接相关的Bean配置
+ * 提供Hadoop连接相关的Bean配置。
+ * 针对Hadoop集群环境，需要进行相应的配置调整。
  */
 @Slf4j
 @org.springframework.context.annotation.Configuration
 @PropertySource("classpath:application.yml")
 public class HadoopConfig {
 
-    @Value("${hadoop.hdfs.uri:hdfs://hadoop-single:9000}")
+    /**
+     * Hadoop HDFS的URI。
+     * 对于单机模式，通常是 hdfs://hostname:9000。
+     * 对于高可用（HA）集群，这里应该配置为nameservice的名称，例如：hdfs://mycluster。
+     * 该值在 application.yml 文件中配置。
+     */
+    @Value("${hadoop.hdfs.uri:hdfs://mycluster}")
     private String hdfsUri;
 
     @Value("${hadoop.hdfs.user:root}")
     private String hdfsUser;
 
     /**
-     * 创建Hadoop配置
+     * 创建Hadoop配置。
+     * 提示: 要连接到一个真正的Hadoop集群，请确认以下几点：
+     * 1. 在 `application.yml` 中将 `hadoop.hdfs.uri` 指向您集群的Active NameNode地址或HA
+     * NameService ID。
+     * 2. 为了使客户端能够解析HA NameService，需要将集群的 `core-site.xml` 和 `hdfs-site.xml`
+     * 配置文件放置在项目的 `resources` 目录下。
+     * 3. 如果集群启用了Kerberos安全认证，则需要添加额外的安全相关配置。
      */
     @Bean
     public Configuration hadoopConfiguration() {
@@ -35,7 +48,7 @@ public class HadoopConfig {
         configuration.set("fs.defaultFS", hdfsUri);
         // 设置HDFS用户
         System.setProperty("HADOOP_USER_NAME", hdfsUser);
-        // 设置副本数，通常单机测试时设为1
+        // 设置HDFS副本数。对于生产环境的集群，通常设置为3。单机测试时可以设为1。
         configuration.set("dfs.replication", "3");
 
         // 解决数据节点替换错误 - 设置替换策略为NEVER
