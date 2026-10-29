@@ -7,7 +7,7 @@ import type { SalaryJob, JobData } from '@/api/boss/user/user.d';
  * @returns Promise<SalaryJob[]>
  */
 export const getSalaryHotJob = (limit: number): Promise<SalaryJob[]> => {
-  return request.get('/api/boss/user/salary-hot-job', { params: { limit } });
+  return request.get('/api/v1/boss/user/salary-hot-job', { params: { limit } });
 };
 
 /**
@@ -24,7 +24,7 @@ export const getTwoDimensionalAnalysisChart = (
   xAxis: string,
   yAxis: string
 ): Promise<JobData[]> => {
-  return request.get('/api/boss/user/two-dimensional-analysis-chart', {
+  return request.get('/api/v1/boss/user/two-dimensional-analysis-chart', {
     params: { cityName, positionName, xAxis, yAxis }
   });
 };
@@ -34,7 +34,7 @@ export const getTwoDimensionalAnalysisChart = (
  * @returns Promise<string[]>
  */
 export const getCityNameList = (): Promise<string[]> => {
-  return request.get('/api/boss/basic/city-name-list');
+  return request.get('/api/v1/boss/basic/city-name-list');
 };
 
 /**
@@ -43,7 +43,7 @@ export const getCityNameList = (): Promise<string[]> => {
  * @returns Promise<string[]>
  */
 export const getPositionNameList = (cityName?: string): Promise<string[]> => {
-  return request.get('/api/boss/basic/position-name-list', { params: { cityName } });
+  return request.get('/api/v1/boss/basic/position-name-list', { params: { cityName } });
 };
 
 /**

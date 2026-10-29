@@ -1,0 +1,9 @@
+# Legacy Spring Cloud bootstrap runs before application-local-dev.yml.
+spring:
+  cloud:
+    consul:
+      enabled: false
+      config:
+        enabled: false
+      discovery:
+        enabled: false

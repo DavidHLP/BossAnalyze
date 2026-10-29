@@ -5,6 +5,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.functions;
 import org.springframework.stereotype.Service;
+import org.springframework.core.env.Environment;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -14,13 +15,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ListBasicSet {
     private final SparkSession sparkSession;
+    private final Environment environment;
 
     public List<String> getCityNameList() {
         return sparkSession.read().format("jdbc")
-                .option("url", "jdbc:mysql://localhost:3306/boss_data")
-                .option("driver", "com.mysql.cj.jdbc.Driver")
-                .option("user", "root")
-                .option("password", "Alone117")
+                .option("url", environment.getRequiredProperty("spring.datasource.url"))
+                .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
+                .option("user", environment.getRequiredProperty("spring.datasource.username"))
+                .option("password", environment.getRequiredProperty("spring.datasource.password"))
                 .option("dbtable", "t_job_detail")
                 .option("fetchsize", "10000")
                 .load()
@@ -38,10 +40,10 @@ public class ListBasicSet {
 
     public List<String> getPositionNameList(String cityName) {
         Dataset<Row> query = sparkSession.read().format("jdbc")
-                .option("url", "jdbc:mysql://localhost:3306/boss_data")
-                .option("driver", "com.mysql.cj.jdbc.Driver")
-                .option("user", "root")
-                .option("password", "Alone117")
+                .option("url", environment.getRequiredProperty("spring.datasource.url"))
+                .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
+                .option("user", environment.getRequiredProperty("spring.datasource.username"))
+                .option("password", environment.getRequiredProperty("spring.datasource.password"))
                 .option("dbtable", "t_job_detail")
                 .option("fetchsize", "10000")
                 .load();

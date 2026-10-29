@@ -1,6 +1,7 @@
 package com.david.hlp.crawler.ai.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import com.david.hlp.crawler.ai.executor.TaskExecutorService;
 import com.david.hlp.crawler.ai.lock.DistributedLockService;
@@ -16,6 +17,7 @@ import org.springframework.scheduling.annotation.Scheduled;
  */
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "crawler.ai.scheduling.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class ExtractionOfJobRequirements {
     private final DistributedLockService lockService;

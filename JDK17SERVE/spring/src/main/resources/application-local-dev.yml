@@ -1,0 +1,49 @@
+# Local infrastructure credentials belong in environment variables or external configuration.
+server:
+  address: 127.0.0.1
+application:
+  security:
+    jwt:
+      secret-key: ${BOSSANALYZE_JWT_SECRET}
+spring:
+  cloud:
+    consul:
+      enabled: false
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/blog_data?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    username: ${BOSSANALYZE_MYSQL_USERNAME:root}
+    password: ${BOSSANALYZE_MYSQL_PASSWORD:}
+  sql:
+    init:
+      mode: never
+  jpa:
+    hibernate:
+      ddl-auto: none
+  data:
+    redis:
+      host: 127.0.0.1
+      password: ${BOSSANALYZE_REDIS_PASSWORD:}
+      timeout: 5s
+    mongodb:
+      uri: ${BOSSANALYZE_MONGO_URI:mongodb://127.0.0.1:27017/resumedb}
+hadoop:
+  hdfs:
+    uri: file:///
+    user: ${user.name}
+    log:
+      dir: ${java.io.tmpdir}/bossanalyze-local/logs
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis,mongo
+spark:
+  service:
+    url: http://127.0.0.1:8082

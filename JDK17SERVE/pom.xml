@@ -29,7 +29,7 @@
                 <selenium.version>4.15.0</selenium.version>
                 <playwright.version>1.39.0</playwright.version>
                 <!-- Spring AI 相关版本 -->
-                <spring-ai.version>1.0.0-SNAPSHOT</spring-ai.version>
+                <spring-ai.version>1.0.0</spring-ai.version>
                 <!-- 数据库相关版本 -->
                 <mysql.version>8.2.0</mysql.version>
                 <!-- 安全相关版本 -->
@@ -184,7 +184,7 @@
                         <!-- MyBatis Plus -->
                         <dependency>
                                 <groupId>com.baomidou</groupId>
-                                <artifactId>mybatis-plus-boot-starter</artifactId>
+                                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
                                 <version>${mybatis-plus.version}</version>
                         </dependency>
                         <dependency>
@@ -347,36 +347,4 @@
                         </plugins>
                 </pluginManagement>
         </build>
-        <repositories>
-                <repository>
-                        <id>spring-milestones</id>
-                        <name>Spring Milestones</name>
-                        <url>https://repo.spring.io/milestone</url>
-                        <snapshots>
-                                <enabled>false</enabled>
-                        </snapshots>
-                </repository>
-                <repository>
-                        <id>spring-snapshots</id>
-                        <name>Spring Snapshots</name>
-                        <url>https://repo.spring.io/snapshot</url>
-                        <releases>
-                                <enabled>false</enabled>
-                        </releases>
-                        <snapshots>
-                                <enabled>true</enabled>
-                        </snapshots>
-                </repository>
-                <repository>
-                        <id>aliyun-central</id>
-                        <name>Aliyun Central</name>
-                        <url>https://maven.aliyun.com/repository/central</url>
-                        <releases>
-                                <enabled>true</enabled>
-                        </releases>
-                        <snapshots>
-                                <enabled>true</enabled>
-                        </snapshots>
-                </repository>
-        </repositories>
 </project>

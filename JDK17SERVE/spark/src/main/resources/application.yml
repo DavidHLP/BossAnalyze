@@ -1,6 +1,11 @@
 spring:
   application:
     name: SpringSpark
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${BOSSANALYZE_MYSQL_URL:jdbc:mysql://localhost:3306/boss_data}
+    username: ${BOSSANALYZE_MYSQL_USERNAME:root}
+    password: ${BOSSANALYZE_MYSQL_PASSWORD:}
   cloud:
     consul:
       host: localhost # Consul 服务器的主机地址

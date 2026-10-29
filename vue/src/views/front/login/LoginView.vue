@@ -64,8 +64,8 @@ import type { Token } from '@/api/auth/auth.d'
 import { useTokenStore } from '@/store/token/tokenStore'
 import { useRouterStore } from '@/store/router/routerStore'
 
-const email = ref('lysf15520112973@163.com')
-const password = ref('#Alone117')
+const email = ref('')
+const password = ref('')
 const rememberMe = ref(false)
 const isLoading = ref(false)
 const userStore = useUserStore()

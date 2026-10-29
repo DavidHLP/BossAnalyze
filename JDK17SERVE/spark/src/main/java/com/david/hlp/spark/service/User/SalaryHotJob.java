@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.springframework.stereotype.Service;
+import org.springframework.core.env.Environment;
 
 import static org.apache.spark.sql.functions.*;
 import org.apache.spark.sql.Encoders;
@@ -20,6 +21,7 @@ import com.david.hlp.spark.model.User.SalaryJob;
 @RequiredArgsConstructor
 public class SalaryHotJob {
     private final SparkSession sparkSession;
+    private final Environment environment;
 
     public List<SalaryJob> analyzeSalaryHotJob(Long limit) {
         // 定义JSON结构
@@ -29,14 +31,14 @@ public class SalaryHotJob {
 
         // 设置数据库连接属性
         Properties connectionProperties = new Properties();
-        connectionProperties.put("driver", "com.mysql.cj.jdbc.Driver");
-        connectionProperties.put("user", "root");
-        connectionProperties.put("password", "Alone117");
+        connectionProperties.put("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"));
+        connectionProperties.put("user", environment.getRequiredProperty("spring.datasource.username"));
+        connectionProperties.put("password", environment.getRequiredProperty("spring.datasource.password"));
         connectionProperties.put("fetchsize", "10000");
 
         // 从MySQL数据库加载数据
         Dataset<Row> salaryDf = sparkSession.read()
-                .jdbc("jdbc:mysql://localhost:3306/boss_data", "t_job_detail", connectionProperties)
+                .jdbc(environment.getRequiredProperty("spring.datasource.url"), "t_job_detail", connectionProperties)
                 .select("position_name", "detail_data", "city_name");
 
         // 解析JSON数据并提取薪资信息

@@ -46,7 +46,7 @@ const viteImageminPlugin = viteImagemin({
 })
 
 // https://vite.dev/config/
-export default (mode) => {
+export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd())
   return defineConfig({
     plugins: [
@@ -59,6 +59,9 @@ export default (mode) => {
       Components({
         resolvers: [ElementPlusResolver()],
       }),
+      viteCompressionPlugin,
+      viteImageminPlugin,
+      visualizer({ filename: 'dist/stats.html', open: false }),
       // eslint({ lintOnStart: true, cache: false }), // 打包以及启动项目开启eslint检查
     ],
     resolve: {
@@ -69,10 +72,17 @@ export default (mode) => {
     server: {
       port: 5020,
       proxy: {
-        '/api': {
-          target: 'http://localhost:8080',
+        '/api/v1/boss': {
+          target: 'http://127.0.0.1:8082',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+        '/api/v1/ai': {
+          target: 'http://127.0.0.1:8081',
+          changeOrigin: true,
+        },
+        '/api': {
+          target: 'http://127.0.0.1:8080',
+          changeOrigin: true,
         },
       },
       open: true,
@@ -94,11 +104,6 @@ export default (mode) => {
     build: {
       rollupOptions: {
         // external: ['axios'],
-        plugins: [
-          viteCompressionPlugin,
-          viteImageminPlugin,
-          visualizer({ open: true }),
-        ],
         output: {
           chunkFileNames: 'js/[name]-[hash].js',
           entryFileNames: 'js/[name]-[hash].js',

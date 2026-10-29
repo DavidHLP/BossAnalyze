@@ -1,0 +1,27 @@
+# Manual analysis remains available; enable scheduling after supplying access logs.
+server:
+  address: 127.0.0.1
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/boss_data?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+  cloud:
+    consul:
+      enabled: false
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+  data:
+    redis:
+      host: 127.0.0.1
+      password: ${BOSSANALYZE_REDIS_PASSWORD:}
+      timeout: 5s
+spark:
+  master:
+    uri: local[2]
+  eventLog:
+    dir: file://${java.io.tmpdir}/bossanalyze-local/spark-events/
+  logs:
+    dir: file://${java.io.tmpdir}/bossanalyze-local/logs/
+    scheduling:
+      enabled: false

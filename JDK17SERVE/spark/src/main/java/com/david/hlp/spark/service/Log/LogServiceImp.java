@@ -10,8 +10,8 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.functions;
 import org.apache.spark.sql.types.DataTypes;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -28,10 +28,11 @@ public class LogServiceImp {
         private final SparkSession sparkSession;
         private final IpGeoService ipGeoService;
 
-        @Scheduled(fixedRate = 5 * 60 * 1000) // 每5分钟执行一次
+        @Value("${spark.logs.dir:hdfs://mycluster/logs/}")
+        private String logsDir;
+
         public void analyzeLogs() {
                 log.info("开始执行日志分析任务...");
-                String logsDir = "hdfs://mycluster/logs/";
 
                 try {
                         LocalDateTime analysisStartTime = LocalDateTime.now();

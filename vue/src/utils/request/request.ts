@@ -3,7 +3,7 @@ import type { Request } from '@/utils/request/request.d'
 
 // 创建一个 axios 实例
 const service = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: '/',
   timeout: 5000,
   withCredentials: true,
   headers: {

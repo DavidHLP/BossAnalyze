@@ -1,6 +1,12 @@
 package com.david.hlp.commons.config;
 
 import org.redisson.api.RedissonClient;
+import org.redisson.Redisson;
+import org.redisson.config.Config;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -8,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.util.StringUtils;
 
 import com.david.hlp.commons.utils.RedisCacheHelper;
 import com.david.hlp.commons.utils.RedisCacheUtil;
@@ -21,9 +28,24 @@ import com.david.hlp.commons.filter.BloomFilterUtil;
  * @author david
  */
 @Configuration
+@AutoConfigureAfter(RedisAutoConfiguration.class)
+@EnableConfigurationProperties(RedisProperties.class)
 @ConditionalOnClass({ RedisTemplate.class, RedissonClient.class })
 @ComponentScan(basePackages = "com.david.hlp.commons")
 public class RedisUtilsAutoConfiguration {
+
+    @Bean(destroyMethod = "shutdown")
+    @ConditionalOnMissingBean(RedissonClient.class)
+    public RedissonClient redissonClient(RedisProperties properties) {
+        Config config = new Config();
+        config.useSingleServer()
+                .setAddress((properties.getSsl().isEnabled() ? "rediss://" : "redis://")
+                        + properties.getHost() + ":" + properties.getPort())
+                .setDatabase(properties.getDatabase())
+                .setUsername(StringUtils.hasText(properties.getUsername()) ? properties.getUsername() : null)
+                .setPassword(StringUtils.hasText(properties.getPassword()) ? properties.getPassword() : null);
+        return Redisson.create(config);
+    }
 
     @Bean
     @ConditionalOnMissingBean
