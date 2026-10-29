@@ -1,0 +1,119 @@
+JDK17SERVE/spark/src/main/java/com/david/hlp/spark/service/User/ListBasicSet.java
+  s_ac54ba2310c8a7::t_666b58dc4c8bd2 8,18,22-25,43-46
+vue/src/views/front/login/LoginView.vue
+  s_ac54ba2310c8a7::t_f36dd64ae6d19b 67-68
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/config/RedisUtilsAutoConfiguration.java
+  s_ac54ba2310c8a7::t_1b6748ce433ab1 4-9,17,31-32,37-49,86
+JDK17SERVE/spring/src/main/java/com/david/hlp/web/config/HadoopConfig.java
+  s_ac54ba2310c8a7::t_1b6748ce433ab1 6,50-53,95
+JDK17SERVE/crawler/src/main/java/com/david/hlp/crawler/ai/service/ExtractionOfJobRequirements.java
+  s_ac54ba2310c8a7::t_1b6748ce433ab1 4,20
+JDK17SERVE/spark/src/main/resources/application-local-dev.yml
+  s_ac54ba2310c8a7::t_66fc46e8b5f851 1-4,7-27
+  s_ac54ba2310c8a7::t_2d16517e24edfd 5-6
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/LogCacheKeys.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1-14
+JDK17SERVE/pom.xml
+  s_ac54ba2310c8a7::t_c9ba2a245646e3 32,187,350
+JDK17SERVE/spark/src/main/java/com/david/hlp/spark/service/Log/LogAnalysisScheduler.java
+  s_ac54ba2310c8a7::t_1b6748ce433ab1 1-19
+JDK17SERVE/spring/src/main/resources/application-local-dev.yml
+  s_ac54ba2310c8a7::t_464c105d345a16 39-46
+  s_ac54ba2310c8a7::t_62cf6306f5b2dd 47-49
+  s_ac54ba2310c8a7::t_85b9c7063130d6 32
+  s_ac54ba2310c8a7::t_6256749d1c7239 4-7
+  s_ac54ba2310c8a7::t_66fc46e8b5f851 1-3,8-31,33-38
+docs/local-development.md
+  s_ac54ba2310c8a7::t_014b7aee2017cd 1-12,18-52,55-67,82-84
+  s_ac54ba2310c8a7::t_6256749d1c7239 13-17
+  s_ac54ba2310c8a7::t_86fb80d337893e 53-54
+  s_ac54ba2310c8a7::t_11d6e54ac155e0 68-81
+.gitignore
+  s_ac54ba2310c8a7::t_12f9376224301b 44-46,86
+JDK17SERVE/spring/pom.xml
+  s_ac54ba2310c8a7::t_c9ba2a245646e3 155,328
+vue/src/api/resume/version.ts
+  s_ac54ba2310c8a7::t_778e6aa72261bf 46
+JDK17SERVE/spark/src/main/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChart.java
+  s_ac54ba2310c8a7::t_666b58dc4c8bd2 21,30,111-114
+JDK17SERVE/spark/src/main/resources/bootstrap-local-dev.yml
+  s_ac54ba2310c8a7::t_6c9eb01fa17155 1-9
+vue/tsconfig.node.json
+  s_ac54ba2310c8a7::t_b3a5c321cfefea 6
+  s_ac54ba2310c8a7::t_86fb80d337893e 8
+  s_ac54ba2310c8a7::t_ab4eb4b9da6c27 5,7,9-10
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/AccessLogAnalysisResult.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1-38
+README.md
+  s_ac54ba2310c8a7::t_86fb80d337893e 14-15
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/LogAnalysisType.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1-32
+JDK17SERVE/spark/src/main/java/com/david/hlp/spark/service/Log/LogServiceImp.java
+  s_ac54ba2310c8a7::t_66fc46e8b5f851 14,31-33
+  s_ac54ba2310c8a7::t_1b6748ce433ab1 592
+vue/vite.config.ts
+  s_ac54ba2310c8a7::t_b861e0ea9cd463 62-63
+  s_ac54ba2310c8a7::t_b29ac9fa61043c 49
+  s_ac54ba2310c8a7::t_a5653e7e9a042e 84
+  s_ac54ba2310c8a7::t_82e25624dbe4b8 64
+  s_ac54ba2310c8a7::t_bb887da4e58ed0 75-82
+vue/src/utils/request/request.ts
+  s_ac54ba2310c8a7::t_a5653e7e9a042e 6
+vue/src/api/resume/types.ts
+  s_ac54ba2310c8a7::t_b3a5c321cfefea 53-54
+JDK17SERVE/spring/src/main/resources/bootstrap-local-dev.yml
+  s_ac54ba2310c8a7::t_6c9eb01fa17155 1-9
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/BrowserStatistics.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1-30
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/HttpMethodStatistics.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1-28
+vue/src/views/console/system/usermanagement/UserManagementView.vue
+  s_ac54ba2310c8a7::t_82e25624dbe4b8 43-44
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/IpStatistics.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1-34
+JDK17SERVE/crawler/src/main/resources/application-local-dev.yml
+  s_ac54ba2310c8a7::t_66fc46e8b5f851 1-17
+  s_ac54ba2310c8a7::t_6c9eb01fa17155 18-20
+vue/src/views/resume/components/version-control/resumeVersionControl.vue
+  s_ac54ba2310c8a7::t_b3a5c321cfefea 33
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/WeekdayStatistics.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1-29
+JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/HeatMapData.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1,3,5-8,10-24
+JDK17SERVE/spark/src/main/resources/application.yml
+  s_ac54ba2310c8a7::t_2d16517e24edfd 4-8
+vue/src/router/index.ts
+  s_ac54ba2310c8a7::t_a7f3e9081680d8 257-260
+JDK17SERVE/crawler/pom.xml
+  s_ac54ba2310c8a7::t_d6623f0363205c 39-42
+  s_ac54ba2310c8a7::t_c9ba2a245646e3 17-20,67,130
+JDK17SERVE/spark/src/main/java/com/david/hlp/spark/config/SparkClusterConfig.java
+  s_ac54ba2310c8a7::t_1b6748ce433ab1 3-7,33-35,42,46,50-51,56-63
+  s_ac54ba2310c8a7::t_50e25cdf4a49c4 52-55
+JDK17SERVE/spring/src/test/java/com/david/hlp/web/config/HadoopConfigTest.java
+  s_ac54ba2310c8a7::t_fc7049ab3fd5c3 3-5,7-10,12-36
+vue/src/api/boss/user/user.ts
+  s_ac54ba2310c8a7::t_bb887da4e58ed0 10,27,37,46,75
+JDK17SERVE/commons/src/test/java/com/david/hlp/commons/entity/logs/LogModelContractTest.java
+  s_ac54ba2310c8a7::t_8ad86423a0d131 1-43
+JDK17SERVE/spark/src/main/java/com/david/hlp/spark/service/User/SalaryHotJob.java
+  s_ac54ba2310c8a7::t_666b58dc4c8bd2 10,24,34-36,41
+JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/filter/SecurityConfiguration.java
+  s_ac54ba2310c8a7::t_64c4b14ef4a384 36-38,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b3f98a341c14dfe09970b781eb4fe3fde175a9b",
+  "prompts": {},
+  "sessions": {
+    "s_ac54ba2310c8a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18898-88e1-7bd2-84f7-029d749d5fa8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
