@@ -1,0 +1,67 @@
+{
+  "actorId": 999,
+  "roles": [
+    {
+      "id": 900,
+      "roleName": "USER",
+      "status": 1,
+      "remark": "测试默认角色",
+      "permissions": [],
+      "routers": null
+    },
+    {
+      "id": 901,
+      "roleName": "隔离测试角色",
+      "status": 1,
+      "remark": "仅用于浏览器隔离验收",
+      "permissions": [
+        { "id": 1001, "permission": "console.view" },
+        { "id": 1002, "permission": "users.view" }
+      ],
+      "routers": [{ "id": 10 }, { "id": 11 }]
+    },
+    {
+      "id": 902,
+      "roleName": "孤立权限角色",
+      "status": 0,
+      "remark": "验证已有非菜单权限保护",
+      "permissions": [{ "id": 1003, "permission": "standalone.custom" }],
+      "routers": null
+    },
+    {
+      "id": 999,
+      "roleName": "当前测试角色",
+      "status": 1,
+      "remark": "模拟当前角色标识",
+      "permissions": [],
+      "routers": []
+    }
+  ],
+  "routers": [
+    {
+      "id": 10,
+      "name": "控制台",
+      "permission": "console.view",
+      "status": 1,
+      "children": [
+        { "id": 11, "name": "用户管理", "permission": "users.view", "status": 1 },
+        {
+          "id": 12,
+          "name": "角色管理",
+          "permission": "roles.view",
+          "status": 1,
+          "children": [
+            {
+              "id": 13,
+              "name": "编辑角色",
+              "permission": "roles.edit",
+              "status": 1,
+              "meta": { "type": "F" }
+            }
+          ]
+        },
+        { "id": 14, "name": "历史功能", "permission": "legacy.view", "status": 0 }
+      ]
+    }
+  ]
+}
