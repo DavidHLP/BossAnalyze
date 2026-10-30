@@ -7,6 +7,8 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -19,8 +21,16 @@ import org.apache.hc.core5.http.ParseException;
  */
 @Service
 public class IpGeoService {
-    private static final String API_KEY = "266a9419b23942ebb641cb20985db574";
+    @Value("${ipgeolocation.api.key:${IPGEOLOCATION_API_KEY:}}")
+    private String apiKey;
     private static final String API_URL = "https://api.ipgeolocation.io/ipgeo";
+
+    @PostConstruct
+    void validateApiKey() {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("IP geolocation API key is required; configure IPGEOLOCATION_API_KEY or ipgeolocation.api.key");
+        }
+    }
 
     // IP地址相关的正则表达式
     private static final Pattern IPV4_PATTERN = Pattern.compile(
@@ -48,7 +58,7 @@ public class IpGeoService {
             return result;
         }
 
-        String url = String.format("%s?ip=%s&apiKey=%s", API_URL, ip, API_KEY);
+        String url = String.format("%s?ip=%s&apiKey=%s", API_URL, ip, apiKey);
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpGet request = new HttpGet(url);

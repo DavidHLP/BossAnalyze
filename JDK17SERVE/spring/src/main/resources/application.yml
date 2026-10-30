@@ -39,7 +39,7 @@ spring:
       port: 6379
       database: 0
       timeout: 1800000 # 使用毫秒格式，兼容 Redis Lettuce
-      password: Alone117
+      password: ${BOSSANALYZE_REDIS_PASSWORD}
       lettuce:
         pool:
           max-active: 20 # 最大连接数

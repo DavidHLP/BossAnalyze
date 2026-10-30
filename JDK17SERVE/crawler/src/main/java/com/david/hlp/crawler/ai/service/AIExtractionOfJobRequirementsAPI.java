@@ -3,10 +3,12 @@ package com.david.hlp.crawler.ai.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -20,12 +22,13 @@ import java.util.List;
 
 @Slf4j
 @Service
+@Lazy
 @RequiredArgsConstructor
 public class AIExtractionOfJobRequirementsAPI {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${openrouter.api.key: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}")
+    @Value("${openrouter.api.key:${OPENROUTER_API_KEY:}}")
     private String apiKey;
 
     @Value("${openrouter.api.url:https://openrouter.ai/api/v1/chat/completions}")
@@ -33,6 +36,13 @@ public class AIExtractionOfJobRequirementsAPI {
 
     @Value("${openrouter.api.model:deepseek/deepseek-r1-0528-qwen3-8b:free}")
     private String model;
+
+    @PostConstruct
+    void validateApiKey() {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("OpenRouter API key is required; configure OPENROUTER_API_KEY or openrouter.api.key");
+        }
+    }
 
     /**
      * 创建请求头
