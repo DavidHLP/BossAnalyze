@@ -5,17 +5,10 @@ import type { AccessLogStats, DashboardStats } from './accesslog.d';
  * 获取仪表板统计数据（新接口）
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  try {
-    const response = await request<DashboardStats>({
-      url: '/api/v1/system/logs/dashboard/stats',
-      method: 'get'
-    });
-
-    return (response as any) || getDefaultDashboardStats();
-  } catch (error) {
-    console.error('获取仪表板统计数据出错:', error);
-    return getDefaultDashboardStats();
-  }
+  return request<DashboardStats, DashboardStats>({
+    url: '/api/v1/system/logs/dashboard/stats',
+    method: 'get'
+  });
 }
 
 /**
@@ -157,62 +150,6 @@ export async function checkServiceHealth(): Promise<any> {
     console.error('检查服务健康状态出错:', error);
     return { status: 'DOWN', error: (error as Error).message };
   }
-}
-
-/**
- * 获取默认仪表板数据
- */
-function getDefaultDashboardStats(): DashboardStats {
-  return {
-    generatedAt: new Date().toISOString(),
-    timeRange: '24h',
-    overview: {
-      totalVisits: 0,
-      uniqueVisitors: 0,
-      avgSessionDuration: 0,
-      bounceRate: 0,
-      errorRate: 0
-    },
-    realTimeStats: {
-      onlineUsers: 0,
-      activePages: 0,
-      recentVisits: 0
-    },
-    heatMapData: {
-      minuteHeatmap: {},
-      hourHeatmap: {}
-    },
-    topPages: {
-      pages: []
-    },
-    geoStats: {
-      countryStats: {},
-      cityStats: {},
-      geoPoints: []
-    },
-    deviceStats: {
-      browsers: {},
-      operatingSystems: {},
-      devices: {}
-    },
-    performanceStats: {
-      avgResponseTime: 0,
-      avgPageLoadTime: 0,
-      statusCodes: {}
-    },
-    securityStats: {
-      suspiciousIPs: 0,
-      attackAttempts: 0,
-      threatTypes: {}
-    },
-    dataQuality: {
-      totalLogLines: 0,
-      parsedLines: 0,
-      failedLines: 0,
-      parseSuccessRate: 0,
-      qualityScore: 0
-    }
-  };
 }
 
 /**

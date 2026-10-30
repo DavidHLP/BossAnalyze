@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-10-30T16:00:00",
+  "overview": { "totalVisits": 240, "uniqueVisitors": 81 },
+  "heatMapData": {
+    "hourHeatmap": {
+      "2026-10-30 15": { "count": 10 },
+      "2026-10-30 08": { "count": 12 },
+      "2026-10-30 09": { "count": 28 },
+      "2026-10-30 10": { "count": 18 },
+      "2026-10-30 11": { "count": 42 },
+      "2026-10-30 12": { "count": 64 },
+      "2026-10-30 13": { "count": 39 },
+      "2026-10-30 14": { "count": 27 }
+    }
+  },
+  "topPages": {
+    "pages": [
+      { "path": "/console/profile", "visits": 48 },
+      { "path": "/console/dashboard", "visits": 120 },
+      { "path": "/console/users", "visits": 72 }
+    ]
+  },
+  "deviceStats": {
+    "browsers": {
+      "Chrome": { "count": 138 },
+      "Safari": { "count": 78 },
+      "Firefox": { "count": 24 }
+    },
+    "operatingSystems": { "Windows": 456 }
+  },
+  "httpMethodStatistics": { "methodStats": { "GET": { "count": 200 }, "POST": { "count": 40 } } },
+  "realTimeStats": { "onlineUsers": 156 },
+  "performanceStats": { "avgResponseTime": 250.5 },
+  "securityStats": { "attackAttempts": 12 }
+}

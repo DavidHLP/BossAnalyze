@@ -19,11 +19,15 @@ See [the frontend README](../../vue/README.md) for commands and the current layo
 The catalog, contracts, consumers and HTTP observations below are the historical pre-removal
 snapshot. The old business consumers are absent; their pinned source links remain usable.
 The new login uses `login-02`; the protected console shell uses `sidebar-07`, connected to
-the preserved authentication and permission/menu APIs. Business routes currently display
-explicit rebuilding placeholders. Drafts, analytics and export assembly must be rebuilt.
+the preserved authentication and permission/menu APIs. `/console/dashboard` now reads the
+existing log dashboard API; other business routes still display rebuilding placeholders.
+The dashboard wrapper propagates request errors instead of manufacturing zero statistics.
+The gateway's default response is shown as an unavailable snapshot, and known backend
+sample metrics are excluded. Drafts, recruitment analytics and export assembly must be rebuilt.
 Existing API defects remain documented; backend code, database schemas and stored data
-are outside this change. UI authentication checks used simulated responses because the
-backend services were offline; live integration remains unverified.
+are outside this change. Real local login and permission menus were verified using existing
+accounts. The real dashboard API returned no usable analysis snapshot; populated and error
+states were checked with isolated browser responses, without writing fixtures to services.
 
 ## Documents
 
