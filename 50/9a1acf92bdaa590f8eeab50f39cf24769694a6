@@ -1,0 +1,142 @@
+vue/app/components/ui/dialog/DialogContent.vue
+  s_3d48479db66f62::t_a418dcb2247c4a 1-54
+vue/app/components/ui/pagination/PaginationLast.vue
+  s_3d48479db66f62::t_78d580a363c5bb 1-35
+vue/app/components/ui/radio-group/RadioGroupItem.vue
+  s_3d48479db66f62::t_2bda41f2b64e0c 1-42
+vue/app/components/ui/pagination/PaginationFirst.vue
+  s_3d48479db66f62::t_15c868b622d8c1 1-35
+vue/app/pages/console/users.vue
+  s_3d48479db66f62::t_ea687df9c121b1 1-23,28-39,43,48-52,59-62,71-79,95-103,108-116,121-125,137,141,147-148,202-205,262-264,347,393-394,404-406
+  s_3d48479db66f62::t_9ebca5ee0c4425 24-27,40-42,44-47,53-58,63-70,80-94,104-107,117-120,126-136,138-140,142-146,149-201,206-261,265-346,348-392,395-403
+docs/frontend-api/endpoints.md
+  s_3d48479db66f62::t_f43ce478c1a455 1381
+vue/app/components/ui/dialog/DialogScrollContent.vue
+  s_3d48479db66f62::t_ff249ba0a3c789 1-61
+docs/frontend-api/inventory.json
+  s_3d48479db66f62::t_f43ce478c1a455 2043
+vue/app/components/users/DeleteUserDialog.vue
+  s_3d48479db66f62::t_ea687df9c121b1 1-39
+  s_3d48479db66f62::t_bd5194725f8a5c 40-92
+vue/app/components/ui/pagination/PaginationEllipsis.vue
+  s_3d48479db66f62::t_af885703bcf5ed 1-27
+vue/README.md
+  s_3d48479db66f62::t_f43ce478c1a455 108-130,134-135,143-151
+vue/app/lib/users.ts
+  s_3d48479db66f62::t_66a75277b47c48 1-98
+  s_3d48479db66f62::t_79ac710cb56e24 99-134
+vue/tests/users.test.mjs
+  s_3d48479db66f62::t_80b17dab211c39 1-62
+  s_3d48479db66f62::t_494a6493e139ee 63-90
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_f43ce478c1a455 23-26,104-107
+vue/app/components/ui/pagination/PaginationNext.vue
+  s_3d48479db66f62::t_6d3ff0cc387057 1-30,32-35
+  s_3d48479db66f62::t_410752cd065f33 31
+vue/tests/fixtures/users.json
+  s_3d48479db66f62::t_80b17dab211c39 1-10
+  s_3d48479db66f62::t_4cd69c1415ab88 11-32
+vue/app/components/ui/pagination/PaginationPrevious.vue
+  s_3d48479db66f62::t_fb1f34caa8f644 1-31,33-35
+  s_3d48479db66f62::t_410752cd065f33 32
+vue/app/components/users/RolePicker.vue
+  s_3d48479db66f62::t_66a75277b47c48 1-25
+  s_3d48479db66f62::t_ad94771835a762 26-57
+vue/app/components/users/UserEditor.vue
+  s_3d48479db66f62::t_f5cc77a30b2565 65-68,350
+  s_3d48479db66f62::t_410752cd065f33 9-20,30,32-34,36-41,43-54,60-63,70-71,77,80,85-88,111-115,120-135,137-140,142-151,154-159,161-176,180-203,205-220,222-239,241-257,259-262,266,268-273,275-288,290-312,315-324,328-349,351-353
+  s_3d48479db66f62::t_9ebca5ee0c4425 96-97,101-102
+  s_3d48479db66f62::t_66a75277b47c48 1-8,21-29,31,35,42,55-59,64,69,72-76,78-79,81-84,89-95,103-110,116-119,136,141,152-153,160,177-179,289,313-314,325-327,354-356
+  s_3d48479db66f62::t_9c99f3856ba4b9 98-100,204,221,240,258,263-265,267,274
+  s_3d48479db66f62::t_aee648d92fabb9 357
+vue/app/components/ui/combobox/ComboboxInput.vue
+  s_3d48479db66f62::t_1b96d936c73440 1-38
+vue/app/components/ui/combobox/Combobox.vue
+  s_3d48479db66f62::t_ae99ddeeb7fee5 1-19
+vue/app/components/ui/combobox/ComboboxAnchor.vue
+  s_3d48479db66f62::t_a49b6b459e2ef7 1-23
+vue/app/components/ui/combobox/ComboboxEmpty.vue
+  s_3d48479db66f62::t_c4d3741fe0b889 1-21
+vue/app/components/ui/combobox/ComboboxGroup.vue
+  s_3d48479db66f62::t_3f33b0aee12d7f 1-27
+vue/app/components/ui/combobox/ComboboxItem.vue
+  s_3d48479db66f62::t_6ea6cf1b0553f0 1-24
+vue/app/components/ui/combobox/ComboboxItemIndicator.vue
+  s_3d48479db66f62::t_5184a2a4aab3c9 1-23
+vue/app/components/ui/combobox/ComboboxList.vue
+  s_3d48479db66f62::t_cedf8ac9abe48a 1-33
+vue/app/components/ui/combobox/ComboboxSeparator.vue
+  s_3d48479db66f62::t_3c752f42556628 1-21
+vue/app/components/ui/combobox/ComboboxTrigger.vue
+  s_3d48479db66f62::t_3c9b3d85680999 1-24
+vue/app/components/ui/combobox/ComboboxViewport.vue
+  s_3d48479db66f62::t_5156f113e5ab62 1-23
+vue/app/components/ui/combobox/index.ts
+  s_3d48479db66f62::t_676f3eb1d53db3 1-13
+vue/app/components/ui/dialog/Dialog.vue
+  s_3d48479db66f62::t_bff2e031eb1cd5 1-19
+vue/app/components/ui/dialog/DialogClose.vue
+  s_3d48479db66f62::t_b932c45c97882a 1-15
+vue/app/components/ui/dialog/DialogDescription.vue
+  s_3d48479db66f62::t_149b11ab1edf9f 1-23
+vue/app/components/ui/dialog/DialogFooter.vue
+  s_3d48479db66f62::t_42aba41a029f48 1-27
+vue/app/components/ui/dialog/DialogHeader.vue
+  s_3d48479db66f62::t_88bf21194476b1 1-17
+vue/app/components/ui/dialog/DialogOverlay.vue
+  s_3d48479db66f62::t_379774e470a24c 1-21
+vue/app/components/ui/dialog/DialogTitle.vue
+  s_3d48479db66f62::t_26bb914ecb322e 1-23
+vue/app/components/ui/dialog/DialogTrigger.vue
+  s_3d48479db66f62::t_ca5e77ea82c354 1-15
+vue/app/components/ui/dialog/index.ts
+  s_3d48479db66f62::t_1a3b13faf49c96 1-10
+vue/app/components/ui/input-group/InputGroup.vue
+  s_3d48479db66f62::t_6ddb2195d75dd1 1-21
+vue/app/components/ui/input-group/InputGroupAddon.vue
+  s_3d48479db66f62::t_1cb66da75f10de 1-36
+vue/app/components/ui/input-group/InputGroupButton.vue
+  s_3d48479db66f62::t_070cbaa25ce08b 1-22
+vue/app/components/ui/input-group/InputGroupInput.vue
+  s_3d48479db66f62::t_f051ad6f970964 1-19
+vue/app/components/ui/input-group/InputGroupText.vue
+  s_3d48479db66f62::t_7099c087e7c267 1-19
+vue/app/components/ui/input-group/InputGroupTextarea.vue
+  s_3d48479db66f62::t_551875d1d49a89 1-19
+vue/app/components/ui/input-group/index.ts
+  s_3d48479db66f62::t_683b3c8f7e736d 1-55
+vue/app/components/ui/pagination/Pagination.vue
+  s_3d48479db66f62::t_e76d933d128315 1-26
+vue/app/components/ui/pagination/PaginationContent.vue
+  s_3d48479db66f62::t_c57cac4fd6ae34 1-22
+vue/app/components/ui/pagination/PaginationItem.vue
+  s_3d48479db66f62::t_a1148a731e0e73 1-34
+vue/app/components/ui/pagination/PaginationLink.vue
+  s_3d48479db66f62::t_aec7f64a8361e7 1-35
+vue/app/components/ui/pagination/index.ts
+  s_3d48479db66f62::t_ae910dc6e35b3d 1-9
+vue/app/components/ui/radio-group/RadioGroup.vue
+  s_3d48479db66f62::t_f703581fb57b85 1-25
+vue/app/components/ui/radio-group/index.ts
+  s_3d48479db66f62::t_c4bcb933879156 1-2
+vue/app/components/ui/textarea/Textarea.vue
+  s_3d48479db66f62::t_d579a9045cdaaf 1-28
+vue/app/components/ui/textarea/index.ts
+  s_3d48479db66f62::t_d45e5c4e126fc1 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "509a1acf92bdaa590f8eeab50f39cf24769694a6",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
