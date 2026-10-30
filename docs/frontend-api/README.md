@@ -18,9 +18,12 @@ See [the frontend README](../../vue/README.md) for commands and the current layo
 
 The catalog, contracts, consumers and HTTP observations below are the historical pre-removal
 snapshot. The old business consumers are absent; their pinned source links remain usable.
-The new home page demonstrates the requested theme and is not a completed business UI.
-Authentication, navigation, drafts and export assembly must be rebuilt. Existing API defects
-remain documented; backend code, database schemas and stored data are outside this change.
+The new login uses `login-02`; the protected console shell uses `sidebar-07`, connected to
+the preserved authentication and permission/menu APIs. Business routes currently display
+explicit rebuilding placeholders. Drafts, analytics and export assembly must be rebuilt.
+Existing API defects remain documented; backend code, database schemas and stored data
+are outside this change. UI authentication checks used simulated responses because the
+backend services were offline; live integration remains unverified.
 
 ## Documents
 
