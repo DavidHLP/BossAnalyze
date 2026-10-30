@@ -14,6 +14,11 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
+    // Authentication uses browser storage; server-side callers must use a server-aware client.
+    if (typeof window === 'undefined') {
+      return Promise.reject(new Error('The API client requires a browser session'))
+    }
+
     // 排除无需鉴权的接口（登录、注册、发送注册验证码等）
     const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/sendRegisterEmail'];
     const isPublicPath = publicPaths.some(path => config.url?.endsWith(path));

@@ -9,18 +9,18 @@ old frontend files.
 
 ## Current frontend state
 
-The old UI has now been removed for redesign. `vue/src/api/`, the request client and its
-declarations, `src/router/index.d.ts` (types only), and the pagination type remain. A minimal
-unstyled Vue entry point replaces all business pages. The Vite alias and three development
-proxy rules remain; old UI libraries, styles, assets, templates, stores and runtime routing
-have been removed. See [the frontend README](../../vue/README.md) for the retained layout.
+The frontend now uses a fresh Nuxt 4 + shadcn-vue foundation initialized with preset
+`a2lQlAlu` and `--pointer`. The preserved API and supporting types moved from `vue/src/`
+to `vue/app/`; their module structure and request contracts are unchanged. The shared Axios
+client now explicitly rejects server-side use before reading browser storage. Nitro route
+rules replace the old Vite development proxy and also apply to the production Node server.
+See [the frontend README](../../vue/README.md) for commands and the current layout.
 
 The catalog, contracts, consumers and HTTP observations below are the historical pre-removal
-snapshot. API implementations are unchanged, but the listed old consumers no longer exist
-in the current tree. Their pinned source links remain usable. Authentication screens,
-dynamic navigation, draft management and export assembly must be rebuilt by the new UI;
-their historical contracts are preserved here. This cleanup does not fix backend/API defects
-and does not modify backend code, database schemas or stored data.
+snapshot. The old business consumers are absent; their pinned source links remain usable.
+The new home page demonstrates the requested theme and is not a completed business UI.
+Authentication, navigation, drafts and export assembly must be rebuilt. Existing API defects
+remain documented; backend code, database schemas and stored data are outside this change.
 
 ## Documents
 

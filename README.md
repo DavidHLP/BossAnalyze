@@ -13,11 +13,12 @@
 
 For local startup and connectivity checks, see [Local Development](docs/local-development.md).
 
-The old frontend has been removed for redesign. Only the API layer, its required request
-tools/types, proxy configuration and a minimal entry point remain. The UI descriptions and
-screenshots below describe the previous frontend; use the [API handoff](docs/frontend-api/README.md)
+The frontend is being rebuilt on Nuxt 4 and shadcn-vue preset `a2lQlAlu` with pointer
+styles enabled. The preserved API layer lives under `vue/app/`; the current home page is a
+starter, while business screens remain to be rebuilt. The UI descriptions and screenshots
+below describe the previous frontend. See the [API handoff](docs/frontend-api/README.md)
 and [frontend README](vue/README.md) for the current state. Backend services and stored data
-are unchanged by this cleanup.
+are unchanged by this frontend work.
 
 ## 📌 目录
 
