@@ -6,7 +6,7 @@ Frozen from `832bfde`, 2026-10-30. These declarations describe the existing clie
 
 ### `vue/src/api/auth/auth.d.ts`
 
-Original: [source](../../vue/src/api/auth/auth.d.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/api/auth/auth.d.ts).
 
 ```ts
 import type { Router } from '@/router/index.d'
@@ -56,7 +56,7 @@ export interface UserBaseInfo {
 
 ### `vue/src/api/boss/user/user.d.ts`
 
-Original: [source](../../vue/src/api/boss/user/user.d.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/api/boss/user/user.d.ts).
 
 ```ts
 export interface SalaryJob {
@@ -111,7 +111,7 @@ export interface CompanyInfo {
 
 ### `vue/src/api/log/accesslog.d.ts`
 
-Original: [source](../../vue/src/api/log/accesslog.d.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/api/log/accesslog.d.ts).
 
 ```ts
 // 仪表板概览数据
@@ -347,7 +347,7 @@ export interface AnalyzeParams {
 
 ### `vue/src/api/minio/minio.d.ts`
 
-Original: [source](../../vue/src/api/minio/minio.d.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/api/minio/minio.d.ts).
 
 ```ts
 // 图片响应接口
@@ -374,7 +374,7 @@ export function getImage(fileName: string): Promise<Blob>
 
 ### `vue/src/api/resume/types.ts`
 
-Original: [source](../../vue/src/api/resume/types.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/api/resume/types.ts).
 
 ```ts
 // 简历数据类型定义
@@ -453,7 +453,7 @@ export type ResumeUpdate = Partial<ResumeCreate>
 
 ### `vue/src/router/index.d.ts`
 
-Original: [source](../../vue/src/router/index.d.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/router/index.d.ts).
 
 ```ts
 export interface BackendRoute {
@@ -506,7 +506,7 @@ export interface Router {
 
 ### `vue/src/types/common.d.ts`
 
-Original: [source](../../vue/src/types/common.d.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/types/common.d.ts).
 
 ```ts
 /**
@@ -577,7 +577,7 @@ export interface Request<T> {
 
 ### `vue/src/utils/request/request.d.ts`
 
-Original: [source](../../vue/src/utils/request/request.d.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/utils/request/request.d.ts).
 
 ```ts
 declare module '@/utils/request' {
@@ -601,7 +601,7 @@ export interface Request<T> {
 
 ### `ResumeCommit`
 
-Original: [source](../../vue/src/api/resume/version.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/api/resume/version.ts).
 
 ```ts
 export interface ResumeCommit {
@@ -623,7 +623,7 @@ export interface ResumeCommit {
 
 ### `IResumeConfig`
 
-Original: [source](../../vue/src/api/modules/resume.ts).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/api/modules/resume.ts).
 
 ```ts
 export interface IResumeConfig {
@@ -1047,7 +1047,7 @@ The following snapshots preserve Java model fields and relevant serialization an
 
 ### `Resume`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/entity/Resume.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/entity/Resume.java).
 
 ```java
 package com.david.hlp.web.resume.entity;
@@ -1148,7 +1148,7 @@ public class Resume implements Serializable {
 
 ### `User`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/user/User.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/user/User.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.user;
@@ -1232,7 +1232,7 @@ public class User {
 
 ### `Token`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/token/Token.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/token/Token.java).
 
 ```java
 package com.david.hlp.web.system.auth.token;
@@ -1263,7 +1263,7 @@ public class Token implements Serializable {
 
 ### `AuthUser`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/auth/AuthUser.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/auth/AuthUser.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.auth;
@@ -1403,7 +1403,7 @@ public class AuthUser implements UserDetails {
 
 ### `LoginDTO`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/auth/LoginDTO.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/auth/LoginDTO.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.auth;
@@ -1425,7 +1425,7 @@ public class LoginDTO {
 
 ### `RegistrationDTO`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/auth/RegistrationDTO.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/auth/RegistrationDTO.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.auth;
@@ -1452,7 +1452,7 @@ public class RegistrationDTO {
 
 ### `Role`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/role/Role.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/role/Role.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.role;
@@ -1492,7 +1492,7 @@ public class Role implements Serializable {
 
 ### `RolePermissionUpdateResponse`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/role/RolePermissionUpdateResponse.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/role/RolePermissionUpdateResponse.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.role;
@@ -1523,7 +1523,7 @@ public class RolePermissionUpdateResponse implements Serializable {
 
 ### `Permission`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/permission/Permission.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/permission/Permission.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.permission;
@@ -1581,7 +1581,7 @@ public class Permission implements Serializable {
 
 ### `Router`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/router/Router.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/router/Router.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.router;
@@ -1669,7 +1669,7 @@ public class Router implements Serializable {
 
 ### `Meta`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/router/Meta.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/entity/router/Meta.java).
 
 ```java
 package com.david.hlp.web.system.auth.entity.router;
@@ -1749,7 +1749,7 @@ public class Meta implements Serializable {
 
 ### `TokenType`
 
-Original: [source](../../JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/token/TokenType.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/token/TokenType.java).
 
 ```java
 package com.david.hlp.web.system.auth.token;
@@ -1777,7 +1777,7 @@ public enum TokenType implements IEnum<String> {
 
 ### `JobAnalysisData`
 
-Original: [source](../../JDK17SERVE/spark/src/main/java/com/david/hlp/spark/model/User/JobAnalysisData.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spark/src/main/java/com/david/hlp/spark/model/User/JobAnalysisData.java).
 
 ```java
 package com.david.hlp.spark.model.User;
@@ -1819,7 +1819,7 @@ public class JobAnalysisData {
 
 ### `SalaryJob`
 
-Original: [source](../../JDK17SERVE/spark/src/main/java/com/david/hlp/spark/model/User/SalaryJob.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spark/src/main/java/com/david/hlp/spark/model/User/SalaryJob.java).
 
 ```java
 package com.david.hlp.spark.model.User;
@@ -1847,7 +1847,7 @@ public class SalaryJob {
 
 ### `AccessLogAnalysisResult`
 
-Original: [source](../../JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/AccessLogAnalysisResult.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/AccessLogAnalysisResult.java).
 
 ```java
 package com.david.hlp.commons.entity.logs;
@@ -1892,7 +1892,7 @@ public class AccessLogAnalysisResult {
 
 ### `BrowserStatistics`
 
-Original: [source](../../JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/BrowserStatistics.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/BrowserStatistics.java).
 
 ```java
 package com.david.hlp.commons.entity.logs;
@@ -1929,7 +1929,7 @@ public class BrowserStatistics {
 
 ### `HeatMapData`
 
-Original: [source](../../JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/HeatMapData.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/HeatMapData.java).
 
 ```java
 package com.david.hlp.commons.entity.logs;
@@ -1962,7 +1962,7 @@ public class HeatMapData {
 
 ### `HttpMethodStatistics`
 
-Original: [source](../../JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/HttpMethodStatistics.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/HttpMethodStatistics.java).
 
 ```java
 package com.david.hlp.commons.entity.logs;
@@ -1997,7 +1997,7 @@ public class HttpMethodStatistics {
 
 ### `IpStatistics`
 
-Original: [source](../../JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/IpStatistics.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/IpStatistics.java).
 
 ```java
 package com.david.hlp.commons.entity.logs;
@@ -2038,7 +2038,7 @@ public class IpStatistics {
 
 ### `WeekdayStatistics`
 
-Original: [source](../../JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/WeekdayStatistics.java).
+Original: [source](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/commons/src/main/java/com/david/hlp/commons/entity/logs/WeekdayStatistics.java).
 
 ```java
 package com.david.hlp.commons.entity.logs;

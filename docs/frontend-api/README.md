@@ -3,7 +3,9 @@
 This is the interface handoff for rebuilding the frontend while retaining its API layer.
 It records the **current checkout at `832bfde`, dated 2026-10-30**, including unused exports,
 known contract defects and external integrations. It does not delete or redesign the UI,
-change requests, migrate data, or claim that every operation works.
+change requests, migrate data, or claim that every operation works. Source links in the
+catalog and snapshots are pinned to this baseline commit so they survive deletion of the
+old frontend files.
 
 ## Documents
 
