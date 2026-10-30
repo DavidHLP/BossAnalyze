@@ -8,8 +8,10 @@ pnpm dlx shadcn-vue@latest init --preset a2lQlAlu --template nuxt --pointer
 
 The CLI resolved this preset to `reka-mira`, olive base color, Roboto, Hugeicons,
 translucent menus and bold menu accents. `components.json` and the generated Tailwind CSS
-are the source of truth. Button and Card components were added through the same CLI;
-the home page is a starter, not a restored business application.
+are the source of truth. The login uses the official `login-02` block; the console uses
+`sidebar-07`. The current `reka-mira` registry has no corresponding block JSON, so both
+layouts were installed from the official `new-york-v4` registry URLs through the latest
+CLI, then adapted to the existing Mira primitives and Hugeicons renderer.
 
 ## Development
 
@@ -42,10 +44,13 @@ app/
   router/index.d.ts       API menu/route data types, not router implementation
   types/common.d.ts       Pagination data type
   assets/css/tailwind.css  Generated preset theme and pointer styles
-  components/ui/          Generated shadcn-vue Button/Card components
+  components/ui/          Generated shadcn-vue primitives
   lib/utils.ts            Generated cn helper
-  pages/index.vue         Starter home page
-  app.vue                 Nuxt page outlet
+  pages/login.vue         Responsive login-02 page
+  pages/console/          Protected console and authorized menu placeholders
+  layouts/console.vue     Sidebar-07 console shell
+  composables/useSession.ts  Existing authentication API integration
+  app.vue                 Nuxt layout and page outlets
 nuxt.config.ts            Theme, environment compatibility and Nitro proxy rules
 ```
 
@@ -70,13 +75,21 @@ server credentials. Do not commit actual values. The template imports Roboto fro
 Fonts; font loading needs external connectivity and has a sans-serif fallback.
 
 Read the [API handoff](../docs/frontend-api/README.md) for requests, responses and existing
-backend contract defects. Login, menus, analytics, resume editing and export UI still need
-to be rebuilt. No backend or database changes are part of this frontend initialization.
+backend contract defects. `/` redirects to `/console`; unauthenticated visitors reach
+`/login`. Login calls the existing login, profile, permission and router wrappers. Menus
+are filtered by exact permissions, status and visibility; legacy paths are mapped under
+`/console`. The console is client-rendered because the preserved client stores its token
+in localStorage; the login page retains SSR. Logout clears local session state and menus
+(there is no server logout wrapper). No social login or account recovery is advertised.
+Analytics, resume editing and export screens still need to be rebuilt. No backend or
+database changes are part of this frontend work.
 
 ## Verification boundaries
 
-`pnpm test` checks the new SSR boundary plus the preserved browser authentication,
-response unwrapping and unauthorized behavior without sending HTTP. Type-checking and
-production build cover the new Nuxt app. The starter does not call business APIs or change
-browser storage. Backend ports 8080/8081/8082 were not listening during this task, so real
-business integration, SMTP, object storage and export services were not exercised.
+`pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
+destinations and local session expiry (9 tests, no HTTP). Type-checking and production build
+cover the Nuxt app. Browser checks used isolated simulated API responses for login errors,
+successful login, granted menus, account switching, empty permissions, desktop collapse
+and mobile drawer navigation. These are UI checks, not live authentication acceptance.
+Backend ports 8080/8081/8082 were not listening, so real business integration, SMTP, object
+storage and export services were not exercised.
