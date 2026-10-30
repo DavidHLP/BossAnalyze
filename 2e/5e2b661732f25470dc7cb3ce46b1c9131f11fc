@@ -1,0 +1,29 @@
+docs/local-development.md
+  s_3d48479db66f62::t_b5d5fcd7e1d3ed 3-6
+docs/frontend-api/endpoints.md
+  s_3d48479db66f62::t_d59df77daf258f 1-1449
+docs/frontend-api/verification.md
+  s_3d48479db66f62::t_c4c5a6a7835522 1-55
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_8a4125129149bf 1-188
+docs/frontend-api/contracts.md
+  s_3d48479db66f62::t_10ae8fb8bc00e9 1-2294
+docs/frontend-api/inventory.json
+  s_3d48479db66f62::t_e61997edaf9bc2 1-2148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2e5e2b661732f25470dc7cb3ce46b1c9131f11fc",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
