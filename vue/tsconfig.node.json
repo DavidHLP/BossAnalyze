@@ -4,10 +4,14 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowSyntheticDefaultImports": true,
-    "types": ["node"],
-    // shortcut: legacy plugin declarations reference unused bundlers; remove when upstream types are fixed.
+    "types": [
+      "node"
+    ],
     "skipLibCheck": true,
-    "outDir": "./node_modules/.cache/tsconfig-node"
+    "outDir": "./node_modules/.cache/tsconfig-node",
+    "noEmit": true
   },
-  "include": ["vite.config.ts"]
+  "include": [
+    "vite.config.ts"
+  ]
 }

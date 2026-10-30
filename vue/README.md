@@ -1,233 +1,51 @@
-# BossAnalyze 前端技术文档
+# BossAnalyze frontend foundation
 
-## 1. 技术架构
+The old frontend has been removed for redesign. This directory retains the API layer,
+its request client and required types, development proxies, and an unstyled Vue entry point.
+There are no business pages, UI components, styles, templates, stores or runtime router.
 
-### 整体架构图
+## Retained files
 
-```mermaid
-graph TD
-    A[用户界面] --> B[Vue 3 应用]
-    B --> C[Pinia 状态管理]
-    B --> D[Vue Router 路由管理]
-    C --> E[API 接口层]
-    D --> E
-    E --> F[后端服务]
-    E --> G[数据处理与可视化]
-    G --> H[ECharts 图表]
-    G --> I[数据分析结果展示]
-```
-
-### 技术栈选型
-
-#### 前端技术栈
-- **核心框架**: Vue 3 (使用 Composition API)
-- **构建工具**: Vite 6
-- **开发语言**: TypeScript 5.7
-- **状态管理**: Pinia 3.0 (带持久化存储)
-- **路由管理**: Vue Router 4.5
-- **UI 组件库**: 
-  - Element Plus 2.9
-  - Bootstrap Vue Next
-- **样式处理**: SASS
-- **数据可视化**: 
-  - ECharts 5
-  - ECharts WordCloud
-  - ECharts GL
-  - ECharts AMap Extension
-- **工作流图表**: Vue Flow
-- **动画效果**: Anime.js
-- **HTTP 客户端**: Axios
-- **文档编辑**: MD-Editor-V3
-- **导出功能**: html2canvas, jsPDF
-- **代码格式化**: ESLint, Prettier
-
-#### 后端技术栈
-- 通过 RESTful API 与后端服务交互
-- 支持权限管理和用户认证
-
-### 系统模块划分
-
-```mermaid
-graph TB
-    A[BossAnalyze 前端应用] --> B[核心模块]
-    A --> C[功能模块]
-    A --> D[公共模块]
-    
-    B --> B1[用户认证]
-    B --> B2[权限管理]
-    B --> B3[路由控制]
-    
-    C --> C1[Boss 数据分析]
-    C --> C2[简历管理]
-    C --> C3[AI 智能分析]
-    C --> C4[智能推荐]
-    
-    D --> D1[UI 组件库]
-    D --> D2[工具函数]
-    D --> D3[数据可视化]
-    D --> D4[全局状态]
-```
-
-主要模块说明：
-1. **核心模块**
-   - 用户认证：处理登录、注册和权限验证
-   - 权限管理：基于角色的访问控制
-   - 路由控制：动态路由和导航管理
-
-2. **功能模块**
-   - Boss 数据分析：职位、薪资和公司数据分析
-   - 简历管理：简历解析和管理
-   - AI 智能分析：智能数据处理
-   - 用户管理：用户信息和配置
-
-3. **公共模块**
-   - UI 组件库：可复用的界面组件
-   - 工具函数：通用工具和辅助方法
-   - 数据可视化：图表和数据展示组件
-   - 全局状态：应用状态管理
-
-## 2. 核心技术实现
-
-### 关键功能技术方案
-
-#### 1. 动态权限管理
-
-系统采用基于 RBAC (基于角色的访问控制) 的权限管理机制：
-- 前端路由与后端权限数据集成
-- 动态路由加载，根据用户权限自动配置可访问页面
-- 权限粒度控制到按钮级别
-- Token 有效期管理和自动刷新机制
-
-```mermaid
-sequenceDiagram
-    用户 ->> 前端: 登录请求
-    前端 ->> 后端: 验证凭据
-    后端 ->> 前端: 返回 Token 和初始权限
-    前端 ->> 前端: 存储 Token 到 localStorage
-    前端 ->> 后端: 获取详细权限信息
-    后端 ->> 前端: 返回用户权限数据
-    前端 ->> 前端: 生成动态路由表
-    前端 ->> 前端: 权限监控和 Token 有效性检查
-```
-
-#### 2. 数据可视化实现
-
-系统利用多种可视化技术呈现数据：
-- 二维分析图表：使用 ECharts 实现散点图、热力图等
-- 三维数据分析：通过 ECharts-GL 实现 3D 可视化
-- 地理数据展示：集成 ECharts-AMap 实现地理位置分析
-- 词云分析：使用 ECharts-WordCloud 进行文本数据可视化
-
-#### 3. 流程图与工作流
-
-基于 Vue Flow 实现交互式流程图和工作流设计：
-- 支持拖拽操作
-- 节点自定义
-- 连接线样式定制
-- 小地图导航
-- 背景网格和控制面板
-
-### 数据处理流程
-
-```mermaid
-flowchart LR
-    A[用户输入] --> B[API 请求层]
-    B --> C[数据预处理]
-    C --> D{数据分类}
-    D --> E[图表数据]
-    D --> F[表格数据]
-    D --> G[文本数据]
-    E --> H[可视化渲染]
-    F --> I[表格组件展示]
-    G --> J[文本分析与展示]
-    H --> K[用户交互界面]
-    I --> K
-    J --> K
-```
-
-数据处理主要流程：
-1. 通过 API 接口获取原始数据
-2. 使用 TypeScript 类型系统确保数据类型安全
-3. 针对不同数据类型进行格式转换和预处理
-4. 根据业务需求进行数据聚合和统计
-5. 将处理后的数据传递给相应的展示组件
-
-### 性能优化策略
-
-1. **前端渲染优化**
-   - 组件懒加载：非核心路由采用动态导入
-   - 虚拟滚动：处理大量数据列表
-   - 图片懒加载：提高页面加载速度
-
-2. **状态管理优化**
-   - 使用 Pinia 进行高效的状态管理
-   - 持久化存储关键状态，减少重复请求
-   - 精细化的状态分割，避免不必要的组件重渲染
-
-3. **网络请求优化**
-   - 请求合并与缓存策略
-   - 数据预加载
-   - 接口错误重试机制
-
-4. **构建优化**
-   - Vite 快速热更新
-   - 代码分割和按需加载
-   - 静态资源压缩和优化
-
-## 3. 项目结构说明
-
-```
+```text
 src/
-├── api/                 # API 接口层
-│   ├── boss/            # Boss 数据相关 API
-│   ├── resume/          # 简历相关 API
-│   ├── ai/              # AI 服务相关 API
-│   ├── auth/            # 认证相关 API
-│   └── ...
-├── assets/              # 静态资源
-├── components/          # 公共组件
-├── composables/         # 组合式函数
-├── router/              # 路由配置
-├── store/              # Pinia 状态管理
-│   ├── user/            # 用户状态
-│   ├── router/          # 路由状态
-│   └── ...
-├── types/               # TypeScript 类型定义
-├── utils/               # 工具函数
-├── views/               # 页面视图组件
-│   ├── front/           # 前台页面
-│   └── admin/           # 管理页面
-└── main.ts              # 应用入口文件
+  api/                    All existing API wrappers and payload types
+  utils/request/          Shared Axios client and declarations
+  router/index.d.ts       API menu/route data types only; no runtime router
+  types/common.d.ts       Pagination data type
+  App.vue                 Unstyled redesign placeholder
+  main.ts                 Vue entry point
+  vite-env.d.ts           Vite environment types
+vite.config.ts            Vue plugin, @ alias and development proxies
 ```
 
-## 4. 开发与部署
+API implementations, endpoint paths, payloads, authentication and response handling are
+unchanged. Read the [API preservation guide](../docs/frontend-api/README.md) and its catalog
+before rebuilding features; known missing backend routes and contract defects still apply.
 
-### 开发环境
-```bash
-# 安装依赖
-yarn install
+## Development
 
-# 启动开发服务器
-yarn dev
+Use Node.js 22.11+ and Yarn 1.22.22, selected by `packageManager`:
 
-# 代码检查与修复
-yarn lint
-
-# 代码格式化
-yarn format
+```sh
+corepack yarn install --frozen-lockfile
+corepack yarn dev
+corepack yarn type-check
+corepack yarn build
 ```
 
-### 生产环境构建
-```bash
-# 构建生产版本
-yarn build
+Vite binds to `127.0.0.1:5020` with a strict port. Proxies preserve the `/api` prefix:
 
-# 预览生产构建
-yarn preview
-```
+| Prefix | Target |
+| --- | --- |
+| `/api/v1/boss` | `http://127.0.0.1:8082` |
+| `/api/v1/ai` | `http://127.0.0.1:8081` |
+| `/api` | `http://127.0.0.1:8080` |
 
-### 部署建议
-- 使用 Docker 容器化部署
-- 配合 Nginx 作为静态资源服务器
-- 考虑使用 CDN 加速静态资源访问
-- 实施前端监控和错误跟踪
+External export/count calls still read `VITE_EXPORT_URL`, `VITE_UPSTASH_BASE_URL` and
+`VITE_UPSTASH_GET_TOKEN` from private environment configuration. Keep secret values out of Git.
+Production hosting needs equivalent reverse-proxy routing; Vite's proxy is development-only.
+
+The placeholder does not log in, fetch business data, change browser storage or send writes.
+Rebuild authentication, account-specific menu state, draft handling and export assembly
+explicitly when creating the replacement UI. The request client still redirects protected
+requests without a token to `/login`; that path currently shows the same placeholder.
