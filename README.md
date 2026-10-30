@@ -11,6 +11,8 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Documentation](https://img.shields.io/badge/Docs-deepwiki.com-8A2BE2?style=flat&logo=gitbook&logoColor=white)](https://deepwiki.com/DavidHLP/BossAnalyze)
 
+For local startup and connectivity checks, see [Local Development](docs/local-development.md).
+
 ## 📌 目录
 
 1. [项目介绍](#-项目介绍)

@@ -30,11 +30,10 @@
 
     <!-- 版本控制面板 -->
     <el-drawer
-      :model-value="showVersionPanel"
+      v-model="showVersionPanel"
       title="简历版本控制"
       direction="rtl"
       size="85%"
-      @update:model-value="emit('update:showVersionPanel', $event)"
     >
       <div v-if="resumeVersionData" class="version-panel-content">
         <el-container class="full-height">
@@ -534,13 +533,6 @@ interface MyGraphData {
 
 const route = useRoute()
 const editorStore = useEditorStore()
-
-const props = defineProps<{
-  resumeId: string
-  showVersionPanel: boolean
-}>()
-
-const emit = defineEmits(['update:showVersionPanel'])
 
 // 响应式数据
 const loading = ref(false)

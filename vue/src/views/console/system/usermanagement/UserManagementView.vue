@@ -40,7 +40,8 @@
         </template>
 
         <SearchComponents
-          v-model:searchForm="searchForm"
+          :searchForm="searchForm"
+          @update:searchForm="Object.assign(searchForm, $event)"
           :roleOptions="roleOptions"
           :roleLoading="roleLoading"
           :remoteRoleSearch="remoteRoleSearch"

@@ -2,8 +2,12 @@
   "compilerOptions": {
     "composite": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
-    "allowSyntheticDefaultImports": true
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"],
+    // shortcut: legacy plugin declarations reference unused bundlers; remove when upstream types are fixed.
+    "skipLibCheck": true,
+    "outDir": "./node_modules/.cache/tsconfig-node"
   },
   "include": ["vite.config.ts"]
 }

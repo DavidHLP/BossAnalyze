@@ -14,6 +14,10 @@
 	<description>spring-crawler</description>
 
 	<dependencies>
+		<dependency>
+			<groupId>com.david.hlp</groupId>
+			<artifactId>commons</artifactId>
+		</dependency>
 		<!-- AI -->
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
@@ -31,6 +35,10 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
 		<!-- MySQL Database Driver -->
@@ -56,7 +64,7 @@
 		<!-- MyBatis Plus -->
 		<dependency>
 			<groupId>com.baomidou</groupId>
-			<artifactId>mybatis-plus-boot-starter</artifactId>
+			<artifactId>mybatis-plus-spring-boot3-starter</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.mybatis</groupId>

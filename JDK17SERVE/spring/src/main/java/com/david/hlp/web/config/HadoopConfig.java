@@ -3,6 +3,7 @@ package com.david.hlp.web.config;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
@@ -46,6 +47,10 @@ public class HadoopConfig {
     public Configuration hadoopConfiguration() {
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", hdfsUri);
+        if (hdfsUri.startsWith("file:")) {
+            // The checksum local filesystem does not support appending existing logs.
+            configuration.setClass("fs.file.impl", RawLocalFileSystem.class, FileSystem.class);
+        }
         // 设置HDFS用户
         System.setProperty("HADOOP_USER_NAME", hdfsUser);
         // 设置HDFS副本数。对于生产环境的集群，通常设置为3。单机测试时可以设为1。

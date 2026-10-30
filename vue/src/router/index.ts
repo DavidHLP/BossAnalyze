@@ -254,9 +254,10 @@ router.beforeEach(async (to, from, next) => {
         await userStore.getUserPermissions()
         await setupAsyncRoutes()
 
-        // 如果当前路由不存在于路由表中，重定向到当前路由（触发路由重新匹配）
-        next({ ...to, replace: true })
-        return
+        if (to.matched.length === 0 && router.resolve(to.fullPath).matched.length > 0) {
+          next({ ...to, replace: true })
+          return
+        }
       }
 
       // 验证当前路由权限

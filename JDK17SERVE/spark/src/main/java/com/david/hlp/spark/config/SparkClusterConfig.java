@@ -1,5 +1,10 @@
 package com.david.hlp.spark.config;
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.SparkSession;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,26 +30,37 @@ public class SparkClusterConfig {
     private String eventLogDir;
 
     @Bean
-    public SparkConf sparkConf() {
-        return new SparkConf()
+    public SparkConf sparkConf() throws IOException {
+        boolean local = masterUri.equals("local") || masterUri.startsWith("local[");
+        SparkConf config = new SparkConf()
                 .setAppName(appName)
                 .setMaster(masterUri)
                 .set("spark.kryoserializer.buffer.max", "64m")
                 .set("spark.network.timeout", "300s")
                 .set("spark.sql.adaptive.enabled", "true")
                 .set("spark.sql.adaptive.coalescePartitions.enabled", "true")
-                .set("spark.dynamicAllocation.enabled", "true")
+                .set("spark.dynamicAllocation.enabled", Boolean.toString(!local))
                 .set("spark.dynamicAllocation.minExecutors", "1")
                 .set("spark.dynamicAllocation.maxExecutors", "10")
                 .set("spark.dynamicAllocation.initialExecutors", "3")
-                .set("spark.shuffle.service.enabled", "true")
+                .set("spark.shuffle.service.enabled", Boolean.toString(!local))
                 .set("spark.shuffle.compress", "true")
                 .set("spark.shuffle.spill.compress", "true")
                 .set("spark.eventLog.enabled", "true")
-                .set("spark.eventLog.dir", eventLogDir)
-                .set("spark.deploy.recoveryMode", "ZOOKEEPER")
-                .set("spark.deploy.zookeeper.url", zookeeperUrl)
-                .set("spark.deploy.zookeeper.dir", zookeeperDir);
+                .set("spark.eventLog.dir", eventLogDir);
+        if (local) {
+            URI eventLogUri = URI.create(eventLogDir);
+            if ("file".equalsIgnoreCase(eventLogUri.getScheme())) {
+                Files.createDirectories(Path.of(eventLogUri));
+            }
+            config.set("spark.driver.host", "127.0.0.1")
+                    .set("spark.driver.bindAddress", "127.0.0.1");
+        } else {
+            config.set("spark.deploy.recoveryMode", "ZOOKEEPER")
+                    .set("spark.deploy.zookeeper.url", zookeeperUrl)
+                    .set("spark.deploy.zookeeper.dir", zookeeperDir);
+        }
+        return config;
     }
 
     @Bean

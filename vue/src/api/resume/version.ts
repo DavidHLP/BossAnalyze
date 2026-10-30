@@ -43,7 +43,7 @@ export const commitChanges = (
  * 创建分支
  */
 export const createBranch = (resumeId: string, branchName: string): Promise<void> => {
-  return request.post(`/api/resume/${resumeId}/version/branch`, { branchName })
+  return request.post(`/api/resume/${resumeId}/version/branch`, { name: branchName })
 }
 
 /**

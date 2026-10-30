@@ -50,8 +50,8 @@ export interface Resume {
   userId: number
   title: string
   content: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
   // 版本控制相关字段
   currentBranch: string
   headCommit?: string

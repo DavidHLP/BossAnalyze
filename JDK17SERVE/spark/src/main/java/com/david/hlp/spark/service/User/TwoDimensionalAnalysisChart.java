@@ -18,6 +18,7 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.springframework.stereotype.Service;
+import org.springframework.core.env.Environment;
 import lombok.RequiredArgsConstructor;
 import com.david.hlp.spark.model.User.JobAnalysisData;
 
@@ -26,6 +27,7 @@ import com.david.hlp.spark.model.User.JobAnalysisData;
 public class TwoDimensionalAnalysisChart implements Serializable {
     private static final long serialVersionUID = 1L;
     private final SparkSession sparkSession;
+    private final transient Environment environment;
     // 经验关键词到数值的映射
     private static final Map<String, Integer> EXPERIENCE_MAP = new HashMap<>();
     // 学历关键词到数值的映射
@@ -106,10 +108,10 @@ public class TwoDimensionalAnalysisChart implements Serializable {
      */
     private Dataset<Row> readJobDataFromDatabase(StructType jsonSchema) {
         return sparkSession.read().format("jdbc")
-                .option("url", "jdbc:mysql://localhost:3306/boss_data")
-                .option("driver", "com.mysql.cj.jdbc.Driver")
-                .option("user", "root")
-                .option("password", "Alone117")
+                .option("url", environment.getRequiredProperty("spring.datasource.url"))
+                .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
+                .option("user", environment.getRequiredProperty("spring.datasource.username"))
+                .option("password", environment.getRequiredProperty("spring.datasource.password"))
                 .option("dbtable", "t_job_detail")
                 .option("fetchsize", "10000")
                 .load()

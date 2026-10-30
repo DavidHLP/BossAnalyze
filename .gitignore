@@ -41,6 +41,9 @@ build/
 #Vue3
 # Logs
 logs
+# Log-analysis source packages are not runtime log directories.
+!**/src/main/java/**/logs/
+!**/src/test/java/**/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
