@@ -1,5 +1,9 @@
 # Local Development
 
+For frontend replacement work, use the [frontend API preservation guide](frontend-api/README.md).
+It inventories every current frontend HTTP wrapper, payload type, transport dependency,
+backend mismatch and verification boundary before removing the existing UI.
+
 ## Requirements
 
 - Java 17 and Maven 3.9.6 or newer.

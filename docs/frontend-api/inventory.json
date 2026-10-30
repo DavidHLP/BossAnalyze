@@ -1,0 +1,2148 @@
+{
+  "snapshotDate": "2026-10-30",
+  "sourceCommit": "832bfde",
+  "scope": "All frontend application HTTP calls; source-derived, not exhaustive runtime acceptance.",
+  "callCount": 63,
+  "uniqueRequestCount": 62,
+  "records": [
+    {
+      "id": "API-001",
+      "module": "auth/auth.ts",
+      "name": "login",
+      "source": "vue/src/api/auth/auth.ts:4",
+      "method": "POST",
+      "urlExpression": "'/api/auth/login'",
+      "path": "/api/auth/login",
+      "signature": "login(data: { email: string; password: string }): Promise<Token>",
+      "bodyExpression": "{ ...data }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Public in client; attaches token if present",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/login",
+          "returns": "Result<Token>",
+          "handler": "login",
+          "parameters": "@RequestBody final LoginDTO request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:107"
+        }
+      ],
+      "callers": [
+        "vue/src/views/front/login/LoginView.vue:85"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "status": 200,
+        "businessCode": 200,
+        "payloadShape": "token object; token redacted"
+      }
+    },
+    {
+      "id": "API-002",
+      "module": "auth/auth.ts",
+      "name": "getUserPrivateInformation",
+      "source": "vue/src/api/auth/auth.ts:11",
+      "method": "GET",
+      "urlExpression": "'/api/auth/getUserPrivateInformation'",
+      "path": "/api/auth/getUserPrivateInformation",
+      "signature": "getUserPrivateInformation(): Promise<Array<Permissions>>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/auth/getUserPrivateInformation",
+          "returns": "Result<List<String>>",
+          "handler": "getUserPrivateInformation",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:145"
+        }
+      ],
+      "callers": [
+        "vue/src/store/user/userStore.ts:18"
+      ],
+      "notes": "Backend data is List<String> (permission strings); the frontend Permissions[] declaration does not describe this wire shape.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-002",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": 200,
+        "payloadShape": "list",
+        "items": 0
+      }
+    },
+    {
+      "id": "API-003",
+      "module": "auth/auth.ts",
+      "name": "getUserRole",
+      "source": "vue/src/api/auth/auth.ts:17",
+      "method": "GET",
+      "urlExpression": "'/api/auth/getUserRole'",
+      "path": "/api/auth/getUserRole",
+      "signature": "getUserRole(): Promise<Role>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/auth/getUserRole",
+          "returns": "Result<Role>",
+          "handler": "getUserRole",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:156"
+        }
+      ],
+      "callers": [
+        "vue/src/store/user/userStore.ts:27"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-003",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": 200,
+        "payloadShape": "dict"
+      }
+    },
+    {
+      "id": "API-004",
+      "module": "auth/auth.ts",
+      "name": "getUserBaseInfo",
+      "source": "vue/src/api/auth/auth.ts:23",
+      "method": "GET",
+      "urlExpression": "'/api/auth/getUserBaseInfo'",
+      "path": "/api/auth/getUserBaseInfo",
+      "signature": "getUserBaseInfo(): Promise<UserBaseInfo>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/auth/getUserBaseInfo",
+          "returns": "Result<User>",
+          "handler": "getUserBaseInfo",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:168"
+        }
+      ],
+      "callers": [
+        "vue/src/store/user/userStore.ts:45"
+      ],
+      "notes": "Backend User serializes both id/name and computed userId/username aliases. Frontend type omits password but backend entity includes it; do not log/persist entire raw user responses.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-004",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": 200,
+        "payloadShape": "dict"
+      }
+    },
+    {
+      "id": "API-005",
+      "module": "auth/auth.ts",
+      "name": "getRoleList",
+      "source": "vue/src/api/auth/auth.ts:29",
+      "method": "GET",
+      "urlExpression": "'/api/auth/getRoleList'",
+      "path": "/api/auth/getRoleList",
+      "signature": "getRoleList(): Promise<Role[]>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/auth/getRoleList",
+          "returns": "Result<List<Role>>",
+          "handler": "getRoleList",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:233"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/rolemanagement/RoleManagementView.vue:471"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-005",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": 200,
+        "payloadShape": "list",
+        "items": 2
+      }
+    },
+    {
+      "id": "API-006",
+      "module": "auth/auth.ts",
+      "name": "addRole",
+      "source": "vue/src/api/auth/auth.ts:36",
+      "method": "POST",
+      "urlExpression": "'/api/auth/addRole'",
+      "path": "/api/auth/addRole",
+      "signature": "addRole(data: Role): Promise<void>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/addRole",
+          "returns": "Result<Void>",
+          "handler": "addRole",
+          "parameters": "@RequestBody final Role role",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:245"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/rolemanagement/RoleManagementView.vue:528"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-007",
+      "module": "auth/auth.ts",
+      "name": "editRole",
+      "source": "vue/src/api/auth/auth.ts:44",
+      "method": "POST",
+      "urlExpression": "'/api/auth/editRole'",
+      "path": "/api/auth/editRole",
+      "signature": "editRole(data: Role): Promise<void>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/editRole",
+          "returns": "Result<Void>",
+          "handler": "editRole",
+          "parameters": "@RequestBody final Role role",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:263"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/rolemanagement/RoleManagementView.vue:451",
+        "vue/src/views/console/system/rolemanagement/RoleManagementView.vue:525"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-008",
+      "module": "auth/auth.ts",
+      "name": "deleteRole",
+      "source": "vue/src/api/auth/auth.ts:52",
+      "method": "POST",
+      "urlExpression": "'/api/auth/deleteRole'",
+      "path": "/api/auth/deleteRole",
+      "signature": "deleteRole(roleId: number): Promise<void>",
+      "bodyExpression": "{ id: roleId }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/deleteRole",
+          "returns": "Result<Void>",
+          "handler": "deleteRole",
+          "parameters": "@RequestBody final Role role",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:303"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/rolemanagement/RoleManagementView.vue:552"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-009",
+      "module": "auth/auth.ts",
+      "name": "updateRolePermissions",
+      "source": "vue/src/api/auth/auth.ts:60",
+      "method": "POST",
+      "urlExpression": "'/api/auth/updateRolePermissions'",
+      "path": "/api/auth/updateRolePermissions",
+      "signature": "updateRolePermissions(data: {\n  roleId: number\n  permissionIds: number[]\n}): Promise<void>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [],
+      "callers": [],
+      "notes": "NO BACKEND ROUTE in this checkout. The implemented route is updateRoleRouters with { roleId, routerIds }; this wrapper is not an alias for it.",
+      "backendStatus": "missing-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-010",
+      "module": "auth/auth.ts",
+      "name": "updateRoleRouters",
+      "source": "vue/src/api/auth/auth.ts:71",
+      "method": "POST",
+      "urlExpression": "'/api/auth/updateRoleRouters'",
+      "path": "/api/auth/updateRoleRouters",
+      "signature": "updateRoleRouters(data: { roleId: number; routerIds: number[] }): Promise<void>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/updateRoleRouters",
+          "returns": "Result<Void>",
+          "handler": "updateRolePermissions",
+          "parameters": "@RequestBody final RolePermissionUpdateResponse rolePermissionUpdateResponse",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:281"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/rolemanagement/RoleManagementView.vue:703"
+      ],
+      "notes": "Backend accepts { roleId: Long, routerIds: List<Integer> }. Caller includes ancestor menu IDs in the selection; preserve that rule when rebuilding the permission tree.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-011",
+      "module": "auth/auth.ts",
+      "name": "updateUserRole",
+      "source": "vue/src/api/auth/auth.ts:79",
+      "method": "POST",
+      "urlExpression": "'/api/auth/updateUserRole'",
+      "path": "/api/auth/updateUserRole",
+      "signature": "updateUserRole(data: { userId: number; roleId: number }): Promise<void>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [],
+      "callers": [],
+      "notes": "NO BACKEND ROUTE in this checkout. User editing passes roleId through updateUser instead.",
+      "backendStatus": "missing-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-012",
+      "module": "auth/auth.ts",
+      "name": "register",
+      "source": "vue/src/api/auth/auth.ts:86",
+      "method": "POST",
+      "urlExpression": "'/api/auth/register'",
+      "path": "/api/auth/register",
+      "signature": "register(data: {\n  name: string\n  email: string\n  password: string\n  code: string\n}): Promise<void>",
+      "bodyExpression": "{ ...data }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Public in client; attaches token if present",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/register",
+          "returns": "Result<String>",
+          "handler": "registerUser",
+          "parameters": "@RequestBody final RegistrationDTO request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:86"
+        }
+      ],
+      "callers": [
+        "vue/src/views/front/register/RegisterView.vue:139"
+      ],
+      "notes": "Backend Result.success(String) places success text in message with no data, not a string payload. Frontend declares Promise<void>, but shared client resolves the envelope. Public; not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-013",
+      "module": "auth/auth.ts",
+      "name": "sendRegisterEmail",
+      "source": "vue/src/api/auth/auth.ts:98",
+      "method": "POST",
+      "urlExpression": "'/api/auth/sendRegisterEmail'",
+      "path": "/api/auth/sendRegisterEmail",
+      "signature": "sendRegisterEmail(data: { email: string }): Promise<void>",
+      "bodyExpression": "{ email: data.email }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Public in client; attaches token if present",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/sendRegisterEmail",
+          "returns": "Result<Void>",
+          "handler": "registerSendEmail",
+          "parameters": "@RequestBody final RegistrationDTO request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:58"
+        }
+      ],
+      "callers": [
+        "vue/src/views/front/register/RegisterView.vue:157"
+      ],
+      "notes": "Public registration-email request: email required by wrapper. Success text lives in envelope.message. Requires SMTP and writes verification-code state; not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-014",
+      "module": "boss/user/user.ts",
+      "name": "getSalaryHotJob",
+      "source": "vue/src/api/boss/user/user.ts:9",
+      "method": "GET",
+      "urlExpression": "'/api/v1/boss/user/salary-hot-job'",
+      "path": "/api/v1/boss/user/salary-hot-job",
+      "signature": "getSalaryHotJob(limit: number): Promise<SalaryJob[]>",
+      "bodyExpression": null,
+      "queryExpression": "{ limit }",
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/boss/user/salary-hot-job",
+          "returns": "List<SalaryJob>",
+          "handler": "getSalaryHotJob",
+          "parameters": "@RequestParam(defaultValue = \"10\") Long limit",
+          "source": "JDK17SERVE/spark/src/main/java/com/david/hlp/spark/controller/User/CityAndPositonController.java:21"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw JSON array, not Result<T>. Backend limit defaults to 10 (Long). No current frontend call site found.",
+      "backendStatus": "matched-controller",
+      "service": "spark:8082",
+      "runtimeVerification": {
+        "id": "API-014",
+        "status": 200,
+        "shape": "list",
+        "items": 0
+      }
+    },
+    {
+      "id": "API-015",
+      "module": "boss/user/user.ts",
+      "name": "getTwoDimensionalAnalysisChart",
+      "source": "vue/src/api/boss/user/user.ts:21",
+      "method": "GET",
+      "urlExpression": "'/api/v1/boss/user/two-dimensional-analysis-chart'",
+      "path": "/api/v1/boss/user/two-dimensional-analysis-chart",
+      "signature": "getTwoDimensionalAnalysisChart(cityName: string, positionName: string, xAxis: string, yAxis: string): Promise<JobData[]>",
+      "bodyExpression": null,
+      "queryExpression": "{ cityName, positionName, xAxis, yAxis }",
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/boss/user/two-dimensional-analysis-chart",
+          "returns": "List<JobAnalysisData>",
+          "handler": "getJobAnalysisData",
+          "parameters": "@RequestParam(required = false, defaultValue = \"all\") String cityName, @RequestParam(required = false, defaultValue = \"all\") String positionName, @RequestParam(required = false, defaultValue = \"salary_value\") String xAxis, @RequestParam(required = false, defaultValue = \"degree_value\") String yAxis",
+          "source": "JDK17SERVE/spark/src/main/java/com/david/hlp/spark/controller/User/CityAndPositonController.java:30"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw JSON array. Backend defaults: cityName=all, positionName=all, xAxis=salary_value, yAxis=degree_value. JobAnalysisData has no industry field although frontend JobData requires it. No current frontend call site found.",
+      "backendStatus": "matched-controller",
+      "service": "spark:8082",
+      "runtimeVerification": {
+        "id": "API-015",
+        "status": 200,
+        "shape": "list",
+        "items": 0
+      }
+    },
+    {
+      "id": "API-016",
+      "module": "boss/user/user.ts",
+      "name": "getCityNameList",
+      "source": "vue/src/api/boss/user/user.ts:36",
+      "method": "GET",
+      "urlExpression": "'/api/v1/boss/basic/city-name-list'",
+      "path": "/api/v1/boss/basic/city-name-list",
+      "signature": "getCityNameList(): Promise<string[]>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/boss/basic/city-name-list",
+          "returns": "List<String>",
+          "handler": "getCityNameList",
+          "parameters": "",
+          "source": "JDK17SERVE/spark/src/main/java/com/david/hlp/spark/controller/User/ListBasicSetController.java:19"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw string array; an empty array is valid. No current frontend call site found.",
+      "backendStatus": "matched-controller",
+      "service": "spark:8082",
+      "runtimeVerification": {
+        "id": "API-016",
+        "status": 200,
+        "shape": "list",
+        "items": 0
+      }
+    },
+    {
+      "id": "API-017",
+      "module": "boss/user/user.ts",
+      "name": "getPositionNameList",
+      "source": "vue/src/api/boss/user/user.ts:45",
+      "method": "GET",
+      "urlExpression": "'/api/v1/boss/basic/position-name-list'",
+      "path": "/api/v1/boss/basic/position-name-list",
+      "signature": "getPositionNameList(cityName?: string): Promise<string[]>",
+      "bodyExpression": null,
+      "queryExpression": "{ cityName }",
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/boss/basic/position-name-list",
+          "returns": "List<String>",
+          "handler": "getPositionNameList",
+          "parameters": "@RequestParam(defaultValue = \"all\") String cityName",
+          "source": "JDK17SERVE/spark/src/main/java/com/david/hlp/spark/controller/User/ListBasicSetController.java:24"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw string array. Backend cityName defaults to all. No current frontend call site found.",
+      "backendStatus": "matched-controller",
+      "service": "spark:8082",
+      "runtimeVerification": {
+        "id": "API-017",
+        "status": 200,
+        "shape": "list",
+        "items": 0
+      }
+    },
+    {
+      "id": "API-018",
+      "module": "boss/user/user.ts",
+      "name": "getCompanyList",
+      "source": "vue/src/api/boss/user/user.ts:55",
+      "method": "GET",
+      "urlExpression": "'/api/boss/basic/company-list'",
+      "path": "/api/boss/basic/company-list",
+      "signature": "getCompanyList(cityName: string, positionName: string): Promise<JobData[]>",
+      "bodyExpression": null,
+      "queryExpression": "{ cityName, positionName }",
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [],
+      "callers": [],
+      "notes": "NO BACKEND ROUTE. This old /api/boss prefix also falls through to port 8080, unlike /api/v1/boss on port 8082. No replacement company endpoint was found.",
+      "backendStatus": "missing-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-018",
+        "status": 500,
+        "shape": "dict",
+        "businessCode": 500,
+        "payloadShape": "NoneType"
+      }
+    },
+    {
+      "id": "API-019",
+      "module": "boss/user/user.ts",
+      "name": "getThreeDimensionalAnalysisChart",
+      "source": "vue/src/api/boss/user/user.ts:68",
+      "method": "GET",
+      "urlExpression": "'/api/boss/user/three-dimensional-analysis-chart'",
+      "path": "/api/boss/user/three-dimensional-analysis-chart",
+      "signature": "getThreeDimensionalAnalysisChart(cityName: string, positionName: string): Promise<JobData[]>",
+      "bodyExpression": null,
+      "queryExpression": "{ cityName, positionName }",
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [],
+      "callers": [],
+      "notes": "NO BACKEND ROUTE. This old /api/boss prefix also falls through to port 8080. No implemented three-dimensional endpoint was found.",
+      "backendStatus": "missing-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-019",
+        "status": 500,
+        "shape": "dict",
+        "businessCode": 500,
+        "payloadShape": "NoneType"
+      }
+    },
+    {
+      "id": "API-020",
+      "module": "log/accesslog.ts",
+      "name": "getDashboardStats",
+      "source": "vue/src/api/log/accesslog.ts:7",
+      "method": "GET",
+      "urlExpression": "'/api/v1/system/logs/dashboard/stats'",
+      "path": "/api/v1/system/logs/dashboard/stats",
+      "signature": "getDashboardStats(): Promise<DashboardStats>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/system/logs/dashboard/stats",
+          "returns": "ResponseEntity<Map<String, Object>>",
+          "handler": "getDashboardStats",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java:37"
+        }
+      ],
+      "callers": [],
+      "notes": "Shares the same HTTP operation with getAccessLogStats. Catches errors and resolves a complete zero/default DashboardStats object. Main API also substitutes defaults on upstream failure; 200 does not establish live statistics.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-020",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": null,
+        "payloadShape": "dict"
+      }
+    },
+    {
+      "id": "API-021",
+      "module": "log/accesslog.ts",
+      "name": "getAccessLogStats",
+      "source": "vue/src/api/log/accesslog.ts:24",
+      "method": "GET",
+      "urlExpression": "'/api/v1/system/logs/dashboard/stats'",
+      "path": "/api/v1/system/logs/dashboard/stats",
+      "signature": "getAccessLogStats(): Promise<AccessLogStats>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/system/logs/dashboard/stats",
+          "returns": "ResponseEntity<Map<String, Object>>",
+          "handler": "getDashboardStats",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java:37"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/dashboard/DashboardView.vue:896"
+      ],
+      "notes": "Calls dashboard/stats, NOT the backend /stats endpoint. Adapts heatMapData, geoStats, deviceStats and overview to AccessLogStats. Reads httpMethodStatistics and weekdayStatistics, which are not declared on DashboardStats. Errors resolve zero/empty fallback data. Exact adapter is archived in contracts.md.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "HTTP path shared with API-020 (200); legacy adapter not executed"
+    },
+    {
+      "id": "API-022",
+      "module": "log/accesslog.ts",
+      "name": "getHeatMapData",
+      "source": "vue/src/api/log/accesslog.ts:69",
+      "method": "GET",
+      "urlExpression": "'/api/v1/system/logs/heatmap'",
+      "path": "/api/v1/system/logs/heatmap",
+      "signature": "getHeatMapData(): Promise<any>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/system/logs/heatmap",
+          "returns": "ResponseEntity<Map<String, Object>>",
+          "handler": "getHeatMapData",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java:87"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw map matching backend HeatMapData when present; resolves {} on errors/empty response. Main API can also replace upstream errors with {}.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-022",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": null,
+        "payloadShape": "dict"
+      }
+    },
+    {
+      "id": "API-023",
+      "module": "log/accesslog.ts",
+      "name": "getIpStatistics",
+      "source": "vue/src/api/log/accesslog.ts:85",
+      "method": "GET",
+      "urlExpression": "'/api/v1/system/logs/ip-statistics'",
+      "path": "/api/v1/system/logs/ip-statistics",
+      "signature": "getIpStatistics(): Promise<any>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/system/logs/ip-statistics",
+          "returns": "ResponseEntity<Map<String, Object>>",
+          "handler": "getIpStatistics",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java:102"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw map matching backend IpStatistics when present; resolves {} on errors/empty response. Main API can also replace upstream errors with {}.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-023",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": null,
+        "payloadShape": "dict"
+      }
+    },
+    {
+      "id": "API-024",
+      "module": "log/accesslog.ts",
+      "name": "getHttpMethodStatistics",
+      "source": "vue/src/api/log/accesslog.ts:101",
+      "method": "GET",
+      "urlExpression": "'/api/v1/system/logs/http-methods'",
+      "path": "/api/v1/system/logs/http-methods",
+      "signature": "getHttpMethodStatistics(): Promise<any>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/system/logs/http-methods",
+          "returns": "ResponseEntity<Map<String, Object>>",
+          "handler": "getHttpMethodStatistics",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java:117"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw map matching backend HttpMethodStatistics when present; resolves {} on errors/empty response. Main API can also replace upstream errors with {}.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-024",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": null,
+        "payloadShape": "dict"
+      }
+    },
+    {
+      "id": "API-025",
+      "module": "log/accesslog.ts",
+      "name": "getBrowserStatistics",
+      "source": "vue/src/api/log/accesslog.ts:117",
+      "method": "GET",
+      "urlExpression": "'/api/v1/system/logs/browser-usage'",
+      "path": "/api/v1/system/logs/browser-usage",
+      "signature": "getBrowserStatistics(): Promise<any>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/system/logs/browser-usage",
+          "returns": "ResponseEntity<Map<String, Object>>",
+          "handler": "getBrowserStatistics",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java:132"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw map matching backend BrowserStatistics when present; resolves {} on errors/empty response. Main API can also replace upstream errors with {}.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-025",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": null,
+        "payloadShape": "dict"
+      }
+    },
+    {
+      "id": "API-026",
+      "module": "log/accesslog.ts",
+      "name": "triggerLogAnalysis",
+      "source": "vue/src/api/log/accesslog.ts:133",
+      "method": "POST",
+      "urlExpression": "'/api/v1/system/logs/analysis/trigger'",
+      "path": "/api/v1/system/logs/analysis/trigger",
+      "signature": "triggerLogAnalysis(): Promise<string>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/v1/system/logs/analysis/trigger",
+          "returns": "ResponseEntity<String>",
+          "handler": "triggerAnalysis",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java:147"
+        }
+      ],
+      "callers": [],
+      "notes": "Mutating asynchronous trigger. Response text only acknowledges submission; it is not completion evidence. Frontend catches errors and returns a failure string; the gateway can also send HTTP 200 with failure text. Not invoked during documentation.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-027",
+      "module": "log/accesslog.ts",
+      "name": "checkServiceHealth",
+      "source": "vue/src/api/log/accesslog.ts:149",
+      "method": "GET",
+      "urlExpression": "'/api/v1/system/logs/health'",
+      "path": "/api/v1/system/logs/health",
+      "signature": "checkServiceHealth(): Promise<any>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/v1/system/logs/health",
+          "returns": "ResponseEntity<Map<String, Object>>",
+          "handler": "healthCheck",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java:162"
+        }
+      ],
+      "callers": [],
+      "notes": "Raw map: timestamp, status and sparkService; sparkResponse on success, error on failure. Main API returns UP or DEGRADED. Frontend catch fallback is { status: DOWN, error }. No frontend caller found.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-027",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": null,
+        "payloadShape": "dict"
+      }
+    },
+    {
+      "id": "API-028",
+      "module": "minio/minio.ts",
+      "name": "uploadImage",
+      "source": "vue/src/api/minio/minio.ts:5",
+      "method": "POST",
+      "urlExpression": "'/api/image/upload'",
+      "path": "/api/image/upload",
+      "signature": "uploadImage(file: File): Promise<ImageResponse>",
+      "bodyExpression": "formData",
+      "queryExpression": null,
+      "headersExpression": "{\n      'Content-Type': 'multipart/form-data'\n    }",
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/image/upload",
+          "returns": "Result<ImageResponse>",
+          "handler": "uploadImage",
+          "parameters": "@RequestParam(\"file\") MultipartFile file",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/minio/controller/ImageController.java:39"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/usermanagement/components/AddUser.vue:451",
+        "vue/src/views/console/system/usermanagement/components/EditUser.vue:364"
+      ],
+      "notes": "Multipart field file; backend rejects empty files, non-image content types and missing original filename. Stored filename is userId_originalFilename. .d.ts declares Result<ImageResponse> but implementation returns unwrapped ImageResponse. Requires MinIO; not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-029",
+      "module": "minio/minio.ts",
+      "name": "getImageUrl",
+      "source": "vue/src/api/minio/minio.ts:19",
+      "method": "GET",
+      "urlExpression": "`/api/image/url/${fileName}`",
+      "path": "/api/image/url/${fileName}",
+      "signature": "getImageUrl(fileName: string): Promise<ImageResponse>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/image/url/{fileName}",
+          "returns": "Result<ImageResponse>",
+          "handler": "getImageUrl",
+          "parameters": "@PathVariable(\"fileName\") String fileName",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/minio/controller/ImageController.java:134"
+        }
+      ],
+      "callers": [
+        "vue/src/components/common/UserQuickView.vue:254",
+        "vue/src/views/console/system/usermanagement/UserManagementView.vue:406",
+        "vue/src/views/console/system/usermanagement/components/AddUser.vue:425",
+        "vue/src/views/console/system/usermanagement/components/EditUser.vue:344"
+      ],
+      "notes": "Result<ImageResponse> on the wire, unwrapped ImageResponse at runtime. .d.ts incorrectly adds another Result wrapper. Returned url may be a storage URL, not an application endpoint.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-030",
+      "module": "minio/minio.ts",
+      "name": "deleteImage",
+      "source": "vue/src/api/minio/minio.ts:27",
+      "method": "DELETE",
+      "urlExpression": "'/api/image/delete'",
+      "path": "/api/image/delete",
+      "signature": "deleteImage(fileName: string): inferred (not explicitly declared)",
+      "bodyExpression": null,
+      "queryExpression": "{ fileName }",
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "DELETE",
+          "path": "/api/image/delete",
+          "returns": "Result<ImageResponse>",
+          "handler": "deleteImage",
+          "parameters": "@RequestParam(\"fileName\") String fileName",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/minio/controller/ImageController.java:110"
+        }
+      ],
+      "callers": [],
+      "notes": "Backend Result<ImageResponse>; success may omit url although frontend ImageResponse requires it. Mutation; not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-031",
+      "module": "minio/minio.ts",
+      "name": "getImage",
+      "source": "vue/src/api/minio/minio.ts:36",
+      "method": "GET",
+      "urlExpression": "`/api/image/view/${fileName}`",
+      "path": "/api/image/view/${fileName}",
+      "signature": "getImage(fileName: string): inferred (not explicitly declared)",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "'blob'",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/image/view/{fileName}",
+          "returns": "Result<InputStreamResource>",
+          "handler": "viewImage",
+          "parameters": "@PathVariable(\"fileName\") String fileName",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/minio/controller/ImageController.java:87"
+        }
+      ],
+      "callers": [],
+      "notes": "Client requests responseType=blob. Backend uses Result.file with image Content-Type but a ResultBody<InputStreamResource> body, not a bare ResponseEntity<Resource>. Binary response compatibility is unverified; do not infer it works from the Blob declaration.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-032",
+      "module": "modules/resume.ts",
+      "name": "resumeExport",
+      "source": "vue/src/api/modules/resume.ts:11",
+      "method": "POST",
+      "urlExpression": "import.meta.env.VITE_EXPORT_URL as string",
+      "path": "${VITE_EXPORT_URL}",
+      "signature": "resumeExport(data: IResumeConfig): inferred (not explicitly declared)",
+      "bodyExpression": "JSON.stringify(data)",
+      "queryExpression": null,
+      "headersExpression": "{\n      'Content-Type': 'application/json',\n    }",
+      "responseType": "JSON",
+      "client": "fetch",
+      "authentication": "No Authorization header",
+      "backend": [],
+      "callers": [
+        "vue/src/views/resume/hook.ts:121"
+      ],
+      "notes": "External POST; bypasses shared Axios authentication, timeout and error handling. Sends HTML content, CSS style, stylesheet link, template name, and type (0=PDF, 1=PNG). Calls res.json() without checking res.ok. Caller expects pdf.data or picture.data byte arrays. External implementation is not in this repository; not exercised.",
+      "backendStatus": "external-not-in-repository",
+      "service": "external",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-033",
+      "module": "modules/resume.ts",
+      "name": "getExportCount",
+      "source": "vue/src/api/modules/resume.ts:22",
+      "method": "GET",
+      "urlExpression": "`${baseUrl}/get/count`",
+      "path": "${VITE_UPSTASH_BASE_URL}/get/count",
+      "signature": "getExportCount(): inferred (not explicitly declared)",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": "{\n        Authorization: token,\n      }",
+      "responseType": "JSON",
+      "client": "fetch",
+      "authentication": "Authorization: VITE_UPSTASH_GET_TOKEN (verbatim)",
+      "backend": [],
+      "callers": [
+        "vue/src/components/exportTotal.vue:9"
+      ],
+      "notes": "External GET with Authorization set verbatim to VITE_UPSTASH_GET_TOKEN (no Bearer added). Returns result as-is from JSON; numeric text uses parseInt; missing config, bad status, HTML, empty body, invalid JSON/result and network failure resolve 0. Return type is not explicitly declared; it is not guaranteed numeric for JSON result. Not exercised.",
+      "backendStatus": "external-not-in-repository",
+      "service": "external",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-034",
+      "module": "resume/resume.ts",
+      "name": "getResumes",
+      "source": "vue/src/api/resume/resume.ts:7",
+      "method": "GET",
+      "urlExpression": "'/api/resume'",
+      "path": "/api/resume",
+      "signature": "getResumes(): Promise<Resume[]>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/resume",
+          "returns": "Result<List<Resume>>",
+          "handler": "getResumes",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeController.java:24"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/resumelist.vue:97"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-034",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": 200,
+        "payloadShape": "list",
+        "items": 0
+      }
+    },
+    {
+      "id": "API-035",
+      "module": "resume/resume.ts",
+      "name": "getResumeById",
+      "source": "vue/src/api/resume/resume.ts:18",
+      "method": "GET",
+      "urlExpression": "`/api/resume/${id}`",
+      "path": "/api/resume/${id}",
+      "signature": "getResumeById(id: string): Promise<Resume>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/resume/{id}",
+          "returns": "Result<Resume>",
+          "handler": "getResumeById",
+          "parameters": "@PathVariable String id",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeController.java:33"
+        }
+      ],
+      "callers": [
+        "vue/src/store/modules/editor.ts:33",
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:789"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-035",
+        "status": "skipped",
+        "reason": "no existing visible resume; no fixture created"
+      }
+    },
+    {
+      "id": "API-036",
+      "module": "resume/resume.ts",
+      "name": "createResume",
+      "source": "vue/src/api/resume/resume.ts:29",
+      "method": "POST",
+      "urlExpression": "'/api/resume'",
+      "path": "/api/resume",
+      "signature": "createResume(data: Partial<Resume>): Promise<Resume>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume",
+          "returns": "Result<Resume>",
+          "handler": "createResume",
+          "parameters": "@RequestBody Resume resume",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeController.java:43"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/resumelist.vue:107",
+        "vue/src/views/resume/resumelist.vue:139"
+      ],
+      "notes": "Backend auto-creates initial main commit. IMPORTANT: current service does not set docType=meta, and callers send only title/content. Reads filter meta, so a successful create can become invisible. Frontend Resume omits docType. No create performed during documentation.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-037",
+      "module": "resume/resume.ts",
+      "name": "updateResume",
+      "source": "vue/src/api/resume/resume.ts:42",
+      "method": "PUT",
+      "urlExpression": "`/api/resume/${id}`",
+      "path": "/api/resume/${id}",
+      "signature": "updateResume(id: string, data: Partial<Resume>): Promise<Resume>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "PUT",
+          "path": "/api/resume/{id}",
+          "returns": "Result<Resume>",
+          "handler": "updateResume",
+          "parameters": "@PathVariable String id, @RequestBody Resume resume",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeController.java:52"
+        }
+      ],
+      "callers": [
+        "vue/src/store/modules/editor.ts:60",
+        "vue/src/views/resume/resumelist.vue:172"
+      ],
+      "notes": "Current backend only commits content; it does not assign incoming title. Rename can appear successful without persisting. Sending only a title can also pass null content into commit. Current callers send title and content or the full resume. Not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-038",
+      "module": "resume/resume.ts",
+      "name": "deleteResume",
+      "source": "vue/src/api/resume/resume.ts:54",
+      "method": "DELETE",
+      "urlExpression": "`/api/resume/${id}`",
+      "path": "/api/resume/${id}",
+      "signature": "deleteResume(id: string): Promise<void>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "DELETE",
+          "path": "/api/resume/{id}",
+          "returns": "Result<Void>",
+          "handler": "deleteResume",
+          "parameters": "@PathVariable String id",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeController.java:63"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/resumelist.vue:128",
+        "vue/src/views/resume/resumelist.vue:215"
+      ],
+      "notes": "Deletes owned metadata and associated commit records; this is destructive. Backend returns Result<Void>, leaving the shared client to return the envelope when data is null. Not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-039",
+      "module": "resume/version.ts",
+      "name": "initVersionControl",
+      "source": "vue/src/api/resume/version.ts:23",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/init`",
+      "path": "/api/resume/${resumeId}/version/init",
+      "signature": "initVersionControl(resumeId: string, content: string = ''): Promise<Resume>",
+      "bodyExpression": "{ content }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [],
+      "callers": [],
+      "notes": "NO BACKEND ROUTE. Creation already auto-initializes version metadata; do not rely on this legacy wrapper.",
+      "backendStatus": "missing-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-040",
+      "module": "resume/version.ts",
+      "name": "commitChanges",
+      "source": "vue/src/api/resume/version.ts:34",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/commit`",
+      "path": "/api/resume/${resumeId}/version/commit",
+      "signature": "commitChanges(resumeId: string, message: string, content: string): Promise<string>",
+      "bodyExpression": "{ message, content }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/commit",
+          "returns": "Result<String>",
+          "handler": "commit",
+          "parameters": "@PathVariable String resumeId, @RequestBody Map<String, String> request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:31"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:629"
+      ],
+      "notes": "Backend requires a nonblank message. Result.success(String) selects the message overload: commit ID is in envelope.message and data is null, so the current client resolves an envelope instead of the declared string. Mutation not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-041",
+      "module": "resume/version.ts",
+      "name": "createBranch",
+      "source": "vue/src/api/resume/version.ts:45",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/branch`",
+      "path": "/api/resume/${resumeId}/version/branch",
+      "signature": "createBranch(resumeId: string, branchName: string): Promise<void>",
+      "bodyExpression": "{ name: branchName }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/branch",
+          "returns": "Result<Void>",
+          "handler": "createBranch",
+          "parameters": "@PathVariable String resumeId, @RequestBody Map<String, String> request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:57"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:651"
+      ],
+      "notes": "Backend requires a nonblank branch name. Mutation; not exercised. Result<Void> leaves the envelope intact in the current client.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-042",
+      "module": "resume/version.ts",
+      "name": "switchBranch",
+      "source": "vue/src/api/resume/version.ts:52",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/switch`",
+      "path": "/api/resume/${resumeId}/version/switch",
+      "signature": "switchBranch(resumeId: string, branch: string): Promise<void>",
+      "bodyExpression": "{ branch }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/switch",
+          "returns": "Result<Void>",
+          "handler": "switchBranch",
+          "parameters": "@PathVariable String resumeId, @RequestBody Map<String, String> request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:81"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:667"
+      ],
+      "notes": "Switches active content/branch. Mutation; not exercised. Result<Void> leaves the envelope intact.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-043",
+      "module": "resume/version.ts",
+      "name": "mergeBranch",
+      "source": "vue/src/api/resume/version.ts:63",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/merge`",
+      "path": "/api/resume/${resumeId}/version/merge",
+      "signature": "mergeBranch(resumeId: string, source: string, target: string): Promise<string>",
+      "bodyExpression": "{ source, target }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/merge",
+          "returns": "Result<String>",
+          "handler": "mergeBranch",
+          "parameters": "@PathVariable String resumeId, @RequestBody Map<String, String> request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:101"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:697"
+      ],
+      "notes": "Backend Result.success(String) puts merge commit ID in envelope.message, not data; current client does not return the declared string. Merges and changes version state; not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-044",
+      "module": "resume/version.ts",
+      "name": "getCommitHistory",
+      "source": "vue/src/api/resume/version.ts:74",
+      "method": "GET",
+      "urlExpression": "`/api/resume/${resumeId}/version/history`",
+      "path": "/api/resume/${resumeId}/version/history",
+      "signature": "getCommitHistory(resumeId: string): Promise<ResumeCommit[]>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/resume/{resumeId}/version/history",
+          "returns": "Result<List<Resume>>",
+          "handler": "getCommitHistory",
+          "parameters": "@PathVariable String resumeId",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:123"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:811"
+      ],
+      "notes": "Backend returns Result<List<Resume>> commit documents, not a dedicated ResumeCommit DTO. Date fields arrive as JSON date strings, not JavaScript Date instances.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-044",
+        "status": "skipped",
+        "reason": "no existing visible resume; no fixture created"
+      }
+    },
+    {
+      "id": "API-045",
+      "module": "resume/version.ts",
+      "name": "checkoutCommit",
+      "source": "vue/src/api/resume/version.ts:84",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/checkout`",
+      "path": "/api/resume/${resumeId}/version/checkout",
+      "signature": "checkoutCommit(resumeId: string, commitId: string): Promise<void>",
+      "bodyExpression": "{ commitId }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/checkout",
+          "returns": "Result<Void>",
+          "handler": "checkout",
+          "parameters": "@PathVariable String resumeId, @RequestBody Map<String, String> request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:141"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:762",
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:845"
+      ],
+      "notes": "Changes current content/HEAD. Mutation; not exercised. Result<Void> leaves the envelope intact.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-046",
+      "module": "resume/version.ts",
+      "name": "resetToCommit",
+      "source": "vue/src/api/resume/version.ts:95",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/reset`",
+      "path": "/api/resume/${resumeId}/version/reset",
+      "signature": "resetToCommit(resumeId: string, commitId: string): Promise<void>",
+      "bodyExpression": "{ commitId }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/reset",
+          "returns": "Result<Void>",
+          "handler": "resetToCommit",
+          "parameters": "@PathVariable String resumeId, @RequestBody Map<String, String> request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:199"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:882"
+      ],
+      "notes": "Requires nonblank commitId. Hard reset changes branch history/content and records a rollback operation. Not exercised. Result<Void> leaves the envelope intact.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-047",
+      "module": "resume/version.ts",
+      "name": "revertCommit",
+      "source": "vue/src/api/resume/version.ts:106",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/revert`",
+      "path": "/api/resume/${resumeId}/version/revert",
+      "signature": "revertCommit(resumeId: string, commitId: string): Promise<string>",
+      "bodyExpression": "{ commitId }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/revert",
+          "returns": "Result<String>",
+          "handler": "revertCommit",
+          "parameters": "@PathVariable String resumeId, @RequestBody Map<String, String> request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:228"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:923"
+      ],
+      "notes": "Requires nonblank commitId. Creates a revert commit. Result.success(String) puts returned ID in message instead of data, so declared string differs from actual shared-client result. Not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-048",
+      "module": "resume/version.ts",
+      "name": "getRecentCommits",
+      "source": "vue/src/api/resume/version.ts:117",
+      "method": "GET",
+      "urlExpression": "`/api/resume/${resumeId}/version/recent`",
+      "path": "/api/resume/${resumeId}/version/recent",
+      "signature": "getRecentCommits(resumeId: string, limit = 10): Promise<ResumeCommit[]>",
+      "bodyExpression": null,
+      "queryExpression": "{ limit }",
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/resume/{resumeId}/version/recent",
+          "returns": "Result<List<Resume>>",
+          "handler": "getRecentCommits",
+          "parameters": "@PathVariable String resumeId, @RequestParam(defaultValue = \"10\") int limit",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:257"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:831"
+      ],
+      "notes": "Backend returns Result<List<Resume>>. limit defaults to 10; values <=0 or >50 are reset to 10. Date fields are strings on the wire.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-048",
+        "status": "skipped",
+        "reason": "no existing visible resume; no fixture created"
+      }
+    },
+    {
+      "id": "API-049",
+      "module": "resume/version.ts",
+      "name": "getCommitsBetween",
+      "source": "vue/src/api/resume/version.ts:128",
+      "method": "GET",
+      "urlExpression": "`/api/resume/${resumeId}/version/diff`",
+      "path": "/api/resume/${resumeId}/version/diff",
+      "signature": "getCommitsBetween(resumeId: string, fromCommit: string, toCommit: string): Promise<ResumeCommit[]>",
+      "bodyExpression": null,
+      "queryExpression": "{ fromCommit, toCommit }",
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/resume/{resumeId}/version/diff",
+          "returns": "Result<List<Resume>>",
+          "handler": "getCommitsBetween",
+          "parameters": "@PathVariable String resumeId, @RequestParam String fromCommit, @RequestParam String toCommit",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:280"
+        }
+      ],
+      "callers": [],
+      "notes": "Backend returns a list of commits between the two IDs, not a textual diff. Date fields are strings on the wire. No current frontend call site found.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-049",
+        "status": "skipped",
+        "reason": "no existing visible resume; no fixture created"
+      }
+    },
+    {
+      "id": "API-050",
+      "module": "resume/version.ts",
+      "name": "stashChanges",
+      "source": "vue/src/api/resume/version.ts:139",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/stash`",
+      "path": "/api/resume/${resumeId}/version/stash",
+      "signature": "stashChanges(resumeId: string, content: string): Promise<void>",
+      "bodyExpression": "{ content }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/stash",
+          "returns": "Result<Void>",
+          "handler": "stash",
+          "parameters": "@PathVariable String resumeId, @RequestBody Map<String, String> request",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:161"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:725"
+      ],
+      "notes": "Stashes content with message, branch, head and timestamp metadata. Mutation; not exercised. Result<Void> leaves the envelope intact.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-051",
+      "module": "resume/version.ts",
+      "name": "stashPop",
+      "source": "vue/src/api/resume/version.ts:150",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/stash/pop`",
+      "path": "/api/resume/${resumeId}/version/stash/pop",
+      "signature": "stashPop(resumeId: string): Promise<string>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/stash/pop",
+          "returns": "Result<String>",
+          "handler": "stashPop",
+          "parameters": "@PathVariable String resumeId",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:181"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:740"
+      ],
+      "notes": "Mutates stash/content. Result.success(String) puts content in envelope.message rather than data, so actual client result differs from declared string. Not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-052",
+      "module": "resume/version.ts",
+      "name": "getCommitDebugInfo",
+      "source": "vue/src/api/resume/version.ts:160",
+      "method": "GET",
+      "urlExpression": "`/api/resume/${resumeId}/version/debug/commit/${commitId}`",
+      "path": "/api/resume/${resumeId}/version/debug/commit/${commitId}",
+      "signature": "getCommitDebugInfo(resumeId: string, commitId: string): Promise<any>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/resume/{resumeId}/version/debug/commit/{commitId}",
+          "returns": "Result<Map<String, Object>>",
+          "handler": "getCommitDebugInfo",
+          "parameters": "@PathVariable String resumeId, @PathVariable String commitId",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:301"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:968"
+      ],
+      "notes": "Open map: resumeExists, currentBranch, headCommit, commitExists; if found: commitMessage, commitBranch, commitType, commitTime, parentCommits, parentCount, isInitialCommit, parentCommitsInfo[{parentId,parentExists,parentMessage?,parentTime?}]; success, error on exception. Missing-related fields can be absent.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-052",
+        "status": "skipped",
+        "reason": "no existing visible resume; no fixture created"
+      }
+    },
+    {
+      "id": "API-053",
+      "module": "resume/version.ts",
+      "name": "validateVersionControl",
+      "source": "vue/src/api/resume/version.ts:170",
+      "method": "GET",
+      "urlExpression": "`/api/resume/${resumeId}/version/debug/validate`",
+      "path": "/api/resume/${resumeId}/version/debug/validate",
+      "signature": "validateVersionControl(resumeId: string): Promise<any>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/resume/{resumeId}/version/debug/validate",
+          "returns": "Result<Map<String, Object>>",
+          "handler": "validateVersionControl",
+          "parameters": "@PathVariable String resumeId",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:320"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:949"
+      ],
+      "notes": "Open map: errors and warnings string arrays, isValid boolean, totalCommits, orphanCommits and corruptedCommits counts, branchCount, stashCount. Early missing-resume path returns errors only; do not require all keys.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-053",
+        "status": "skipped",
+        "reason": "no existing visible resume; no fixture created"
+      }
+    },
+    {
+      "id": "API-054",
+      "module": "resume/version.ts",
+      "name": "fixDuplicateCommitIds",
+      "source": "vue/src/api/resume/version.ts:180",
+      "method": "POST",
+      "urlExpression": "`/api/resume/${resumeId}/version/fix-duplicate-ids`",
+      "path": "/api/resume/${resumeId}/version/fix-duplicate-ids",
+      "signature": "fixDuplicateCommitIds(resumeId: string): Promise<any>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/resume/{resumeId}/version/fix-duplicate-ids",
+          "returns": "Result<Map<String, Object>>",
+          "handler": "fixDuplicateIds",
+          "parameters": "@PathVariable String resumeId",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java:339"
+        }
+      ],
+      "callers": [
+        "vue/src/views/resume/components/version-control/resumeVersionControl.vue:1004"
+      ],
+      "notes": "DESTRUCTIVE repair: if duplicate IDs exist, deletes commit history and reinitializes main. Returns success, actions, message; repaired path also initialCommitId/duplicateIdsCount; failure may return error. This is not a harmless diagnostic. Not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-055",
+      "module": "role/role.ts",
+      "name": "getRoleList",
+      "source": "vue/src/api/role/role.ts:4",
+      "method": "GET",
+      "urlExpression": "`/api/role/getRoleList?roleName=${roleName || ''}`",
+      "path": "/api/role/getRoleList?roleName=${roleName || ''}",
+      "signature": "getRoleList(roleName?: string): Promise<Role[]>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/role/getRoleList",
+          "returns": "Result<List<Role>>",
+          "handler": "getRoleList",
+          "parameters": "@RequestParam(required = false)String roleName",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/RoleController.java:37"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/usermanagement/UserManagementView.vue:452",
+        "vue/src/views/console/system/usermanagement/components/AddUser.vue:336",
+        "vue/src/views/console/system/usermanagement/components/AddUser.vue:353",
+        "vue/src/views/console/system/usermanagement/components/EditUser.vue:285",
+        "vue/src/views/console/system/usermanagement/components/EditUser.vue:322"
+      ],
+      "notes": "Distinct from auth/getRoleList. Optional roleName is interpolated directly into the query without URL encoding; use Axios params when rebuilding. Returns Result<List<Role>> on the wire.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-055",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": 200,
+        "payloadShape": "list",
+        "items": 2
+      }
+    },
+    {
+      "id": "API-056",
+      "module": "router/router.ts",
+      "name": "getUserRoutes",
+      "source": "vue/src/api/router/router.ts:3",
+      "method": "GET",
+      "urlExpression": "'/api/auth/getRouters'",
+      "path": "/api/auth/getRouters",
+      "signature": "getUserRoutes(): Promise<Router[]>",
+      "bodyExpression": null,
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "GET",
+          "path": "/api/auth/getRouters",
+          "returns": "Result<List<Router>>",
+          "handler": "getRouters",
+          "parameters": "",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:134"
+        }
+      ],
+      "callers": [
+        "vue/src/store/router/routerStore.ts:23",
+        "vue/src/store/user/userStore.ts:36",
+        "vue/src/views/console/system/menumanagement/MenuManagementView.vue:268",
+        "vue/src/views/console/system/rolemanagement/RoleManagementView.vue:484"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": {
+        "id": "API-056",
+        "status": 200,
+        "shape": "dict",
+        "businessCode": 200,
+        "payloadShape": "list",
+        "items": 1
+      }
+    },
+    {
+      "id": "API-057",
+      "module": "router/router.ts",
+      "name": "editRouter",
+      "source": "vue/src/api/router/router.ts:9",
+      "method": "POST",
+      "urlExpression": "'/api/auth/editRouter'",
+      "path": "/api/auth/editRouter",
+      "signature": "editRouter(data: Router): Promise<void>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/editRouter",
+          "returns": "Result<Void>",
+          "handler": "editRouter",
+          "parameters": "@RequestBody final Router router",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:180"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/menumanagement/MenuManagementView.vue:405",
+        "vue/src/views/console/system/menumanagement/MenuManagementView.vue:611"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-058",
+      "module": "router/router.ts",
+      "name": "addRouter",
+      "source": "vue/src/api/router/router.ts:16",
+      "method": "POST",
+      "urlExpression": "'/api/auth/addRouter'",
+      "path": "/api/auth/addRouter",
+      "signature": "addRouter(data: Router): Promise<void>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/addRouter",
+          "returns": "Result<Void>",
+          "handler": "addRouter",
+          "parameters": "@RequestBody final Router router",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:198"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/menumanagement/MenuManagementView.vue:607"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-059",
+      "module": "router/router.ts",
+      "name": "deleteRouter",
+      "source": "vue/src/api/router/router.ts:23",
+      "method": "POST",
+      "urlExpression": "'/api/auth/deleteRouter'",
+      "path": "/api/auth/deleteRouter",
+      "signature": "deleteRouter(data: Router): Promise<void>",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/auth/deleteRouter",
+          "returns": "Result<Void>",
+          "handler": "deleteRouter",
+          "parameters": "@RequestBody final Router router",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java:216"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/menumanagement/MenuManagementView.vue:569"
+      ],
+      "notes": "",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-060",
+      "module": "user/user.ts",
+      "name": "getUserManageInfo",
+      "source": "vue/src/api/user/user.ts:5",
+      "method": "POST",
+      "urlExpression": "`/api/user/getUserManageInfo`",
+      "path": "/api/user/getUserManageInfo",
+      "signature": "getUserManageInfo(number: number, size: number, params?: User): Promise<PageInfo<User>>",
+      "bodyExpression": "{\n      number,\n      size,\n      query: params,\n    }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/user/getUserManageInfo",
+          "returns": "Result<PageInfo<User>>",
+          "handler": "getUserManageInfo",
+          "parameters": "@RequestBody PageInfo<User> pageInfo",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/UserController.java:40"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/usermanagement/UserManagementView.vue:421"
+      ],
+      "notes": "Backend PageInfo is zero-based (number=0 is first page), but existing screen passes page=1 for its initial query. Record this mismatch; do not adopt that UI convention as API truth. query is a User-shaped optional object.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-061",
+      "module": "user/user.ts",
+      "name": "deleteUser",
+      "source": "vue/src/api/user/user.ts:20",
+      "method": "POST",
+      "urlExpression": "`/api/user/deleteUser`",
+      "path": "/api/user/deleteUser",
+      "signature": "deleteUser(id: number, password: string): inferred (not explicitly declared)",
+      "bodyExpression": "{ id, password }",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/user/deleteUser",
+          "returns": "Result<Void>",
+          "handler": "deleteUser",
+          "parameters": "@RequestBody DelUser user",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/UserController.java:61"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/usermanagement/UserManagementView.vue:612"
+      ],
+      "notes": "Body password is the acting administrator/current user password, not the target user password; backend checks it before deletion. Mutation not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-062",
+      "module": "user/user.ts",
+      "name": "updateUser",
+      "source": "vue/src/api/user/user.ts:27",
+      "method": "POST",
+      "urlExpression": "`/api/user/updateUser`",
+      "path": "/api/user/updateUser",
+      "signature": "updateUser(data: User): inferred (not explicitly declared)",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/user/updateUser",
+          "returns": "Result<Void>",
+          "handler": "updateUser",
+          "parameters": "@RequestBody User user",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/UserController.java:84"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/usermanagement/components/EditUser.vue:394"
+      ],
+      "notes": "Backend accepts User including id, profile fields, roleId and password if sent. Frontend type is extensible. Current role edits occur here. Mutation not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    },
+    {
+      "id": "API-063",
+      "module": "user/user.ts",
+      "name": "addUser",
+      "source": "vue/src/api/user/user.ts:34",
+      "method": "POST",
+      "urlExpression": "`/api/user/addUser`",
+      "path": "/api/user/addUser",
+      "signature": "addUser(data: User): inferred (not explicitly declared)",
+      "bodyExpression": "data",
+      "queryExpression": null,
+      "headersExpression": null,
+      "responseType": "JSON",
+      "client": "shared Axios",
+      "authentication": "Bearer token required by client",
+      "backend": [
+        {
+          "method": "POST",
+          "path": "/api/user/addUser",
+          "returns": "Result<Void>",
+          "handler": "addUser",
+          "parameters": "@RequestBody User user",
+          "source": "JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/UserController.java:95"
+        }
+      ],
+      "callers": [
+        "vue/src/views/console/system/usermanagement/components/AddUser.vue:407"
+      ],
+      "notes": "Frontend uses extensible UserBaseInfo; actual backend User also accepts password:string (not explicitly declared in UserBaseInfo). Current form sends password. Mutation not exercised.",
+      "backendStatus": "matched-controller",
+      "service": "spring:8080",
+      "runtimeVerification": "not exercised in this documentation task"
+    }
+  ]
+}
