@@ -1,0 +1,73 @@
+vue/app/pages/index.vue
+  s_3d48479db66f62::t_37992f34b8b026 1-32
+vue/nuxt.config.ts
+  s_3d48479db66f62::t_c92ed582e940bf 1-25
+vue/tests/request.test.mjs
+  s_3d48479db66f62::t_37992f34b8b026 1-49
+README.md
+  s_3d48479db66f62::t_8967bba7932f9c 16-19,21
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_663678a339f592 12-17,20-23
+docs/local-development.md
+  s_3d48479db66f62::t_b086e6fca72d70 10,49-50,53-66
+vue/.gitignore
+  s_3d48479db66f62::t_197a971e2911be 34-38
+vue/README.md
+  s_3d48479db66f62::t_dbfcc7d6e9751a 1,3,5-6,9-12,16,19-49,52-57,59,61-82
+vue/app/app.vue
+  s_3d48479db66f62::t_355d20c2d766ec 2
+vue/app/assets/css/tailwind.css
+  s_3d48479db66f62::t_62945bf07625f1 1-133
+vue/app/components/ui/button/Button.vue
+  s_3d48479db66f62::t_468d84beeff2fd 1-31
+vue/app/components/ui/button/index.ts
+  s_3d48479db66f62::t_df2d11de107a8a 1-35
+vue/app/components/ui/card/Card.vue
+  s_3d48479db66f62::t_ad00c07dafbb37 1-21
+vue/app/components/ui/card/CardAction.vue
+  s_3d48479db66f62::t_195e18085e3a92 1-17
+vue/app/components/ui/card/CardContent.vue
+  s_3d48479db66f62::t_478dc134b47c6a 1-17
+vue/app/components/ui/card/CardDescription.vue
+  s_3d48479db66f62::t_96de84027899f3 1-17
+vue/app/components/ui/card/CardFooter.vue
+  s_3d48479db66f62::t_12b250babecae8 1-17
+vue/app/components/ui/card/CardHeader.vue
+  s_3d48479db66f62::t_6d363ac6fd32a8 1-17
+vue/app/components/ui/card/CardTitle.vue
+  s_3d48479db66f62::t_75309187bf54a4 1-17
+vue/app/components/ui/card/index.ts
+  s_3d48479db66f62::t_4341e5cf95289f 1-7
+vue/app/lib/utils.ts
+  s_3d48479db66f62::t_b8f1063e5ff58a 1
+vue/app/utils/request/request.ts
+  s_3d48479db66f62::t_c81254325a6c78 17-21
+vue/components.json
+  s_3d48479db66f62::t_e73dc3d86378b5 2-11,13-25
+vue/package.json
+  s_3d48479db66f62::t_625f6a5783bfc8 2,4,6-13,16-25,28-33,35-38
+vue/pnpm-lock.yaml
+  s_3d48479db66f62::t_30ef3319dc1409 1-9077
+vue/pnpm-workspace.yaml
+  s_3d48479db66f62::t_d03a6590d36719 1-2
+vue/server/tsconfig.json
+  s_3d48479db66f62::t_6b587813437286 2
+vue/tsconfig.json
+  s_3d48479db66f62::t_dabdd720c7b2c4 2-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f6bee57adcbba70d95f399abbbcda5ce514191c4",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
