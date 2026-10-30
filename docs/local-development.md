@@ -7,7 +7,7 @@ backend mismatch and verification boundary before removing the existing UI.
 ## Requirements
 
 - Java 17 and Maven 3.9.6 or newer.
-- Node.js 20.19 or 22+, Yarn 1.x, and the checked-in `vue/yarn.lock`.
+- Node.js 22.12+, pnpm 11.24.0, and the checked-in `vue/pnpm-lock.yaml`.
 - MySQL 8 with separate `blog_data` and `boss_data` databases, Redis, and MongoDB.
 
 For a new, empty database only, import `system.sql` into `blog_data` and
@@ -46,17 +46,24 @@ between modules: the API and crawler use different databases.
 In `vue/`:
 
 ```sh
-yarn install --frozen-lockfile
-yarn dev --host 127.0.0.1 --port 5020 --strictPort
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-The frontend currently displays an unstyled redesign placeholder; the old pages and stores
-have been removed while retaining the API layer and its required types/request client.
-It routes `/api/v1/boss` to Spark on 8082, `/api/v1/ai` to the crawler
-on 8081, and other `/api` requests to the main API on 8080. Request paths retain
-their `/api` prefix. `yarn build` includes TypeScript checking and bundling. The old UI and
-image optimization plugins have been removed; this frontend no longer needs NASM or native
-image optimization dependencies.
+The frontend is a fresh Nuxt 4 + shadcn-vue starter; business screens still need rebuilding.
+Preserved API wrappers and their required types/request client now live under `vue/app/`.
+Nitro routes `/api/v1/boss/**` to Spark on 8082, `/api/v1/ai/**` to the crawler on 8081,
+and other `/api/**` requests to the main API on 8080, retaining the `/api` prefix.
+These proxies run in development and in the production Node server. `pnpm type-check`,
+`pnpm test` and `pnpm build` verify the frontend foundation. To run the production build:
+
+```sh
+HOST=127.0.0.1 PORT=5020 pnpm start
+```
+
+Deploy the Nuxt `.output/` Node server; static hosting of `.output/public/` alone does not
+provide the proxies. See `vue/README.md` for the preserved browser-only request semantics
+and legacy `VITE_` export configuration.
 
 ## Local Profile Boundaries
 
