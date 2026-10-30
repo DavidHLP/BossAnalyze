@@ -50,12 +50,13 @@ yarn install --frozen-lockfile
 yarn dev --host 127.0.0.1 --port 5020 --strictPort
 ```
 
-The frontend routes `/api/v1/boss` to Spark on 8082, `/api/v1/ai` to the crawler
+The frontend currently displays an unstyled redesign placeholder; the old pages and stores
+have been removed while retaining the API layer and its required types/request client.
+It routes `/api/v1/boss` to Spark on 8082, `/api/v1/ai` to the crawler
 on 8081, and other `/api` requests to the main API on 8080. Request paths retain
-their `/api` prefix. `yarn build` includes TypeScript checking and image
-optimization; native image dependencies may require a C/C++ toolchain and NASM.
-The Node configuration skips incompatible third-party declaration checking for
-legacy Vite plugins; application TypeScript checks still run during the build.
+their `/api` prefix. `yarn build` includes TypeScript checking and bundling. The old UI and
+image optimization plugins have been removed; this frontend no longer needs NASM or native
+image optimization dependencies.
 
 ## Local Profile Boundaries
 
@@ -76,7 +77,7 @@ Redis, and MongoDB. `/actuator/health/liveness` checks process availability.
 Crawler and Spark expose `/actuator/health`. A failed SMTP connection still
 appears in the API's overall health result; local readiness does not test email.
 
-After logging in through the frontend, verify an authenticated user-info
+When the replacement login UI is implemented, verify an authenticated user-info
 request and the resume list. Recruitment endpoints return empty arrays for an
 empty `boss_data` database. To check actual log processing, trigger analysis via
 `POST /api/v1/system/logs/analysis/trigger`, then verify a fresh result at Spark's

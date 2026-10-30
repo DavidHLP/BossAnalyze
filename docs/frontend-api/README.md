@@ -7,6 +7,21 @@ change requests, migrate data, or claim that every operation works. Source links
 catalog and snapshots are pinned to this baseline commit so they survive deletion of the
 old frontend files.
 
+## Current frontend state
+
+The old UI has now been removed for redesign. `vue/src/api/`, the request client and its
+declarations, `src/router/index.d.ts` (types only), and the pagination type remain. A minimal
+unstyled Vue entry point replaces all business pages. The Vite alias and three development
+proxy rules remain; old UI libraries, styles, assets, templates, stores and runtime routing
+have been removed. See [the frontend README](../../vue/README.md) for the retained layout.
+
+The catalog, contracts, consumers and HTTP observations below are the historical pre-removal
+snapshot. API implementations are unchanged, but the listed old consumers no longer exist
+in the current tree. Their pinned source links remain usable. Authentication screens,
+dynamic navigation, draft management and export assembly must be rebuilt by the new UI;
+their historical contracts are preserved here. This cleanup does not fix backend/API defects
+and does not modify backend code, database schemas or stored data.
+
 ## Documents
 
 - [Endpoint catalog](endpoints.md): all **63 wrappers / transport calls**, individually
