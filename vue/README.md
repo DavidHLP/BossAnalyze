@@ -149,11 +149,36 @@ cannot be deleted. Changing the current role ends the local session. Clearing al
 requires a separate confirmation. Drawers protect unsaved changes, support mobile bottom
 sheets and lock dismissal during submissions. Backend authorization remains authoritative.
 
+## Menu management
+
+`/console/menus` uses a searchable tree table and shadcn-vue detail/create/edit sheets.
+It reads `GET /api/auth/getRouters` and preserves disabled, hidden and action entries.
+Search matches title, route name, path or permission, keeps ancestors for context and
+temporarily overrides folding. Leaves have no expand button. Menu types follow the SQL
+contract: `C` directory, `M` menu, `F` action. The tree has no invented server pagination.
+
+Create/edit/delete use the existing router wrappers. New roots send `pid: null`; child
+creation starts from the selected parent and rejects permission identifiers already used
+by menus or role grants, including grants without a menu. Editing fixes parent and permission because
+the current mapper cannot clear a parent and permission replacement deletes the old
+permission record, cascading role grants. Role metadata is preserved; nullable empty
+role metadata uses the backend's `[]` default. Unsupported parents cannot receive new
+children because the current backend tree builder depends on parent ordering.
+
+Deletion is limited to leaves with independent permissions and no role references,
+checked through the existing auth role-list endpoint. The page checks again immediately
+before submission, sends no descendants, and confirms removal with a fresh tree read.
+Shared permissions and assigned grants must be resolved first. This is a client guard,
+not an atomic backend concurrency guarantee. Save also checks business codes and read-back;
+uncertain results block another submission until the user rereads the menu. Current
+navigation remains session-cached; sign in again to apply changed navigation. Component
+identifiers are stored configuration and do not dynamically create frontend pages.
+
 ## Verification boundaries
 
 `pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
 destinations, local session expiry, dashboard normalization/error propagation, user pagination,
-field whitelisting, role grant linkage/read normalization and write-payload safety (24 tests,
+field whitelisting, role grant linkage, menu hierarchy/filtering and write-payload safety (29 tests,
 no HTTP). Type-checking and production build cover the Nuxt app. Existing local accounts
 were used for real login, menu filtering and route protection checks. The dashboard's real
 API returned an unavailable snapshot; no analysis job was triggered or fixture inserted.
@@ -176,3 +201,9 @@ responses covered role creation, metadata edits, deletion, permission save/read-
 read-back mismatch, business failures, orphan-grant protection, clearing confirmation,
 dirty dismissal, empty/forbidden/error states and a 390px mobile authorization sheet.
 All role mutation requests were intercepted in the browser and never reached the backend.
+
+Real menu-tree and role-reference reads returned HTTP 200. Menu CRUD, HTTP 200 business
+failure, read-back mismatch, tree folding/filtering, dirty dismissal and all five data
+states were checked with browser-only fixtures. A 390px mobile detail sheet and document
+overflow were checked. Menu mutation requests never reached services; real mutations
+remain unverified. The B-end design audit covers the menu page and its sheet.

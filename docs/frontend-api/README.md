@@ -25,7 +25,10 @@ filtered paginated list and detail/create/edit/delete flows. `/console/roles` no
 the complete auth role list and menu tree, with metadata CRUD and menu authorization
 through the existing auth wrappers. Authorization includes parent/shared-permission
 linkage, unmatched-grant protection and a read-back check before reporting success.
-Other business routes remain rebuilding placeholders. Real user and role reads were verified; write flows used browser-only
+`/console/menus` now uses the existing router APIs for an expandable tree and
+detail/create/edit/delete flows, with fixed existing parent/permission values,
+role-reference and shared-permission deletion guards, and write read-back confirmation.
+Other business routes remain rebuilding placeholders. Real user, role and menu reads were verified; write flows used browser-only
 fixtures and were not executed against existing records.
 The dashboard wrapper propagates request errors instead of manufacturing zero statistics.
 The gateway's default response is shown as an unavailable snapshot, and known backend
