@@ -47,15 +47,17 @@ app/
   components/ui/          Generated shadcn-vue primitives
   lib/utils.ts            Generated cn helper
   pages/login.vue         Responsive login-02 page
-  pages/console/          Protected console and authorized menu placeholders
+  pages/console/          Protected dashboard and authorized menu placeholders
   layouts/console.vue     Sidebar-07 console shell
   composables/useSession.ts  Existing authentication API integration
   app.vue                 Nuxt layout and page outlets
 nuxt.config.ts            Theme, environment compatibility and Nitro proxy rules
 ```
 
-The original `vue/src/api/` tree and required declarations moved to `vue/app/` with their
-contents unchanged. Nuxt's `@` alias resolves to `app/`. The Axios client preserves token
+The original `vue/src/api/` tree and required declarations moved to `vue/app/` during
+initialization. The dashboard wrapper now propagates request errors instead of returning
+synthetic zero statistics; other wrappers retain their existing behavior. Nuxt's `@` alias
+resolves to `app/`. The Axios client preserves token
 injection, timeout, credentials, response unwrapping, redirect and unauthorized-event
 behavior. It now rejects server-side calls explicitly before accessing browser storage.
 Call these authenticated wrappers from browser interactions or `onMounted`; use a separate
@@ -81,15 +83,36 @@ are filtered by exact permissions, status and visibility; legacy paths are mappe
 `/console`. The console is client-rendered because the preserved client stores its token
 in localStorage; the login page retains SSR. Logout clears local session state and menus
 (there is no server logout wrapper). No social login or account recovery is advertised.
-Analytics, resume editing and export screens still need to be rebuilt. No backend or
+Recruitment analytics, resume editing and export screens still need to be rebuilt. No backend or
 database changes are part of this frontend work.
+
+## Dashboard
+
+`/console/dashboard` uses shadcn-vue cards, badges, alerts, skeletons and tables, with an
+accessible hourly bar chart. It calls only the existing
+`GET /api/v1/system/logs/dashboard/stats` through the shared client and proxy. Refresh
+reads the cached result; it never triggers analysis, collection or data writes.
+
+The page shows log-derived visits, visitors, peak hourly visits, active hours, top paths,
+browsers and request methods. It excludes backend sample values for real-time users,
+performance, security and operating systems, plus simplified data-quality metrics.
+Hourly buckets retain their original labels, show up to 24 recorded hours, and do not
+invent zero buckets or claim a selectable time range. Table percentages use actual counts.
+
+The gateway returns a small default object when Spark has no cached snapshot **or when
+its upstream request fails**. These cases cannot be distinguished from this API alone:
+the page reports an unavailable snapshot, not zero traffic or healthy upstream analysis.
+Malformed snapshots and transport failures show an error with retry. Missing snapshots
+show em dashes; complete snapshots containing actual zero counts still show zero.
 
 ## Verification boundaries
 
 `pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
-destinations and local session expiry (9 tests, no HTTP). Type-checking and production build
-cover the Nuxt app. Browser checks used isolated simulated API responses for login errors,
-successful login, granted menus, account switching, empty permissions, desktop collapse
-and mobile drawer navigation. These are UI checks, not live authentication acceptance.
-Backend ports 8080/8081/8082 were not listening, so real business integration, SMTP, object
-storage and export services were not exercised.
+destinations, local session expiry and dashboard normalization/error propagation (13 tests,
+no HTTP). Type-checking and production build cover the Nuxt app. Existing local accounts
+were used for real login, menu filtering and route protection checks. The dashboard's real
+API returned an unavailable snapshot; no analysis job was triggered or fixture inserted.
+Isolated browser response fixtures covered populated charts, rankings, keyboard access,
+loading, request failure and retry. Mobile layout was checked at 390px with no document
+overflow. Populated fixture checks do not establish real log-analysis acceptance. SMTP,
+object storage, export and recruitment business flows were not exercised.
