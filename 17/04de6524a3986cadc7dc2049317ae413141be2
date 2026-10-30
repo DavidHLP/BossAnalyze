@@ -1,0 +1,259 @@
+vue/app/composables/useSession.ts
+  s_3d48479db66f62::t_d06323f39e4cd9 12-13,18,33-34,43-46,50
+  s_3d48479db66f62::t_bd377d14b5493e 1-11,14-17,19-32,35-42,47-49,51-74
+  s_3d48479db66f62::t_a04f2f7ba9c98a 75-76
+vue/app/lib/session.ts
+  s_3d48479db66f62::t_e7cc50435b1fa6 13,21-23,26,34,41,59
+  s_3d48479db66f62::t_d06323f39e4cd9 31-32,39
+  s_3d48479db66f62::t_bd377d14b5493e 1-12,14-20,24-25,27-30,33,35-38,40,42-58,60-61
+  s_3d48479db66f62::t_71d75b4e4dd385 62-88
+vue/app/plugins/session.client.ts
+  s_3d48479db66f62::t_d06323f39e4cd9 8-15
+  s_3d48479db66f62::t_bd377d14b5493e 1-7,16
+vue/app/components/NavMenuItem.vue
+  s_3d48479db66f62::t_e7cc50435b1fa6 1-12,24-29,35,42-45,51-56,62-66
+  s_3d48479db66f62::t_2a7a66d2b0576c 13-23,30-34,36-41,46-50,57-61
+vue/nuxt.config.ts
+  s_3d48479db66f62::t_75f7a13646d3e2 9-10
+vue/README.md
+  s_3d48479db66f62::t_cf8d045a20362e 11-14,47,49-53,78-85,89-95
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_cf8d045a20362e 21-26
+vue/tests/session.test.mjs
+  s_3d48479db66f62::t_75f7a13646d3e2 1-62
+  s_3d48479db66f62::t_ec9443bc36744b 63-93
+vue/app/middleware/auth.ts
+  s_3d48479db66f62::t_bd377d14b5493e 1-17
+vue/app/pages/console/index.vue
+  s_3d48479db66f62::t_e7cc50435b1fa6 1-26
+  s_3d48479db66f62::t_8aa39632b9e230 27-28
+vue/app/layouts/console.vue
+  s_3d48479db66f62::t_e7cc50435b1fa6 1-29
+  s_3d48479db66f62::t_1f85db0c714e90 30-35
+vue/app/app.vue
+  s_3d48479db66f62::t_21edd7d996bd92 2-4
+vue/app/components/AppSidebar.vue
+  s_3d48479db66f62::t_e060ecfce39cef 1-51
+vue/app/components/LoginForm.vue
+  s_3d48479db66f62::t_1d8a81f4cdcf05 1-75
+vue/app/components/NavMain.vue
+  s_3d48479db66f62::t_23579a52bdf35b 1-13
+vue/app/components/NavUser.vue
+  s_3d48479db66f62::t_13284b8ac53386 1-49
+vue/app/components/ui/avatar/Avatar.vue
+  s_3d48479db66f62::t_00dce83c55fd3b 1-22
+vue/app/components/ui/avatar/AvatarBadge.vue
+  s_3d48479db66f62::t_68f136f3903d37 1-23
+vue/app/components/ui/avatar/AvatarFallback.vue
+  s_3d48479db66f62::t_47c835289daa81 1-21
+vue/app/components/ui/avatar/AvatarGroup.vue
+  s_3d48479db66f62::t_f3222d53d257c1 1-20
+vue/app/components/ui/avatar/AvatarGroupCount.vue
+  s_3d48479db66f62::t_459b50f5c6f10d 1-20
+vue/app/components/ui/avatar/AvatarImage.vue
+  s_3d48479db66f62::t_41dee24977f9e3 1-16
+vue/app/components/ui/avatar/index.ts
+  s_3d48479db66f62::t_f9d3aac01f249b 1-27
+vue/app/components/ui/breadcrumb/Breadcrumb.vue
+  s_3d48479db66f62::t_0c3dd5d189d1d6 1-18
+vue/app/components/ui/breadcrumb/BreadcrumbEllipsis.vue
+  s_3d48479db66f62::t_ee4e95f54a3b56 1-25
+vue/app/components/ui/breadcrumb/BreadcrumbItem.vue
+  s_3d48479db66f62::t_a96bce9cf0d761 1-17
+vue/app/components/ui/breadcrumb/BreadcrumbLink.vue
+  s_3d48479db66f62::t_ff8edcc76b7f80 1-21
+vue/app/components/ui/breadcrumb/BreadcrumbList.vue
+  s_3d48479db66f62::t_fcbceac24ef55f 1-17
+vue/app/components/ui/breadcrumb/BreadcrumbPage.vue
+  s_3d48479db66f62::t_e96f79001270b6 1-20
+vue/app/components/ui/breadcrumb/BreadcrumbSeparator.vue
+  s_3d48479db66f62::t_7c316597539eed 1-24
+vue/app/components/ui/breadcrumb/index.ts
+  s_3d48479db66f62::t_5e2a68cb2e1a29 1-7
+vue/app/components/ui/collapsible/Collapsible.vue
+  s_3d48479db66f62::t_d8b41814724128 1-19
+vue/app/components/ui/collapsible/CollapsibleContent.vue
+  s_3d48479db66f62::t_a98b0e15159df7 1-15
+vue/app/components/ui/collapsible/CollapsibleTrigger.vue
+  s_3d48479db66f62::t_873e3d3c1560c6 1-15
+vue/app/components/ui/collapsible/index.ts
+  s_3d48479db66f62::t_acc8a62310d3df 1-3
+vue/app/components/ui/dropdown-menu/DropdownMenu.vue
+  s_3d48479db66f62::t_4c1540c5f8d05b 1-19
+vue/app/components/ui/dropdown-menu/DropdownMenuCheckboxItem.vue
+  s_3d48479db66f62::t_22c9f584c195fc 1-44
+vue/app/components/ui/dropdown-menu/DropdownMenuContent.vue
+  s_3d48479db66f62::t_fab6ceeaa94683 1-40
+vue/app/components/ui/dropdown-menu/DropdownMenuGroup.vue
+  s_3d48479db66f62::t_fcf59ddbd5b2af 1-15
+vue/app/components/ui/dropdown-menu/DropdownMenuItem.vue
+  s_3d48479db66f62::t_a8de3b5986ec67 1-31
+vue/app/components/ui/dropdown-menu/DropdownMenuLabel.vue
+  s_3d48479db66f62::t_7486101f9c4079 1-23
+vue/app/components/ui/dropdown-menu/DropdownMenuRadioGroup.vue
+  s_3d48479db66f62::t_ee49cd1b883f52 1-21
+vue/app/components/ui/dropdown-menu/DropdownMenuRadioItem.vue
+  s_3d48479db66f62::t_a5c41a00fa7d24 1-45
+vue/app/components/ui/dropdown-menu/DropdownMenuSeparator.vue
+  s_3d48479db66f62::t_bc4ab8496662b3 1-23
+vue/app/components/ui/dropdown-menu/DropdownMenuShortcut.vue
+  s_3d48479db66f62::t_9943ae17c0acd1 1-17
+vue/app/components/ui/dropdown-menu/DropdownMenuSub.vue
+  s_3d48479db66f62::t_f4f44d1860aa9f 1-18
+vue/app/components/ui/dropdown-menu/DropdownMenuSubContent.vue
+  s_3d48479db66f62::t_7c596573566c24 1-27
+vue/app/components/ui/dropdown-menu/DropdownMenuSubTrigger.vue
+  s_3d48479db66f62::t_5b5c030d761f4b 1-33
+vue/app/components/ui/dropdown-menu/DropdownMenuTrigger.vue
+  s_3d48479db66f62::t_6cb0d20ab7a029 1-17
+vue/app/components/ui/dropdown-menu/index.ts
+  s_3d48479db66f62::t_5c692cd9523a81 1-16
+vue/app/components/ui/field/Field.vue
+  s_3d48479db66f62::t_ab2ffe3a23621a 1-27
+vue/app/components/ui/field/FieldContent.vue
+  s_3d48479db66f62::t_35e4eb9caa1888 1-20
+vue/app/components/ui/field/FieldDescription.vue
+  s_3d48479db66f62::t_8eb3c950f6abbb 1-22
+vue/app/components/ui/field/FieldError.vue
+  s_3d48479db66f62::t_c232ca280dcd44 1-53
+vue/app/components/ui/field/FieldGroup.vue
+  s_3d48479db66f62::t_a45357e1249e47 1-20
+vue/app/components/ui/field/FieldLabel.vue
+  s_3d48479db66f62::t_849b4a56cd36f5 1-22
+vue/app/components/ui/field/FieldLegend.vue
+  s_3d48479db66f62::t_113a54cfb0b9c3 1-21
+vue/app/components/ui/field/FieldSeparator.vue
+  s_3d48479db66f62::t_f0ca1a5310aaf3 1-29
+vue/app/components/ui/field/FieldSet.vue
+  s_3d48479db66f62::t_9de053e2738b72 1-17
+vue/app/components/ui/field/FieldTitle.vue
+  s_3d48479db66f62::t_32b30290ce8e1c 1-20
+vue/app/components/ui/field/index.ts
+  s_3d48479db66f62::t_dc6ebec029d046 1-31
+vue/app/components/ui/input/Input.vue
+  s_3d48479db66f62::t_37711531782a16 1-31
+vue/app/components/ui/input/index.ts
+  s_3d48479db66f62::t_8b3310a9cf08a6 1
+vue/app/components/ui/label/Label.vue
+  s_3d48479db66f62::t_395ab5d8e67ecc 1-26
+vue/app/components/ui/label/index.ts
+  s_3d48479db66f62::t_24c12b53d53911 1
+vue/app/components/ui/separator/Separator.vue
+  s_3d48479db66f62::t_c1be2ddd2a6ff5 1-29
+vue/app/components/ui/separator/index.ts
+  s_3d48479db66f62::t_c192b7f768d080 1
+vue/app/components/ui/sheet/Sheet.vue
+  s_3d48479db66f62::t_6b98c0cfbc8bd7 1-19
+vue/app/components/ui/sheet/SheetClose.vue
+  s_3d48479db66f62::t_00e5e23f00b3d0 1-15
+vue/app/components/ui/sheet/SheetContent.vue
+  s_3d48479db66f62::t_7fccd7556a6ecb 1-62
+vue/app/components/ui/sheet/SheetDescription.vue
+  s_3d48479db66f62::t_4e98860f7ec805 1-21
+vue/app/components/ui/sheet/SheetFooter.vue
+  s_3d48479db66f62::t_e278591be6ddd9 1-15
+vue/app/components/ui/sheet/SheetHeader.vue
+  s_3d48479db66f62::t_5c9aebb17e3393 1-15
+vue/app/components/ui/sheet/SheetOverlay.vue
+  s_3d48479db66f62::t_3c29885eb5d6bc 1-21
+vue/app/components/ui/sheet/SheetTitle.vue
+  s_3d48479db66f62::t_264186b02b82ae 1-21
+vue/app/components/ui/sheet/SheetTrigger.vue
+  s_3d48479db66f62::t_62636cf3d8c285 1-15
+vue/app/components/ui/sheet/index.ts
+  s_3d48479db66f62::t_71f26cc0768252 1-8
+vue/app/components/ui/sidebar/Sidebar.vue
+  s_3d48479db66f62::t_ca0913b2b0f7c8 1-100
+vue/app/components/ui/sidebar/SidebarContent.vue
+  s_3d48479db66f62::t_a77ccb3a1f2d6b 1-18
+vue/app/components/ui/sidebar/SidebarFooter.vue
+  s_3d48479db66f62::t_3c1b2b0d2123e4 1-18
+vue/app/components/ui/sidebar/SidebarGroup.vue
+  s_3d48479db66f62::t_d9af6fb718b01e 1-18
+vue/app/components/ui/sidebar/SidebarGroupAction.vue
+  s_3d48479db66f62::t_acfef413813a57 1-25
+vue/app/components/ui/sidebar/SidebarGroupContent.vue
+  s_3d48479db66f62::t_a6a1a9e3fbc257 1-18
+vue/app/components/ui/sidebar/SidebarGroupLabel.vue
+  s_3d48479db66f62::t_e40cb5193fd666 1-24
+vue/app/components/ui/sidebar/SidebarHeader.vue
+  s_3d48479db66f62::t_eacf3f326194bb 1-18
+vue/app/components/ui/sidebar/SidebarInput.vue
+  s_3d48479db66f62::t_47dbd6da603c60 1-19
+vue/app/components/ui/sidebar/SidebarInset.vue
+  s_3d48479db66f62::t_94fcbba466287f 1-20
+vue/app/components/ui/sidebar/SidebarMenu.vue
+  s_3d48479db66f62::t_31212c3da752aa 1-18
+vue/app/components/ui/sidebar/SidebarMenuAction.vue
+  s_3d48479db66f62::t_17a2512a73486b 1-30
+vue/app/components/ui/sidebar/SidebarMenuBadge.vue
+  s_3d48479db66f62::t_3ab69100912926 1-21
+vue/app/components/ui/sidebar/SidebarMenuButton.vue
+  s_3d48479db66f62::t_6d7a918e57810c 1-48
+vue/app/components/ui/sidebar/SidebarMenuButtonChild.vue
+  s_3d48479db66f62::t_ab1143770e9746 1-36
+vue/app/components/ui/sidebar/SidebarMenuItem.vue
+  s_3d48479db66f62::t_e2a62f44cd754e 1-18
+vue/app/components/ui/sidebar/SidebarMenuSkeleton.vue
+  s_3d48479db66f62::t_4f050ddb12fafd 1-35
+vue/app/components/ui/sidebar/SidebarMenuSub.vue
+  s_3d48479db66f62::t_b385bd04eea011 1-21
+vue/app/components/ui/sidebar/SidebarMenuSubButton.vue
+  s_3d48479db66f62::t_0f0ebd5921d75a 1-32
+vue/app/components/ui/sidebar/SidebarMenuSubItem.vue
+  s_3d48479db66f62::t_24662b1c443274 1-18
+vue/app/components/ui/sidebar/SidebarProvider.vue
+  s_3d48479db66f62::t_3e44465c2eae49 1-82
+vue/app/components/ui/sidebar/SidebarRail.vue
+  s_3d48479db66f62::t_9dd1d6037e55b8 1-33
+vue/app/components/ui/sidebar/SidebarSeparator.vue
+  s_3d48479db66f62::t_ba3dd6cfcb61b8 1-19
+vue/app/components/ui/sidebar/SidebarTrigger.vue
+  s_3d48479db66f62::t_c2a4956dcd2044 1-29
+vue/app/components/ui/sidebar/index.ts
+  s_3d48479db66f62::t_0c77605caf0c72 1-59
+vue/app/components/ui/sidebar/utils.ts
+  s_3d48479db66f62::t_fcf1e8044081db 1-20
+vue/app/components/ui/skeleton/Skeleton.vue
+  s_3d48479db66f62::t_6370f88fb11037 1-17
+vue/app/components/ui/skeleton/index.ts
+  s_3d48479db66f62::t_3479133b613854 1
+vue/app/components/ui/tooltip/Tooltip.vue
+  s_3d48479db66f62::t_074c1111a78c4d 1-19
+vue/app/components/ui/tooltip/TooltipContent.vue
+  s_3d48479db66f62::t_046f17c2112ee6 1-34
+vue/app/components/ui/tooltip/TooltipProvider.vue
+  s_3d48479db66f62::t_3534fe1f7acbd9 1-14
+vue/app/components/ui/tooltip/TooltipTrigger.vue
+  s_3d48479db66f62::t_6e0111d4150856 1-15
+vue/app/components/ui/tooltip/index.ts
+  s_3d48479db66f62::t_ebe7eb412637fa 1-4
+vue/app/pages/console/[...slug].vue
+  s_3d48479db66f62::t_645fc5f8ff4b9d 1-23
+vue/app/pages/index.vue
+  s_3d48479db66f62::t_1542d29e90faae 1-5
+vue/app/pages/login.vue
+  s_3d48479db66f62::t_aefaa1db403acd 1-39
+vue/package.json
+  s_3d48479db66f62::t_6378327b866336 12,18
+vue/pnpm-lock.yaml
+  s_3d48479db66f62::t_5003db3927f4af 17-19,1444-1449,1453-1456,1462-1467,5952-5958,5961-5962,5967-5970
+vue/public/images/login-cover.svg
+  s_3d48479db66f62::t_8611ede9ca96a6 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1704de6524a3986cadc7dc2049317ae413141be2",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
