@@ -105,10 +105,34 @@ the page reports an unavailable snapshot, not zero traffic or healthy upstream a
 Malformed snapshots and transport failures show an error with retry. Missing snapshots
 show em dashes; complete snapshots containing actual zero counts still show zero.
 
+## User management
+
+`/console/users` follows the query-table pattern from the B-end design system: inline
+name/role/status filters, a table with soft status badges, pagination, detail/edit drawers
+and password-confirmed deletion. Few role choices use radio buttons; larger role lists use
+a searchable combobox. Mobile editing uses an 80vh bottom sheet with fixed actions.
+Unsaved forms block accidental dismissal and navigation. No bulk or department API exists,
+so no bulk action bar or organization tree is advertised.
+
+The existing user query is a read-only **POST** to `/api/user/getUserManageInfo`;
+roles use `GET /api/role/getRoleList`. The user service subtracts one from `number` and
+passes it directly to SQL `LIMIT offset, size`. The frontend therefore requests
+`number = (page - 1) * size + 1` and derives its page controls from `totalElements`.
+This is an adapter for the current implementation, not the zero-based convention described
+by the shared PageInfo declaration. The backend is unchanged.
+
+Create, update and delete use the preserved wrappers and require explicit submission.
+Editing sends only supported editable fields, never a password or login metadata, because
+the existing update endpoint does not hash passwords. Delete asks for the acting user's
+password and disables deleting the signed-in account. Updating the current account ends
+the local session so stale account/permission context cannot survive. Business error codes
+are checked even inside HTTP 200 responses. Passwords are cleared on closing or success.
+
 ## Verification boundaries
 
 `pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
-destinations, local session expiry and dashboard normalization/error propagation (13 tests,
+destinations, local session expiry, dashboard normalization/error propagation, user pagination,
+field whitelisting and write-payload safety (18 tests,
 no HTTP). Type-checking and production build cover the Nuxt app. Existing local accounts
 were used for real login, menu filtering and route protection checks. The dashboard's real
 API returned an unavailable snapshot; no analysis job was triggered or fixture inserted.
@@ -116,3 +140,12 @@ Isolated browser response fixtures covered populated charts, rankings, keyboard 
 loading, request failure and retry. Mobile layout was checked at 390px with no document
 overflow. Populated fixture checks do not establish real log-analysis acceptance. SMTP,
 object storage, export and recruitment business flows were not exercised.
+
+Real user/role reads, name filtering and details were checked against existing local data.
+Create/edit/delete, multi-page and multi-role cases, failure/retry, dirty-form dismissal,
+loading and forbidden states used isolated browser response fixtures. Mutation requests
+were intercepted and never reached backend services. All 14 existing MySQL tables were
+compared before/after: only normal login token records changed; account, role, permission,
+menu and recruitment data stayed unchanged. Real mutations remain unverified. The Skill's
+audit script and the applicable visual/interaction checklist were checked for the user page
+and its drawers/dialogs.

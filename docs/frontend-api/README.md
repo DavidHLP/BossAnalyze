@@ -20,7 +20,10 @@ The catalog, contracts, consumers and HTTP observations below are the historical
 snapshot. The old business consumers are absent; their pinned source links remain usable.
 The new login uses `login-02`; the protected console shell uses `sidebar-07`, connected to
 the preserved authentication and permission/menu APIs. `/console/dashboard` now reads the
-existing log dashboard API; other business routes still display rebuilding placeholders.
+existing log dashboard API. `/console/users` now uses the existing user/role APIs for a
+filtered paginated list and detail/create/edit/delete flows; other business routes remain
+rebuilding placeholders. Real user reads were verified; write flows used browser-only
+fixtures and were not executed against existing records.
 The dashboard wrapper propagates request errors instead of manufacturing zero statistics.
 The gateway's default response is shown as an unavailable snapshot, and known backend
 sample metrics are excluded. Drafts, recruitment analytics and export assembly must be rebuilt.
@@ -98,7 +101,10 @@ reimplemented by the new application if retained:
   route metadata are presentation-bound data: map old component identifiers to replacement
   screens instead of assuming the old view files still exist. Frontend visibility checks
   are not backend authorization.
-- User pagination is zero-based in the backend despite the old screen initially sending 1.
+- Pagination correction: PageInfo declares zero-based numbering, but the actual user
+  service passes `number - 1` directly to SQL `LIMIT offset, size`. The rebuilt UI adapts
+  page `p` and size `s` to `number=(p-1)*s+1`; the backend is unchanged. This corrects the
+  earlier catalog note that inferred runtime pagination from the PageInfo declaration.
   Image URLs are resolved before rendering avatars. Role permission selection includes
   selected nodes' ancestors. Resume saves pass the current content, not only the title.
 - Export is assembled from rendered HTML, CSS and a stylesheet link in

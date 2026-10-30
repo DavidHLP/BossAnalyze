@@ -2040,7 +2040,7 @@
       "callers": [
         "vue/src/views/console/system/usermanagement/UserManagementView.vue:421"
       ],
-      "notes": "Backend PageInfo is zero-based (number=0 is first page), but existing screen passes page=1 for its initial query. Record this mismatch; do not adopt that UI convention as API truth. query is a User-shaped optional object.",
+      "notes": "Pagination correction: PageInfo declares zero-based numbering, but UserServiceImp passes number - 1 directly as SQL LIMIT offset in UserMapper. For UI page p and size s, send number=(p-1)*s+1. The response echoes the request number; derive UI pagination from totalElements. Send query={} for an unfiltered query. This corrects the original declaration-based note.",
       "backendStatus": "matched-controller",
       "service": "spring:8080",
       "runtimeVerification": "not exercised in this documentation task"
