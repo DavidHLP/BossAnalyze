@@ -1378,7 +1378,7 @@ getUserManageInfo(number: number, size: number, params?: User): Promise<PageInfo
 - Backend: [JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/UserController.java:40](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/JDK17SERVE/spring/src/main/java/com/david/hlp/web/system/auth/controller/UserController.java#L40) — `getUserManageInfo` returns `Result<PageInfo<User>>`.
 - Backend parameter declarations: `@RequestBody PageInfo<User> pageInfo`.
 
-Backend PageInfo is zero-based (number=0 is first page), but existing screen passes page=1 for its initial query. Record this mismatch; do not adopt that UI convention as API truth. query is a User-shaped optional object.
+Pagination correction (verified against UserServiceImp and UserMapper): PageInfo declares zero-based numbering, but the user service passes number - 1 directly as SQL LIMIT offset. For UI page p and size s, send number=(p-1)*s+1. The response echoes that request number; derive UI pagination from totalElements. query is a User-shaped object; send {} for an unfiltered query. This corrects the original note that inferred runtime behavior from the declaration.
 
 Current consumers: [vue/src/views/console/system/usermanagement/UserManagementView.vue:421](https://github.com/DavidHLP/BossAnalyze/blob/832bfde1871a1b84eb7ef873e3ff698351c1d8e8/vue/src/views/console/system/usermanagement/UserManagementView.vue#L421)
 

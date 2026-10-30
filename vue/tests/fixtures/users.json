@@ -1,0 +1,32 @@
+{
+  "content": [
+    {
+      "id": 9001,
+      "name": "界面验收用户甲",
+      "email": "user-a@example.test",
+      "status": 1,
+      "roleId": 901,
+      "roleName": "测试管理员",
+      "address": "测试地址",
+      "introduction": "仅用于隔离界面验收",
+      "createTime": "2026-10-30",
+      "lastLogin": "2026-10-30T10:00:00",
+      "lastLoginIp": "127.0.0.1",
+      "password": "must-not-reach-form",
+      "avatar": "https://example.test/untrusted.png"
+    },
+    {
+      "id": 9002,
+      "name": "界面验收用户乙",
+      "email": "user-b@example.test",
+      "status": 0,
+      "roleId": 902,
+      "roleName": "测试成员",
+      "createTime": "2026-10-29"
+    }
+  ],
+  "totalElements": 2,
+  "number": 1,
+  "size": 10,
+  "hasNext": null
+}
