@@ -1,11 +1,31 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { ArrowRight01Icon, File01Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowRight01Icon,
+  ChartHistogramIcon,
+  ComputerTerminal01Icon,
+  File01Icon,
+  MenuSquareIcon,
+  Settings02Icon,
+  ShieldUserIcon,
+  UserCircleIcon,
+  UserGroupIcon,
+} from '@hugeicons/core-free-icons'
 import { useSidebar } from '@/components/ui/sidebar'
 import { findMenu } from '@/lib/session'
 import type { MenuItem } from '@/lib/session'
 
 const props = defineProps<{ item: MenuItem }>()
+const menuIcons: Record<string, typeof File01Icon> = {
+  '/console': ComputerTerminal01Icon,
+  '/console/dashboard': ChartHistogramIcon,
+  '/console/users': UserGroupIcon,
+  '/console/roles': ShieldUserIcon,
+  '/console/menus': MenuSquareIcon,
+  '/console/settings': Settings02Icon,
+  '/console/profile': UserCircleIcon,
+}
+const icon = computed(() => menuIcons[props.item.path ?? ''] ?? File01Icon)
 const route = useRoute()
 const { state, setOpen, setOpenMobile } = useSidebar()
 const active = computed(() => Boolean(findMenu([props.item], route.path)))
@@ -32,7 +52,7 @@ async function revealGroup() {
           :is-active="active"
           @click="revealGroup"
         >
-          <HugeiconsIcon :icon="File01Icon" aria-hidden="true" /><span>{{ item.title }}</span>
+          <HugeiconsIcon :icon="icon" aria-hidden="true" /><span>{{ item.title }}</span>
           <HugeiconsIcon
             :icon="ArrowRight01Icon"
             class="ml-auto transition-transform"
@@ -59,7 +79,7 @@ async function revealGroup() {
         :aria-current="active ? 'page' : undefined"
         @click="setOpenMobile(false)"
       >
-        <HugeiconsIcon :icon="File01Icon" aria-hidden="true" /><span>{{ item.title }}</span>
+        <HugeiconsIcon :icon="icon" aria-hidden="true" /><span>{{ item.title }}</span>
       </NuxtLink>
     </UiSidebarMenuButton>
   </UiSidebarMenuItem>
