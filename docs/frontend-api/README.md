@@ -21,8 +21,11 @@ snapshot. The old business consumers are absent; their pinned source links remai
 The new login uses `login-02`; the protected console shell uses `sidebar-07`, connected to
 the preserved authentication and permission/menu APIs. `/console/dashboard` now reads the
 existing log dashboard API. `/console/users` now uses the existing user/role APIs for a
-filtered paginated list and detail/create/edit/delete flows; other business routes remain
-rebuilding placeholders. Real user reads were verified; write flows used browser-only
+filtered paginated list and detail/create/edit/delete flows. `/console/roles` now reads
+the complete auth role list and menu tree, with metadata CRUD and menu authorization
+through the existing auth wrappers. Authorization includes parent/shared-permission
+linkage, unmatched-grant protection and a read-back check before reporting success.
+Other business routes remain rebuilding placeholders. Real user and role reads were verified; write flows used browser-only
 fixtures and were not executed against existing records.
 The dashboard wrapper propagates request errors instead of manufacturing zero statistics.
 The gateway's default response is shown as an unavailable snapshot, and known backend

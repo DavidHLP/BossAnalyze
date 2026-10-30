@@ -128,11 +128,32 @@ password and disables deleting the signed-in account. Updating the current accou
 the local session so stale account/permission context cannot survive. Business error codes
 are checked even inside HTTP 200 responses. Passwords are cleared on closing or success.
 
+## Role management
+
+`/console/roles` uses shadcn-vue filters, a paginated table, detail/edit sheets and a
+collapsible checkbox authorization tree. It reads full role grants from
+`GET /api/auth/getRoleList`, the current role from `/api/auth/getUserRole`, and the
+complete menu tree from `/api/auth/getRouters`. Filtering and pagination run locally
+because the existing role endpoint returns the whole list.
+
+Create/edit/delete use the existing auth wrappers. Creation saves metadata first;
+menu authorization is a separate explicit operation through `/api/auth/updateRoleRouters`.
+Selected children include ancestors; shared permission identifiers select together;
+removing a parent removes its descendants. Disabled and action entries remain visible.
+Leaves have no expand control. Existing grants missing from the menu tree block replacement
+to prevent silent loss. Successful authorization must match a fresh role-list read before
+the page reports success; uncertain results require another read before editing again.
+
+The registration default `USER` role cannot be renamed or deleted, and the current role
+cannot be deleted. Changing the current role ends the local session. Clearing all grants
+requires a separate confirmation. Drawers protect unsaved changes, support mobile bottom
+sheets and lock dismissal during submissions. Backend authorization remains authoritative.
+
 ## Verification boundaries
 
 `pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
 destinations, local session expiry, dashboard normalization/error propagation, user pagination,
-field whitelisting and write-payload safety (18 tests,
+field whitelisting, role grant linkage/read normalization and write-payload safety (24 tests,
 no HTTP). Type-checking and production build cover the Nuxt app. Existing local accounts
 were used for real login, menu filtering and route protection checks. The dashboard's real
 API returned an unavailable snapshot; no analysis job was triggered or fixture inserted.
@@ -149,3 +170,9 @@ compared before/after: only normal login token records changed; account, role, p
 menu and recruitment data stayed unchanged. Real mutations remain unverified. The Skill's
 audit script and the applicable visual/interaction checklist were checked for the user page
 and its drawers/dialogs.
+
+Role-list/current-role/menu reads were also verified against real APIs. Isolated browser
+responses covered role creation, metadata edits, deletion, permission save/read-back,
+read-back mismatch, business failures, orphan-grant protection, clearing confirmation,
+dirty dismissal, empty/forbidden/error states and a 390px mobile authorization sheet.
+All role mutation requests were intercepted in the browser and never reached the backend.
