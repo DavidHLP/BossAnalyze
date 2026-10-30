@@ -1,0 +1,47 @@
+vue/app/pages/console/roles.vue
+  s_3d48479db66f62::t_5cb4aa47517285 113
+  s_3d48479db66f62::t_42b464030bf921 1-112,114-116
+  s_3d48479db66f62::t_29d5c777fe8e53 117-485
+vue/app/components/roles/PermissionBranch.vue
+  s_3d48479db66f62::t_5cb4aa47517285 14,21
+  s_3d48479db66f62::t_f86feca375d1ad 1-13,15-20,22-24
+  s_3d48479db66f62::t_8bdd54b7f70e9a 25-67
+vue/tests/fixtures/roles.json
+  s_3d48479db66f62::t_6769289c30a04b 1-18
+  s_3d48479db66f62::t_74f3b079d03323 19-67
+vue/README.md
+  s_3d48479db66f62::t_a3537c8d01cfe2 131-151,156,173-178
+vue/app/components/ui/checkbox/Checkbox.vue
+  s_3d48479db66f62::t_f86feca375d1ad 1-35
+vue/tests/roles.test.mjs
+  s_3d48479db66f62::t_6769289c30a04b 1-59
+  s_3d48479db66f62::t_2abd22b29563f4 60-91
+vue/app/lib/roles.ts
+  s_3d48479db66f62::t_f86feca375d1ad 1-29,35-38,40-41,44-45,47-128
+  s_3d48479db66f62::t_7fc3478d0254ac 30-34,39,42-43,46
+  s_3d48479db66f62::t_26f2462384e365 129-209
+vue/app/components/roles/RolePanel.vue
+  s_3d48479db66f62::t_28b03a7005a7ac 1-9,11-82,85-111,117-142,144-153
+  s_3d48479db66f62::t_5cb4aa47517285 10,83-84,112-116,143
+  s_3d48479db66f62::t_e4423d40c5236e 154-485
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_a3537c8d01cfe2 24-28
+vue/app/components/ui/checkbox/index.ts
+  s_3d48479db66f62::t_5e01265f607571 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6bc699725eb4be6c561f713fabbcdd9af7a372e5",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
