@@ -1,0 +1,76 @@
+vue/app/api/log/accesslog.ts
+  s_3d48479db66f62::t_13e962f23c7841 9-11
+  s_3d48479db66f62::t_da7d9c916aff91 8
+vue/app/components/dashboard/DistributionCard.vue
+  s_3d48479db66f62::t_13e962f23c7841 1-36
+  s_3d48479db66f62::t_8691dbb32d23bb 37-39
+vue/app/pages/console/dashboard.vue
+  s_3d48479db66f62::t_13e962f23c7841 1-2,11-20,47-49,51-64,70-71,76-78,85-95,99-104,110-112,116-124,126-127,133-135,140-142,150-151,166-168,175-176,182-183,187-191
+  s_3d48479db66f62::t_c867020ff15ed9 3-10,21-46,50,65-69,72-75,79-84,96-98,105-109,113-115,125,128-132,136-139,143-149,152-165,169-174,177-181,184-186
+vue/tests/fixtures/dashboard.json
+  s_3d48479db66f62::t_166f2da7da713d 1-31
+  s_3d48479db66f62::t_f1ebb37e1064c5 32-35
+vue/app/components/dashboard/VisitChart.vue
+  s_3d48479db66f62::t_c867020ff15ed9 5,7-9,21-24,26-28,30-33,35-37,41-43,48,56-60,62-75,79-84
+  s_3d48479db66f62::t_13e962f23c7841 1-4,6,10-20,25,29,34,38-40,44-47,49-55,61,76-78,85-87
+vue/app/lib/dashboard.ts
+  s_3d48479db66f62::t_13e962f23c7841 1-69
+  s_3d48479db66f62::t_e1d44c0a49c2c3 70-82
+vue/tests/dashboard.test.mjs
+  s_3d48479db66f62::t_166f2da7da713d 1-2,7-13,18-30,32,37-58,74-77,79-83,85,90-91,93
+  s_3d48479db66f62::t_d8d51b77e1b81e 3-6,14-17,31,33-36,59-73,78,84,86-89,92
+vue/README.md
+  s_3d48479db66f62::t_4a9d8cf4fe47e6 50,57-60,86,89-107,111-118
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_4a9d8cf4fe47e6 22-26,28-30
+vue/app/components/ui/alert/Alert.vue
+  s_3d48479db66f62::t_303bd82d4078b2 1-21
+vue/app/components/ui/alert/AlertAction.vue
+  s_3d48479db66f62::t_94e6ea6b50c48f 1-17
+vue/app/components/ui/alert/AlertDescription.vue
+  s_3d48479db66f62::t_4ad279a6719ae7 1-17
+vue/app/components/ui/alert/AlertTitle.vue
+  s_3d48479db66f62::t_fca723eccea4a5 1-17
+vue/app/components/ui/alert/index.ts
+  s_3d48479db66f62::t_8219b0d2796c96 1-21
+vue/app/components/ui/badge/Badge.vue
+  s_3d48479db66f62::t_02432d753b803a 1-27
+vue/app/components/ui/badge/index.ts
+  s_3d48479db66f62::t_5bc5ac9ba3a979 1-24
+vue/app/components/ui/table/Table.vue
+  s_3d48479db66f62::t_1dd34f564f6c99 1-16
+vue/app/components/ui/table/TableBody.vue
+  s_3d48479db66f62::t_c916edf1ea1f2c 1-17
+vue/app/components/ui/table/TableCaption.vue
+  s_3d48479db66f62::t_1565a281f4322d 1-17
+vue/app/components/ui/table/TableCell.vue
+  s_3d48479db66f62::t_6a59f96418c4e3 1-17
+vue/app/components/ui/table/TableEmpty.vue
+  s_3d48479db66f62::t_cba48c0f10703b 1-34
+vue/app/components/ui/table/TableFooter.vue
+  s_3d48479db66f62::t_c8252c41fc499f 1-17
+vue/app/components/ui/table/TableHead.vue
+  s_3d48479db66f62::t_568884987db4b8 1-17
+vue/app/components/ui/table/TableHeader.vue
+  s_3d48479db66f62::t_5b031477acf8ec 1-17
+vue/app/components/ui/table/TableRow.vue
+  s_3d48479db66f62::t_789a72037dbcc5 1-17
+vue/app/components/ui/table/index.ts
+  s_3d48479db66f62::t_ec2c585d2bb10c 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "866bc48cf991975ec04db7760cbbe687a8f900e5",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
