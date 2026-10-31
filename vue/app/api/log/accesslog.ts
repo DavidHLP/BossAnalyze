@@ -140,16 +140,10 @@ export async function triggerLogAnalysis(): Promise<string> {
  * 检查服务健康状态
  */
 export async function checkServiceHealth(): Promise<any> {
-  try {
-    const response = await request({
-      url: '/api/v1/system/logs/health',
-      method: 'get'
-    });
-    return response || { status: 'DOWN' };
-  } catch (error) {
-    console.error('检查服务健康状态出错:', error);
-    return { status: 'DOWN', error: (error as Error).message };
-  }
+  return request({
+    url: '/api/v1/system/logs/health',
+    method: 'get'
+  });
 }
 
 /**

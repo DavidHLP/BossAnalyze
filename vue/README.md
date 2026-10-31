@@ -174,11 +174,34 @@ uncertain results block another submission until the user rereads the menu. Curr
 navigation remains session-cached; sign in again to apply changed navigation. Component
 identifiers are stored configuration and do not dynamically create frontend pages.
 
+## Settings
+
+`/console/settings` follows the B-end settings skeleton: category navigation on the left
+and shadcn-vue cards on the right, stacked on small screens. Account/access and service
+status are read-only because the original settings page was a placeholder and the
+preserved API layer has no system-settings, profile-save or password-change operation.
+There are no unconnected save buttons, notification toggles or invented configuration APIs.
+
+Account details use `/api/auth/getUserBaseInfo` and whitelist only ID, name, email and
+role ID. That service does not populate account status. Role/access details use
+`/api/auth/getUserRole` and `/api/auth/getUserPrivateInformation`, accepting the actual
+string permission list and distinguishing zero permissions from read failure. The three
+data sections load and refresh independently, with loading, retry and forbidden states.
+
+The existing `/api/v1/system/logs/health` wrapper now propagates request failures instead
+of converting them into a synthetic `DOWN`. The page distinguishes transport/invalid-data
+failures from the gateway's explicit `DEGRADED`/Spark `DOWN` result. Successful connectivity
+only establishes that the gateway received the Spark log-service health response; it does
+not establish database health, running collection jobs or available analysis snapshots.
+The server timestamp is displayed in the browser's local timezone. Raw backend errors and
+upstream response strings are excluded. Refresh performs reads and never triggers analysis.
+
 ## Verification boundaries
 
 `pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
 destinations, local session expiry, dashboard normalization/error propagation, user pagination,
-field whitelisting, role grant linkage, menu hierarchy/filtering and write-payload safety (29 tests,
+field whitelisting, role grant linkage, menu hierarchy/filtering, settings normalization,
+health error propagation and write-payload safety (34 tests,
 no HTTP). Type-checking and production build cover the Nuxt app. Existing local accounts
 were used for real login, menu filtering and route protection checks. The dashboard's real
 API returned an unavailable snapshot; no analysis job was triggered or fixture inserted.
@@ -207,3 +230,10 @@ failure, read-back mismatch, tree folding/filtering, dirty dismissal and all fiv
 states were checked with browser-only fixtures. A 390px mobile detail sheet and document
 overflow were checked. Menu mutation requests never reached services; real mutations
 remain unverified. The B-end design audit covers the menu page and its sheet.
+
+Real settings reads (account, role, permissions and service health) returned HTTP 200;
+the gateway reported a successful Spark connection. Browser-only response fixtures covered
+empty permissions, 403, independent section failures/retries, explicit degradation and
+transport failure without a false `DOWN`. Category anchors/current-location indication,
+sensitive-field exclusion and a 390px layout without document overflow were checked.
+The settings flow issued only GET requests and did not modify business records.

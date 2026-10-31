@@ -91,3 +91,24 @@ test('dashboard API preserves response and propagates transport errors for retry
   }
   await assert.rejects(api.getDashboardStats(), (error) => error.code === 503)
 })
+
+test('health API preserves a degraded response and propagates transport failures', async () => {
+  globalThis.window = { location: { href: '/' } }
+  globalThis.localStorage = { getItem: () => 'fixture-token' }
+  const health = { status: 'DEGRADED', sparkService: 'DOWN', timestamp: 1793380000000 }
+  request.defaults.adapter = async (config) => {
+    assert.equal(config.url, '/api/v1/system/logs/health')
+    assert.equal(config.method, 'get')
+    return { config, status: 200, headers: {}, data: health }
+  }
+  assert.deepEqual(await api.checkServiceHealth(), health)
+  request.defaults.adapter = async (config) => {
+    throw new AxiosError('Unavailable', 'ERR_BAD_RESPONSE', config, undefined, {
+      config,
+      status: 503,
+      headers: {},
+      data: { message: 'Unavailable' },
+    })
+  }
+  await assert.rejects(api.checkServiceHealth(), (error) => error.code === 503)
+})
