@@ -86,6 +86,24 @@ in localStorage; the login page retains SSR. Logout clears local session state a
 Recruitment analytics, resume editing and export screens still need to be rebuilt. No backend or
 database changes are part of this frontend work.
 
+## Workbench
+
+`/console` now shows a real welcome area, three log-snapshot metrics, authorized quick
+entries and the current role/access summary. Quick entries use the same API-derived
+session menu tree as the sidebar, keeping leaf destinations in order and excluding
+groups, the workbench itself and duplicate paths. Sidebar and workbench reuse one semantic
+icon mapping. The root breadcrumb and document title identify the page as the workbench.
+
+The page calls the existing role/permission APIs and only requests dashboard statistics
+when the current session grants `/console/dashboard`. It never fetches administrator
+user/role lists for invented global counts. Log metrics reuse the dashboard normalizer:
+visits, IP-deduplicated visitors and peak recorded-hour visits share the returned snapshot
+scope. No snapshot shows em dashes; valid zero values remain zero. Missing/default
+snapshots, request failures and forbidden access are separate states. Role reads can fail
+and retry independently. Refresh only reads data; no analysis or collection is triggered.
+Quick-entry availability follows the login session, matching the existing route guard;
+sign in again after menu/authorization changes to update navigation.
+
 ## Dashboard
 
 `/console/dashboard` uses shadcn-vue cards, badges, alerts, skeletons and tables, with an
@@ -216,8 +234,8 @@ records are invented.
 
 `pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
 destinations, local session expiry, dashboard normalization/error propagation, user pagination,
-field whitelisting, role grant linkage, menu hierarchy/filtering, settings normalization,
-health error propagation and write-payload safety (34 tests,
+field whitelisting, role grant linkage, menu hierarchy/filtering, workbench shortcuts,
+settings normalization, health error propagation and write-payload safety (36 tests,
 no HTTP). Type-checking and production build cover the Nuxt app. Existing local accounts
 were used for real login, menu filtering and route protection checks. The dashboard's real
 API returned an unavailable snapshot; no analysis job was triggered or fixture inserted.
@@ -260,3 +278,11 @@ empty permissions, independent failure/retry and forbidden states, recovery and 
 interactions. Long-name/email cases at 390px had no document overflow. The existing 34
 tests cover its reused normalizers and request/session boundaries; no duplicate unit
 suite was added. Type-check, production build and B-end design audit passed for the page.
+
+Real workbench statistics/role/permission reads returned HTTP 200. The statistics endpoint
+returned no usable analysis snapshot, so the real page displayed em dashes. Browser
+assertions covered a populated snapshot, genuine zero counts, missing snapshots,
+error/forbidden states, independent role recovery, quick-entry navigation and a 390px
+layout without document overflow. An existing zero-permission account showed no quick
+entries and issued zero dashboard requests. Workbench interactions used GET only;
+normal login was the only token-table change across the 14-table comparison.
