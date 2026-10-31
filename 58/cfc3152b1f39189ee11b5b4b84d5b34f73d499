@@ -1,0 +1,38 @@
+vue/app/lib/session.ts
+  s_3d48479db66f62::t_a44f5a93c54c4a 85-97
+vue/app/components/NavMenuItem.vue
+  s_3d48479db66f62::t_a44f5a93c54c4a 3,6,10
+  s_3d48479db66f62::t_97afffaaa89408 32
+vue/app/lib/menu-icons.ts
+  s_3d48479db66f62::t_a44f5a93c54c4a 1-23
+vue/app/pages/console/index.vue
+  s_3d48479db66f62::t_110fe80d4e80d9 2,11-17,19,21,25-31,50-52,57,64-65,68-69,78-79,83-84,100,122,167-170,206,220,264-265
+  s_3d48479db66f62::t_823b83852f3914 3-10,22-24,32-49,53-56,58-63,66-67,70-77,85-99,101-121,123-148,150-166,171-205,207-219,221-263
+  s_3d48479db66f62::t_7225df0198a511 266-270
+vue/app/layouts/console.vue
+  s_3d48479db66f62::t_a44f5a93c54c4a 5
+  s_3d48479db66f62::t_9c3831acf2aab3 6-9
+vue/README.md
+  s_3d48479db66f62::t_3ec6d5ba8f102b 89-106,237-238,281-288
+vue/tests/session.test.mjs
+  s_3d48479db66f62::t_a44f5a93c54c4a 8,95-123
+  s_3d48479db66f62::t_03ddff6ab2f904 124-132
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_3ec6d5ba8f102b 41-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58cfc3152b1f39189ee11b5b4b84d5b34f73d499",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
