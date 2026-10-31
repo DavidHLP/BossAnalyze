@@ -94,3 +94,17 @@ An initial `204` means no analysis result has been cached yet.
 SMTP, object storage, and external resume export/statistics services require
 their own configuration. Existing dashboard performance/security metrics contain
 sample values; a successful HTTP response does not verify those calculations.
+
+## External API credentials
+
+The OpenRouter crawler service requires `OPENROUTER_API_KEY` (or the Spring
+property `openrouter.api.key`) when instantiated. It is initialized lazily so
+the default Ollama workflow does not require an OpenRouter credential. The Spark IP geolocation service requires
+`IPGEOLOCATION_API_KEY` (or `ipgeolocation.api.key`). Both services reject
+missing or blank keys during initialization, before sending any API request.
+Supply credentials through environment variables or an ignored local profile;
+never place real values in tracked files.
+
+The Spring and Spark default profiles require `BOSSANALYZE_REDIS_PASSWORD`
+for Redis. An ignored local profile may override `spring.data.redis.password`
+when developing with a passwordless local Redis instance.
