@@ -1,0 +1,38 @@
+vue/app/pages/console/settings.vue
+  s_3d48479db66f62::t_a838a46ea6f316 165-166
+  s_3d48479db66f62::t_c8a4410d71c144 1-2,9-13,15-21,30,39-40,43-44,50-51,60,66-69,74-75,94-95,131,151,168-170,197,217,275-278,313,360-366
+  s_3d48479db66f62::t_95a3a4378e3313 3-8,22-29,31-38,41-42,45-49,52-59,61-65,70-73,76,78-85,87-93,96-130,132-150,152-164,167,171-196,198-210,212-216,218-256,258-274,279-312,314-359
+  s_3d48479db66f62::t_c358793131c312 14,77,86,211,257
+  s_3d48479db66f62::t_8f0172d890d727 367-372
+vue/tests/settings.test.mjs
+  s_3d48479db66f62::t_c455fa3f4aeaf7 3-8,11-24,31-34,40-60,67-74
+  s_3d48479db66f62::t_0284adf62d656c 1-2,9-10,25-30,35-39,61-66,75
+vue/app/api/log/accesslog.ts
+  s_3d48479db66f62::t_c8a4410d71c144 143-146
+vue/README.md
+  s_3d48479db66f62::t_fa7f357dbf9c99 177-198,203-204,233-239
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_fa7f357dbf9c99 33-35
+vue/tests/dashboard.test.mjs
+  s_3d48479db66f62::t_0284adf62d656c 94-111
+  s_3d48479db66f62::t_e3ef22337e635f 112-114
+vue/app/lib/settings.ts
+  s_3d48479db66f62::t_c455fa3f4aeaf7 2-3,13-18,20-25,29-36,40-42,49-60,64-66
+  s_3d48479db66f62::t_c8a4410d71c144 1,4-12,19,26-28,37-39,43-48,61-63,67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "474ee468214646aa99eed142444f84226f13c406",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
