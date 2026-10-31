@@ -96,6 +96,7 @@ export function menuShortcuts(items: MenuItem[]) {
 }
 
 export function loginDestination(value: unknown, menus: MenuItem[]) {
+  if (value === '/recruitment') return '/recruitment'
   const path = typeof value === 'string' && value.startsWith('/') ? consolePath(value) : null
   return path && (path === '/console' || findMenu(menus, path)) ? path : '/console'
 }

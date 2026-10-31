@@ -82,6 +82,8 @@ test('navigation rejects external, encoded, reserved and ungranted destinations'
   assert.equal(loginDestination('https://evil.test', menus), '/console')
   assert.equal(loginDestination('/console/admin', menus), '/console')
   assert.equal(loginDestination('/console/reports?tab=all', menus), '/console/reports')
+  assert.equal(loginDestination('/recruitment', []), '/recruitment')
+  assert.equal(loginDestination('/recruitment/../console/users', []), '/console')
 })
 
 test('local session lifetime accepts fresh timestamps and rejects missing or expired state', () => {

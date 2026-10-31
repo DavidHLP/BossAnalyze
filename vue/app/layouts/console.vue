@@ -3,9 +3,11 @@ import { findMenu } from '@/lib/session'
 const route = useRoute()
 const { state: session } = useSession()
 const title = computed(() =>
-  route.path === '/console'
-    ? '工作台'
-    : (findMenu(session.value.menus, route.path)?.title ?? '工作台'),
+  route.path === '/recruitment'
+    ? '招聘数据分析'
+    : route.path === '/console'
+      ? '工作台'
+      : (findMenu(session.value.menus, route.path)?.title ?? '工作台'),
 )
 useHead({ title: () => `${title.value} · BossAnalyze` })
 </script>
