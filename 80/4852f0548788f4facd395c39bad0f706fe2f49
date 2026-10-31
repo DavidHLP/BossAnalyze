@@ -1,0 +1,24 @@
+vue/README.md
+  s_3d48479db66f62::t_ea880681130d97 50,58-59,199-214,256-262
+vue/app/pages/console/profile.vue
+  s_3d48479db66f62::t_78f61669c06f79 1-81
+  s_3d48479db66f62::t_40cba282b654d5 82-261
+docs/frontend-api/README.md
+  s_3d48479db66f62::t_ea880681130d97 36-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "804852f0548788f4facd395c39bad0f706fe2f49",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
