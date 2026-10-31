@@ -82,6 +82,19 @@ export function findMenu(items: MenuItem[], path: string): MenuItem | undefined 
   }
 }
 
+export function menuShortcuts(items: MenuItem[]) {
+  const seen = new Set<string>()
+  function leaves(nodes: MenuItem[]): Array<{ title: string; path: string }> {
+    return nodes.flatMap((node) => {
+      if (node.children.length) return leaves(node.children)
+      if (!node.path || node.path === '/console' || seen.has(node.path)) return []
+      seen.add(node.path)
+      return [{ title: node.title, path: node.path }]
+    })
+  }
+  return leaves(items)
+}
+
 export function loginDestination(value: unknown, menus: MenuItem[]) {
   const path = typeof value === 'string' && value.startsWith('/') ? consolePath(value) : null
   return path && (path === '/console' || findMenu(menus, path)) ? path : '/console'

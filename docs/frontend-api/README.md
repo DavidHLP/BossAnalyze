@@ -38,6 +38,9 @@ for read-only identity details and expandable access information. No administrat
 or unsupported profile/avatar/password-save operation is used. Real reads and isolated
 loading/empty/error/forbidden states were checked without modifying account records.
 The dashboard wrapper propagates request errors instead of manufacturing zero statistics.
+`/console` now reads existing role/permission data and, when the session grants the
+dashboard destination, the same log snapshot API. Its quick entries mirror authorized
+sidebar leaves. Missing snapshots remain unavailable; refresh never triggers analysis.
 The gateway's default response is shown as an unavailable snapshot, and known backend
 sample metrics are excluded. Drafts, recruitment analytics and export assembly must be rebuilt.
 Existing API defects remain documented; backend code, database schemas and stored data

@@ -5,6 +5,7 @@ import {
   findMenu,
   loginDestination,
   menuTree,
+  menuShortcuts,
   validSession,
 } from '../app/lib/session.ts'
 
@@ -90,4 +91,42 @@ test('local session lifetime accepts fresh timestamps and rejects missing or exp
     assert.equal(validSession('test-token', timestamp, now), false)
   }
   assert.equal(validSession(null, String(now), now), false)
+})
+
+test('workbench shortcuts mirror authorized sidebar leaves without groups, home or duplicates', () => {
+  const menus = [
+    {
+      title: 'Group',
+      path: '/console',
+      children: [
+        { title: 'Users', path: '/console/users', children: [] },
+        { title: 'Roles', path: '/console/roles', children: [] },
+      ],
+    },
+    { title: 'Duplicate', path: '/console/users', children: [] },
+    { title: 'Home', path: '/console', children: [] },
+    { title: 'Label', path: null, children: [] },
+  ]
+  assert.deepEqual(menuShortcuts(menus), [
+    { title: 'Users', path: '/console/users' },
+    { title: 'Roles', path: '/console/roles' },
+  ])
+  assert.equal(menus[0].children.length, 2)
+})
+
+test('workbench cannot expose hidden, disabled or ungranted entries after session filtering', () => {
+  const routes = [
+    node('/console', 'console', {
+      children: [
+        node('dashboard', 'dashboard'),
+        node('users', 'users'),
+        node('hidden', 'dashboard', { meta: { hidden: true } }),
+        node('disabled', 'dashboard', { status: 0 }),
+      ],
+    }),
+  ]
+  assert.deepEqual(menuShortcuts(menuTree(routes, [])), [])
+  assert.deepEqual(menuShortcuts(menuTree(routes, ['console', 'dashboard'])), [
+    { title: 'dashboard', path: '/console/dashboard' },
+  ])
 })
