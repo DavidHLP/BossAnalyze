@@ -230,19 +230,49 @@ requesting an image URL. Actual permissions are shown in an accessible collapsib
 with a separate explanation for a role that has no grants. No activity or login-history
 records are invented.
 
+## Recruitment analysis
+
+`/recruitment` is an authenticated, read-only analytics page with a fixed sidebar entry,
+like the workbench. It does not create database menu grants or relax the existing
+permission checks for `/console/**`. Login continuation allows this exact route.
+It uses the four existing Spark GET wrappers for cities, city-dependent positions,
+two-dimensional job samples and global salary rankings. The unimplemented company-list
+and three-dimensional endpoints are not called.
+
+The shadcn-vue filter, table, pagination and detail sheet retain the Small radius theme.
+Queries apply explicitly; changing draft filters does not relabel previous results.
+Numeric axes are allowlisted. Unsupported city strings are excluded from the existing
+SQL-interpolated position lookup. Details project only needed fields and permit absolute
+HTTP(S) source links without embedded credentials. Missing salary values remain unknown;
+zero remains zero. The mean uses only returned, parsed K salary values. Experience and
+degree codes are comparison values rather than exact years or qualifications.
+
+The global ranking is independent of filters and documents the backend thresholds of
+10 samples per position and 5 per city. Returned samples are paginated locally. The plot
+merges identical coordinates and displays at most 1000 evenly selected coordinate groups;
+summary counts and the table retain all returned records. The existing API still returns
+the whole matching dataset, so this is not server-side pagination.
+
+Real analysis returned HTTP 200 with no job records. Browser-only fixtures exercised
+23-row pagination, city/position selection, query parameters, populated plot/ranking,
+null/zero salary, safe detail links, forbidden/error/retry and 390px layouts without
+document overflow. These fixtures were never inserted into storage. Six additional
+normalization/query/link/plot tests bring the suite to 42 tests.
+
 ## Verification boundaries
 
 `pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
 destinations, local session expiry, dashboard normalization/error propagation, user pagination,
 field whitelisting, role grant linkage, menu hierarchy/filtering, workbench shortcuts,
-settings normalization, health error propagation and write-payload safety (36 tests,
+settings normalization, health error propagation and write-payload safety (42 tests,
 no HTTP). Type-checking and production build cover the Nuxt app. Existing local accounts
 were used for real login, menu filtering and route protection checks. The dashboard's real
 API returned an unavailable snapshot; no analysis job was triggered or fixture inserted.
 Isolated browser response fixtures covered populated charts, rankings, keyboard access,
 loading, request failure and retry. Mobile layout was checked at 390px with no document
 overflow. Populated fixture checks do not establish real log-analysis acceptance. SMTP,
-object storage, export and recruitment business flows were not exercised.
+object storage and export flows were not exercised. Populated recruitment acceptance
+against real stored jobs remains unverified because the existing job-detail table is empty.
 
 Real user/role reads, name filtering and details were checked against existing local data.
 Create/edit/delete, multi-page and multi-role cases, failure/retry, dirty-form dismissal,

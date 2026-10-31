@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { Briefcase01Icon, Home01Icon } from '@hugeicons/core-free-icons'
+import { Briefcase01Icon, Home01Icon, ChartHistogramIcon } from '@hugeicons/core-free-icons'
 import type { SidebarProps } from '@/components/ui/sidebar'
 import { useSidebar } from '@/components/ui/sidebar'
 
@@ -38,6 +38,19 @@ const { setOpenMobile } = useSidebar()
             <UiSidebarMenuButton as-child tooltip="工作台" :is-active="route.path === '/console'">
               <NuxtLink to="/console" @click="setOpenMobile(false)">
                 <HugeiconsIcon :icon="Home01Icon" aria-hidden="true" /><span>工作台</span>
+              </NuxtLink>
+            </UiSidebarMenuButton>
+          </UiSidebarMenuItem>
+          <UiSidebarMenuItem>
+            <UiSidebarMenuButton
+              as-child
+              tooltip="招聘数据分析"
+              :is-active="route.path === '/recruitment'"
+            >
+              <NuxtLink to="/recruitment" @click="setOpenMobile(false)">
+                <HugeiconsIcon :icon="ChartHistogramIcon" aria-hidden="true" /><span
+                  >招聘数据分析</span
+                >
               </NuxtLink>
             </UiSidebarMenuButton>
           </UiSidebarMenuItem>

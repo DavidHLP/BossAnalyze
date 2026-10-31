@@ -6,6 +6,7 @@ export default defineNuxtConfig({
   devServer: { host: '127.0.0.1', port: 5020 },
   app: { head: { title: 'BossAnalyze', htmlAttrs: { lang: 'zh-CN' } } },
   routeRules: {
+    '/recruitment': { ssr: false },
     '/console': { ssr: false },
     '/console/**': { ssr: false },
     '/api/v1/boss/**': { proxy: 'http://127.0.0.1:8082/api/v1/boss/**' },
