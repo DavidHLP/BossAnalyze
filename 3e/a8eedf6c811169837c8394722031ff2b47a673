@@ -1,0 +1,54 @@
+vue/app/components/recruitment/OptionPicker.vue
+  s_3d48479db66f62::t_942d9bdd07f93c 1-10
+  s_3d48479db66f62::t_9c9f4701361def 11-42
+vue/nuxt.config.ts
+  s_3d48479db66f62::t_c2b12fabb6e7f3 9
+vue/tests/recruitment.test.mjs
+  s_3d48479db66f62::t_ec29d00be7c414 1-61
+  s_3d48479db66f62::t_40cbe85f14daae 62-99
+vue/app/lib/recruitment.ts
+  s_3d48479db66f62::t_fea3301146c473 6-11,33-34,40-43,53-54,63-69,76-78,80-83,89-94,99-113,115-122,127,130-141,143-154,158-166,172-177,180-181,186-187,196-197,202-221
+  s_3d48479db66f62::t_c2b12fabb6e7f3 1-5,12-32,35-39,44-52,55-62,70-75,79,84-88,95-98,114,123-126,128-129,142,155-157,167-171,178-179,182-185,188-195,198-201,222
+vue/app/lib/session.ts
+  s_3d48479db66f62::t_c2b12fabb6e7f3 99
+vue/app/components/AppSidebar.vue
+  s_3d48479db66f62::t_c2b12fabb6e7f3 3,44-47
+  s_3d48479db66f62::t_1b624791235e90 48-56
+vue/app/pages/recruitment.vue
+  s_3d48479db66f62::t_82b4f5c6d21df8 1-101
+  s_3d48479db66f62::t_2526cd98c86278 102-517
+vue/app/middleware/signed-in.ts
+  s_3d48479db66f62::t_c2b12fabb6e7f3 1-10
+vue/app/components/recruitment/ScatterPlot.vue
+  s_3d48479db66f62::t_942d9bdd07f93c 1-22
+  s_3d48479db66f62::t_9b93f3e148b802 23-68
+vue/app/components/recruitment/JobSheet.vue
+  s_3d48479db66f62::t_942d9bdd07f93c 1-25
+  s_3d48479db66f62::t_56a604a5ca906c 26-96
+vue/tests/session.test.mjs
+  s_3d48479db66f62::t_ec29d00be7c414 85-86
+vue/README.md
+  s_3d48479db66f62::t_fea3301146c473 233-261,267,274-275
+vue/tests/fixtures/recruitment.json
+  s_3d48479db66f62::t_ec29d00be7c414 1-11
+  s_3d48479db66f62::t_9cf3f491300ad2 12-76
+vue/app/layouts/console.vue
+  s_3d48479db66f62::t_c2b12fabb6e7f3 6
+  s_3d48479db66f62::t_63e99e00b0fa0d 7-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ea8eedf6c811169837c8394722031ff2b47a673",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
