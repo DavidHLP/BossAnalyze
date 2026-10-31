@@ -47,7 +47,7 @@ app/
   components/ui/          Generated shadcn-vue primitives
   lib/utils.ts            Generated cn helper
   pages/login.vue         Responsive login-02 page
-  pages/console/          Protected dashboard and authorized menu placeholders
+  pages/console/          Protected console pages and remaining rebuild placeholders
   layouts/console.vue     Sidebar-07 console shell
   composables/useSession.ts  Existing authentication API integration
   app.vue                 Nuxt layout and page outlets
@@ -55,8 +55,8 @@ nuxt.config.ts            Theme, environment compatibility and Nitro proxy rules
 ```
 
 The original `vue/src/api/` tree and required declarations moved to `vue/app/` during
-initialization. The dashboard wrapper now propagates request errors instead of returning
-synthetic zero statistics; other wrappers retain their existing behavior. Nuxt's `@` alias
+initialization. The dashboard and health wrappers now propagate request errors instead of
+returning synthetic zero statistics or `DOWN`; other wrappers retain their existing behavior. Nuxt's `@` alias
 resolves to `app/`. The Axios client preserves token
 injection, timeout, credentials, response unwrapping, redirect and unauthorized-event
 behavior. It now rejects server-side calls explicitly before accessing browser storage.
@@ -196,6 +196,22 @@ not establish database health, running collection jobs or available analysis sna
 The server timestamp is displayed in the browser's local timezone. Raw backend errors and
 upstream response strings are excluded. Refresh performs reads and never triggers analysis.
 
+## Personal center
+
+`/console/profile` is a shadcn-vue account-detail page with an initial avatar, identity
+summary, basic details and role/access information. It calls only the existing current-user
+`getUserBaseInfo`, `getUserRole` and `getUserPrivateInformation` wrappers, reusing the settings
+page's validated account/access projections. No administrator user-list API is used.
+Account details and access load independently; refreshing all data or retrying one failed
+section does not imply a failed request is an empty permission set.
+
+The base-information service exposes name, email, account ID and role ID only. There is
+no self-service profile, avatar or password-save API, so this page is read-only and directs
+account changes to an administrator. Avatar display uses a name/email initial, without
+requesting an image URL. Actual permissions are shown in an accessible collapsible list,
+with a separate explanation for a role that has no grants. No activity or login-history
+records are invented.
+
 ## Verification boundaries
 
 `pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
@@ -237,3 +253,10 @@ empty permissions, 403, independent section failures/retries, explicit degradati
 transport failure without a false `DOWN`. Category anchors/current-location indication,
 sensitive-field exclusion and a 390px layout without document overflow were checked.
 The settings flow issued only GET requests and did not modify business records.
+
+Real personal-center account, role and permission reads returned HTTP 200. Browser
+assertions verified keyboard permission expansion, sensitive-field exclusion, loading,
+empty permissions, independent failure/retry and forbidden states, recovery and GET-only
+interactions. Long-name/email cases at 390px had no document overflow. The existing 34
+tests cover its reused normalizers and request/session boundaries; no duplicate unit
+suite was added. Type-check, production build and B-end design audit passed for the page.
