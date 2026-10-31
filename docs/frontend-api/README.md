@@ -33,6 +33,10 @@ fixtures and were not executed against existing records.
 `/console/settings` now reads the existing account/role/permission and log-health APIs.
 It is read-only because no settings-save contract exists. Health transport failures
 propagate to an error state, distinct from the backend's explicit degraded connectivity.
+`/console/profile` now uses the existing current-user account, role and permission APIs
+for read-only identity details and expandable access information. No administrator query
+or unsupported profile/avatar/password-save operation is used. Real reads and isolated
+loading/empty/error/forbidden states were checked without modifying account records.
 The dashboard wrapper propagates request errors instead of manufacturing zero statistics.
 The gateway's default response is shown as an unavailable snapshot, and known backend
 sample metrics are excluded. Drafts, recruitment analytics and export assembly must be rebuilt.
