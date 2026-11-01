@@ -24,6 +24,7 @@ test('gateway defaults are unavailable snapshots, while real zero snapshots rema
 
 test('snapshot sorts hourly buckets and rankings, without exposing backend sample metrics', () => {
   const data = dashboardSnapshot(fixture)
+  assert.equal(data.generatedAt, '2026-10-30T16:00:00.000Z')
   assert.equal(data.visits, 240)
   assert.equal(data.visitors, 81)
   assert.equal(data.hours[0].label, '2026-10-30 08')
@@ -39,6 +40,30 @@ test('snapshot sorts hourly buckets and rankings, without exposing backend sampl
   assert.equal('securityStats' in data, false)
   assert.equal('operatingSystems' in data, false)
   assert.equal(fixture.topPages.pages[0].path, '/console/profile')
+})
+
+test('generation timestamps normalize cache milliseconds and retain valid string timestamps', () => {
+  for (const generatedAt of ['2026-10-30T16:00:00', '2026-10-30T16:00:00+08:00']) {
+    assert.equal(dashboardSnapshot({ ...fixture, generatedAt }).generatedAt, generatedAt)
+  }
+  assert.equal(
+    dashboardSnapshot({ ...fixture, generatedAt: 0 }).generatedAt,
+    '1970-01-01T00:00:00.000Z',
+  )
+  for (const generatedAt of [
+    null,
+    undefined,
+    '',
+    'not-a-date',
+    NaN,
+    Infinity,
+    8640000000000001,
+    1.5,
+    {},
+    [],
+  ]) {
+    assert.throws(() => dashboardSnapshot({ ...fixture, generatedAt }), /Invalid/)
+  }
 })
 
 test('malformed snapshots and invalid counts fail instead of implying no data', () => {

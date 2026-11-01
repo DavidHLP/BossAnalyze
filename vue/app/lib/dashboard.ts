@@ -42,9 +42,17 @@ export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
   if (!('heatMapData' in value) && !('topPages' in value) && !('deviceStats' in value)) {
     return null
   }
+  // Hutool's cached LocalDateTime is returned as epoch milliseconds by the gateway.
+  const generatedAt =
+    typeof value.generatedAt === 'number' &&
+    Number.isSafeInteger(value.generatedAt) &&
+    Number.isFinite(new Date(value.generatedAt).getTime())
+      ? new Date(value.generatedAt).toISOString()
+      : value.generatedAt
   if (
-    typeof value.generatedAt !== 'string' ||
-    !value.generatedAt.trim() ||
+    typeof generatedAt !== 'string' ||
+    !generatedAt.trim() ||
+    !Number.isFinite(Date.parse(generatedAt)) ||
     !object(value.heatMapData) ||
     !object(value.topPages) ||
     !Array.isArray(value.topPages.pages) ||
@@ -69,7 +77,7 @@ export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
     .slice(0, 10)
 
   return {
-    generatedAt: value.generatedAt,
+    generatedAt,
     visits,
     visitors,
     hours,

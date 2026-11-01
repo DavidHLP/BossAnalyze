@@ -151,7 +151,7 @@ export interface DataQualityInfo {
 
 // 完整的仪表板数据
 export interface DashboardStats {
-  generatedAt: string;
+  generatedAt: string | number;
   timeRange: string;
   overview: DashboardOverview;
   realTimeStats: RealTimeStats;
