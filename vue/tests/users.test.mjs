@@ -88,3 +88,21 @@ test('business failures in HTTP 200 responses cannot show a successful mutation'
   for (const response of [{ code: 500, message: 'Failed' }, undefined, {}, { code: 401 }])
     assert.throws(() => userWriteSucceeded(response))
 })
+
+test('create and edit introductions respect the existing 255-character column without truncation', () => {
+  const draft = userDraft(userPage(fixture).users[0])
+  draft.password = 'fixture-password-only'
+  for (const userId of [undefined, 9001]) {
+    for (const length of [0, 254, 255]) {
+      draft.introduction = '简'.repeat(length)
+      assert.equal(userErrors(draft, userId === undefined).introduction, undefined)
+      assert.equal(userPayload(draft, userId).introduction, draft.introduction)
+    }
+    for (const length of [256, 500]) {
+      draft.introduction = '简'.repeat(length)
+      assert.equal(userErrors(draft, userId === undefined).introduction, '简介不能超过 255 个字符')
+      assert.throws(() => userPayload(draft, userId), /Invalid user form/)
+      assert.equal(draft.introduction.length, length)
+    }
+  }
+})

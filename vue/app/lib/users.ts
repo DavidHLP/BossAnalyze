@@ -107,7 +107,7 @@ export function userErrors(draft: UserDraft, creating: boolean) {
   if (creating && (draft.password.length < 8 || draft.password.length > 64))
     errors.password = '请输入 8–64 个字符的初始密码'
   if (draft.address.length > 255) errors.address = '地址不能超过 255 个字符'
-  if (draft.introduction.length > 500) errors.introduction = '简介不能超过 500 个字符'
+  if (draft.introduction.length > 255) errors.introduction = '简介不能超过 255 个字符'
   return errors
 }
 

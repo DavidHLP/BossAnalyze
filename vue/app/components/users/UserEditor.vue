@@ -303,7 +303,7 @@ async function save() {
           ><UiTextarea
             id="user-introduction"
             v-model="draft.introduction"
-            maxlength="500"
+            maxlength="255"
             class="min-h-24"
             :disabled="saving"
           />
