@@ -1,0 +1,36 @@
+vue/app/api/log/accesslog.d.ts
+  s_3d48479db66f62::t_1ac2ca3d10d7c1 154
+vue/app/lib/dashboard.ts
+  s_3d48479db66f62::t_1ac2ca3d10d7c1 45-51,53-55,80
+vue/tests/dashboard.test.mjs
+  s_3d48479db66f62::t_21c0d051ab0601 53,64
+  s_3d48479db66f62::t_32f87e5d484136 27,45-52,65-66
+  s_3d48479db66f62::t_c9bf8b3fe056e7 54-63
+  s_535e8b916b06a1::t_83cabcb141ad84 67-68
+vue/tests/fixtures/dashboard.json
+  s_3d48479db66f62::t_32f87e5d484136 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "93379c81f79fa49ff170b4492ad74c3efd9b1103",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    },
+    "s_535e8b916b06a1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1951d-68fd-7302-b705-497a9f15d4be",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
