@@ -1,0 +1,96 @@
+[
+  {
+    "id": 900,
+    "pid": null,
+    "menuOrder": 0,
+    "status": 1,
+    "name": "FixtureConsole",
+    "path": "/console",
+    "permission": "fixture.console",
+    "remark": "Browser interception only",
+    "meta": {
+      "type": "C",
+      "metaTitle": "测试目录",
+      "component": "Layout",
+      "redirect": null,
+      "metaIcon": "",
+      "metaRoles": "[\"ADMIN\"]",
+      "alwaysShow": true,
+      "metaHidden": false,
+      "metaKeepAlive": false,
+      "hidden": false
+    },
+    "children": [
+      {
+        "id": 901,
+        "pid": 900,
+        "menuOrder": 1,
+        "status": 1,
+        "name": "FixtureUsers",
+        "path": "users",
+        "permission": "fixture.users",
+        "remark": "",
+        "meta": {
+          "type": "M",
+          "metaTitle": "测试用户",
+          "component": "Users",
+          "redirect": null,
+          "metaIcon": "",
+          "metaRoles": null,
+          "alwaysShow": false,
+          "metaHidden": false,
+          "metaKeepAlive": true,
+          "hidden": false
+        },
+        "children": [
+          {
+            "id": 902,
+            "pid": 901,
+            "menuOrder": 0,
+            "status": 0,
+            "name": "FixtureEdit",
+            "path": "edit",
+            "permission": "fixture.edit",
+            "remark": "",
+            "meta": {
+              "type": "F",
+              "metaTitle": "测试编辑",
+              "component": "",
+              "redirect": null,
+              "metaIcon": "",
+              "metaRoles": null,
+              "alwaysShow": false,
+              "metaHidden": true,
+              "metaKeepAlive": false,
+              "hidden": false
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": 903,
+        "pid": 900,
+        "menuOrder": 2,
+        "status": 1,
+        "name": "FixtureLeaf",
+        "path": "leaf",
+        "permission": "fixture.leaf",
+        "remark": "",
+        "meta": {
+          "type": "M",
+          "metaTitle": "测试独立菜单",
+          "component": "Leaf",
+          "redirect": null,
+          "metaIcon": "",
+          "metaRoles": null,
+          "alwaysShow": false,
+          "metaHidden": false,
+          "metaKeepAlive": false,
+          "hidden": false
+        },
+        "children": []
+      }
+    ]
+  }
+]

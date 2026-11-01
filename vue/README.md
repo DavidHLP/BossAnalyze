@@ -1,233 +1,318 @@
-# BossAnalyze 前端技术文档
+# BossAnalyze Nuxt frontend
 
-## 1. 技术架构
+A fresh Nuxt 4 frontend initialized with the requested command:
 
-### 整体架构图
-
-```mermaid
-graph TD
-    A[用户界面] --> B[Vue 3 应用]
-    B --> C[Pinia 状态管理]
-    B --> D[Vue Router 路由管理]
-    C --> E[API 接口层]
-    D --> E
-    E --> F[后端服务]
-    E --> G[数据处理与可视化]
-    G --> H[ECharts 图表]
-    G --> I[数据分析结果展示]
+```sh
+pnpm dlx shadcn-vue@latest init --preset a2lQlAlu --template nuxt --pointer
 ```
 
-### 技术栈选型
+The CLI resolved this preset to `reka-mira`, olive base color, Roboto, Hugeicons,
+translucent menus and bold menu accents. `components.json` and the generated Tailwind CSS
+are the source of truth. The login uses the official `login-02` block; the console uses
+`sidebar-07`. The current `reka-mira` registry has no corresponding block JSON, so both
+layouts were installed from the official `new-york-v4` registry URLs through the latest
+CLI, then adapted to the existing Mira primitives and Hugeicons renderer.
 
-#### 前端技术栈
-- **核心框架**: Vue 3 (使用 Composition API)
-- **构建工具**: Vite 6
-- **开发语言**: TypeScript 5.7
-- **状态管理**: Pinia 3.0 (带持久化存储)
-- **路由管理**: Vue Router 4.5
-- **UI 组件库**: 
-  - Element Plus 2.9
-  - Bootstrap Vue Next
-- **样式处理**: SASS
-- **数据可视化**: 
-  - ECharts 5
-  - ECharts WordCloud
-  - ECharts GL
-  - ECharts AMap Extension
-- **工作流图表**: Vue Flow
-- **动画效果**: Anime.js
-- **HTTP 客户端**: Axios
-- **文档编辑**: MD-Editor-V3
-- **导出功能**: html2canvas, jsPDF
-- **代码格式化**: ESLint, Prettier
+## Development
 
-#### 后端技术栈
-- 通过 RESTful API 与后端服务交互
-- 支持权限管理和用户认证
+Use Node.js 22.12+ and pnpm 11.24.0 (pinned in `packageManager`):
 
-### 系统模块划分
-
-```mermaid
-graph TB
-    A[BossAnalyze 前端应用] --> B[核心模块]
-    A --> C[功能模块]
-    A --> D[公共模块]
-    
-    B --> B1[用户认证]
-    B --> B2[权限管理]
-    B --> B3[路由控制]
-    
-    C --> C1[Boss 数据分析]
-    C --> C2[简历管理]
-    C --> C3[AI 智能分析]
-    C --> C4[智能推荐]
-    
-    D --> D1[UI 组件库]
-    D --> D2[工具函数]
-    D --> D3[数据可视化]
-    D --> D4[全局状态]
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
+pnpm type-check
+pnpm test
+pnpm build
 ```
 
-主要模块说明：
-1. **核心模块**
-   - 用户认证：处理登录、注册和权限验证
-   - 权限管理：基于角色的访问控制
-   - 路由控制：动态路由和导航管理
+Development binds to `127.0.0.1:5020`. Run the production server with:
 
-2. **功能模块**
-   - Boss 数据分析：职位、薪资和公司数据分析
-   - 简历管理：简历解析和管理
-   - AI 智能分析：智能数据处理
-   - 用户管理：用户信息和配置
-
-3. **公共模块**
-   - UI 组件库：可复用的界面组件
-   - 工具函数：通用工具和辅助方法
-   - 数据可视化：图表和数据展示组件
-   - 全局状态：应用状态管理
-
-## 2. 核心技术实现
-
-### 关键功能技术方案
-
-#### 1. 动态权限管理
-
-系统采用基于 RBAC (基于角色的访问控制) 的权限管理机制：
-- 前端路由与后端权限数据集成
-- 动态路由加载，根据用户权限自动配置可访问页面
-- 权限粒度控制到按钮级别
-- Token 有效期管理和自动刷新机制
-
-```mermaid
-sequenceDiagram
-    用户 ->> 前端: 登录请求
-    前端 ->> 后端: 验证凭据
-    后端 ->> 前端: 返回 Token 和初始权限
-    前端 ->> 前端: 存储 Token 到 localStorage
-    前端 ->> 后端: 获取详细权限信息
-    后端 ->> 前端: 返回用户权限数据
-    前端 ->> 前端: 生成动态路由表
-    前端 ->> 前端: 权限监控和 Token 有效性检查
+```sh
+HOST=127.0.0.1 PORT=5020 pnpm start
 ```
 
-#### 2. 数据可视化实现
+Nuxt/Nitro is required for the proxy rules below; deploy `.output/` as a Node server.
+Serving only `.output/public/` does not run those proxies. `pnpm-workspace.yaml` permits
+only esbuild's required dependency build script; no global pnpm configuration is changed.
 
-系统利用多种可视化技术呈现数据：
-- 二维分析图表：使用 ECharts 实现散点图、热力图等
-- 三维数据分析：通过 ECharts-GL 实现 3D 可视化
-- 地理数据展示：集成 ECharts-AMap 实现地理位置分析
-- 词云分析：使用 ECharts-WordCloud 进行文本数据可视化
+## Preserved API layer
 
-#### 3. 流程图与工作流
-
-基于 Vue Flow 实现交互式流程图和工作流设计：
-- 支持拖拽操作
-- 节点自定义
-- 连接线样式定制
-- 小地图导航
-- 背景网格和控制面板
-
-### 数据处理流程
-
-```mermaid
-flowchart LR
-    A[用户输入] --> B[API 请求层]
-    B --> C[数据预处理]
-    C --> D{数据分类}
-    D --> E[图表数据]
-    D --> F[表格数据]
-    D --> G[文本数据]
-    E --> H[可视化渲染]
-    F --> I[表格组件展示]
-    G --> J[文本分析与展示]
-    H --> K[用户交互界面]
-    I --> K
-    J --> K
+```text
+app/
+  api/                    Existing 63 API wrappers and payload types
+  utils/request/          Axios client and declarations
+  router/index.d.ts       API menu/route data types, not router implementation
+  types/common.d.ts       Pagination data type
+  assets/css/tailwind.css  Generated preset theme and pointer styles
+  components/ui/          Generated shadcn-vue primitives
+  lib/utils.ts            Generated cn helper
+  pages/login.vue         Responsive login-02 page
+  pages/console/          Protected console pages and remaining rebuild placeholders
+  layouts/console.vue     Sidebar-07 console shell
+  composables/useSession.ts  Existing authentication API integration
+  app.vue                 Nuxt layout and page outlets
+nuxt.config.ts            Theme, environment compatibility and Nitro proxy rules
 ```
 
-数据处理主要流程：
-1. 通过 API 接口获取原始数据
-2. 使用 TypeScript 类型系统确保数据类型安全
-3. 针对不同数据类型进行格式转换和预处理
-4. 根据业务需求进行数据聚合和统计
-5. 将处理后的数据传递给相应的展示组件
+The original `vue/src/api/` tree and required declarations moved to `vue/app/` during
+initialization. The dashboard and health wrappers now propagate request errors instead of
+returning synthetic zero statistics or `DOWN`; other wrappers retain their existing behavior. Nuxt's `@` alias
+resolves to `app/`. The Axios client preserves token
+injection, timeout, credentials, response unwrapping, redirect and unauthorized-event
+behavior. It now rejects server-side calls explicitly before accessing browser storage.
+Call these authenticated wrappers from browser interactions or `onMounted`; use a separate
+server-aware mechanism when implementing SSR-authenticated data fetching.
 
-### 性能优化策略
+| Request prefix | Nitro proxy target (development and production) |
+| --- | --- |
+| `/api/v1/boss/**` | `http://127.0.0.1:8082/api/v1/boss/**` |
+| `/api/v1/ai/**` | `http://127.0.0.1:8081/api/v1/ai/**` |
+| `/api/**` | `http://127.0.0.1:8080/api/**` |
 
-1. **前端渲染优化**
-   - 组件懒加载：非核心路由采用动态导入
-   - 虚拟滚动：处理大量数据列表
-   - 图片懒加载：提高页面加载速度
+The `/api` prefix is retained. Nitro selects the more-specific recruitment/AI rules.
+External export/count wrappers retain `VITE_EXPORT_URL`, `VITE_UPSTASH_BASE_URL` and
+`VITE_UPSTASH_GET_TOKEN`. Nuxt config explicitly defines only those legacy browser values;
+supply them before dev/build. They are public client configuration, not a place for private
+server credentials. Do not commit actual values. The template imports Roboto from Google
+Fonts; font loading needs external connectivity and has a sans-serif fallback.
 
-2. **状态管理优化**
-   - 使用 Pinia 进行高效的状态管理
-   - 持久化存储关键状态，减少重复请求
-   - 精细化的状态分割，避免不必要的组件重渲染
+Read the [API handoff](../docs/frontend-api/README.md) for requests, responses and existing
+backend contract defects. `/` redirects to `/console`; unauthenticated visitors reach
+`/login`. Login calls the existing login, profile, permission and router wrappers. Menus
+are filtered by exact permissions, status and visibility; legacy paths are mapped under
+`/console`. The console is client-rendered because the preserved client stores its token
+in localStorage; the login page retains SSR. Logout clears local session state and menus
+(there is no server logout wrapper). No social login or account recovery is advertised.
+Recruitment analytics, resume editing and export screens still need to be rebuilt. No backend or
+database changes are part of this frontend work.
 
-3. **网络请求优化**
-   - 请求合并与缓存策略
-   - 数据预加载
-   - 接口错误重试机制
+## Workbench
 
-4. **构建优化**
-   - Vite 快速热更新
-   - 代码分割和按需加载
-   - 静态资源压缩和优化
+`/console` now shows a real welcome area, three log-snapshot metrics, authorized quick
+entries and the current role/access summary. Quick entries use the same API-derived
+session menu tree as the sidebar, keeping leaf destinations in order and excluding
+groups, the workbench itself and duplicate paths. Sidebar and workbench reuse one semantic
+icon mapping. The root breadcrumb and document title identify the page as the workbench.
 
-## 3. 项目结构说明
+The page calls the existing role/permission APIs and only requests dashboard statistics
+when the current session grants `/console/dashboard`. It never fetches administrator
+user/role lists for invented global counts. Log metrics reuse the dashboard normalizer:
+visits, IP-deduplicated visitors and peak recorded-hour visits share the returned snapshot
+scope. No snapshot shows em dashes; valid zero values remain zero. Missing/default
+snapshots, request failures and forbidden access are separate states. Role reads can fail
+and retry independently. Refresh only reads data; no analysis or collection is triggered.
+Quick-entry availability follows the login session, matching the existing route guard;
+sign in again after menu/authorization changes to update navigation.
 
-```
-src/
-├── api/                 # API 接口层
-│   ├── boss/            # Boss 数据相关 API
-│   ├── resume/          # 简历相关 API
-│   ├── ai/              # AI 服务相关 API
-│   ├── auth/            # 认证相关 API
-│   └── ...
-├── assets/              # 静态资源
-├── components/          # 公共组件
-├── composables/         # 组合式函数
-├── router/              # 路由配置
-├── store/              # Pinia 状态管理
-│   ├── user/            # 用户状态
-│   ├── router/          # 路由状态
-│   └── ...
-├── types/               # TypeScript 类型定义
-├── utils/               # 工具函数
-├── views/               # 页面视图组件
-│   ├── front/           # 前台页面
-│   └── admin/           # 管理页面
-└── main.ts              # 应用入口文件
-```
+## Dashboard
 
-## 4. 开发与部署
+`/console/dashboard` uses shadcn-vue cards, badges, alerts, skeletons and tables, with an
+accessible hourly bar chart. It calls only the existing
+`GET /api/v1/system/logs/dashboard/stats` through the shared client and proxy. Refresh
+reads the cached result; it never triggers analysis, collection or data writes.
 
-### 开发环境
-```bash
-# 安装依赖
-yarn install
+The page shows log-derived visits, visitors, peak hourly visits, active hours, top paths,
+browsers and request methods. It excludes backend sample values for real-time users,
+performance, security and operating systems, plus simplified data-quality metrics.
+Hourly buckets retain their original labels, show up to 24 recorded hours, and do not
+invent zero buckets or claim a selectable time range. Table percentages use actual counts.
 
-# 启动开发服务器
-yarn dev
+The gateway returns a small default object when Spark has no cached snapshot **or when
+its upstream request fails**. These cases cannot be distinguished from this API alone:
+the page reports an unavailable snapshot, not zero traffic or healthy upstream analysis.
+Malformed snapshots and transport failures show an error with retry. Missing snapshots
+show em dashes; complete snapshots containing actual zero counts still show zero.
 
-# 代码检查与修复
-yarn lint
+## User management
 
-# 代码格式化
-yarn format
-```
+`/console/users` follows the query-table pattern from the B-end design system: inline
+name/role/status filters, a table with soft status badges, pagination, detail/edit drawers
+and password-confirmed deletion. Few role choices use radio buttons; larger role lists use
+a searchable combobox. Mobile editing uses an 80vh bottom sheet with fixed actions.
+Unsaved forms block accidental dismissal and navigation. No bulk or department API exists,
+so no bulk action bar or organization tree is advertised.
 
-### 生产环境构建
-```bash
-# 构建生产版本
-yarn build
+The existing user query is a read-only **POST** to `/api/user/getUserManageInfo`;
+roles use `GET /api/role/getRoleList`. The user service subtracts one from `number` and
+passes it directly to SQL `LIMIT offset, size`. The frontend therefore requests
+`number = (page - 1) * size + 1` and derives its page controls from `totalElements`.
+This is an adapter for the current implementation, not the zero-based convention described
+by the shared PageInfo declaration. The backend is unchanged.
 
-# 预览生产构建
-yarn preview
-```
+Create, update and delete use the preserved wrappers and require explicit submission.
+Editing sends only supported editable fields, never a password or login metadata, because
+the existing update endpoint does not hash passwords. Delete asks for the acting user's
+password and disables deleting the signed-in account. Updating the current account ends
+the local session so stale account/permission context cannot survive. Business error codes
+are checked even inside HTTP 200 responses. Passwords are cleared on closing or success.
 
-### 部署建议
-- 使用 Docker 容器化部署
-- 配合 Nginx 作为静态资源服务器
-- 考虑使用 CDN 加速静态资源访问
-- 实施前端监控和错误跟踪
+## Role management
+
+`/console/roles` uses shadcn-vue filters, a paginated table, detail/edit sheets and a
+collapsible checkbox authorization tree. It reads full role grants from
+`GET /api/auth/getRoleList`, the current role from `/api/auth/getUserRole`, and the
+complete menu tree from `/api/auth/getRouters`. Filtering and pagination run locally
+because the existing role endpoint returns the whole list.
+
+Create/edit/delete use the existing auth wrappers. Creation saves metadata first;
+menu authorization is a separate explicit operation through `/api/auth/updateRoleRouters`.
+Selected children include ancestors; shared permission identifiers select together;
+removing a parent removes its descendants. Disabled and action entries remain visible.
+Leaves have no expand control. Existing grants missing from the menu tree block replacement
+to prevent silent loss. Successful authorization must match a fresh role-list read before
+the page reports success; uncertain results require another read before editing again.
+
+The registration default `USER` role cannot be renamed or deleted, and the current role
+cannot be deleted. Changing the current role ends the local session. Clearing all grants
+requires a separate confirmation. Drawers protect unsaved changes, support mobile bottom
+sheets and lock dismissal during submissions. Backend authorization remains authoritative.
+
+## Menu management
+
+`/console/menus` uses a searchable tree table and shadcn-vue detail/create/edit sheets.
+It reads `GET /api/auth/getRouters` and preserves disabled, hidden and action entries.
+Search matches title, route name, path or permission, keeps ancestors for context and
+temporarily overrides folding. Leaves have no expand button. Menu types follow the SQL
+contract: `C` directory, `M` menu, `F` action. The tree has no invented server pagination.
+
+Create/edit/delete use the existing router wrappers. New roots send `pid: null`; child
+creation starts from the selected parent and rejects permission identifiers already used
+by menus or role grants, including grants without a menu. Editing fixes parent and permission because
+the current mapper cannot clear a parent and permission replacement deletes the old
+permission record, cascading role grants. Role metadata is preserved; nullable empty
+role metadata uses the backend's `[]` default. Unsupported parents cannot receive new
+children because the current backend tree builder depends on parent ordering.
+
+Deletion is limited to leaves with independent permissions and no role references,
+checked through the existing auth role-list endpoint. The page checks again immediately
+before submission, sends no descendants, and confirms removal with a fresh tree read.
+Shared permissions and assigned grants must be resolved first. This is a client guard,
+not an atomic backend concurrency guarantee. Save also checks business codes and read-back;
+uncertain results block another submission until the user rereads the menu. Current
+navigation remains session-cached; sign in again to apply changed navigation. Component
+identifiers are stored configuration and do not dynamically create frontend pages.
+
+## Settings
+
+`/console/settings` follows the B-end settings skeleton: category navigation on the left
+and shadcn-vue cards on the right, stacked on small screens. Account/access and service
+status are read-only because the original settings page was a placeholder and the
+preserved API layer has no system-settings, profile-save or password-change operation.
+There are no unconnected save buttons, notification toggles or invented configuration APIs.
+
+Account details use `/api/auth/getUserBaseInfo` and whitelist only ID, name, email and
+role ID. That service does not populate account status. Role/access details use
+`/api/auth/getUserRole` and `/api/auth/getUserPrivateInformation`, accepting the actual
+string permission list and distinguishing zero permissions from read failure. The three
+data sections load and refresh independently, with loading, retry and forbidden states.
+
+The existing `/api/v1/system/logs/health` wrapper now propagates request failures instead
+of converting them into a synthetic `DOWN`. The page distinguishes transport/invalid-data
+failures from the gateway's explicit `DEGRADED`/Spark `DOWN` result. Successful connectivity
+only establishes that the gateway received the Spark log-service health response; it does
+not establish database health, running collection jobs or available analysis snapshots.
+The server timestamp is displayed in the browser's local timezone. Raw backend errors and
+upstream response strings are excluded. Refresh performs reads and never triggers analysis.
+
+## Personal center
+
+`/console/profile` is a shadcn-vue account-detail page with an initial avatar, identity
+summary, basic details and role/access information. It calls only the existing current-user
+`getUserBaseInfo`, `getUserRole` and `getUserPrivateInformation` wrappers, reusing the settings
+page's validated account/access projections. No administrator user-list API is used.
+Account details and access load independently; refreshing all data or retrying one failed
+section does not imply a failed request is an empty permission set.
+
+The base-information service exposes name, email, account ID and role ID only. There is
+no self-service profile, avatar or password-save API, so this page is read-only and directs
+account changes to an administrator. Avatar display uses a name/email initial, without
+requesting an image URL. Actual permissions are shown in an accessible collapsible list,
+with a separate explanation for a role that has no grants. No activity or login-history
+records are invented.
+
+## Recruitment analysis
+
+`/recruitment` is an authenticated, read-only analytics page with a fixed sidebar entry,
+like the workbench. It does not create database menu grants or relax the existing
+permission checks for `/console/**`. Login continuation allows this exact route.
+It uses the four existing Spark GET wrappers for cities, city-dependent positions,
+two-dimensional job samples and global salary rankings. The unimplemented company-list
+and three-dimensional endpoints are not called.
+
+The shadcn-vue filter, table, pagination and detail sheet retain the Small radius theme.
+Queries apply explicitly; changing draft filters does not relabel previous results.
+Numeric axes are allowlisted. Unsupported city strings are excluded from the existing
+SQL-interpolated position lookup. Details project only needed fields and permit absolute
+HTTP(S) source links without embedded credentials. Missing salary values remain unknown;
+zero remains zero. The mean uses only returned, parsed K salary values. Experience and
+degree codes are comparison values rather than exact years or qualifications.
+
+The global ranking is independent of filters and documents the backend thresholds of
+10 samples per position and 5 per city. Returned samples are paginated locally. The plot
+merges identical coordinates and displays at most 1000 evenly selected coordinate groups;
+summary counts and the table retain all returned records. The existing API still returns
+the whole matching dataset, so this is not server-side pagination.
+
+Real analysis returned HTTP 200 with no job records. Browser-only fixtures exercised
+23-row pagination, city/position selection, query parameters, populated plot/ranking,
+null/zero salary, safe detail links, forbidden/error/retry and 390px layouts without
+document overflow. These fixtures were never inserted into storage. Six additional
+normalization/query/link/plot tests bring the suite to 42 tests.
+
+## Verification boundaries
+
+`pnpm test` covers the preserved request boundary plus permission filtering, safe redirect
+destinations, local session expiry, dashboard normalization/error propagation, user pagination,
+field whitelisting, role grant linkage, menu hierarchy/filtering, workbench shortcuts,
+settings normalization, health error propagation and write-payload safety (42 tests,
+no HTTP). Type-checking and production build cover the Nuxt app. Existing local accounts
+were used for real login, menu filtering and route protection checks. The dashboard's real
+API returned an unavailable snapshot; no analysis job was triggered or fixture inserted.
+Isolated browser response fixtures covered populated charts, rankings, keyboard access,
+loading, request failure and retry. Mobile layout was checked at 390px with no document
+overflow. Populated fixture checks do not establish real log-analysis acceptance. SMTP,
+object storage and export flows were not exercised. Populated recruitment acceptance
+against real stored jobs remains unverified because the existing job-detail table is empty.
+
+Real user/role reads, name filtering and details were checked against existing local data.
+Create/edit/delete, multi-page and multi-role cases, failure/retry, dirty-form dismissal,
+loading and forbidden states used isolated browser response fixtures. Mutation requests
+were intercepted and never reached backend services. All 14 existing MySQL tables were
+compared before/after: only normal login token records changed; account, role, permission,
+menu and recruitment data stayed unchanged. Real mutations remain unverified. The Skill's
+audit script and the applicable visual/interaction checklist were checked for the user page
+and its drawers/dialogs.
+
+Role-list/current-role/menu reads were also verified against real APIs. Isolated browser
+responses covered role creation, metadata edits, deletion, permission save/read-back,
+read-back mismatch, business failures, orphan-grant protection, clearing confirmation,
+dirty dismissal, empty/forbidden/error states and a 390px mobile authorization sheet.
+All role mutation requests were intercepted in the browser and never reached the backend.
+
+Real menu-tree and role-reference reads returned HTTP 200. Menu CRUD, HTTP 200 business
+failure, read-back mismatch, tree folding/filtering, dirty dismissal and all five data
+states were checked with browser-only fixtures. A 390px mobile detail sheet and document
+overflow were checked. Menu mutation requests never reached services; real mutations
+remain unverified. The B-end design audit covers the menu page and its sheet.
+
+Real settings reads (account, role, permissions and service health) returned HTTP 200;
+the gateway reported a successful Spark connection. Browser-only response fixtures covered
+empty permissions, 403, independent section failures/retries, explicit degradation and
+transport failure without a false `DOWN`. Category anchors/current-location indication,
+sensitive-field exclusion and a 390px layout without document overflow were checked.
+The settings flow issued only GET requests and did not modify business records.
+
+Real personal-center account, role and permission reads returned HTTP 200. Browser
+assertions verified keyboard permission expansion, sensitive-field exclusion, loading,
+empty permissions, independent failure/retry and forbidden states, recovery and GET-only
+interactions. Long-name/email cases at 390px had no document overflow. The existing 34
+tests cover its reused normalizers and request/session boundaries; no duplicate unit
+suite was added. Type-check, production build and B-end design audit passed for the page.
+
+Real workbench statistics/role/permission reads returned HTTP 200. The statistics endpoint
+returned no usable analysis snapshot, so the real page displayed em dashes. Browser
+assertions covered a populated snapshot, genuine zero counts, missing snapshots,
+error/forbidden states, independent role recovery, quick-entry navigation and a 390px
+layout without document overflow. An existing zero-permission account showed no quick
+entries and issued zero dashboard requests. Workbench interactions used GET only;
+normal login was the only token-table change across the 14-table comparison.

@@ -1,9 +1,13 @@
 # Local Development
 
+For frontend replacement work, use the [frontend API preservation guide](frontend-api/README.md).
+It inventories every current frontend HTTP wrapper, payload type, transport dependency,
+backend mismatch and verification boundary before removing the existing UI.
+
 ## Requirements
 
 - Java 17 and Maven 3.9.6 or newer.
-- Node.js 20.19 or 22+, Yarn 1.x, and the checked-in `vue/yarn.lock`.
+- Node.js 22.12+, pnpm 11.24.0, and the checked-in `vue/pnpm-lock.yaml`.
 - MySQL 8 with separate `blog_data` and `boss_data` databases, Redis, and MongoDB.
 
 For a new, empty database only, import `system.sql` into `blog_data` and
@@ -42,16 +46,24 @@ between modules: the API and crawler use different databases.
 In `vue/`:
 
 ```sh
-yarn install --frozen-lockfile
-yarn dev --host 127.0.0.1 --port 5020 --strictPort
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-The frontend routes `/api/v1/boss` to Spark on 8082, `/api/v1/ai` to the crawler
-on 8081, and other `/api` requests to the main API on 8080. Request paths retain
-their `/api` prefix. `yarn build` includes TypeScript checking and image
-optimization; native image dependencies may require a C/C++ toolchain and NASM.
-The Node configuration skips incompatible third-party declaration checking for
-legacy Vite plugins; application TypeScript checks still run during the build.
+The frontend is a fresh Nuxt 4 + shadcn-vue starter; business screens still need rebuilding.
+Preserved API wrappers and their required types/request client now live under `vue/app/`.
+Nitro routes `/api/v1/boss/**` to Spark on 8082, `/api/v1/ai/**` to the crawler on 8081,
+and other `/api/**` requests to the main API on 8080, retaining the `/api` prefix.
+These proxies run in development and in the production Node server. `pnpm type-check`,
+`pnpm test` and `pnpm build` verify the frontend foundation. To run the production build:
+
+```sh
+HOST=127.0.0.1 PORT=5020 pnpm start
+```
+
+Deploy the Nuxt `.output/` Node server; static hosting of `.output/public/` alone does not
+provide the proxies. See `vue/README.md` for the preserved browser-only request semantics
+and legacy `VITE_` export configuration.
 
 ## Local Profile Boundaries
 
@@ -72,7 +84,7 @@ Redis, and MongoDB. `/actuator/health/liveness` checks process availability.
 Crawler and Spark expose `/actuator/health`. A failed SMTP connection still
 appears in the API's overall health result; local readiness does not test email.
 
-After logging in through the frontend, verify an authenticated user-info
+When the replacement login UI is implemented, verify an authenticated user-info
 request and the resume list. Recruitment endpoints return empty arrays for an
 empty `boss_data` database. To check actual log processing, trigger analysis via
 `POST /api/v1/system/logs/analysis/trigger`, then verify a fresh result at Spark's
@@ -85,6 +97,7 @@ sample values; a successful HTTP response does not verify those calculations.
 
 ## External API credentials
 
+
 The OpenRouter crawler service requires `OPENROUTER_API_KEY` (or the Spring
 property `openrouter.api.key`) when instantiated. It is initialized lazily so
 the default Ollama workflow does not require an OpenRouter credential. The Spark IP geolocation service requires
@@ -93,6 +106,24 @@ missing or blank keys during initialization, before sending any API request.
 Supply credentials through environment variables or an ignored local profile;
 never place real values in tracked files.
 
-The Spring and Spark default profiles require `BOSSANALYZE_REDIS_PASSWORD`
-for Redis. An ignored local profile may override `spring.data.redis.password`
-when developing with a passwordless local Redis instance.
+The Spring and Spark default profiles read `BOSSANALYZE_REDIS_PASSWORD`
+without a tracked password literal. This is configuration externalization, not
+Redis fail-fast validation: Spring Boot binding can retain an unresolved
+placeholder when the variable is missing, and accepts explicit empty or
+whitespace values. Only the Java API credentials above have missing/blank
+initialization validation in this change.
+
+The existing tracked `local-dev` profiles retain
+`${BOSSANALYZE_REDIS_PASSWORD:}` and therefore preserve passwordless local Redis
+when the variable is unset. Their behavior is unchanged. Supply appropriate
+credentials for a password-protected Redis instance and verify its connection
+separately; this change does not authenticate against Redis.
+
+
+## Credential contract verification
+
+The focused Spring contracts compile the real production services and use only
+synthetic credentials and stubbed HTTP. See
+[`tools/credential-contract-tests/README.md`](../tools/credential-contract-tests/README.md)
+for dependency preparation and the offline test command. They do not validate
+live API keys, historical secret revocation or a full application deployment.

@@ -1,0 +1,76 @@
+{
+  "jobs": [
+    {
+      "positionId": "a",
+      "positionName": "前端开发",
+      "cityName": "北京",
+      "salary": "20-30K",
+      "salaryValue": 25,
+      "degree": "本科",
+      "degreeValue": 4,
+      "experience": "3-5年",
+      "experienceValue": 4,
+      "companyName": "隔离甲公司",
+      "companySize": "100-499人",
+      "financingStage": "A轮",
+      "address": "隔离测试地址",
+      "companyUrl": "javascript:alert(1)",
+      "jobUrl": "https://www.zhipin.com/job_detail/fixture.html",
+      "employeeBenefits": ["五险一金"],
+      "jobRequirements": ["熟悉 TypeScript"],
+      "industry": "not-returned-by-backend"
+    },
+    {
+      "positionId": "a",
+      "positionName": "前端开发",
+      "cityName": "北京",
+      "salary": "面议",
+      "salaryValue": null,
+      "degree": "大专",
+      "degreeValue": 3,
+      "experience": "不限",
+      "experienceValue": 0,
+      "companyName": "隔离甲公司",
+      "companyUrl": null,
+      "JobUrl": null,
+      "employeeBenefits": ["职位福利目前未解析"],
+      "jobRequirements": ["工作需求目前未解析"]
+    },
+    {
+      "positionId": "b",
+      "positionName": "后端开发",
+      "cityName": "上海",
+      "salary": "0K",
+      "salaryValue": 0,
+      "degree": null,
+      "degreeValue": 0,
+      "experience": null,
+      "experienceValue": 0,
+      "companyName": "隔离乙公司",
+      "employeeBenefits": [],
+      "jobRequirements": []
+    }
+  ],
+  "ranking": [
+    {
+      "positionName": "前端开发",
+      "jobCount": 12,
+      "minSalary": 20,
+      "maxSalary": 40,
+      "avgSalary": 30,
+      "recommendedCity": "北京",
+      "recommendedCitySalary": 35,
+      "recommendedCityJobCount": 7
+    },
+    {
+      "positionName": "后端开发",
+      "jobCount": 10,
+      "minSalary": 10,
+      "maxSalary": 20,
+      "avgSalary": 15,
+      "recommendedCity": null,
+      "recommendedCitySalary": null,
+      "recommendedCityJobCount": null
+    }
+  ]
+}

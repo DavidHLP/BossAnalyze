@@ -13,6 +13,13 @@
 
 For local startup and connectivity checks, see [Local Development](docs/local-development.md).
 
+The frontend is being rebuilt on Nuxt 4 and shadcn-vue preset `a2lQlAlu` with pointer
+styles enabled. The preserved API layer lives under `vue/app/`; the current home page is a
+starter, while business screens remain to be rebuilt. The UI descriptions and screenshots
+below describe the previous frontend. See the [API handoff](docs/frontend-api/README.md)
+and [frontend README](vue/README.md) for the current state. Backend services and stored data
+are unchanged by this frontend work.
+
 ## 📌 目录
 
 1. [项目介绍](#-项目介绍)
