@@ -1,0 +1,23 @@
+vue/app/components/users/UserEditor.vue
+  s_3d48479db66f62::t_89ff711b7718aa 306
+vue/app/lib/users.ts
+  s_3d48479db66f62::t_89ff711b7718aa 110
+vue/tests/users.test.mjs
+  s_3d48479db66f62::t_21c0d051ab0601 91-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fdae50e48053f5fdb06bf022d15796f1295daf39",
+  "prompts": {},
+  "sessions": {
+    "s_3d48479db66f62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18c3d-f594-7422-a3f3-c59b5d34fd3b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
