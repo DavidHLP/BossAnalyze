@@ -1,6 +1,7 @@
 package com.david.hlp.web.common.service;
 
 import lombok.RequiredArgsConstructor;
+import com.david.hlp.web.common.security.CredentialConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
@@ -18,8 +19,15 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username}")
+    @Value("${spring.mail.username:}")
     private String from;
+
+    @Value("${spring.mail.password:}")
+    private String smtpPassword;
+
+    private void validateMailConfiguration() {
+        CredentialConfiguration.requireSmtp(from, smtpPassword);
+    }
 
     /**
      * 发送纯文本邮件
@@ -29,6 +37,7 @@ public class EmailService {
      * @param content 邮件内容
      */
     public void sendSimpleMail(String to, String subject, String content) {
+        validateMailConfiguration();
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);
         message.setTo(to);
@@ -51,6 +60,7 @@ public class EmailService {
      * @param htmlContent HTML 内容
      */
     public void sendHtmlMail(String to, String subject, String htmlContent) {
+        validateMailConfiguration();
         MimeMessage mimeMessage = mailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");

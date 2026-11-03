@@ -110,8 +110,8 @@ The Spring and Spark default profiles read `BOSSANALYZE_REDIS_PASSWORD`
 without a tracked password literal. This is configuration externalization, not
 Redis fail-fast validation: Spring Boot binding can retain an unresolved
 placeholder when the variable is missing, and accepts explicit empty or
-whitespace values. Only the Java API credentials above have missing/blank
-initialization validation in this change.
+whitespace values. The Java API credentials above and the JWT signing key have initialization
+validation; SMTP credentials are checked before sending, not at startup.
 
 The existing tracked `local-dev` profiles retain
 `${BOSSANALYZE_REDIS_PASSWORD:}` and therefore preserve passwordless local Redis
@@ -127,3 +127,20 @@ synthetic credentials and stubbed HTTP. See
 [`tools/credential-contract-tests/README.md`](../tools/credential-contract-tests/README.md)
 for dependency preparation and the offline test command. They do not validate
 live API keys, historical secret revocation or a full application deployment.
+
+## SMTP and JWT configuration validation
+
+The default API profile reads `BOSSANALYZE_SMTP_USERNAME`, `BOSSANALYZE_SMTP_PASSWORD`
+and `BOSSANALYZE_JWT_SECRET`; the corresponding Spring properties can also be
+provided by private external configuration. No secret is generated at startup.
+JWT configuration is validated at service initialization: a standard Base64 key
+of at least 32 decoded bytes is required. Keep the existing approved key stable;
+changing it is a separately coordinated rotation that may invalidate sessions.
+The existing `local-dev` JWT expression and all token expiration/refresh logic
+are unchanged. Historical credential revocation is not established by this fix.
+
+SMTP credentials are validated before either EmailService send method, not at
+application initialization, preserving startup without SMTP for local development.
+Missing, blank, unresolved placeholders and `your_` example values fail with a
+fixed message before message creation/send. Other consumers such as SMTP health
+checks remain independent; this is not provider authentication or TLS validation.
