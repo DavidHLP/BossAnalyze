@@ -48,3 +48,12 @@ focused Spring contexts, not the full API application or production acceptance.
 The validator intentionally requires standard Base64. Previously tolerated
 nonstandard encodings may fail initialization; validate an existing approved
 external key before deployment, without exposing it or silently rotating it.
+
+## Automated build verification
+
+The `Build and test` GitHub Actions workflow runs the complete Java 17 reactor,
+these focused contracts (including a clean offline repeat), and the frontend's
+locked dependency install, type checks, tests and production build. It uses
+read-only repository permissions and does not receive service credentials.
+The workflow does not start infrastructure or applications and does not establish
+live SMTP/API/database connectivity, provider revocation or deployment readiness.
