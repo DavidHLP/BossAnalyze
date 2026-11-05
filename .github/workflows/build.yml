@@ -1,0 +1,62 @@
+name: Build and test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Java 17 reactor and credential contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: |
+            JDK17SERVE/**/pom.xml
+            tools/credential-contract-tests/pom.xml
+      - name: Build and test all backend modules
+        run: mvn -B -ntp -f JDK17SERVE/pom.xml clean verify
+      - name: Test isolated credential contracts
+        run: mvn -B -ntp -f tools/credential-contract-tests/pom.xml clean verify
+      - name: Repeat credential contracts offline
+        run: mvn -B -ntp -o -f tools/credential-contract-tests/pom.xml clean verify
+
+  frontend:
+    name: Frontend types, tests and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: vue
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.24.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check types
+        run: pnpm type-check
+      - name: Run frontend tests
+        run: pnpm test
+      - name: Build production server
+        run: pnpm build
