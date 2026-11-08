@@ -1,0 +1,47 @@
+frontend/app/pages/console/index.vue
+  s_66fb6edb3b1fdc::t_18b28fc26f2231 89,174
+  s_66fb6edb3b1fdc::t_f046eec4db0799 97,101,200,202,204-206
+frontend/app/middleware/auth.ts
+  s_66fb6edb3b1fdc::t_f046eec4db0799 15
+frontend/app/components/ui/card/Card.vue
+  s_66fb6edb3b1fdc::t_94bba926d4fa8b 17
+frontend/app/assets/css/tailwind.css
+  s_66fb6edb3b1fdc::t_f046eec4db0799 65
+frontend/app/error.vue
+  s_66fb6edb3b1fdc::t_f046eec4db0799 1-20,26-33
+  s_66fb6edb3b1fdc::t_18b28fc26f2231 21-25
+frontend/app/layouts/console.vue
+  s_66fb6edb3b1fdc::t_f046eec4db0799 26,31
+frontend/app/pages/recruitment.vue
+  s_66fb6edb3b1fdc::t_f046eec4db0799 39-41,158-159,163,180,198,306
+  s_66fb6edb3b1fdc::t_18b28fc26f2231 160-162,284-287
+frontend/app/lib/session.ts
+  s_66fb6edb3b1fdc::t_f046eec4db0799 103-108
+frontend/tests/session.test.mjs
+  s_66fb6edb3b1fdc::t_f046eec4db0799 7,23,28-30
+  s_66fb6edb3b1fdc::t_18b28fc26f2231 24-27
+  s_66fb6edb3b1fdc::t_9b25cee7c71a55 31-32
+frontend/app/components/LoginForm.vue
+  s_66fb6edb3b1fdc::t_f046eec4db0799 2,21-22,44,58,63
+frontend/README.md
+  s_66fb6edb3b1fdc::t_94bba926d4fa8b 203-206,220-221
+frontend/app/pages/console/settings.vue
+  s_66fb6edb3b1fdc::t_18b28fc26f2231 87-89
+  s_66fb6edb3b1fdc::t_94bba926d4fa8b 9-10,14-15,37,44,83-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a97b02440de6d2a7fb0a9ef0e869e6a02f0b423d",
+  "prompts": {},
+  "sessions": {
+    "s_66fb6edb3b1fdc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b9a1-9565-7b82-83ec-c17a2c9962ad",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
