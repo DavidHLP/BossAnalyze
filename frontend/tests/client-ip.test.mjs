@@ -16,3 +16,30 @@ test('entry overwrites forged forwarding headers, preserves authentication', () 
   sanitizeIpHeaders(headers, '127.0.0.1')
   assert.deepEqual(headers, { authorization: 'Bearer synthetic', 'x-boss-client-ip': '127.0.0.1' })
 })
+
+test('Nitro request hook sanitizes headers before the routeRules proxy', async () => {
+  const previous = globalThis.defineNitroPlugin
+  let hook
+  globalThis.defineNitroPlugin = (plugin) => plugin
+  try {
+    const { default: plugin } = await import('../server/plugins/client-ip.ts')
+    plugin({ hooks: { hook(name, handler) {
+      assert.equal(name, 'request')
+      hook = handler
+    } } })
+  } finally {
+    if (previous === undefined) delete globalThis.defineNitroPlugin
+    else globalThis.defineNitroPlugin = previous
+  }
+  assert.equal(typeof hook, 'function')
+  const headers = {
+    authorization: 'Bearer synthetic',
+    'x-boss-client-ip': '8.8.8.8',
+    'x-forwarded-for': '8.8.8.8',
+  }
+  await hook({ node: { req: { headers, socket: { remoteAddress: '192.0.2.1' } } } })
+  assert.deepEqual(headers, {
+    authorization: 'Bearer synthetic',
+    'x-boss-client-ip': '192.0.2.1',
+  })
+})

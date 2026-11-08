@@ -17,7 +17,7 @@ The dashboard contains the required [IP Geolocation by DB-IP](https://db-ip.com)
 
 ## Explicit proxy boundary
 
-Default: trust no forwarding headers. The Nitro middleware removes `Forwarded`, `X-Real-IP`, `X-Forwarded-*` and incoming `X-Boss-Client-IP`, then sets `X-Boss-Client-IP` from the direct socket peer. Authentication headers are preserved. Existing same-origin proxy paths and targets remain unchanged.
+Default: trust no forwarding headers. The Nitro `request` hook runs before routeRules proxying. It removes `Forwarded`, `X-Real-IP`, `X-Forwarded-*` and incoming `X-Boss-Client-IP`, then sets `X-Boss-Client-IP` from the direct socket peer. Authentication headers are preserved. Existing same-origin proxy paths and targets remain unchanged. Server middleware runs too late for this boundary.
 
 For a verified browser → Nuxt → API topology:
 
