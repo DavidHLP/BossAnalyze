@@ -5,6 +5,7 @@ import com.david.hlp.web.common.entity.Result;
 import com.david.hlp.web.resume.entity.Resume;
 import com.david.hlp.web.resume.service.ResumeVersionControlService;
 import lombok.RequiredArgsConstructor;
+import com.david.hlp.web.common.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
@@ -46,6 +47,8 @@ public class ResumeVersionController extends BaseController {
 
             String commitId = versionControlService.commit(resumeId, userId, message, content);
             return Result.success(commitId);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -70,6 +73,8 @@ public class ResumeVersionController extends BaseController {
 
             versionControlService.createBranch(resumeId, userId, branchName);
             return Result.success(null);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -90,6 +95,8 @@ public class ResumeVersionController extends BaseController {
             String branchName = request.get("branch");
             versionControlService.switchBranch(resumeId, userId, branchName);
             return Result.success(null);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -112,6 +119,8 @@ public class ResumeVersionController extends BaseController {
 
             String mergeCommitId = versionControlService.mergeBranch(resumeId, userId, sourceBranch, targetBranch);
             return Result.success(mergeCommitId);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -130,6 +139,8 @@ public class ResumeVersionController extends BaseController {
         try {
             List<Resume> history = versionControlService.getCommitHistory(resumeId, userId);
             return Result.success(history);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -150,6 +161,8 @@ public class ResumeVersionController extends BaseController {
             String commitId = request.get("commitId");
             versionControlService.checkout(resumeId, userId, commitId);
             return Result.success(null);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -170,6 +183,8 @@ public class ResumeVersionController extends BaseController {
             String content = request.get("content");
             versionControlService.stash(resumeId, userId, content);
             return Result.success(null);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -188,6 +203,8 @@ public class ResumeVersionController extends BaseController {
         try {
             String content = versionControlService.stashPop(resumeId, userId);
             return Result.success(content);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -217,6 +234,8 @@ public class ResumeVersionController extends BaseController {
                     "HEAD", commitId, "重置分支到指定提交");
 
             return Result.success(null);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -246,6 +265,8 @@ public class ResumeVersionController extends BaseController {
                     commitId, revertCommitId, "回滚指定提交的更改");
 
             return Result.success(revertCommitId);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -269,6 +290,8 @@ public class ResumeVersionController extends BaseController {
 
             List<Resume> recentCommits = versionControlService.getRecentCommits(resumeId, userId, limit);
             return Result.success(recentCommits);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -290,6 +313,8 @@ public class ResumeVersionController extends BaseController {
             List<Resume> commits = versionControlService.getCommitsBetween(resumeId, userId, fromCommit,
                     toCommit);
             return Result.success(commits);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -309,6 +334,8 @@ public class ResumeVersionController extends BaseController {
         try {
             Map<String, Object> debugInfo = versionControlService.getCommitDebugInfo(resumeId, userId, commitId);
             return Result.success(debugInfo);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -328,6 +355,8 @@ public class ResumeVersionController extends BaseController {
             Map<String, Object> validationResult = versionControlService.validateVersionControlIntegrity(resumeId,
                     userId);
             return Result.success(validationResult);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
@@ -346,6 +375,8 @@ public class ResumeVersionController extends BaseController {
         try {
             Map<String, Object> result = versionControlService.fixDuplicateCommitIds(resumeId, userId);
             return Result.success(result);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("修复重复ID失败: {}", e.getMessage(), e);
             return Result.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "修复失败: " + e.getMessage());

@@ -2,6 +2,7 @@ package com.david.hlp.web.resume.service;
 
 import com.david.hlp.web.resume.entity.Resume;
 import lombok.RequiredArgsConstructor;
+import com.david.hlp.web.common.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -30,6 +31,12 @@ public class ResumeVersionControlService {
      */
     public String createCommit(String resumeId, Long userId, String message,
             String content, String branch, List<String> parentCommits, String commitType) {
+        if (getResumeById(resumeId, userId) == null) {
+            throw new BusinessException(404, "简历不存在");
+        }
+        for (String parentId : parentCommits) {
+            getCommitById(resumeId, userId, parentId);
+        }
         Resume commit = new Resume();
         String commitId = generateCommitId();
         commit.setId(commitId);
@@ -46,7 +53,7 @@ public class ResumeVersionControlService {
         commit.setCommitTime(new Date());
         commit.setTreeHash(generateContentHash(content));
 
-        mongoTemplate.save(commit);
+        mongoTemplate.insert(commit);
         log.info("✅ 提交保存成功 - ID: {}", commitId);
         return commit.getId();
     }
@@ -114,7 +121,7 @@ public class ResumeVersionControlService {
             throw new RuntimeException("分支 " + branchName + " 没有关联的提交");
         }
 
-        Resume commit = getCommitById(commitId);
+        Resume commit = getCommitById(resumeId, userId, commitId);
         if (commit == null) {
             throw new RuntimeException("提交 " + commitId + " 不存在");
         }
@@ -141,8 +148,8 @@ public class ResumeVersionControlService {
             throw new RuntimeException("源分支或目标分支不存在");
         }
 
-        Resume sourceCommit = getCommitById(sourceCommitId);
-        Resume targetCommit = getCommitById(targetCommitId);
+        Resume sourceCommit = getCommitById(resumeId, userId, sourceCommitId);
+        Resume targetCommit = getCommitById(resumeId, userId, targetCommitId);
 
         if (sourceCommit == null) {
             throw new RuntimeException("源分支的提交不存在: " + sourceCommitId);
@@ -189,7 +196,7 @@ public class ResumeVersionControlService {
             throw new RuntimeException("简历不存在");
         }
 
-        Resume commit = getCommitById(commitId);
+        Resume commit = getCommitById(resumeId, userId, commitId);
         if (commit == null) {
             throw new RuntimeException("提交不存在: " + commitId);
         }
@@ -268,7 +275,7 @@ public class ResumeVersionControlService {
             throw new RuntimeException("简历不存在");
         }
 
-        Resume targetCommit = getCommitById(commitId);
+        Resume targetCommit = getCommitById(resumeId, userId, commitId);
         if (targetCommit == null) {
             throw new RuntimeException("目标提交不存在: " + commitId);
         }
@@ -304,7 +311,7 @@ public class ResumeVersionControlService {
             throw new RuntimeException("HEAD提交为空，无法执行回滚操作");
         }
 
-        Resume targetCommit = getCommitById(commitId);
+        Resume targetCommit = getCommitById(resumeId, userId, commitId);
         if (targetCommit == null) {
             log.error("要回滚的提交不存在 - commitId: {}", commitId);
             throw new RuntimeException("要回滚的提交不存在: " + commitId);
@@ -322,7 +329,7 @@ public class ResumeVersionControlService {
         String parentCommitId = targetCommit.getParentCommits().get(0);
         log.info("获取父提交 - parentCommitId: {}", parentCommitId);
 
-        Resume parentCommit = getCommitById(parentCommitId);
+        Resume parentCommit = getCommitById(resumeId, userId, parentCommitId);
         if (parentCommit == null) {
             log.error("父提交不存在 - parentCommitId: {}, targetCommitId: {}", parentCommitId, commitId);
             throw new RuntimeException("父提交数据损坏，无法执行回滚操作。父提交ID: " + parentCommitId);
@@ -354,6 +361,8 @@ public class ResumeVersionControlService {
             log.info("回滚操作完成 - 原提交: {}, 新提交: {}, 分支: {}",
                     commitId, revertCommitId, resume.getCurrentBranch());
             return revertCommitId;
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("创建回滚提交失败 - resumeId: {}, commitId: {}, error: {}",
                     resumeId, commitId, e.getMessage(), e);
@@ -375,7 +384,7 @@ public class ResumeVersionControlService {
         String currentCommitId = resume.getHeadCommit();
 
         while (currentCommitId != null && recentCommits.size() < limit) {
-            Resume commit = getCommitById(currentCommitId);
+            Resume commit = getCommitById(resumeId, userId, currentCommitId);
             if (commit == null)
                 break;
 
@@ -396,11 +405,14 @@ public class ResumeVersionControlService {
      * 获取指定分支的提交差异
      */
     public List<Resume> getCommitsBetween(String resumeId, Long userId, String fromCommitId, String toCommitId) {
+        getCommitById(resumeId, userId, fromCommitId);
+        getCommitById(resumeId, userId, toCommitId);
         List<Resume> commits = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
         String currentCommitId = toCommitId;
 
-        while (currentCommitId != null && !currentCommitId.equals(fromCommitId)) {
-            Resume commit = getCommitById(currentCommitId);
+        while (currentCommitId != null && !currentCommitId.equals(fromCommitId) && visited.add(currentCommitId)) {
+            Resume commit = getCommitById(resumeId, userId, currentCommitId);
             if (commit == null)
                 break;
 
@@ -439,7 +451,7 @@ public class ResumeVersionControlService {
             }
 
             visited.add(currentCommitId);
-            Resume commit = getCommitById(currentCommitId);
+            Resume commit = getCommitById(resumeId, userId, currentCommitId);
             if (commit == null || commit.getParentCommits().isEmpty()) {
                 break;
             }
@@ -486,7 +498,7 @@ public class ResumeVersionControlService {
                 debugInfo.put("headCommit", null);
             }
 
-            Resume commit = getCommitById(commitId);
+            Resume commit = getCommitById(resumeId, userId, commitId);
             debugInfo.put("commitExists", commit != null);
 
             if (commit != null) {
@@ -502,7 +514,7 @@ public class ResumeVersionControlService {
                 List<Map<String, Object>> parentInfo = new ArrayList<>();
                 for (String parentId : commit.getParentCommits()) {
                     Map<String, Object> pInfo = new HashMap<>();
-                    Resume parentCommit = getCommitById(parentId);
+                    Resume parentCommit = getCommitById(resumeId, userId, parentId);
                     pInfo.put("parentId", parentId);
                     pInfo.put("parentExists", parentCommit != null);
                     if (parentCommit != null) {
@@ -515,6 +527,8 @@ public class ResumeVersionControlService {
             }
 
             debugInfo.put("success", true);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             debugInfo.put("success", false);
             debugInfo.put("error", e.getMessage());
@@ -543,7 +557,7 @@ public class ResumeVersionControlService {
             if (resume.getHeadCommit() == null) {
                 errors.add("HEAD提交为空");
             } else {
-                Resume headCommit = getCommitById(resume.getHeadCommit());
+                Resume headCommit = getCommitById(resumeId, userId, resume.getHeadCommit());
                 if (headCommit == null) {
                     errors.add("HEAD提交不存在: " + resume.getHeadCommit());
                 }
@@ -562,7 +576,7 @@ public class ResumeVersionControlService {
                         continue;
                     }
 
-                    Resume commit = getCommitById(commitId);
+                    Resume commit = getCommitById(resumeId, userId, commitId);
                     if (commit == null) {
                         errors.add("分支 " + branchName + " 的提交不存在: " + commitId);
                     }
@@ -586,7 +600,7 @@ public class ResumeVersionControlService {
             for (Resume commit : allCommits) {
                 // 检查父提交是否存在
                 for (String parentId : commit.getParentCommits()) {
-                    Resume parent = getCommitById(parentId);
+                    Resume parent = getCommitById(resumeId, userId, parentId);
                     if (parent == null) {
                         corruptedCommits++;
                         warnings.add("提交 " + commit.getId() + " 的父提交不存在: " + parentId);
@@ -617,6 +631,8 @@ public class ResumeVersionControlService {
             result.put("branchCount", resume.getBranches().size());
             result.put("stashCount", resume.getStashStack().size());
 
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             errors.add("验证过程中发生异常: " + e.getMessage());
             log.error("验证版本控制完整性失败", e);
@@ -697,6 +713,8 @@ public class ResumeVersionControlService {
             log.info("🔧 修复重复ID完成 - 简历: {}, 重复ID数量: {}, 新初始提交: {}",
                     resumeId, duplicateIds.size(), initialCommitId);
 
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             result.put("success", false);
             result.put("error", e.getMessage());
@@ -715,9 +733,14 @@ public class ResumeVersionControlService {
         return mongoTemplate.findOne(query, Resume.class);
     }
 
-    private Resume getCommitById(String commitId) {
-        Query query = new Query(Criteria.where("_id").is(commitId).and("doc_type").is("commit"));
-        return mongoTemplate.findOne(query, Resume.class);
+    private Resume getCommitById(String resumeId, Long userId, String commitId) {
+        Query query = new Query(Criteria.where("_id").is(commitId).and("doc_type").is("commit")
+                .and("resume_id").is(resumeId).and("user_id").is(userId));
+        Resume commit = mongoTemplate.findOne(query, Resume.class);
+        if (commit == null) {
+            throw new BusinessException(404, "提交不存在");
+        }
+        return commit;
     }
 
     private String generateCommitId() {
