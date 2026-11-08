@@ -32,6 +32,24 @@ server:
       enabled: false # 禁用 Spring 默认错误页面
   port: 8082
 
+# 直接到达本服务的请求必须由主 API 校验令牌与会话权限
+security:
+  downstream-auth:
+    enabled: true
+    verification-url: ${BOSSANALYZE_API_URL:http://127.0.0.1:8080}/api/auth/getUserPrivateInformation
+    permission-check-url: ${BOSSANALYZE_API_URL:http://127.0.0.1:8080}/api/auth/hasPagePermission
+    connect-timeout-ms: 1000
+    read-timeout-ms: 2000
+    public-paths:
+      - /actuator
+      - /error
+      - /api/log/access/health
+    permission-protected-paths:
+      - /api/log/access
+    dashboard-path: /console/dashboard
+    trigger-path: /api/log/access/analysis/trigger
+    trigger-permission: logs.analysis.trigger
+
 jackson:
   date-format: yyyy-MM-dd HH:mm:ss
   time-zone: Asia/Shanghai

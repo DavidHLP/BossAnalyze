@@ -8,6 +8,12 @@ export const login = (data: { email: string; password: string }): Promise<Token>
     data: { ...data },
   })
 
+export const logout = (): Promise<void> =>
+  request({
+    url: '/api/auth/logout',
+    method: 'POST',
+  })
+
 export const getUserPrivateInformation = (): Promise<Array<Permissions>> =>
   request({
     url: '/api/auth/getUserPrivateInformation',

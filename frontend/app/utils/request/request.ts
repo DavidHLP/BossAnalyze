@@ -19,8 +19,8 @@ service.interceptors.request.use(
       return Promise.reject(new Error('The API client requires a browser session'))
     }
 
-    // 排除无需鉴权的接口（登录、注册、发送注册验证码等）
-    const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/sendRegisterEmail'];
+    // 排除无需鉴权的接口（登录、注册、发送注册验证码、注销等）
+    const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/sendRegisterEmail', '/api/auth/logout'];
     const isPublicPath = publicPaths.some(path => config.url?.endsWith(path));
 
     const token = localStorage.getItem('token');
@@ -57,9 +57,10 @@ service.interceptors.response.use(
     }
   },
   (error) => {
-    if (error.response?.status === 401) {
+    const isLogout = error.config?.url?.endsWith('/api/auth/logout')
+    if (error.response?.status === 401 && !isLogout) {
       localStorage.removeItem('token')
-      // 触发全局登出逻辑
+      // 触发全局登出逻辑；注销请求自行处理失败，避免与登录页跳转竞争
       window.dispatchEvent(new CustomEvent('unauthorized'))
     }
     return Promise.reject({

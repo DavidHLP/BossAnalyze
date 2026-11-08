@@ -109,3 +109,12 @@ export function loginFailure(error: unknown) {
   // The login controller uses the same 500 response for credentials and internal failures.
   return '登录失败，请检查邮箱、密码及服务连接后重试。'
 }
+
+/**
+ * Only an explicit 401 invalidates the stored session. Transport and service
+ * failures are transient and must keep the token so restoration can be retried.
+ */
+export function sessionFailure(error: unknown): 'expired' | 'unavailable' {
+  const code = error && typeof error === 'object' && 'code' in error ? error.code : null
+  return code === 401 ? 'expired' : 'unavailable'
+}

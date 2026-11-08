@@ -19,7 +19,7 @@ public class JobAnalysisData {
     private String positionName;
     private String cityName;
     private String salary;
-    private Integer salaryValue;
+    private Double salaryValue;
     private String degree;
     private Integer degreeValue;
     private String experience;

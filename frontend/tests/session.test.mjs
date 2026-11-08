@@ -7,6 +7,7 @@ import {
   loginFailure,
   menuTree,
   menuShortcuts,
+  sessionFailure,
   validSession,
 } from '../app/lib/session.ts'
 
@@ -31,6 +32,13 @@ test('login failures only classify explicit statuses and keep ambiguous failures
   }
   for (const error of [{ code: 500 }, new Error('Missing token'), null]) {
     assert.equal(loginFailure(error), '登录失败，请检查邮箱、密码及服务连接后重试。')
+  }
+})
+
+test('only an explicit 401 expires the stored session; transient failures keep it', () => {
+  assert.equal(sessionFailure({ code: 401 }), 'expired')
+  for (const error of [{ code: 500 }, { code: 502 }, { code: 503 }, { code: 504 }, new Error('timeout'), null]) {
+    assert.equal(sessionFailure(error), 'unavailable')
   }
 })
 

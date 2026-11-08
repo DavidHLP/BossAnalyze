@@ -406,19 +406,10 @@ public class LogServiceImp {
         private Map<String, Object> buildDashboardStats(AccessLogAnalysisResult analysisResult, Dataset<Row> logs) {
                 Map<String, Object> dashboardStats = new HashMap<>();
 
-                // 基础概览数据
+                // 基础概览数据（仅发布真实计算的指标）
                 Map<String, Object> overview = new HashMap<>();
                 overview.put("totalVisits", analysisResult.getTotalVisits());
                 overview.put("uniqueVisitors", analysisResult.getUniqueVisitors());
-                overview.put("avgSessionDuration", calculateAvgSessionDuration(logs));
-                overview.put("bounceRate", calculateBounceRate(logs));
-                overview.put("errorRate", calculateErrorRate(logs));
-
-                // 实时统计
-                Map<String, Object> realTimeStats = new HashMap<>();
-                realTimeStats.put("onlineUsers", calculateOnlineUsers(logs));
-                realTimeStats.put("recentVisits", calculateRecentVisits(logs));
-                realTimeStats.put("activePages", calculateActivePages(logs));
 
                 // 热门页面统计
                 Map<String, Object> topPages = calculateTopPages(logs);
@@ -427,58 +418,19 @@ public class LogServiceImp {
                 Map<String, Object> geoStats = buildGeoStats(analysisResult.getIpStatistics());
 
                 // 设备统计
-                Map<String, Object> deviceStats = buildDeviceStats(analysisResult.getBrowserStatistics(), logs);
-
-                // 性能统计
-                Map<String, Object> performanceStats = calculatePerformanceStats(logs);
-
-                // 安全统计
-                Map<String, Object> securityStats = calculateSecurityStats(logs);
+                Map<String, Object> deviceStats = buildDeviceStats(analysisResult.getBrowserStatistics());
 
                 dashboardStats.put("overview", overview);
-                dashboardStats.put("realTimeStats", realTimeStats);
                 dashboardStats.put("heatMapData", analysisResult.getHeatMapData());
                 dashboardStats.put("topPages", topPages);
                 dashboardStats.put("geoStats", geoStats);
                 dashboardStats.put("deviceStats", deviceStats);
-                dashboardStats.put("performanceStats", performanceStats);
-                dashboardStats.put("securityStats", securityStats);
                 dashboardStats.put("httpMethodStatistics", analysisResult.getHttpMethodStatistics());
                 dashboardStats.put("weekdayStatistics", analysisResult.getWeekdayStatistics());
                 dashboardStats.put("generatedAt", LocalDateTime.now());
                 dashboardStats.put("dataQuality", analysisResult.getDataQuality());
 
                 return dashboardStats;
-        }
-
-        private Double calculateAvgSessionDuration(Dataset<Row> logs) {
-                // 简化计算平均会话时长（以分钟为单位）
-                return 5.5; // 示例值
-        }
-
-        private Double calculateBounceRate(Dataset<Row> logs) {
-                // 计算跳出率（百分比）
-                return 65.2; // 示例值
-        }
-
-        private Double calculateErrorRate(Dataset<Row> logs) {
-                // 计算错误率（百分比）
-                return 2.1; // 示例值
-        }
-
-        private Integer calculateOnlineUsers(Dataset<Row> logs) {
-                // 计算当前在线用户数
-                return 156; // 示例值
-        }
-
-        private Integer calculateRecentVisits(Dataset<Row> logs) {
-                // 计算最近1小时访问量
-                return 342; // 示例值
-        }
-
-        private Integer calculateActivePages(Dataset<Row> logs) {
-                // 计算活跃页面数
-                return 23; // 示例值
         }
 
         private Map<String, Object> calculateTopPages(Dataset<Row> logs) {
@@ -500,7 +452,6 @@ public class LogServiceImp {
                                 Map<String, Object> pageInfo = new HashMap<>();
                                 pageInfo.put("path", path);
                                 pageInfo.put("visits", count);
-                                pageInfo.put("percentage", 0.0); // 可以计算百分比
                                 pageList.add(pageInfo);
                         }
                 }
@@ -534,52 +485,14 @@ public class LogServiceImp {
                 return geoStats;
         }
 
-        private Map<String, Object> buildDeviceStats(BrowserStatistics browserStats, Dataset<Row> logs) {
+        private Map<String, Object> buildDeviceStats(BrowserStatistics browserStats) {
                 Map<String, Object> deviceStats = new HashMap<>();
 
                 if (browserStats != null && browserStats.getBrowserStats() != null) {
                         deviceStats.put("browsers", browserStats.getBrowserStats());
                 }
 
-                // 操作系统统计（简化）
-                Map<String, Long> osStats = new HashMap<>();
-                osStats.put("Windows", 456L);
-                osStats.put("macOS", 234L);
-                osStats.put("Linux", 123L);
-                osStats.put("Android", 89L);
-                osStats.put("iOS", 67L);
-
-                deviceStats.put("operatingSystems", osStats);
                 return deviceStats;
-        }
-
-        private Map<String, Object> calculatePerformanceStats(Dataset<Row> logs) {
-                Map<String, Object> performance = new HashMap<>();
-                performance.put("avgResponseTime", 250.5);
-                performance.put("avgPageLoadTime", 1.2);
-
-                Map<String, Long> statusCodes = new HashMap<>();
-                statusCodes.put("200", 1850L);
-                statusCodes.put("404", 45L);
-                statusCodes.put("500", 12L);
-                statusCodes.put("403", 8L);
-
-                performance.put("statusCodes", statusCodes);
-                return performance;
-        }
-
-        private Map<String, Object> calculateSecurityStats(Dataset<Row> logs) {
-                Map<String, Object> security = new HashMap<>();
-                security.put("suspiciousIPs", 5);
-                security.put("attackAttempts", 12);
-
-                Map<String, Long> threatTypes = new HashMap<>();
-                threatTypes.put("SQL_INJECTION", 3L);
-                threatTypes.put("XSS", 2L);
-                threatTypes.put("BRUTE_FORCE", 7L);
-
-                security.put("threatTypes", threatTypes);
-                return security;
         }
 
         /**

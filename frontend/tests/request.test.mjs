@@ -49,6 +49,37 @@ test('HTTP 401 still clears the token and dispatches unauthorized', async () => 
   assert.deepEqual(events, ['unauthorized'])
 })
 
+test('logout is public and reaches the server without a token or redirect', async () => {
+  globalThis.window = { location: { href: '/console' } }
+  globalThis.localStorage = { getItem: () => null }
+  let sent = false
+  request.defaults.adapter = async config => {
+    sent = true
+    assert.equal(config.headers.Authorization, undefined)
+    return { config, status: 200, headers: {}, data: { code: 200, data: null } }
+  }
+  await request.post('/api/auth/logout')
+  assert.equal(sent, true)
+  assert.equal(window.location.href, '/console')
+})
+
+test('logout 401 leaves revocation feedback to signOut instead of the expiry flow', async () => {
+  const removed = []
+  const events = []
+  globalThis.localStorage = {
+    getItem: () => 'test-session-token',
+    removeItem: key => removed.push(key),
+  }
+  window.dispatchEvent = event => events.push(event.type)
+  request.defaults.adapter = async config => {
+    const response = { config, status: 401, headers: {}, data: { message: 'Expired' } }
+    throw new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', config, undefined, response)
+  }
+  await assert.rejects(request.post('/api/auth/logout'), error => error.code === 401)
+  assert.deepEqual(removed, [])
+  assert.deepEqual(events, [])
+})
+
 test('login-controller-shaped 500 responses remain neutral after request normalization', async () => {
   for (const message of ['登录失败: 用户不存在', '登录失败: 密码错误', '登录失败: private database error']) {
     request.defaults.adapter = async config => {

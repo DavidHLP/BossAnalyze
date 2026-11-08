@@ -26,6 +26,18 @@ spring:
 server:
   port: 8081
 
+# 直接到达本服务的 AI 请求必须由主 API 校验登录令牌
+security:
+  downstream-auth:
+    enabled: true
+    verification-url: ${BOSSANALYZE_API_URL:http://127.0.0.1:8080}/api/auth/getUserPrivateInformation
+    permission-check-url: ${BOSSANALYZE_API_URL:http://127.0.0.1:8080}/api/auth/hasPagePermission
+    connect-timeout-ms: 1000
+    read-timeout-ms: 2000
+    public-paths:
+      - /actuator
+      - /error
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

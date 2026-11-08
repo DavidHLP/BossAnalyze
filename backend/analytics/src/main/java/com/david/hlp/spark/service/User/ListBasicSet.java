@@ -26,6 +26,7 @@ public class ListBasicSet {
                 .option("dbtable", "t_job_detail")
                 .option("fetchsize", "10000")
                 .load()
+                .filter(functions.col("is_deleted").equalTo(0))
                 .select("city_name")
                 .groupBy("city_name")
                 .agg(functions.count("*").alias("count"))
@@ -46,10 +47,11 @@ public class ListBasicSet {
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
                 .option("dbtable", "t_job_detail")
                 .option("fetchsize", "10000")
-                .load();
+                .load()
+                .filter(functions.col("is_deleted").equalTo(0));
 
         if (cityName != null && !cityName.equals("all")) {
-            query = query.where("city_name = '" + cityName + "'");
+            query = query.where(functions.col("city_name").equalTo(cityName));
         }
 
         return query.select("position_name")

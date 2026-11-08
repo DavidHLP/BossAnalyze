@@ -1,4 +1,4 @@
-import { getUserBaseInfo, getUserPrivateInformation, login } from '@/api/auth/auth'
+import { getUserBaseInfo, getUserPrivateInformation, login, logout } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
 import { menuTree, validSession } from '@/lib/session'
 import type { MenuItem } from '@/lib/session'
@@ -68,8 +68,21 @@ export function useSession() {
   }
 
   async function signOut() {
+    const token = localStorage.getItem('token')
+    let revoked = true
+    if (token) {
+      try {
+        await logout()
+      } catch {
+        // Keep an explicit notice instead of claiming the server revoked the session.
+        revoked = false
+      }
+    }
     clear()
-    await navigateTo('/login', { replace: true })
+    await navigateTo(
+      { path: '/login', query: revoked ? {} : { logout: 'unconfirmed' } },
+      { replace: true },
+    )
   }
 
   return { state, restore, signIn, signOut, clear }
