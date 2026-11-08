@@ -3,8 +3,8 @@
 [![Java >= 17](https://img.shields.io/badge/Java->=17-007396?logo=java&logoColor=white)](https://www.oracle.com/java/)
 [![Spring Boot 3.4.5](https://img.shields.io/badge/Spring%20Boot-3.4.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring Cloud 4.2.1](https://img.shields.io/badge/Spring%20Cloud-4.2.1-6DB33F?logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
-[![Vue.js 3.3.0](https://img.shields.io/badge/Vue.js-3.3.0-4FC08D?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
-[![Node.js >= 22.11.0](https://img.shields.io/badge/Node.js->=22.11.0-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Vue.js 3](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![Node.js >= 22.12.0](https://img.shields.io/badge/Node.js->=22.12.0-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Apache Spark 4.0.0](https://img.shields.io/badge/Apache%20Spark-4.0.0-E25A1C?logo=apachespark&logoColor=white)](https://spark.apache.org/)
 [![Scala 2.13](https://img.shields.io/badge/Scala-2.13-DC322F?logo=scala&logoColor=white)](https://www.scala-lang.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9.6-C71A36?logo=apachemaven&logoColor=white)](https://maven.apache.org/)
@@ -14,10 +14,11 @@
 For local startup and connectivity checks, see [Local Development](docs/local-development.md).
 
 The frontend is being rebuilt on Nuxt 4 and shadcn-vue preset `a2lQlAlu` with pointer
-styles enabled. The preserved API layer lives under `vue/app/`; the current home page is a
-starter, while business screens remain to be rebuilt. The UI descriptions and screenshots
-below describe the previous frontend. See the [API handoff](docs/frontend-api/README.md)
-and [frontend README](vue/README.md) for the current state. Backend services and stored data
+styles enabled. The API layer lives under `frontend/app/`; login, the console, management
+pages, dashboards and read-only recruitment analytics are implemented. Resume editing and
+other unbuilt routes remain outside the current UI. The screenshots below document the
+previous frontend. See the [API handoff](docs/frontend-api/README.md)
+and [frontend README](frontend/README.md) for the current state. Backend services and stored data
 are unchanged by this frontend work.
 
 ## 📌 目录
@@ -74,14 +75,13 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 
 ### 前端技术
 
-| 技术栈       | 说明       | 版本   |
-| ------------ | ---------- | ------ |
-| Vue.js       | 前端框架   | 3.3.0  |
-| TypeScript   | 开发语言   | 5.0+   |
-| Element Plus | UI 组件库  | 2.3.9  |
-| ECharts      | 数据可视化 | 5.4.3  |
-| Pinia        | 状态管理   | 2.1.0+ |
-| Vite         | 构建工具   | 4.0+   |
+| 技术栈 | 说明 |
+| --- | --- |
+| Nuxt 4 / Vue 3 | 页面路由、开发服务和生产 Node 服务 |
+| TypeScript | 类型检查 |
+| shadcn-vue / Reka UI | 界面组件 |
+| Tailwind CSS 4 | 样式与主题 |
+| pnpm 11.24.0 | 锁定依赖安装 |
 
 ### 开发工具
 
@@ -93,106 +93,85 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 
 ## 🏗️ 项目结构
 
-```
+```text
 .
-├── JDK17SERVE/               # 后端服务
-│   ├── crawler/             # 爬虫服务
-│   │   ├── src/main/java/com/david/hlp/crawler
-│   │   │   ├── ai/          # AI 智能分析
-│   │   │   ├── boss/        # BOSS 直聘数据采集
-│   │   │   └── common/      # 公共模块
-│   │   └── src/main/resources/
-│   │       └── mapper/      # MyBatis Mapper 文件
-│   │
-│   ├── spark/             # Spark 大数据处理
-│   │   └── src/main/java/com/david/hlp/spark
-│   │       ├── config/      # Spark 配置
-│   │       ├── controller/  # 控制器
-│   │       ├── service/     # 服务层
-│   │       └── utils/       # 工具类
-│   │
-│   └── spring/           # Spring Boot 主应用
-│       └── src/main/java/com/david/hlp/web
-│           ├── ai/          # AI 服务接口
-│           ├── boss/        # BOSS 业务模块
-│           ├── common/      # 公共模块
-│           ├── hdfs/        # HDFS 存储
-│           ├── minio/       # 文件存储
-│           ├── resume/      # 简历管理
-│           └── system/      # 系统管理
-│
-├── vue/                   # 前端项目
-│   ├── public/             # 静态资源
-│   ├── src/
-│   │   ├── api/          # API 接口
-│   │   ├── assets/         # 资源文件
-│   │   ├── components/     # 公共组件
-│   │   ├── router/         # 路由配置
-│   │   ├── store/         # 状态管理
-│   │   ├── utils/          # 工具函数
-│   │   └── views/          # 页面组件
-│   │       ├── console/    # 控制台页面
-│   │       └── front/      # 前台页面
-│   └── package.json        # 项目配置
-├── docker/                 # Docker 配置
-│   ├── mysql/             # MySQL 配置
-│   ├── redis/             # Redis 配置
-│   └── nginx/             # Nginx 配置
-├── docs/                  # 文档
-│   ├── api/               # API 文档
-│   └── db/                # 数据库设计文档
-├── docker-compose.yml     # Docker 容器编排
-├── Dockerfile             # Docker 构建文件
-└── README.md             # 项目说明
+├── backend/                     # Java 17 Maven reactor
+│   ├── pom.xml                  # 模块聚合与依赖版本管理
+│   ├── commons/                 # 共享模型与基础工具
+│   ├── api/                     # 业务 API、认证与管理
+│   ├── crawler/                 # 招聘数据采集与 AI 处理
+│   └── analytics/               # 招聘和访问日志分析
+├── frontend/                    # Nuxt 4 + shadcn-vue
+│   ├── app/
+│   │   ├── api/                 # HTTP 请求封装与类型
+│   │   ├── pages/               # 页面路由
+│   │   ├── layouts/             # 页面框架
+│   │   ├── components/          # 业务组件及 ui/ 基础组件
+│   │   ├── composables/         # 会话等组合逻辑
+│   │   ├── lib/                 # 共享数据处理逻辑
+│   │   └── utils/               # 请求客户端等工具
+│   ├── public/                  # 静态资源
+│   ├── tests/                   # 隔离测试及 fixtures
+│   └── nuxt.config.ts           # Nuxt 与代理配置
+├── database/                    # SQL 初始化快照，禁止用于覆盖现有数据
+├── docs/
+│   ├── frontend-api/            # 历史 API 契约快照与交接说明
+│   ├── images/                  # 历史界面截图
+│   ├── project-structure.md     # 目录迁移映射与兼容性说明
+│   └── local-development.md     # 本地配置、构建与启动
+├── tools/credential-contract-tests/ # 隔离凭据契约验证
+└── .github/workflows/build.yml  # 后端和前端 CI
 ```
 
-### 后端服务 (JDK17SERVE)
+目录使用职责命名，Java 包名、Maven 坐标、JAR 名称、服务标识和 HTTP 路由保持不变。
+从旧 checkout 升级时，请按[目录迁移说明](docs/project-structure.md)调整本地命令和 IDE 路径。
+仓库没有提供 Dockerfile 或 Compose 编排；外部基础设施请自行配置。
 
-| 模块       | 功能说明                             |
-| ---------- | ------------------------------------ |
-| `crawler/` | 数据采集服务，负责爬取 BOSS 直聘数据 |
-| `spark/`   | 大数据处理模块，支持海量数据分析     |
-| `spring/`  | 核心业务模块，提供 RESTful API       |
+### 构建与验证
 
-### 前端项目 (vue/)
+```sh
+mvn -f backend/pom.xml clean verify
+mvn -f tools/credential-contract-tests/pom.xml clean verify
+cd frontend
+pnpm install --frozen-lockfile
+pnpm type-check
+pnpm test
+pnpm build
+```
 
-| 目录                 | 说明         |
-| -------------------- | ------------ |
-| `src/views/console/` | 管理后台页面 |
-| `src/views/front/`   | 前台展示页面 |
-| `src/components/`    | 公共组件     |
-| `src/store/`         | 状态管理     |
-| `src/api/`           | 接口请求封装 |
+启动步骤和所需外部配置见[本地开发说明](docs/local-development.md)。
 
 ## 🖼️ 项目展示
+
+以下截图保留旧版界面供参考，不代表当前 Nuxt 页面或完整功能验收。
 
 ### 用户认证
 
 | 功能     | 截图                                        |
 | -------- | ------------------------------------------- |
-| 用户登录 | ![登录界面](image/README/1749887719455.png) |
-| 用户注册 | ![注册界面](image/README/1749887746140.png) |
+| 用户登录 | ![登录界面](docs/images/1749887719455.png) |
+| 用户注册 | ![注册界面](docs/images/1749887746140.png) |
 
 ### 系统管理
 
 | 功能     | 截图                                        |
 | -------- | ------------------------------------------- |
-| 控制台   | ![控制台](image/README/1749887784763.png)   |
-| 用户管理 | ![用户管理](image/README/1749887832296.png) |
-| 角色管理 | ![角色管理](image/README/1749887875886.png) |
-| 权限分配 | ![权限分配](image/README/1749887897146.png) |
-| 菜单管理 | ![菜单管理](image/README/1749887958340.png) |
-| 菜单编辑 | ![菜单编辑](image/README/1749888005961.png) |
+| 控制台   | ![控制台](docs/images/1749887784763.png)   |
+| 用户管理 | ![用户管理](docs/images/1749887832296.png) |
+| 角色管理 | ![角色管理](docs/images/1749887875886.png) |
+| 权限分配 | ![权限分配](docs/images/1749887897146.png) |
+| 菜单管理 | ![菜单管理](docs/images/1749887958340.png) |
+| 菜单编辑 | ![菜单编辑](docs/images/1749888005961.png) |
 
 ### 核心功能
 
 | 功能     | 截图                                        |
 | -------- | ------------------------------------------- |
-| 简历编辑 | ![简历编辑](image/README/1749888397071.png) |
-| 简历列表 | ![简历列表](image/README/1749888508998.png) |
-| 简历分析 | ![简历分析](image/README/1749888603052.png) |
-| 薪资分析 | ![薪资分析](image/README/1749888652772.png) |
-| 职位分析 | ![职位分析](image/README/1749888844135.png) |
+| 简历编辑 | ![简历编辑](docs/images/1749888397071.png) |
+| 简历列表 | ![简历列表](docs/images/1749888508998.png) |
+| 简历分析 | ![简历分析](docs/images/1749888603052.png) |
+| 薪资分析 | ![薪资分析](docs/images/1749888652772.png) |
+| 职位分析 | ![职位分析](docs/images/1749888844135.png) |
 
 ## 📅 项目计划
 

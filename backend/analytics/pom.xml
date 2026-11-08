@@ -9,8 +9,8 @@
                 <relativePath>../pom.xml</relativePath>
         </parent>
         <artifactId>spring-spark</artifactId>
-        <name>spring-spark</name>
-        <description>spring-spark</description>
+        <name>BossAnalyze Analytics</name>
+        <description>Recruitment and access-log analytics</description>
         <dependencies>
                 <dependency>
                         <groupId>com.david.hlp</groupId>

@@ -1,5 +1,9 @@
 # Frontend API preservation guide
 
+Current directories are `backend/` and `frontend/`; see the
+[project structure and migration map](../project-structure.md). Historical paths
+in the archived catalogs, JSON inventory and contract snapshots are intentional.
+
 This is the interface handoff for rebuilding the frontend while retaining its API layer.
 It records the **current checkout at `832bfde`, dated 2026-10-30**, including unused exports,
 known contract defects and external integrations. It does not delete or redesign the UI,
@@ -11,10 +15,10 @@ old frontend files.
 
 The frontend now uses a fresh Nuxt 4 + shadcn-vue foundation initialized with preset
 `a2lQlAlu` and `--pointer`. The preserved API and supporting types moved from `vue/src/`
-to `vue/app/`; their module structure and request contracts are unchanged. The shared Axios
+to `frontend/app/`; their module structure and request contracts are unchanged. The shared Axios
 client now explicitly rejects server-side use before reading browser storage. Nitro route
 rules replace the old Vite development proxy and also apply to the production Node server.
-See [the frontend README](../../vue/README.md) for commands and the current layout.
+See [the frontend README](../../frontend/README.md) for commands and the current layout.
 
 The catalog, contracts, consumers and HTTP observations below are the historical pre-removal
 snapshot. The old business consumers are absent; their pinned source links remain usable.
@@ -42,7 +46,8 @@ The dashboard wrapper propagates request errors instead of manufacturing zero st
 dashboard destination, the same log snapshot API. Its quick entries mirror authorized
 sidebar leaves. Missing snapshots remain unavailable; refresh never triggers analysis.
 The gateway's default response is shown as an unavailable snapshot, and known backend
-sample metrics are excluded. Drafts, recruitment analytics and export assembly must be rebuilt.
+sample metrics are excluded. Recruitment analytics is available at `/recruitment`; drafts
+and export assembly remain to be rebuilt.
 Existing API defects remain documented; backend code, database schemas and stored data
 are outside this change. Real local login and permission menus were verified using existing
 accounts. The real dashboard API returned no usable analysis snapshot; populated and error

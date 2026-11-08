@@ -23,7 +23,7 @@ class RedisPlaceholderContractTest {
 
     @SuppressWarnings("unchecked")
     private String redisExpression(String module, boolean localDev) throws Exception {
-        Path yaml = Path.of(System.getProperty("boss.source.root"), "JDK17SERVE", module,
+        Path yaml = Path.of(System.getProperty("boss.source.root"), "backend", module,
                 "src/main/resources", localDev ? "application-local-dev.yml" : "application.yml");
         try (var reader = Files.newBufferedReader(yaml)) {
             Map<String, Object> document = new Yaml().load(reader);
@@ -39,7 +39,7 @@ class RedisPlaceholderContractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"spring", "spark"})
+    @ValueSource(strings = {"api", "analytics"})
     void missingRedisVariableHasNoTrackedFallback(String module) throws Exception {
         String expression = redisPassword(module);
         var resolver = new PropertySourcesPropertyResolver(new MutablePropertySources());
@@ -47,7 +47,7 @@ class RedisPlaceholderContractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"spring", "spark"})
+    @ValueSource(strings = {"api", "analytics"})
     void configuredSyntheticRedisValueResolvesWithoutConnecting(String module) throws Exception {
         var sources = new MutablePropertySources();
         sources.addFirst(new MapPropertySource("synthetic", Map.of("BOSSANALYZE_REDIS_PASSWORD", "synthetic-only")));
@@ -66,13 +66,13 @@ class RedisPlaceholderContractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"spring", "spark"})
+    @ValueSource(strings = {"api", "analytics"})
     void bootBinderKeepsMissingDefaultVariableAsLiteralNotFailFast(String module) throws Exception {
         assertEquals("${BOSSANALYZE_REDIS_PASSWORD}", bootBind(redisExpression(module, false), null));
     }
 
     @ParameterizedTest
-    @CsvSource({"spring,false", "spark,false", "spring,true", "spark,true"})
+    @CsvSource({"api,false", "analytics,false", "api,true", "analytics,true"})
     void bootBinderDoesNotRejectExplicitEmptyOrWhitespaceInEitherProfile(String module, boolean localDev) throws Exception {
         String expression = redisExpression(module, localDev);
         assertEquals("", bootBind(expression, ""));
@@ -80,13 +80,13 @@ class RedisPlaceholderContractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"spring", "spark"})
+    @ValueSource(strings = {"api", "analytics"})
     void existingLocalDevProfileKeepsPasswordlessDefault(String module) throws Exception {
         assertEquals("", bootBind(redisExpression(module, true), null));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"spring", "spark"})
+    @ValueSource(strings = {"api", "analytics"})
     void localDevCanOverrideItsEmptyDefaultWithSyntheticValue(String module) throws Exception {
         assertEquals("synthetic-only", bootBind(redisExpression(module, true), "synthetic-only"));
     }

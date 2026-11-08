@@ -13,13 +13,13 @@
         <artifactId>JDK17Service</artifactId>
         <version>0.0.1-SNAPSHOT</version>
         <packaging>pom</packaging>
-        <name>JDK17Service</name>
-        <description>JDK17Service</description>
+        <name>BossAnalyze Backend</name>
+        <description>BossAnalyze backend reactor and shared dependency management</description>
         <modules>
                 <module>commons</module>
-                <module>spring</module>
+                <module>api</module>
                 <module>crawler</module>
-                <module>spark</module>
+                <module>analytics</module>
         </modules>
         <properties>
                 <java.version>17</java.version>

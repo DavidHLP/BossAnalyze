@@ -27,10 +27,10 @@ jobs:
           java-version: '17'
           cache: maven
           cache-dependency-path: |
-            JDK17SERVE/**/pom.xml
+            backend/**/pom.xml
             tools/credential-contract-tests/pom.xml
       - name: Build and test all backend modules
-        run: mvn -B -ntp -f JDK17SERVE/pom.xml clean verify
+        run: mvn -B -ntp -f backend/pom.xml clean verify
       - name: Test isolated credential contracts
         run: mvn -B -ntp -f tools/credential-contract-tests/pom.xml clean verify
       - name: Repeat credential contracts offline
@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: vue
+        working-directory: frontend
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

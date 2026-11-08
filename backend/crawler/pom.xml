@@ -10,8 +10,8 @@
 	</parent>
 
 	<artifactId>spring-crawler</artifactId>
-	<name>spring-crawler</name>
-	<description>spring-crawler</description>
+	<name>BossAnalyze Crawler</name>
+	<description>Recruitment collection and AI enrichment</description>
 
 	<dependencies>
 		<dependency>

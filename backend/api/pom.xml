@@ -9,8 +9,8 @@
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 	<artifactId>spring-web</artifactId>
-	<name>spring-web</name>
-	<description>spring-web</description>
+	<name>BossAnalyze API</name>
+	<description>Business APIs, authentication and administration</description>
 	<dependencies>
 		<!-- 通用工具类模块 -->
 		<dependency>
