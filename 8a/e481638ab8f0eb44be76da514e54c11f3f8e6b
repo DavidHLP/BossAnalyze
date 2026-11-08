@@ -1,0 +1,27 @@
+docs/security/architecture-remediation.md
+  s_f2f5a10de5dca9::t_8747872fc2804c 17,84-103
+frontend/tests/session.test.mjs
+  s_f2f5a10de5dca9::t_2269a2767d2eaa 40-43
+frontend/app/components/LoginForm.vue
+  s_f2f5a10de5dca9::t_2269a2767d2eaa 88-92
+frontend/app/utils/request/request.ts
+  s_f2f5a10de5dca9::t_2269a2767d2eaa 24-29
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/JwtAuthenticationFilter.java
+  s_f2f5a10de5dca9::t_2269a2767d2eaa 24-26,28-30,32-39,41-44,46-69,71-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8ae481638ab8f0eb44be76da514e54c11f3f8e6b",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
