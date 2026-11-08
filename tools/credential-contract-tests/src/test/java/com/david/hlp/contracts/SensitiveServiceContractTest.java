@@ -46,7 +46,7 @@ class SensitiveServiceContractTest {
     }
     Map<String,Object> yaml(boolean local) {
         var bean=new YamlPropertiesFactoryBean();
-        var root=Path.of(System.getProperty("boss.source.root"),"JDK17SERVE/spring/src/main/resources");
+        var root=Path.of(System.getProperty("boss.source.root"),"backend/api/src/main/resources");
         bean.setResources(new FileSystemResource(root.resolve("application.yml")),
             new FileSystemResource(root.resolve(local?"application-local-dev.yml":"application.yml")));
         Map<String,Object> result=new HashMap<>();bean.getObject().forEach((k,v)->result.put(k.toString(),v));return result;

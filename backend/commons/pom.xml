@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>commons</artifactId>
-    <name>commons</name>
+    <name>BossAnalyze Common</name>
     <description>通用工具类集合，可被其他项目引用</description>
     <dependencies>
         <!-- Spring Boot Data Redis -->

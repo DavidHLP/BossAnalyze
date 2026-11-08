@@ -55,7 +55,7 @@ nuxt.config.ts            Theme, environment compatibility and Nitro proxy rules
 ```
 
 The original `vue/src/api/` tree and required declarations moved to `vue/app/` during
-initialization. The dashboard and health wrappers now propagate request errors instead of
+Nuxt initialization and now live under `frontend/app/` after the directory reorganization. The dashboard and health wrappers now propagate request errors instead of
 returning synthetic zero statistics or `DOWN`; other wrappers retain their existing behavior. Nuxt's `@` alias
 resolves to `app/`. The Axios client preserves token
 injection, timeout, credentials, response unwrapping, redirect and unauthorized-event
@@ -83,8 +83,8 @@ are filtered by exact permissions, status and visibility; legacy paths are mappe
 `/console`. The console is client-rendered because the preserved client stores its token
 in localStorage; the login page retains SSR. Logout clears local session state and menus
 (there is no server logout wrapper). No social login or account recovery is advertised.
-Recruitment analytics, resume editing and export screens still need to be rebuilt. No backend or
-database changes are part of this frontend work.
+Recruitment analytics is available at `/recruitment`; resume editing and export screens
+still need to be rebuilt. No backend or database changes are part of this frontend work.
 
 ## Workbench
 

@@ -1,5 +1,5 @@
 {
-  "name": "vue",
+  "name": "bossanalyze-frontend",
   "type": "module",
   "private": true,
   "scripts": {
