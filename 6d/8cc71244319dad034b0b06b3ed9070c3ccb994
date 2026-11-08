@@ -1,0 +1,64 @@
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/RoleServiceImp.java
+  s_1cc9c7077221b1::t_882068a5693ffd 39,42-43,139-142,195-196
+  s_1cc9c7077221b1::t_10235e89b4d176 40
+  s_1cc9c7077221b1::t_7d56197d4e3c40 38,41,117,143
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/UserMapper.java
+  s_1cc9c7077221b1::t_882068a5693ffd 28
+database/system.sql
+  s_1cc9c7077221b1::t_882068a5693ffd 71-72
+backend/api/src/test/java/com/david/hlp/web/system/auth/AccessBoundaryTest.java
+  s_1cc9c7077221b1::t_5ec68aeeebb98d 50-52,54,87-90
+  s_1cc9c7077221b1::t_78063b9a7cb5d9 1-41,45-49,55-60,64-76,78,85,91-94,96-98
+  s_1cc9c7077221b1::t_958e10c4db0475 42-44,53,61-63,79-82
+  s_1cc9c7077221b1::t_1b8778b358084e 77,83-84,86,95
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/RoleMapper.java
+  s_1cc9c7077221b1::t_882068a5693ffd 23-25,38
+frontend/app/api/modules/resume.ts
+  s_1cc9c7077221b1::t_882068a5693ffd 20-22
+backend/api/src/test/java/com/david/hlp/web/system/auth/RoleSemanticsTest.java
+  s_1cc9c7077221b1::t_5ec68aeeebb98d 14-17,19-22
+  s_1cc9c7077221b1::t_2f8044cce7a166 18
+  s_1cc9c7077221b1::t_7d56197d4e3c40 48
+  s_1cc9c7077221b1::t_78063b9a7cb5d9 1-13,23-47,49-57
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java
+  s_1cc9c7077221b1::t_de71fa2e3ee4f7 169
+backend/api/src/test/java/com/david/hlp/web/system/auth/RecruitmentGatewayTest.java
+  s_1cc9c7077221b1::t_1b8778b358084e 1-9,11-15,27-41
+  s_1cc9c7077221b1::t_5ec68aeeebb98d 10,16-26
+database/migrations/README-role-uniqueness.md
+  s_1cc9c7077221b1::t_7d56197d4e3c40 27
+  s_1cc9c7077221b1::t_6f1ef10f6903a4 1-26,28-31
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/JwtAuthenticationFilter.java
+  s_1cc9c7077221b1::t_882068a5693ffd 64,97,117
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/SecurityConfiguration.java
+  s_1cc9c7077221b1::t_882068a5693ffd 22-27,34-35,38-44,48-50
+  s_1cc9c7077221b1::t_958e10c4db0475 36-37
+  s_1cc9c7077221b1::t_10235e89b4d176 33
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/ConsoleAccess.java
+  s_1cc9c7077221b1::t_882068a5693ffd 1-30
+backend/api/src/main/java/com/david/hlp/web/system/config/ApplicationConfig.java
+  s_1cc9c7077221b1::t_882068a5693ffd 31,40
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/RecruitmentGatewayController.java
+  s_1cc9c7077221b1::t_5ec68aeeebb98d 10-35
+  s_1cc9c7077221b1::t_cdcde40bbd7821 1-9,36-37
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/AuthServiceImp.java
+  s_1cc9c7077221b1::t_882068a5693ffd 4,110-111,144-146
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/UserDetailsServiceImpl.java
+  s_1cc9c7077221b1::t_882068a5693ffd 39,51,69-74,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6d8cc71244319dad034b0b06b3ed9070c3ccb994",
+  "prompts": {},
+  "sessions": {
+    "s_1cc9c7077221b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ba5e-4a63-7360-90e1-7eb7f71fc7e0",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
