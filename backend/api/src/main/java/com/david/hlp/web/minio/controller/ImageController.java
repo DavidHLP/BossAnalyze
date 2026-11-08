@@ -16,6 +16,7 @@ import java.util.Locale;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ContentDisposition;
+import org.springframework.http.ResponseEntity;
 
 import lombok.RequiredArgsConstructor;
 
@@ -90,12 +91,12 @@ public class ImageController extends BaseController {
      * @return 图片资源
      */
     @GetMapping("/view/{fileName}")
-    public Result<InputStreamResource> viewImage(@PathVariable("fileName") String fileName) {
+    public ResponseEntity<?> viewImage(@PathVariable("fileName") String fileName) {
         try {
             InputStream inputStream = minioService.getObject(fileName);
             String contentType = getContentTypeByFileName(fileName);
 
-            Result<InputStreamResource> result = Result.file(
+            ResponseEntity<InputStreamResource> result = Result.file(
                     new InputStreamResource(inputStream),
                     contentType,
                     fileName,
@@ -108,7 +109,7 @@ public class ImageController extends BaseController {
                 headers.setContentDisposition(ContentDisposition.attachment()
                         .filename(fileName).build());
             }
-            return new Result<>(result.getBody(), headers, HttpStatus.OK);
+            return new ResponseEntity<>(result.getBody(), headers, HttpStatus.OK);
         } catch (Exception e) {
             log.error("获取图片失败 - 文件名: {}, 错误: {}", fileName, e.getMessage());
             return Result.error(ResultCode.ERROR, "获取图片失败: " + e.getMessage());
