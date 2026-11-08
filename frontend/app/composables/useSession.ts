@@ -1,11 +1,12 @@
 import { getUserBaseInfo, getUserPrivateInformation, login, logout } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
-import { menuTree, validSession } from '@/lib/session'
+import { loginLocation, menuTree, validSession } from '@/lib/session'
 import type { MenuItem } from '@/lib/session'
 
 interface Session {
   user: { name: string; email: string } | null
   menus: MenuItem[]
+  invalidated?: boolean
   ready: boolean
 }
 
@@ -16,7 +17,7 @@ export function useSession() {
 
   function clear() {
     loadedToken = null
-    state.value = { user: null, menus: [], ready: false }
+    state.value = { user: null, menus: [], ready: false, invalidated: true }
     if (import.meta.client) {
       for (const key of ['token', 'token_timestamp', 'cachedRoutes']) localStorage.removeItem(key)
       sessionStorage.removeItem('token_timestamp')
@@ -32,12 +33,21 @@ export function useSession() {
     }
     if (state.value.ready && loadedToken === token) return true
     state.value = { user: null, menus: [], ready: false }
-    const [user, permissions, routes] = await Promise.all([
-      getUserBaseInfo(),
-      getUserPrivateInformation(),
-      getUserRoutes(),
-    ])
-    if (token !== localStorage.getItem('token')) return false
+    let result
+    try {
+      result = await Promise.all([
+        getUserBaseInfo(),
+        getUserPrivateInformation(),
+        getUserRoutes(),
+      ])
+    } catch (error) {
+      const currentToken = localStorage.getItem('token')
+      if (currentToken && token !== currentToken) return restore()
+      if (error && typeof error === 'object' && 'code' in error && error.code === 401) clear()
+      throw error
+    }
+    const [user, permissions, routes] = result
+    if (token !== localStorage.getItem('token')) return restore()
     if (!user || typeof user !== 'object' || typeof user.email !== 'string') {
       throw new Error('Invalid user response')
     }
@@ -62,27 +72,31 @@ export function useSession() {
       localStorage.setItem('token_timestamp', String(Date.now()))
       if (!(await restore())) throw new Error('Session changed')
     } catch (error) {
-      clear()
+      if (!localStorage.getItem('token')) clear()
       throw error
     }
   }
 
-  async function signOut() {
+  const router = useRouter()
+  async function signOut(force = false, destination: unknown = null, reason?: string) {
     const token = localStorage.getItem('token')
-    let revoked = true
-    if (token) {
+    if (force) clear()
+    const target = destination ? loginLocation(destination, reason) : '/login'
+    const failure = await router.replace(target)
+    if (failure || router.currentRoute.value.path !== '/login') return false
+    if (!force && token && localStorage.getItem('token') === token) {
       try {
         await logout()
       } catch {
-        // Keep an explicit notice instead of claiming the server revoked the session.
-        revoked = false
+        if (localStorage.getItem('token') === token) {
+          clear()
+          await router.replace({ path: '/login', query: { logout: 'unconfirmed' } })
+        }
+        return true
       }
     }
-    clear()
-    await navigateTo(
-      { path: '/login', query: revoked ? {} : { logout: 'unconfirmed' } },
-      { replace: true },
-    )
+    if (force || localStorage.getItem('token') === token) clear()
+    return true
   }
 
   return { state, restore, signIn, signOut, clear }

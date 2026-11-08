@@ -31,16 +31,17 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RoleServiceImp {
 
-    private void rejectDuplicate(Role role) {
-        Long existing = roleMapper.findIdByName(role.getRoleName());
-        if (existing != null && !existing.equals(role.getId())) {
-            throw new com.david.hlp.web.common.exception.BusinessException(409, "角色名称重复");
-        }
-    }
-
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
     private final RouterMapper routerMapper;
+
+    private void validateName(Role role, Long excludedId) {
+        role.setRoleName(role.getRoleName().trim());
+        if ("USER".equalsIgnoreCase(role.getRoleName())) role.setRoleName("USER");
+        if (roleMapper.countByName(role.getRoleName(), excludedId) != 0) {
+            throw new com.david.hlp.web.common.exception.BusinessException(409, "角色名称重复");
+        }
+    }
 
     /**
      * 根据角色ID获取角色信息
@@ -115,7 +116,7 @@ public class RoleServiceImp {
         try {
             Assert.notNull(role, "角色信息不能为空");
             Assert.hasText(role.getRoleName(), "角色名称不能为空");
-            rejectDuplicate(role);
+            validateName(role, null);
             roleMapper.insertRole(role);
         } catch (IllegalArgumentException e) {
             log.warn("添加角色失败: {}", e.getMessage());
@@ -143,7 +144,7 @@ public class RoleServiceImp {
                     (!"USER".equals(role.getRoleName()) || !Integer.valueOf(1).equals(role.getStatus()))) {
                 throw new com.david.hlp.web.common.exception.BusinessException("默认角色不能改名或停用");
             }
-            rejectDuplicate(role);
+            validateName(role, role.getId());
             roleMapper.updateRole(role);
         } catch (IllegalArgumentException e) {
             log.warn("编辑角色失败: {}", e.getMessage());

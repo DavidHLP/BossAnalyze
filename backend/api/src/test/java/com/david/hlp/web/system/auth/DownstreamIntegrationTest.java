@@ -36,15 +36,17 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 class DownstreamIntegrationTest {
-    @Mock RoleMapper roles;
+    @Mock com.david.hlp.web.system.auth.mapper.RouterMapper routers;
     @Mock PermissionService permissions;
     @Mock UserDetailsService identities;
     @InjectMocks AuthController auth;
 
     @Test void actualIdentityCallbacksAuthenticateDownstreamAndPreserveFailureStatus() throws Exception {
         try (var mocks = MockitoAnnotations.openMocks(this)) {
+            var access = new com.david.hlp.web.system.auth.filter.ConsoleAccess(routers);
+            ReflectionTestUtils.setField(auth, "consoleAccess", access);
             var mvc = MockMvcBuilders.standaloneSetup(auth).addFilters(
-                    new JwtAuthenticationFilter(identities, roles, new ObjectMapper())).build();
+                    new JwtAuthenticationFilter(identities, access, new ObjectMapper())).build();
             var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/api/auth/", exchange -> {
                 try {
@@ -73,7 +75,9 @@ class DownstreamIntegrationTest {
                 var filter = new DownstreamAuthFilter(properties);
                 when(identities.loadUserByUsername("synthetic-token")).thenReturn(AuthUser.builder()
                         .userId(1L).authorities(List.of("custom:dashboard")).build());
-                when(roles.permissionsForPath("/console/dashboard")).thenReturn(List.of("custom:dashboard"));
+                var dashboard = new com.david.hlp.web.system.auth.entity.router.Router();
+                dashboard.setPath("/console/dashboard"); dashboard.setStatus(1); dashboard.setPermission("custom:dashboard");
+                when(routers.listAll()).thenReturn(List.of(dashboard));
                 when(permissions.getUserPermissions(1L)).thenReturn(List.of("custom:dashboard"));
                 assertEquals(200, downstream(filter, "/api/log/access/dashboard/stats"));
                 assertEquals(403, downstream(filter, properties.getTriggerPath()));
@@ -90,6 +94,7 @@ class DownstreamIntegrationTest {
                 when(permissions.getUserPermissions(1L)).thenReturn(List.of("custom:dashboard", "logs.analysis.trigger"));
                 assertEquals(200, downstream(filter, properties.getTriggerPath()));
                 when(permissions.getUserPermissions(1L)).thenReturn(List.of());
+                when(routers.listAll()).thenReturn(List.of());
                 assertEquals(403, downstream(filter, "/api/log/access/dashboard/stats"));
                 when(identities.loadUserByUsername("synthetic-token")).thenThrow(new UsernameNotFoundException("revoked"));
                 assertEquals(401, downstream(filter, "/api/recruitment/read"));
@@ -126,6 +131,9 @@ class DownstreamIntegrationTest {
         server.expect(requestTo("http://analytics.test:8082/api/log/access/dashboard/stats"))
                 .andExpect(header("Authorization", "Bearer synthetic-token"))
                 .andRespond(withSuccess("{\"computed\":1}", org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://analytics.test:8082/api/v1/boss/basic/position-name-list?cityName=A%26B"))
+                .andExpect(header("Authorization", "Bearer synthetic-token"))
+                .andRespond(withSuccess("[]", org.springframework.http.MediaType.APPLICATION_JSON));
         server.expect(requestTo("http://external.test/read")).andExpect(headerDoesNotExist("Authorization"))
                 .andRespond(withSuccess());
         server.expect(requestTo("http://analytics.test:8083/read")).andExpect(headerDoesNotExist("Authorization"))
@@ -138,6 +146,11 @@ class DownstreamIntegrationTest {
             ReflectionTestUtils.setField(controller, "restTemplate", rest);
             ReflectionTestUtils.setField(controller, "sparkServiceUrl", "http://analytics.test:8082");
             assertEquals(200, controller.getDashboardStats().getStatusCode().value());
+            var recruitment = new com.david.hlp.web.system.auth.controller.RecruitmentGatewayController(rest);
+            ReflectionTestUtils.setField(recruitment, "sparkServiceUrl", "http://analytics.test:8082");
+            var query = new MockHttpServletRequest("GET", "/api/v1/boss/basic/position-name-list");
+            query.setQueryString("cityName=A%26B");
+            assertEquals("[]", recruitment.read(query).getBody());
             rest.getForEntity(URI.create("http://external.test/read"), String.class);
             rest.getForEntity(URI.create("http://analytics.test:8083/read"), String.class);
             server.verify();

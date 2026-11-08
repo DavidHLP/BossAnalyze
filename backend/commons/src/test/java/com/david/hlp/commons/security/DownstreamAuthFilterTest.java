@@ -143,6 +143,19 @@ class DownstreamAuthFilterTest {
         server.verify();
     }
 
+    @Test
+    void redactedHealthRequiresIdentityButNotDashboardPermission() throws Exception {
+        properties.setPublicPaths(List.of("/actuator", "/error"));
+        assertEquals(401, run("GET", "/api/log/access/health", null).getStatus());
+        assertFalse(passed.get());
+        server.expect(requestTo(VERIFY_URL))
+                .andExpect(header("Authorization", "Bearer live-token"))
+                .andRespond(withSuccess("{\"code\":200,\"data\":[]}", MediaType.APPLICATION_JSON));
+        assertEquals(200, run("GET", "/api/log/access/health", "Bearer live-token").getStatus());
+        assertTrue(passed.get());
+        server.verify();
+    }
+
     private MockHttpServletResponse run(String method, String path, String authorization) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(method, path);
         if (authorization != null) {

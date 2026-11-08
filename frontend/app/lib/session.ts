@@ -1,6 +1,8 @@
 export interface MenuItem {
   title: string
   path: string | null
+  icon?: string
+  hidden?: boolean
   children: MenuItem[]
 }
 
@@ -51,12 +53,7 @@ export function menuTree(raw: unknown, permissions: unknown, parent = '/console'
       if (item.meta != null && (typeof item.meta !== 'object' || Array.isArray(item.meta)))
         return []
       const meta = item.meta ?? {}
-      if (
-        item.status !== 1 ||
-        meta.type === 'F' ||
-        meta.hidden === true ||
-        meta.metaHidden === true
-      ) {
+      if (item.status !== 1 || meta.type === 'F' || meta.hidden === true) {
         return []
       }
       if (
@@ -70,7 +67,11 @@ export function menuTree(raw: unknown, permissions: unknown, parent = '/console'
       const children = menuTree(item.children ?? [], permissions, path ?? parent)
       const title = meta.metaTitle || item.name
       if (typeof title !== 'string' || (!path && !children.length)) return []
-      return [{ title, path, children }]
+      return [{
+        title, path, children,
+        hidden: meta.metaHidden === true,
+        icon: typeof meta.metaIcon === 'string' ? meta.metaIcon : undefined,
+      }]
     })
 }
 
@@ -84,21 +85,40 @@ export function findMenu(items: MenuItem[], path: string): MenuItem | undefined 
 
 export function menuShortcuts(items: MenuItem[]) {
   const seen = new Set<string>()
-  function leaves(nodes: MenuItem[]): Array<{ title: string; path: string }> {
+  function leaves(nodes: MenuItem[]): Array<{ title: string; path: string; icon?: string }> {
     return nodes.flatMap((node) => {
       if (node.children.length) return leaves(node.children)
       if (!node.path || node.path === '/console' || seen.has(node.path)) return []
       seen.add(node.path)
-      return [{ title: node.title, path: node.path }]
+      return [{ title: node.title, path: node.path, ...(node.icon ? { icon: node.icon } : {}) }]
     })
   }
-  return leaves(items)
+  return leaves(navigationMenus(items))
+}
+
+export function navigationMenus(items: MenuItem[]): MenuItem[] {
+  return items.filter((item) => !item.hidden).map((item) => ({
+    ...item, children: navigationMenus(item.children),
+  }))
+}
+
+export function safeReturnPath(value: unknown) {
+  if (typeof value !== 'string' || !value.startsWith('/') || /[\\\s]|%(?:2f|5c)/i.test(value)) return null
+  const url = new URL(value, 'https://bossanalyze.invalid')
+  if (url.origin !== 'https://bossanalyze.invalid') return null
+  if (url.pathname !== '/recruitment' && url.pathname !== '/console' && !url.pathname.startsWith('/console/')) return null
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
+export function loginLocation(value: unknown, reason?: string) {
+  return { path: '/login', query: { redirect: safeReturnPath(value) ?? '/console', ...(reason ? { reason } : {}) } }
 }
 
 export function loginDestination(value: unknown, menus: MenuItem[]) {
-  if (value === '/recruitment') return '/recruitment'
-  const path = typeof value === 'string' && value.startsWith('/') ? consolePath(value) : null
-  return path && (path === '/console' || findMenu(menus, path)) ? path : '/console'
+  const fullPath = safeReturnPath(value)
+  const path = fullPath ? new URL(fullPath, 'https://bossanalyze.invalid').pathname : null
+  if (!fullPath || !path) return '/console'
+  return path === '/recruitment' || path === '/console' || findMenu(menus, path) ? fullPath : '/console'
 }
 
 export function loginFailure(error: unknown) {

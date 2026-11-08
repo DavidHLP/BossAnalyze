@@ -22,15 +22,15 @@ public class SecurityConfiguration {
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                 http
-                                .authorizeHttpRequests(auth -> auth
+                                .authorizeHttpRequests(requests -> requests
                                                 .requestMatchers(JwtAuthenticationFilter.PUBLIC_PATHS.toArray(String[]::new)).permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                                                // .requestMatchers("/api/user/**").hasRole("ADMIN")
-                                                // .requestMatchers("/api/role/**").hasRole("ADMIN")
-                                                // .requestMatchers("/api/auth/**").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .exceptionHandling(errors -> errors
+                                                .authenticationEntryPoint((req, res, ex) -> res.sendError(401))
+                                                .accessDeniedHandler((req, res, ex) -> res.sendError(403)))
                                 .authenticationProvider(authenticationProvider)
                                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                                 .csrf(csrf -> csrf.disable());

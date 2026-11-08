@@ -111,7 +111,9 @@ public class DownstreamAuthFilter implements Filter {
     }
 
     private boolean isPermissionProtected(String path) {
-        return matchesPrefix(path, properties.getPermissionProtectedPaths());
+        // The redacted health probe is login-only, matching the primary gateway.
+        return !path.equals("/api/log/access/health")
+                && matchesPrefix(path, properties.getPermissionProtectedPaths());
     }
 
     private boolean isTrigger(String path) {

@@ -30,7 +30,13 @@ class IdentitySecurityTest {
     final UserDetailsService details = mock(UserDetailsService.class);
     final RoleMapper roles = mock(RoleMapper.class);
     final ObjectMapper json = new ObjectMapper();
-    final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(details, roles, json);
+    final RouterMapper routers = mock(RouterMapper.class);
+    final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(details, new com.david.hlp.web.system.auth.filter.ConsoleAccess(routers), json);
+    void page(String path, String permission) {
+        var router = new com.david.hlp.web.system.auth.entity.router.Router();
+        router.setPath(path); router.setPermission(permission); router.setStatus(1);
+        when(routers.listAll()).thenReturn(List.of(router));
+    }
 
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
 
@@ -53,20 +59,34 @@ class IdentitySecurityTest {
     @Test void managementAndLogsFailClosedAndResolveConfiguredPermission() throws Exception {
         when(details.loadUserByUsername("test-token")).thenReturn(principal("ROLE_USER"));
         for (String path : List.of("/api/user/updateUser", "/api/role/getRoleList", "/api/auth/addRole",
-                "/api/auth/updateRoleRouters", "/api/auth/addRouter", "/api/v1/system/logs/health",
+                "/api/auth/updateRoleRouters", "/api/auth/addRouter",
                 "/api/v1/system/logs/analysis/trigger")) {
             assertEquals(401, request(path, null));
             assertEquals(403, request(path, "test-token"));
         }
-        when(roles.permissionsForPath("/console/users")).thenReturn(List.of("users:manage"));
+        page("/console/users", "users:manage");
         when(details.loadUserByUsername("test-token")).thenReturn(principal("users:manage"));
         assertEquals(200, request("/api/user/updateUser", "test-token"));
         when(details.loadUserByUsername("test-token")).thenReturn(principal("ROLE_USER"));
         assertEquals(403, request("/api/user/updateUser", "test-token"));
     }
 
+    @Test void dependentRoleReadsUseUsersOrMenusGrantsAndTriggerStillNeedsDashboard() throws Exception {
+        page("/users", "users:manage");
+        when(details.loadUserByUsername("t")).thenReturn(principal("users:manage"));
+        assertEquals(200, request("/api/role/getRoleList", "t"));
+        assertEquals(403, request("/api/auth/addRole", "t"));
+        page("menus", "menus:manage");
+        when(details.loadUserByUsername("t")).thenReturn(principal("menus:manage"));
+        assertEquals(200, request("/api/auth/getRoleList", "t"));
+        assertEquals(403, request("/api/auth/addRole", "t"));
+        when(details.loadUserByUsername("t")).thenReturn(principal("logs.analysis.trigger"));
+        assertEquals(403, request("/api/v1/system/logs/analysis/trigger", "t"));
+        assertEquals(200, request("/api/v1/system/logs/health", "t"));
+    }
+
     @Test void logTriggerRequiresPageAndSeparateGrant() throws Exception {
-        when(roles.permissionsForPath("/console/dashboard")).thenReturn(List.of("dashboard:read"));
+        page("/console/dashboard", "dashboard:read");
         when(details.loadUserByUsername("t")).thenReturn(principal("dashboard:read"));
         assertEquals(200, request("/api/v1/system/logs/stats", "t"));
         assertEquals(403, request("/api/v1/system/logs/analysis/trigger", "t"));
@@ -84,11 +104,11 @@ class IdentitySecurityTest {
 
     @Test void disabledRoleAndRevokedTokenRejectOldCredentials() {
         var users = mock(UserMapper.class); var tokens = mock(TokenMapper.class); var jwt = mock(JwtService.class);
-        var service = new UserDetailsServiceImpl(users, tokens, jwt);
+        var service = new UserDetailsServiceImpl(users, tokens, jwt, roles);
         when(tokens.checkTokenValid("t")).thenReturn(true);
         when(jwt.extractUsername("t")).thenReturn("synthetic@example.test");
         when(users.getByEmailToAuthUser(anyString())).thenReturn(principal());
-        when(users.isRoleEnabled(2L)).thenReturn(false);
+        when(roles.getRoleById(2L)).thenReturn(Role.builder().id(2L).status(0).build());
         assertThrows(UsernameNotFoundException.class, () -> service.loadUserByUsername("t"));
         verify(users, never()).listAuthoritiesByRoleId(anyLong());
         when(tokens.checkTokenValid("t")).thenReturn(false);
@@ -124,7 +144,7 @@ class IdentitySecurityTest {
         when(roles.getRoleById(2L)).thenReturn(Role.builder().id(2L).roleName("USER").status(1).build());
         assertThrows(BusinessException.class, () -> service.deleteRole(2L));
         assertThrows(BusinessException.class, () -> service.editRole(Role.builder().id(2L).roleName("other").status(1).build()));
-        when(roles.findIdByName("USER")).thenReturn(2L);
+        when(roles.countByName("USER", null)).thenReturn(1);
         assertThrows(BusinessException.class, () -> service.addRole(Role.builder().roleName("USER").build()));
         verify(roles,never()).insertRole(any()); verify(roles,never()).updateRole(any());
         verify(roles,never()).deleteRolePermissionByRoleId(anyLong());
@@ -151,7 +171,7 @@ class IdentitySecurityTest {
 
     @Test void failedAuthenticationLogsNeverContainCredential() {
         var users = mock(UserMapper.class); var tokens = mock(TokenMapper.class);
-        var service = new UserDetailsServiceImpl(users, tokens, mock(JwtService.class));
+        var service = new UserDetailsServiceImpl(users, tokens, mock(JwtService.class), roles);
         var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(UserDetailsServiceImpl.class);
         var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
         appender.start(); logger.addAppender(appender);

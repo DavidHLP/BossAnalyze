@@ -28,6 +28,7 @@ public class ApplicationConfig {
   private final UserMapper userMapper;
   private final TokenMapper tokenMapper;
   private final JwtService jwtService;
+  private final com.david.hlp.web.system.auth.mapper.RoleMapper roleMapper;
 
   /**
    * 配置 UserDetailsService，从数据库加载用户信息。
@@ -36,7 +37,7 @@ public class ApplicationConfig {
    */
   @Bean
   public UserDetailsService userDetailsService() {
-    return new UserDetailsServiceImpl(userMapper, tokenMapper, jwtService);
+    return new UserDetailsServiceImpl(userMapper, tokenMapper, jwtService, roleMapper);
   }
 
   /**

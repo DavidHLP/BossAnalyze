@@ -36,6 +36,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     private final UserMapper userMapper;
     private final TokenMapper tokenMapper;
     private final JwtService jwtService;
+    private final com.david.hlp.web.system.auth.mapper.RoleMapper roleMapper;
 
     /**
      * 根据用户邮箱加载用户详情
@@ -65,7 +66,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         Assert.notNull(user.getRoleId(), "用户角色ID不能为空");
 
-        if (!user.isEnabled() || !userMapper.isRoleEnabled(user.getRoleId())) {
+        var role = roleMapper.getRoleById(user.getRoleId());
+        if (!user.isEnabled() || role == null || !Integer.valueOf(1).equals(role.getStatus())) {
             throw new UsernameNotFoundException("用户或角色已停用");
         }
         // 加载用户权限

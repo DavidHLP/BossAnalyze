@@ -9,11 +9,22 @@ const title = computed(() =>
       ? '工作台'
       : (findMenu(session.value.menus, route.path)?.title ?? '工作台'),
 )
+const main = ref<HTMLElement | null>(null)
+const nuxtApp = useNuxtApp()
+const removeFocusHook = nuxtApp.hook('page:finish', () => {
+  main.value?.focus()
+})
+onUnmounted(removeFocusHook)
 useHead({ title: () => `${title.value} · BossAnalyze` })
 </script>
 
 <template>
   <UiSidebarProvider>
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded focus:bg-background focus:p-3"
+      @click.prevent="main?.focus()"
+    >跳过导航</a>
     <AppSidebar />
     <UiSidebarInset>
       <header
@@ -35,7 +46,13 @@ useHead({ title: () => `${title.value} · BossAnalyze` })
           </UiBreadcrumbList>
         </UiBreadcrumb>
       </header>
-      <main class="flex flex-1 flex-col gap-6 p-4 md:p-8"><slot /></main>
+      <main
+        id="main-content"
+        ref="main"
+        tabindex="-1"
+        aria-label="主内容"
+        class="flex flex-1 flex-col gap-6 p-4 md:p-8"
+      ><slot /></main>
     </UiSidebarInset>
   </UiSidebarProvider>
 </template>

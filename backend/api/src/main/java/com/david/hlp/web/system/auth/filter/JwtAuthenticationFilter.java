@@ -23,7 +23,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
-    private final RoleMapper roleMapper;
+    private final ConsoleAccess consoleAccess;
     private final ObjectMapper objectMapper;
 
     static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/register",
@@ -50,9 +50,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
             authentication.setDetails(new org.springframework.security.web.authentication.WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            String page = requiredPage(path);
-            if (page != null && roleMapper.permissionsForPath(page).stream().noneMatch(permission ->
-                    authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(permission)))) {
+            String[] pages = requiredPages(path);
+            if (pages != null && !consoleAccess.checkAny(authentication, pages).isGranted()) {
                 reject(response, 403);
                 return;
             }
@@ -75,12 +74,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private static String requiredPage(String path) {
-        if (path.startsWith("/api/user/")) return "/console/users";
-        if (path.startsWith("/api/role/") || Set.of("/api/auth/getRoleList", "/api/auth/addRole",
-                "/api/auth/editRole", "/api/auth/deleteRole", "/api/auth/updateRoleRouters").contains(path)) return "/console/roles";
-        if (Set.of("/api/auth/editRouter", "/api/auth/addRouter", "/api/auth/deleteRouter").contains(path)) return "/console/menus";
-        if (path.equals("/api/v1/system/logs") || path.startsWith("/api/v1/system/logs/")) return "/console/dashboard";
+    private static String[] requiredPages(String path) {
+        if (path.startsWith("/api/user/")) return new String[]{"users"};
+        if (path.startsWith("/api/role/")) return new String[]{"roles", "users"};
+        if (path.equals("/api/auth/getRoleList")) return new String[]{"roles", "menus"};
+        if (Set.of("/api/auth/addRole", "/api/auth/editRole", "/api/auth/deleteRole",
+                "/api/auth/updateRoleRouters").contains(path)) return new String[]{"roles"};
+        if (Set.of("/api/auth/editRouter", "/api/auth/addRouter", "/api/auth/deleteRouter").contains(path)) return new String[]{"menus"};
+        if (path.equals("/api/v1/system/logs/health")) return null;
+        if (path.equals("/api/v1/system/logs") || path.startsWith("/api/v1/system/logs/")) return new String[]{"dashboard"};
         return null;
     }
 

@@ -1,8 +1,9 @@
 export default defineNuxtPlugin((nuxtApp) => {
   const session = useSession()
+  const router = useRouter()
   const onUnauthorized = () => {
-    session.clear()
-    void navigateTo({ path: '/login', query: { reason: 'expired' } }, { replace: true })
+    if (router.currentRoute.value.path === '/login') return
+    void session.signOut(true, router.currentRoute.value.fullPath, 'expired')
   }
   window.addEventListener('unauthorized', onUnauthorized)
   const onStorage = (event: StorageEvent) => {

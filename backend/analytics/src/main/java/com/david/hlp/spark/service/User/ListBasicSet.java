@@ -50,6 +50,10 @@ public class ListBasicSet {
                 .load()
                 .filter(functions.col("is_deleted").equalTo(0));
 
+        return positionNames(query, cityName);
+    }
+
+    List<String> positionNames(Dataset<Row> query, String cityName) {
         if (cityName != null && !cityName.equals("all")) {
             query = query.where(functions.col("city_name").equalTo(cityName));
         }

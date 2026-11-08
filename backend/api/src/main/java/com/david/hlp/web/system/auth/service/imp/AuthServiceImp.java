@@ -1,6 +1,7 @@
 package com.david.hlp.web.system.auth.service.imp;
 
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -146,7 +147,9 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO, To
     @Override
     public Long getDefaultRoleId() {
         try {
-            return roleMapper.getDefaultRoleId();
+            Long roleId = roleMapper.getDefaultRoleId();
+            Assert.notNull(roleId, "必须存在唯一启用的 USER 角色");
+            return roleId;
         } catch (Exception e) {
             log.error("获取默认角色ID失败", e);
             throw e;

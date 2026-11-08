@@ -14,11 +14,11 @@ export interface JobData {
   positionName: string;
   cityName: string;
   salary: string;
-  salaryValue: number;
+  salaryValue: number | null;
   degree: string;
-  degreeValue: number;
+  degreeValue: number | null;
   experience: string;
-  experienceValue: number;
+  experienceValue: number | null;
   companyName: string;
   companySize: string;
   industry: string;
@@ -28,7 +28,7 @@ export interface JobData {
   address: string;
   employeeBenefits: string[];
   jobRequirements: string[];
-  [key: string]: string | number | string[] | number[]; // 添加索引签名以允许使用字符串索引
+  [key: string]: string | number | string[] | number[] | null; // 添加索引签名以允许使用字符串索引
 }
 
 export interface CompanyInfo {

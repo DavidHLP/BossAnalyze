@@ -44,7 +44,7 @@ import java.util.Objects;
 public class AuthController extends BaseController {
 
     private final com.david.hlp.web.system.auth.LogoutService logoutService;
-    private final com.david.hlp.web.system.auth.mapper.RoleMapper roleMapper;
+    private final com.david.hlp.web.system.auth.filter.ConsoleAccess consoleAccess;
 
     @PostMapping("/logout")
     public Result<Void> logout(jakarta.servlet.http.HttpServletRequest request,
@@ -55,8 +55,9 @@ public class AuthController extends BaseController {
 
     @GetMapping("/hasPagePermission")
     public Result<Boolean> hasPagePermission(@RequestParam String path) {
-        var grants = permissionService.getUserPermissions(getCurrentUserId());
-        return Result.success(roleMapper.permissionsForPath(path).stream().anyMatch(grants::contains));
+        String page = path.startsWith("/console/") ? path.substring("/console/".length()) : path;
+        return Result.success(consoleAccess.check(
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication(), page).isGranted());
     }
 
     private final AuthServiceImp authService;

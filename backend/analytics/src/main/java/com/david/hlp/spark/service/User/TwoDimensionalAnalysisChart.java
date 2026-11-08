@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.io.Serializable;
 import org.apache.spark.api.java.function.MapFunction;
+import org.apache.spark.sql.api.java.UDF1;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
@@ -144,7 +145,7 @@ public class TwoDimensionalAnalysisChart implements Serializable {
     /**
      * 处理职位数据：提取薪资值、学历值和经验值
      */
-    private Dataset<Row> processJobData(Dataset<Row> jobDf) {
+    Dataset<Row> processJobData(Dataset<Row> jobDf) {
         // 注册UDF函数用于提取薪资数值
         registerSalaryExtractorUdf();
 
@@ -166,84 +167,54 @@ public class TwoDimensionalAnalysisChart implements Serializable {
      */
     private void registerSalaryExtractorUdf() {
         sparkSession.udf().register("extractSalary",
-                (String salaryStr) -> extractSalaryValue(salaryStr), DataTypes.DoubleType);
+                (UDF1<String, Double>) TwoDimensionalAnalysisChart::extractSalary, DataTypes.DoubleType);
     }
 
-    /**
-     * 提取薪资中点，保留小数；未知格式返回null。
-     */
-    static Double extractSalaryValue(String salaryStr) {
+    static Double extractSalary(String salaryStr) {
         if (salaryStr == null || salaryStr.isEmpty()) {
             return null;
         }
-
         try {
-            Pattern singlePattern = Pattern.compile("^(\\d+)K$");
-            Pattern rangePattern = Pattern.compile("^(\\d+)-(\\d+)K$");
-
-            Matcher singleMatcher = singlePattern.matcher(salaryStr);
-            Matcher rangeMatcher = rangePattern.matcher(salaryStr);
-
-            if (singleMatcher.matches()) {
-                // 单一数值，如"4K"
-                return Double.parseDouble(singleMatcher.group(1));
-            } else if (rangeMatcher.matches()) {
-                // 范围值，如"4-5K"，保留真实中点
-                double lower = Double.parseDouble(rangeMatcher.group(1));
-                double upper = Double.parseDouble(rangeMatcher.group(2));
-                return (lower + upper) / 2.0;
-            } else {
-                // 其他格式忽略
-                return null;
+            Matcher single = Pattern.compile("^(\\d+)K$").matcher(salaryStr);
+            Matcher range = Pattern.compile("^(\\d+)-(\\d+)K$").matcher(salaryStr);
+            if (single.matches()) {
+                return (double) Integer.parseInt(single.group(1));
             }
-        } catch (Exception e) {
+            if (range.matches()) {
+                double lower = Integer.parseInt(range.group(1));
+                double upper = Integer.parseInt(range.group(2));
+                return (lower + upper) / 2.0;
+            }
+        } catch (NumberFormatException e) {
             return null;
         }
+        return null;
     }
 
-    /**
-     * 注册经验映射UDF函数
-     */
     private void registerExperienceMapperUdf() {
         sparkSession.udf().register("mapExperience",
-                (String expStr) -> mapExperienceValue(expStr), DataTypes.IntegerType);
+                (UDF1<String, Integer>) TwoDimensionalAnalysisChart::mapExperience, DataTypes.IntegerType);
     }
 
-    /**
-     * 经验映射：null或未知返回null，显式“不限”等仍为0。
-     */
-    static Integer mapExperienceValue(String expStr) {
-        if (expStr == null || expStr.isEmpty()) {
-            return null;
-        }
-
-        // 遍历映射表查找匹配的关键词
-        return EXPERIENCE_MAP.entrySet().stream()
-                .filter(entry -> expStr.contains(entry.getKey()))
-                .map(Map.Entry::getValue)
-                .findFirst()
-                .orElse(null);
+    static Integer mapExperience(String value) {
+        return mapRequirement(value, EXPERIENCE_MAP);
     }
 
-    /**
-     * 注册学历映射UDF函数
-     */
     private void registerDegreeMapperUdf() {
         sparkSession.udf().register("mapDegree",
-                (String degreeStr) -> mapDegreeValue(degreeStr), DataTypes.IntegerType);
+                (UDF1<String, Integer>) TwoDimensionalAnalysisChart::mapDegree, DataTypes.IntegerType);
     }
 
-    /**
-     * 学历映射：null或未知返回null，显式“不限”仍为0。
-     */
-    static Integer mapDegreeValue(String degreeStr) {
-        if (degreeStr == null || degreeStr.isEmpty()) {
+    static Integer mapDegree(String value) {
+        return mapRequirement(value, DEGREE_MAP);
+    }
+
+    private static Integer mapRequirement(String value, Map<String, Integer> mapping) {
+        if (value == null || value.isBlank()) {
             return null;
         }
-
-        // 遍历映射表查找匹配的关键词
-        return DEGREE_MAP.entrySet().stream()
-                .filter(entry -> degreeStr.contains(entry.getKey()))
+        return mapping.entrySet().stream()
+                .filter(entry -> value.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .orElse(null);
@@ -252,7 +223,7 @@ public class TwoDimensionalAnalysisChart implements Serializable {
     /**
      * 应用城市和职位的过滤条件
      */
-    private Dataset<Row> applyFilters(Dataset<Row> processedDf, String cityName, String positionName, String xAxis,
+    Dataset<Row> applyFilters(Dataset<Row> processedDf, String cityName, String positionName, String xAxis,
             String yAxis) {
         // 应用过滤条件
         if (cityName != null && !cityName.isEmpty() && !"all".equalsIgnoreCase(cityName)) {
@@ -296,7 +267,7 @@ public class TwoDimensionalAnalysisChart implements Serializable {
     /**
      * 构建结果数据列表
      */
-    private List<JobAnalysisData> buildResultDataList(Dataset<Row> echartsDf) {
+    List<JobAnalysisData> buildResultDataList(Dataset<Row> echartsDf) {
         return echartsDf.map(
                 (MapFunction<Row, JobAnalysisData>) row -> {
                     return JobAnalysisData.builder()

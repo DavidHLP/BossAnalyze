@@ -165,7 +165,7 @@ public class LogController {
         try {
             // 检查Spark服务连接
             String url = sparkServiceUrl + "/api/log/access/health";
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            restTemplate.getForEntity(url, String.class);
 
             health.put("status", "UP");
             health.put("sparkService", "UP");
