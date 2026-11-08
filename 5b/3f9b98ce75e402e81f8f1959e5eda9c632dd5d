@@ -1,0 +1,20 @@
+backend/api/src/test/java/com/david/hlp/web/system/auth/DownstreamIntegrationTest.java
+  s_eefc5fae2ebb50::t_b7ef479961f757 86
+  s_eefc5fae2ebb50::t_3876fa1af21f17 1-85,87-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b3f9b98ce75e402e81f8f1959e5eda9c632dd5d",
+  "prompts": {},
+  "sessions": {
+    "s_eefc5fae2ebb50": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bbc4-2cf0-7e70-bb7f-66a9b257eddf",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
