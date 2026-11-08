@@ -1,0 +1,52 @@
+backend/api/src/main/java/com/david/hlp/web/resume/controller/ResumeVersionController.java
+  s_b9c412efc0fab1::t_29cb496e638a27 8,50-51,76-77,98-99,122-123,142-143,164-165,186-187,206-207,237-238,268-269,293-294,316-317,337-338,358-359,378-379
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/RouterServiceImp.java
+  s_b9c412efc0fab1::t_29cb496e638a27 7-8,66-71,73,89-92,94-98,100-101
+  s_b9c412efc0fab1::t_6954bc4447d8f9 88,93
+backend/api/src/main/java/com/david/hlp/web/minio/controller/ImageController.java
+  s_b9c412efc0fab1::t_29cb496e638a27 4,127,136-137,188
+  s_b9c412efc0fab1::t_6954bc4447d8f9 98,104-106,109-110
+  s_b9c412efc0fab1::t_fc700c438ff1e9 15-18,103,107-108,111
+backend/api/src/main/java/com/david/hlp/web/minio/service/MinioService.java
+  s_b9c412efc0fab1::t_29cb496e638a27 4,157-163
+backend/api/src/test/java/com/david/hlp/web/resume/ResumeIntegrityTest.java
+  s_b9c412efc0fab1::t_39483e14a4e4aa 1-54,68-78,86-124,126-143,145,147-161
+  s_b9c412efc0fab1::t_a27e14f34d302a 125,146
+  s_b9c412efc0fab1::t_d39b1aa4f1e8ab 144
+  s_b9c412efc0fab1::t_fc700c438ff1e9 55-67,79-85
+backend/api/src/main/java/com/david/hlp/web/resume/service/ResumeVersionControlService.java
+  s_b9c412efc0fab1::t_6954bc4447d8f9 5,35,741
+  s_b9c412efc0fab1::t_a27e14f34d302a 364-365,530-531,634-635,716-717
+  s_b9c412efc0fab1::t_29cb496e638a27 38
+  s_b9c412efc0fab1::t_257a216386b764 34,36-37,39,56,124,151-152,199,278,314,332,387,408-409,411,414-415,454,501,517,560,579,603,736-740,742-743
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/PermissionMapper.java
+  s_b9c412efc0fab1::t_6954bc4447d8f9 31-33
+  s_b9c412efc0fab1::t_29cb496e638a27 34-36
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/RouterMapper.java
+  s_b9c412efc0fab1::t_29cb496e638a27 142-147
+  s_b9c412efc0fab1::t_6954bc4447d8f9 44-46
+backend/api/src/test/java/com/david/hlp/web/minio/ImageIntegrityTest.java
+  s_b9c412efc0fab1::t_d39b1aa4f1e8ab 1-31,43-53
+  s_b9c412efc0fab1::t_fc700c438ff1e9 32-42
+backend/api/src/main/java/com/david/hlp/web/resume/service/ResumeService.java
+  s_b9c412efc0fab1::t_257a216386b764 11,39-43,54,80,85-88,97
+backend/api/src/test/java/com/david/hlp/web/system/auth/RouterIntegrityTest.java
+  s_b9c412efc0fab1::t_d39b1aa4f1e8ab 1-25,27-61
+  s_b9c412efc0fab1::t_a27e14f34d302a 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ab50016a8019b85cb1335902dfa35b83dd0dd58f",
+  "prompts": {},
+  "sessions": {
+    "s_b9c412efc0fab1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bbb5-8841-7b42-a5e9-cb92fb130736",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
