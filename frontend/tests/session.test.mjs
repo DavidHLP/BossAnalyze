@@ -20,13 +20,17 @@ const node = (path, permission = '', extra = {}) => ({
   ...extra,
 })
 
-test('login failures distinguish credentials from service errors without exposing backend details', () => {
+test('login failures only classify explicit statuses and keep ambiguous failures neutral', () => {
   assert.equal(
     loginFailure({ code: 401, message: 'account does not exist' }),
     '邮箱或密码不正确，请检查后重试。',
   )
-  for (const error of [{ code: 500 }, { code: 502 }, new Error('private backend URL'), null]) {
+  for (const code of [502, 503, 504]) {
+    const error = { code }
     assert.equal(loginFailure(error), '暂时无法完成登录，请稍后重试或检查服务连接。')
+  }
+  for (const error of [{ code: 500 }, new Error('Missing token'), null]) {
+    assert.equal(loginFailure(error), '登录失败，请检查邮箱、密码及服务连接后重试。')
   }
 })
 

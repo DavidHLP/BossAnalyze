@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { AxiosError } from 'axios'
 import request from '../app/utils/request/request.ts'
+import { loginFailure } from '../app/lib/session.ts'
 
 after(() => {
   delete globalThis.window
@@ -46,4 +47,36 @@ test('HTTP 401 still clears the token and dispatches unauthorized', async () => 
   await assert.rejects(request.get('/api/resume'), error => error.code === 401)
   assert.deepEqual(removed, ['token'])
   assert.deepEqual(events, ['unauthorized'])
+})
+
+test('login-controller-shaped 500 responses remain neutral after request normalization', async () => {
+  for (const message of ['登录失败: 用户不存在', '登录失败: 密码错误', '登录失败: private database error']) {
+    request.defaults.adapter = async config => {
+      const response = {
+        config, status: 500, headers: {}, data: { code: 500, message, data: null },
+      }
+      throw new AxiosError(
+        'Request failed with status code 500', 'ERR_BAD_RESPONSE', config, undefined, response,
+      )
+    }
+    await assert.rejects(
+      request.post('/api/auth/login', { email: 'fixture@example.invalid', password: 'synthetic' }),
+      error => {
+        assert.equal(error.code, 500)
+        assert.equal(loginFailure(error), '登录失败，请检查邮箱、密码及服务连接后重试。')
+        return true
+      },
+    )
+  }
+})
+
+test('legacy HTTP 200 login failures cannot be mistaken for a service outage after token validation', async () => {
+  request.defaults.adapter = async config => ({
+    config, status: 200, headers: {}, data: { code: 500, message: '登录失败: 密码错误', data: null },
+  })
+  const result = await request.post('/api/auth/login', {
+    email: 'fixture@example.invalid', password: 'synthetic',
+  })
+  assert.equal(result.token, undefined)
+  assert.equal(loginFailure(new Error('Missing token')), '登录失败，请检查邮箱、密码及服务连接后重试。')
 })

@@ -102,7 +102,10 @@ export function loginDestination(value: unknown, menus: MenuItem[]) {
 }
 
 export function loginFailure(error: unknown) {
-  return error && typeof error === 'object' && 'code' in error && error.code === 401
-    ? '邮箱或密码不正确，请检查后重试。'
-    : '暂时无法完成登录，请稍后重试或检查服务连接。'
+  const code = error && typeof error === 'object' && 'code' in error ? error.code : null
+  if (code === 401) return '邮箱或密码不正确，请检查后重试。'
+  if (code === 502 || code === 503 || code === 504)
+    return '暂时无法完成登录，请稍后重试或检查服务连接。'
+  // The login controller uses the same 500 response for credentials and internal failures.
+  return '登录失败，请检查邮箱、密码及服务连接后重试。'
 }
