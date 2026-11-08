@@ -1,0 +1,21 @@
+docs/frontend-audit-repair-validation.md
+  s_1176b9b45aa206::t_b64ad56541b4db 1-60
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/PermissionMapper.java
+  s_1176b9b45aa206::t_2d5740f2f7e1f4 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "edc4487e29c0ede71bfa4da8f9b86a2188e24c43",
+  "prompts": {},
+  "sessions": {
+    "s_1176b9b45aa206": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ba44-bc7b-7062-8150-25e436ab1b5e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
