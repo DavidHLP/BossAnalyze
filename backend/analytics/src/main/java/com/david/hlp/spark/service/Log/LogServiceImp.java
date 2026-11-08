@@ -460,28 +460,43 @@ public class LogServiceImp {
                 return topPages;
         }
 
-        private Map<String, Object> buildGeoStats(IpStatistics ipStatistics) {
+        static Map<String, Object> buildGeoStats(IpStatistics ipStatistics) {
                 Map<String, Object> geoStats = new HashMap<>();
 
                 // 国家统计
-                Map<String, Object> countryStats = new HashMap<>();
-                List<Map<String, Object>> geoPoints = new ArrayList<>();
+                Map<String, Map<String, Object>> countryStats = new HashMap<>();
+                long total = ipStatistics == null || ipStatistics.getIpStats() == null ? 0 : ipStatistics.getIpStats().values().stream()
+                                .mapToLong(info -> info.getCount() == null ? 0 : info.getCount()).sum();
+                Map<List<Object>, Map<String, Object>> geoPoints = new LinkedHashMap<>();
 
                 if (ipStatistics != null && ipStatistics.getIpStats() != null) {
                         ipStatistics.getIpStats().forEach((ip, ipInfo) -> {
-                                if (ipInfo.getLatitude() != null && ipInfo.getLongitude() != null) {
+                                String country = ipInfo.getCountryName();
+                                int count = ipInfo.getCount() == null ? 0 : ipInfo.getCount();
+                                if (country != null && !country.isBlank()) {
+                                        Map<String, Object> stats = countryStats.computeIfAbsent(country, key -> new HashMap<>(Map.of(
+                                                        "visits", 0L, "uniqueVisitors", 0L, "percentage", 0.0, "countryCode", "")));
+                                        stats.put("visits", (Long) stats.get("visits") + count);
+                                        stats.put("uniqueVisitors", (Long) stats.get("uniqueVisitors") + 1);
+                                        stats.put("percentage", total == 0 ? 0.0 : (Long) stats.get("visits") * 100.0 / total);
+                                }
+                                if (ipInfo.getLatitude() != null && ipInfo.getLongitude() != null
+                                                && Double.isFinite(ipInfo.getLatitude()) && Math.abs(ipInfo.getLatitude()) <= 90
+                                                && Double.isFinite(ipInfo.getLongitude()) && Math.abs(ipInfo.getLongitude()) <= 180) {
                                         Map<String, Object> point = new HashMap<>();
                                         point.put("latitude", ipInfo.getLatitude());
                                         point.put("longitude", ipInfo.getLongitude());
-                                        point.put("value", ipInfo.getCount());
-                                        point.put("location", ipInfo.getCity() + ", " + ipInfo.getCountryName());
-                                        geoPoints.add(point);
+                                        point.put("value", (long) count);
+                                        point.put("location", java.util.stream.Stream.of(ipInfo.getCity(), country).filter(value -> value != null && !value.isBlank()).collect(Collectors.joining(", ")));
+                                        List<Object> key = List.of(ipInfo.getLatitude(), ipInfo.getLongitude(), point.get("location"));
+                                        Map<String, Object> previous = geoPoints.putIfAbsent(key, point);
+                                        if (previous != null) previous.put("value", (Long) previous.get("value") + count);
                                 }
                         });
                 }
 
                 geoStats.put("countryStats", countryStats);
-                geoStats.put("geoPoints", geoPoints);
+                geoStats.put("geoPoints", new ArrayList<>(geoPoints.values()));
                 return geoStats;
         }
 

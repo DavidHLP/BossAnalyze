@@ -81,3 +81,7 @@ spark:
       min-idle: 1
     data:
       expire-days: 7
+
+# External read-only DB-IP Lite City MMDB; empty disables enrichment.
+geolocation:
+  mmdb-path: ${GEOLOCATION_MMDB_PATH:}

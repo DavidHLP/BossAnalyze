@@ -24,6 +24,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final UserDetailsService userDetailsService;
   private final ConsoleAccess consoleAccess;
   private final ObjectMapper objectMapper;
+  @org.springframework.beans.factory.annotation.Value("${security.client-ip.trusted-proxies:}")
+  private String trustedIpProxies;
 
   static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/register",
       "/api/auth/logout", "/api/auth/sendRegisterEmail", "/api/repeater/auth/login",
@@ -68,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       reject(response, 503);
       return;
     }
-    log.info("ACCESS|ts={}|ip={}|path={}|method={}|ua={}", timestamp, request.getRemoteAddr(),
+    log.info("ACCESS|ts={}|ip={}|path={}|method={}|ua={}", timestamp, ClientIp.resolve(request, trustedIpProxies),
         path, request.getMethod(), request.getHeader("User-Agent") != null ? request.getHeader("User-Agent") : "-");
     chain.doFilter(request, response);
   }
