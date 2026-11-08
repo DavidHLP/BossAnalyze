@@ -100,3 +100,9 @@ export function loginDestination(value: unknown, menus: MenuItem[]) {
   const path = typeof value === 'string' && value.startsWith('/') ? consolePath(value) : null
   return path && (path === '/console' || findMenu(menus, path)) ? path : '/console'
 }
+
+export function loginFailure(error: unknown) {
+  return error && typeof error === 'object' && 'code' in error && error.code === 401
+    ? '邮箱或密码不正确，请检查后重试。'
+    : '暂时无法完成登录，请稍后重试或检查服务连接。'
+}

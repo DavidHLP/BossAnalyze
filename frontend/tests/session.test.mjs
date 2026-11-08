@@ -4,6 +4,7 @@ import {
   consolePath,
   findMenu,
   loginDestination,
+  loginFailure,
   menuTree,
   menuShortcuts,
   validSession,
@@ -17,6 +18,16 @@ const node = (path, permission = '', extra = {}) => ({
   children: [],
   meta: { type: 'M' },
   ...extra,
+})
+
+test('login failures distinguish credentials from service errors without exposing backend details', () => {
+  assert.equal(
+    loginFailure({ code: 401, message: 'account does not exist' }),
+    '邮箱或密码不正确，请检查后重试。',
+  )
+  for (const error of [{ code: 500 }, { code: 502 }, new Error('private backend URL'), null]) {
+    assert.equal(loginFailure(error), '暂时无法完成登录，请稍后重试或检查服务连接。')
+  }
 })
 
 test('only granted menus and their granted ancestors survive', () => {

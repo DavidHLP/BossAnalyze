@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { loginDestination } from '@/lib/session'
+import { loginDestination, loginFailure } from '@/lib/session'
 
 const session = useSession()
 const route = useRoute()
@@ -18,8 +18,8 @@ async function submit() {
     await navigateTo(loginDestination(route.query.redirect, session.state.value.menus), {
       replace: true,
     })
-  } catch {
-    error.value = '登录失败，请检查账号密码及服务连接后重试。'
+  } catch (cause) {
+    error.value = loginFailure(cause)
   } finally {
     pending.value = false
   }
@@ -41,6 +41,7 @@ async function submit() {
           name="email"
           type="email"
           autocomplete="username"
+          :aria-describedby="error ? 'login-error' : undefined"
           placeholder="请输入邮箱"
           required
           :disabled="pending"
@@ -54,11 +55,12 @@ async function submit() {
           name="password"
           type="password"
           autocomplete="current-password"
+          :aria-describedby="error ? 'login-error' : undefined"
           required
           :disabled="pending"
         />
       </UiField>
-      <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+      <p v-if="error" id="login-error" role="alert" class="text-sm text-destructive">{{ error }}</p>
       <p v-else-if="route.query.reason" role="status" class="text-sm text-muted-foreground">
         会话已失效或暂时无法恢复，请重新登录。
       </p>

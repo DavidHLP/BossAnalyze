@@ -83,11 +83,10 @@ onMounted(refresh)
   <section class="flex min-w-0 flex-col gap-8" aria-labelledby="workbench-title">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div class="min-w-0 space-y-2">
-        <p class="text-xs text-muted-foreground">工作台</p>
         <h1 id="workbench-title" class="break-words text-2xl font-semibold tracking-tight">
           欢迎回来<span v-if="session.user?.name">，{{ session.user.name }}</span>
         </h1>
-        <p class="text-sm text-muted-foreground">查看访问概况，从常用功能开始工作。</p>
+        <p class="text-sm text-muted-foreground">查看当前角色与可访问的功能。</p>
       </div>
       <UiButton variant="outline" :disabled="pending" @click="refresh"
         ><HugeiconsIcon
@@ -95,10 +94,11 @@ onMounted(refresh)
           class="size-4 -ml-0.5"
           :class="{ 'motion-safe:animate-spin': pending }"
           aria-hidden="true"
-        />{{ pending ? '正在刷新…' : '刷新概览' }}</UiButton
+        />{{ pending ? '正在刷新…' : canViewDashboard ? '刷新概览' : '刷新角色信息' }}</UiButton
       >
     </header>
     <section
+      v-if="canViewDashboard"
       class="min-w-0 space-y-4"
       aria-labelledby="overview-title"
       :aria-busy="statsState === 'loading'"
@@ -171,7 +171,7 @@ onMounted(refresh)
         <UiCardHeader class="border-b-[0.5px] border-border/70 px-5 py-4"
           ><div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-sm font-semibold">快捷入口</h2>
-            <span class="text-xs text-muted-foreground">{{ shortcuts.length }} 个可访问功能</span>
+            <span class="text-xs text-muted-foreground">{{ shortcuts.length }} 个管理入口</span>
           </div></UiCardHeader
         >
         <UiCardContent class="p-3"
@@ -197,10 +197,13 @@ onMounted(refresh)
             ></UiButton>
           </div>
           <div v-else role="status" class="space-y-2 px-3 py-8 text-center">
-            <h3 class="text-sm font-medium">暂无可用功能</h3>
+            <h3 class="text-sm font-medium">尚未分配管理功能</h3>
             <p class="text-sm text-muted-foreground">
-              当前账号尚未获得功能菜单，请联系管理员分配访问权限。
+              如需管理功能，请联系管理员分配权限。你仍可查看招聘数据分析。
             </p>
+            <UiButton variant="outline" size="sm" as-child>
+              <NuxtLink to="/recruitment">查看招聘分析</NuxtLink>
+            </UiButton>
           </div></UiCardContent
         >
       </UiCard>

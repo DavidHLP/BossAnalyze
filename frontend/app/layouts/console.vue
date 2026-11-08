@@ -23,12 +23,12 @@ useHead({ title: () => `${title.value} · BossAnalyze` })
         <UiSeparator orientation="vertical" class="mr-2 data-[orientation=vertical]:h-4" />
         <UiBreadcrumb>
           <UiBreadcrumbList>
-            <UiBreadcrumbItem class="hidden md:block">
+            <UiBreadcrumbItem v-if="route.path !== '/recruitment'" class="hidden md:block">
               <UiBreadcrumbLink as-child
                 ><NuxtLink to="/console">控制台</NuxtLink></UiBreadcrumbLink
               >
             </UiBreadcrumbItem>
-            <UiBreadcrumbSeparator class="hidden md:block" />
+            <UiBreadcrumbSeparator v-if="route.path !== '/recruitment'" class="hidden md:block" />
             <UiBreadcrumbItem
               ><UiBreadcrumbPage>{{ title }}</UiBreadcrumbPage></UiBreadcrumbItem
             >

@@ -36,6 +36,9 @@ const jobs = shallowRef<JobSample[]>([])
 const jobsState = ref<State>('idle')
 const ranking = shallowRef<ReturnType<typeof salaryRanking>>([])
 const rankingState = ref<State>('loading')
+const sourcesUnavailable = computed(() =>
+  [cityState.value, positionState.value, rankingState.value].every((state) => state === 'error'),
+)
 const rankingLimit = ref('10')
 const selected = shallowRef<JobSample | null>(null)
 const formError = ref('')
@@ -152,6 +155,12 @@ onMounted(() => {
       <h1 id="recruitment-title" class="text-2xl font-semibold tracking-tight">招聘数据分析</h1>
       <p class="text-sm text-muted-foreground">按城市与职位比较招聘样本，查看薪资和任职要求。</p>
     </header>
+    <UiAlert v-if="sourcesUnavailable" role="status">
+      <UiAlertTitle>招聘数据暂时无法读取</UiAlertTitle>
+      <UiAlertDescription
+        >城市、职位和排行均未读取成功。请稍后分别重试，或检查服务连接。</UiAlertDescription
+      >
+    </UiAlert>
     <form
       class="space-y-5 rounded-lg border-[0.5px] border-border/70 bg-card p-5"
       aria-label="招聘分析筛选"
@@ -168,7 +177,7 @@ onMounted(() => {
           />
           <div
             v-if="cityState === 'error' || cityState === 'forbidden'"
-            class="text-xs text-muted-foreground"
+            class="text-sm text-destructive"
             role="alert"
           >
             {{ cityState === 'forbidden' ? '无权读取城市选项。' : '城市选项读取失败。'
@@ -186,7 +195,7 @@ onMounted(() => {
           />
           <div
             v-if="positionState === 'error' || positionState === 'forbidden'"
-            class="text-xs text-muted-foreground"
+            class="text-sm text-destructive"
             role="alert"
           >
             {{
@@ -272,7 +281,10 @@ onMounted(() => {
             <UiSkeleton v-if="jobsState === 'loading'" class="mt-4 h-8 w-24" />
             <p v-else class="mt-3 text-3xl font-semibold tabular-nums">
               {{ metric.value == null ? '—' : number.format(metric.value)
-              }}<span class="ml-2 text-xs font-normal text-muted-foreground">{{
+              }}<span
+                v-if="metric.value != null"
+                class="ml-2 text-xs font-normal text-muted-foreground"
+              >{{
                 metric.unit
               }}</span>
             </p>
@@ -291,11 +303,8 @@ onMounted(() => {
       <div v-if="jobsState === 'idle'" role="status" class="space-y-3 px-6 py-12 text-center">
         <h3 class="text-sm font-medium">选择条件，开始查询</h3>
         <p class="text-sm text-muted-foreground">
-          可比较薪资、学历和经验，并查看返回职位的详细信息。
+          在上方选择城市、职位和分析维度，点击“查询分析”查看样本。
         </p>
-        <UiButton variant="outline" :disabled="positionState === 'loading'" @click="analyze"
-          >查询当前条件</UiButton
-        >
       </div>
       <div v-else-if="jobsState === 'loading'" role="status" class="space-y-4 p-6">
         <p class="text-sm text-muted-foreground">正在读取并分析职位样本…</p>
