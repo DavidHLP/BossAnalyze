@@ -1,0 +1,140 @@
+frontend/app/plugins/session.client.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 3,5-6
+frontend/app/components/recruitment/ScatterPlot.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 6-14,23,35,37,68,71,73-99
+frontend/app/components/NavMenuItem.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 10
+frontend/app/utils/request/request.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 2,31-32,62,65
+  s_f8e9007dfb04be::t_be7bae9ba25254 64
+frontend/tests/request.test.mjs
+  s_f8e9007dfb04be::t_d2f92237bbd084 32,101-122
+  s_f8e9007dfb04be::t_1834616ba62065 123-125
+backend/api/src/test/java/com/david/hlp/web/system/auth/RoleSemanticsTest.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 1-47,49-50,52,55-57
+  s_f8e9007dfb04be::t_d24f1ecfc16f01 48
+  s_f8e9007dfb04be::t_fb530440fbd80b 51
+  s_f8e9007dfb04be::t_5d10e20f122a96 53-54
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/JwtAuthenticationFilter.java
+  s_f8e9007dfb04be::t_76b851d657b656 26,53-54,77-85
+frontend/app/middleware/signed-in.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 1,8-11,13
+frontend/app/api/boss/user/user.d.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 17,19,21,31
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java
+  s_f8e9007dfb04be::t_76b851d657b656 47,58-60
+backend/api/src/test/java/com/david/hlp/web/system/auth/RecruitmentGatewayTest.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 1-41
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChart.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 13,148,170,173,178-185,188,191,196,199-200,205,208-213,216-217,226,270
+frontend/app/lib/menu-icons.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 21-32
+frontend/app/lib/recruitment.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 215
+frontend/app/lib/session.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 4-5,56,70-74,88,93,96-114,118-121
+backend/api/src/test/java/com/david/hlp/web/system/auth/AccessBoundaryTest.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 1-48,50-54,56-98
+  s_f8e9007dfb04be::t_6d79348c9a6f38 49
+  s_f8e9007dfb04be::t_2d6dfa7c5f4f42 55
+frontend/app/pages/console/[...slug].vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 15
+backend/analytics/src/test/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChartTest.java
+  s_f8e9007dfb04be::t_be7bae9ba25254 98,101-107,112-121
+  s_f8e9007dfb04be::t_d2f92237bbd084 3-8,10-13,18-93,95-97
+frontend/tests/recruitment.test.mjs
+  s_f8e9007dfb04be::t_d2f92237bbd084 98-100,103-115
+  s_f8e9007dfb04be::t_cac097e2d2606f 116
+frontend/tests/session.test.mjs
+  s_f8e9007dfb04be::t_d2f92237bbd084 107,158-183,185-333,340,344,347,357
+  s_f8e9007dfb04be::t_a199af4d0d5086 184
+  s_f8e9007dfb04be::t_e8826ae131b092 334-339
+  s_f8e9007dfb04be::t_89f73bdb2814b7 341-343
+  s_f8e9007dfb04be::t_97adb6e609a041 345-346
+  s_f8e9007dfb04be::t_449c9bda053065 348-350,354-356
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/PermissionMapper.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 16
+frontend/app/components/NavUser.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 42
+frontend/app/components/users/UserEditor.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 75-76,79,87
+frontend/tests/dashboard.test.mjs
+  s_f8e9007dfb04be::t_d2f92237bbd084 140-146
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/UserDetailsServiceImpl.java
+  s_f8e9007dfb04be::t_76b851d657b656 39,69-70
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/RecruitmentGatewayController.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 1-13,15-25,27-37
+  s_f8e9007dfb04be::t_309dffe461ff69 14
+  s_f8e9007dfb04be::t_f923dad351967a 26
+frontend/app/layouts/console.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 12-17,23-27,49-55
+frontend/app/middleware/auth.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 1,8,11-12,14,17
+backend/analytics/pom.xml
+  s_f8e9007dfb04be::t_d2f92237bbd084 16-19
+  s_f8e9007dfb04be::t_d82dc45397f6a3 15
+frontend/app/components/menus/MenuPanel.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 64-65,70-71,100-101,104,112,211
+frontend/app/components/LoginForm.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 10-25,38-39,95
+frontend/app/pages/console/dashboard.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 12-13,19,56-57,90-92,186,188
+docs/frontend-audit-repair-spec.md
+  s_f8e9007dfb04be::t_d2f92237bbd084 1-62
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/ListBasicSet.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 53-56
+backend/api/src/main/java/com/david/hlp/web/system/config/ApplicationConfig.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 31,40
+database/migrations/README-role-uniqueness.md
+  s_f8e9007dfb04be::t_d2f92237bbd084 1-31
+frontend/app/pages/console/index.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 13,33,165,189
+frontend/app/api/modules/resume.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 20-22
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/RoleServiceImp.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 38-40,44-45,119,147
+  s_f8e9007dfb04be::t_be7bae9ba25254 41-43
+frontend/app/error.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 5-8,28-30,34
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 168
+docs/frontend-audit-repair-validation.md
+  s_f8e9007dfb04be::t_d2f92237bbd084 1-60
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/RoleMapper.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 29-31,44
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/SecurityConfiguration.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 25,31-33
+frontend/app/components/AppSidebar.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 4,60
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/ConsoleAccess.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 1-30
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/AuthServiceImp.java
+  s_f8e9007dfb04be::t_d2f92237bbd084 4,150-152
+frontend/app/components/roles/RolePanel.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 108-109,112,120,206
+frontend/app/composables/useSession.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 3,9,20,36-50,75,80-81,83-86,99
+  s_f8e9007dfb04be::t_76b851d657b656 87,91-95,98
+frontend/app/pages/console/roles.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 112
+frontend/app/lib/dashboard.ts
+  s_f8e9007dfb04be::t_d2f92237bbd084 91-98
+frontend/app/pages/console/users.vue
+  s_f8e9007dfb04be::t_d2f92237bbd084 105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b022aa7d7ff720fcfb240d7044b6f8f4a75695dc",
+  "prompts": {},
+  "sessions": {
+    "s_f8e9007dfb04be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bbd3-ea39-70e3-aca9-a5a5c40bd667",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
