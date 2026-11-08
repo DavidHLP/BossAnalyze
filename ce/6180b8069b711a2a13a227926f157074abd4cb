@@ -1,0 +1,19 @@
+docs/frontend-audit-repair-spec.md
+  s_1176b9b45aa206::t_d8329cb67325f5 1-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ce6180b8069b711a2a13a227926f157074abd4cb",
+  "prompts": {},
+  "sessions": {
+    "s_1176b9b45aa206": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ba44-bc7b-7062-8150-25e436ab1b5e",
+        "model": "unknown"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
