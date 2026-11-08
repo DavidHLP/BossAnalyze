@@ -1,0 +1,23 @@
+frontend/server/plugins/client-ip.ts
+  s_f2f5a10de5dca9::t_dd77f39f96fdbc 1,3-11
+docs/operations/offline-geolocation.md
+  s_f2f5a10de5dca9::t_dd77f39f96fdbc 20
+frontend/tests/client-ip.test.mjs
+  s_f2f5a10de5dca9::t_dd77f39f96fdbc 19-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fd0281a201807bd9e4cdc7509aa5de98592af9eb",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
