@@ -1,0 +1,21 @@
+backend/analytics/src/test/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChartTest.java
+  s_1176b9b45aa206::t_948b9100729566 79-91
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/ListBasicSet.java
+  s_1176b9b45aa206::t_948b9100729566 51-54,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0b3aea12f594c8d5b2fd5465b8dc99caf93f6885",
+  "prompts": {},
+  "sessions": {
+    "s_1176b9b45aa206": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ba44-bc7b-7062-8150-25e436ab1b5e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
