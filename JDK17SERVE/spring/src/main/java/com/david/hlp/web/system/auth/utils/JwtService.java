@@ -18,6 +18,8 @@ import com.david.hlp.web.system.auth.mapper.TokenMapper;
 import com.david.hlp.web.system.auth.token.Token;
 
 import java.security.Key;
+import jakarta.annotation.PostConstruct;
+import com.david.hlp.web.common.security.CredentialConfiguration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,7 +34,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JwtService {
 
-  @Value("${application.security.jwt.secret-key}")
+  @Value("${application.security.jwt.secret-key:}")
   private String secretKey;
 
   @Value("${application.security.jwt.expiration}")
@@ -41,6 +43,11 @@ public class JwtService {
   @Value("${application.security.jwt.refresh-token.expiration}")
   private long refreshExpiration;
   private final TokenMapper tokenMapper;
+
+  @PostConstruct
+  void validateSigningConfiguration() {
+    CredentialConfiguration.requireJwtSecret(secretKey);
+  }
 
   /**
    * 从令牌中提取用户名。

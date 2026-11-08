@@ -39,7 +39,7 @@ spring:
       port: 6379
       database: 0
       timeout: 1800000 # 使用毫秒格式，兼容 Redis Lettuce
-      password: Alone117
+      password: ${BOSSANALYZE_REDIS_PASSWORD}
       lettuce:
         pool:
           max-active: 20 # 最大连接数
@@ -48,8 +48,8 @@ spring:
           min-idle: 0 # 最小空闲连接数
   mail:
     host: smtp.163.com # 你邮箱的smtp地址
-    username: your_email@example.com # 申请了smtp的邮箱
-    password: your_smtp_password # SMTP服务的秘钥
+    username: ${BOSSANALYZE_SMTP_USERNAME:}
+    password: ${BOSSANALYZE_SMTP_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -83,7 +83,7 @@ minio:
 application:
   security:
     jwt:
-      secret-key: your_jwt_secret_key_here # 请替换为安全的随机字符串
+      secret-key: ${BOSSANALYZE_JWT_SECRET:}
       expiration: 86400000 # JWT 过期时间，1 天（毫秒）
       refresh-token:
         expiration: 604800000 # 刷新令牌过期时间，7 天（毫秒）
