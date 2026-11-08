@@ -44,7 +44,7 @@
                 <!-- 工具库相关版本 -->
                 <jetbrains-annotations.version>13.0</jetbrains-annotations.version>
                 <jsonpath.version>2.9.0</jsonpath.version>
-                <webdrivermanager.version>5.3.2</webdrivermanager.version>
+                <webdrivermanager.version>6.1.0</webdrivermanager.version>
                 <httpclient.version>4.5.14</httpclient.version>
                 <jsoup.version>1.16.1</jsoup.version>
                 <!-- Redis相关版本 -->
