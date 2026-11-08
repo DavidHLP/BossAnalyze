@@ -1,0 +1,88 @@
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/UserController.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 52,78,97,110
+  s_80abb2aedc94bb::t_4131e894475584 3-5,51,77,96,109
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/JwtAuthenticationFilter.java
+  s_80abb2aedc94bb::t_4782d36a76fd97 3-5,11,13-16,19,23,25-27,29-31,33-35,37-46,48-50,52-67,69-71,75-76,78-85,87-92,94
+  s_80abb2aedc94bb::t_4131e894475584 36,51,73-74
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/SecurityConfiguration.java
+  s_80abb2aedc94bb::t_4782d36a76fd97 26-27
+backend/api/src/main/java/com/david/hlp/web/system/auth/utils/JwtService.java
+  s_80abb2aedc94bb::t_6e926fb655574e 189,192
+backend/api/src/test/java/com/david/hlp/web/system/auth/IdentityPersistenceTest.java
+  s_80abb2aedc94bb::t_dbac3891cfc5f4 1-50,56-80
+  s_80abb2aedc94bb::t_34b475fbdd7c80 51-55
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/AuthController.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 46-61,93,116,146,211,231,251,282,302,324,346
+  s_80abb2aedc94bb::t_4131e894475584 3-4,92,115,145,210,230,250,281,301,323,345
+backend/api/src/main/java/com/david/hlp/web/common/entity/Result.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 71-82,90,100,110
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/UserServiceImp.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 55-57
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/RoleMapper.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 23-28,41
+backend/api/src/main/java/com/david/hlp/web/system/auth/token/Token.java
+  s_80abb2aedc94bb::t_33efd19e284b24 18
+database/migrations/20261108-token-time.sql
+  s_80abb2aedc94bb::t_4131e894475584 1-19
+backend/api/src/main/java/com/david/hlp/web/common/exception/GlobalExceptionHandler.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 38-62
+backend/api/src/test/java/com/david/hlp/web/system/auth/LogGatewaySecurityTest.java
+  s_80abb2aedc94bb::t_1b690f6d97f83c 32-34
+  s_80abb2aedc94bb::t_34e60066354e46 35
+  s_80abb2aedc94bb::t_6e926fb655574e 1-31,36-37
+backend/api/src/test/java/com/david/hlp/web/system/auth/IdentitySecurityTest.java
+  s_80abb2aedc94bb::t_8143740bde193b 1-86,88-90,92-132,174,182-194
+  s_80abb2aedc94bb::t_6e926fb655574e 133-164,168,176
+  s_80abb2aedc94bb::t_33efd19e284b24 87,91
+  s_80abb2aedc94bb::t_e8804964b178c4 165-167,169-173,175,177-181
+database/migrations/20261108-role-name-unique.sql
+  s_80abb2aedc94bb::t_4782d36a76fd97 3
+  s_80abb2aedc94bb::t_6e926fb655574e 1-2,4-17
+database/system.sql
+  s_80abb2aedc94bb::t_4782d36a76fd97 71-72
+backend/api/pom.xml
+  s_80abb2aedc94bb::t_dbac3891cfc5f4 124-129
+backend/api/src/main/java/com/david/hlp/web/system/auth/entity/auth/AuthUser.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 78
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/RoleController.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 45
+  s_80abb2aedc94bb::t_4131e894475584 3-5,44
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java
+  s_80abb2aedc94bb::t_4782d36a76fd97 47,70
+  s_80abb2aedc94bb::t_34e60066354e46 54,79,94,109,124,139,154,180,186-191
+  s_80abb2aedc94bb::t_4131e894475584 172,178
+  s_80abb2aedc94bb::t_ba2b402609c6ca 192-193
+backend/api/src/main/java/com/david/hlp/web/system/auth/LogoutService.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 48-49,51
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/UserDetailsServiceImpl.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 49-50,69-70,81
+  s_80abb2aedc94bb::t_33efd19e284b24 68
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/TokenMapper.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 18-21,32
+  s_80abb2aedc94bb::t_4f380d5e7b462d 36
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/AuthServiceImp.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 109-113,121-124
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/PermissionServiceImp.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 42-43
+backend/api/src/main/java/com/david/hlp/web/system/auth/service/imp/RoleServiceImp.java
+  s_80abb2aedc94bb::t_93e8c6668f4a37 34-40,118,140-146,198-202
+backend/api/src/main/java/com/david/hlp/web/system/auth/mapper/UserMapper.java
+  s_80abb2aedc94bb::t_33efd19e284b24 22-24
+  s_80abb2aedc94bb::t_93e8c6668f4a37 26,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f7294e55036d1b72687b473494f86f5829cec302",
+  "prompts": {},
+  "sessions": {
+    "s_80abb2aedc94bb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bbb5-875d-78d1-9c13-9ef1bfe2ab09",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
