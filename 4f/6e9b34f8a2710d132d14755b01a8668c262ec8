@@ -1,0 +1,28 @@
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/ListBasicSet.java
+  s_f2f5a10de5dca9::t_ba0ca8cdcb486d 21,28,42,49,54,56
+  s_f2f5a10de5dca9::t_8a6b22dd442c1e 55
+  s_f2f5a10de5dca9::t_cbd299dac3156b 57-58
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/SalaryHotJob.java
+  s_f2f5a10de5dca9::t_ba0ca8cdcb486d 40-41
+backend/analytics/src/test/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChartTest.java
+  s_f2f5a10de5dca9::t_ba0ca8cdcb486d 101-102,105-114
+  s_f2f5a10de5dca9::t_9e9c6d4f859ff6 14,93-100,103-104
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChart.java
+  s_f2f5a10de5dca9::t_ba0ca8cdcb486d 111,118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f6e9b34f8a2710d132d14755b01a8668c262ec8",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
