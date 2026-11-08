@@ -1,0 +1,99 @@
+frontend/app/middleware/auth.ts
+  s_8237c145709854::t_e9f4124191ed9e 1,10-18
+frontend/app/middleware/signed-in.ts
+  s_8237c145709854::t_d80a566eac5905 1-2,8-13
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/ListBasicSet.java
+  s_8237c145709854::t_827bccd5f6c024 50-51,54
+  s_8237c145709854::t_e7f7bde4ab5f7b 29
+backend/analytics/src/main/java/com/david/hlp/spark/controller/User/CityAndPositonController.java
+  s_8237c145709854::t_75817f53f34346 4,6,11,22-24,29-32,46-49
+backend/commons/src/main/java/com/david/hlp/commons/security/DownstreamAuthAutoConfiguration.java
+  s_8237c145709854::t_0ae18151de48ba 1-36
+frontend/app/components/LoginForm.vue
+  s_8237c145709854::t_ae8e8775e58c25 64-72
+frontend/app/composables/useSession.ts
+  s_8237c145709854::t_0f1ef00bffa318 71-80,82-85
+  s_8237c145709854::t_11bdceafc5c104 1
+backend/analytics/src/main/java/com/david/hlp/spark/model/User/JobAnalysisData.java
+  s_8237c145709854::t_13bdf3c228be07 22
+backend/api/src/main/java/com/david/hlp/web/config/RestTemplateConfig.java
+  s_8237c145709854::t_bc4a74cfa61650 3-5,10,12-14,19-24,31-33,42-81,83
+backend/crawler/src/main/resources/application.yml
+  s_8237c145709854::t_faef361098c3ba 29-33,35-40
+  s_8237c145709854::t_5357f8e9b8b470 34
+backend/commons/pom.xml
+  s_8237c145709854::t_c90ecf4cfaeaeb 43-52
+backend/analytics/src/main/resources/application.yml
+  s_8237c145709854::t_90cccc7163da9d 40
+  s_8237c145709854::t_8c708dd3bb19d8 35-39,41-52
+backend/commons/src/main/java/com/david/hlp/commons/security/DownstreamAuthProperties.java
+  s_8237c145709854::t_5aadfa59a335af 1-25,28-38,40-47
+  s_8237c145709854::t_f10ddefc7f0f69 26-27,39
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/SalaryHotJob.java
+  s_8237c145709854::t_83a946c2de1f48 42
+frontend/app/lib/session.ts
+  s_8237c145709854::t_34c4ff40e75006 112-120
+frontend/app/utils/request/request.ts
+  s_8237c145709854::t_7090f72991ed1b 60-61,63
+  s_8237c145709854::t_51ac300f0c7a11 22-23
+backend/commons/src/test/java/com/david/hlp/commons/security/DownstreamAuthFilterTest.java
+  s_8237c145709854::t_268ad0a04e8b82 29-30,32-33
+  s_8237c145709854::t_2528333adbb757 91,94,102,111,121
+  s_8237c145709854::t_83f0caa95218a4 1-28,31,34-47,50-90,92-93,95-101,103-110,112-120,122-147
+  s_8237c145709854::t_f6594d85361c02 49
+  s_8237c145709854::t_d7226a0a350c4a 48
+backend/commons/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+  s_8237c145709854::t_e7231826a2b5e4 1-2
+backend/analytics/src/test/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChartTest.java
+  s_8237c145709854::t_47166a70130ae8 1-33
+backend/analytics/src/main/java/com/david/hlp/spark/service/Log/LogServiceImp.java
+  s_8237c145709854::t_e166711499afa7 488
+  s_8237c145709854::t_b67601645acb9a 409,421
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChart.java
+  s_8237c145709854::t_b769ff2dde93bd 118
+  s_8237c145709854::t_78849566e138c2 331-337
+  s_8237c145709854::t_d6074e18db33a1 307
+  s_8237c145709854::t_6f6a4a6bdfc786 168-178,180-196,199-201,208-218,220-225,232-242,244-249
+backend/analytics/src/test/java/com/david/hlp/spark/controller/User/CityAndPositonControllerTest.java
+  s_8237c145709854::t_fb8359a5ba8280 1-41
+backend/commons/src/main/java/com/david/hlp/commons/security/DownstreamAuthFilter.java
+  s_8237c145709854::t_b52fb4b7f5583f 27
+  s_8237c145709854::t_26066bdf258737 87-89
+  s_8237c145709854::t_d02bb675043b66 90-93
+  s_8237c145709854::t_05e59aa6f3097b 144-153,155,157
+  s_8237c145709854::t_daa5c55bcba71a 1-26,28-86,94-143,154,156,158-258
+backend/analytics/pom.xml
+  s_8237c145709854::t_235de071d9aa62 115-119
+frontend/app/api/auth/auth.ts
+  s_8237c145709854::t_df28bc51dc2ad6 11-15
+  s_f2f5a10de5dca9::t_82bd5e2bd029e6 10
+frontend/tests/session.test.mjs
+  s_8237c145709854::t_1ee333e4e8a4f4 38-44
+  s_8237c145709854::t_9c8d3bab5d5c5d 10
+frontend/tests/request.test.mjs
+  s_8237c145709854::t_b99b8f8497e6d8 52-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "37169b878e9007023f51babc669014002e65934c",
+  "prompts": {},
+  "sessions": {
+    "s_8237c145709854": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff4fd5c6-62a4-413f-8574-263c6a0ad98a",
+        "model": "deepseek/deepseek-v4.1-flash-1017-cm"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    },
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
