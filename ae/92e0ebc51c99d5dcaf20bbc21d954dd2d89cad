@@ -1,0 +1,53 @@
+backend/analytics/pom.xml
+  s_189c7ecee66793::t_817047bfca4a3a 16-19
+  s_189c7ecee66793::t_30b048fb107458 15
+backend/analytics/src/main/java/com/david/hlp/spark/utils/IpGeoService.java
+  s_189c7ecee66793::t_817047bfca4a3a 3-7,9,11,13-14,16,19,22-29,31-37,39,41,43-63,66-72,74,77-87,91-93,95-101,104-110,113-118
+  s_189c7ecee66793::t_750515b9ea766e 102
+  s_189c7ecee66793::t_d49534df30e1c8 21
+backend/analytics/src/main/resources/application.yml
+  s_189c7ecee66793::t_817047bfca4a3a 84-87
+backend/analytics/src/test/java/com/david/hlp/spark/service/Log/GeoStatsTest.java
+  s_189c7ecee66793::t_750515b9ea766e 14-15,18-20,23
+  s_189c7ecee66793::t_aff05a63ef1e0a 1-13,16-17,21-22,24-26
+docs/operations/offline-geolocation.md
+  s_189c7ecee66793::t_edf2d03f030d47 1-46
+backend/analytics/src/test/java/com/david/hlp/spark/utils/IpGeoServiceTest.java
+  s_189c7ecee66793::t_aff05a63ef1e0a 1-59,65-82
+  s_189c7ecee66793::t_edf2d03f030d47 60-64
+backend/analytics/src/main/java/com/david/hlp/spark/service/Log/LogServiceImp.java
+  s_189c7ecee66793::t_817047bfca4a3a 463,467-469,474-485
+  s_189c7ecee66793::t_1806396c2912db 490
+  s_189c7ecee66793::t_6c1f6ba3e965ff 470,489,491-493,499
+frontend/server/utils/client-ip.ts
+  s_189c7ecee66793::t_750515b9ea766e 3-9
+  s_189c7ecee66793::t_2f4fdd1357139a 1-2,10-18
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/ClientIp.java
+  s_189c7ecee66793::t_5fb24693da1261 1-19
+backend/api/src/main/java/com/david/hlp/web/system/auth/filter/JwtAuthenticationFilter.java
+  s_189c7ecee66793::t_eceaca0a1c22a3 27-28,73
+backend/api/src/test/java/com/david/hlp/web/system/auth/filter/ClientIpTest.java
+  s_189c7ecee66793::t_b8bbb01bba4feb 1-22
+frontend/app/pages/console/dashboard.vue
+  s_189c7ecee66793::t_2b7cae0c15cfaa 192
+frontend/server/middleware/client-ip.ts
+  s_189c7ecee66793::t_be1cf948b585b8 1-5
+frontend/tests/client-ip.test.mjs
+  s_189c7ecee66793::t_11664e7ee35825 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ae92e0ebc51c99d5dcaf20bbc21d954dd2d89cad",
+  "prompts": {},
+  "sessions": {
+    "s_189c7ecee66793": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bc3c-39c3-74c1-b1b1-d895f0898763",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
