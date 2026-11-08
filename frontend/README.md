@@ -200,11 +200,10 @@ status are read-only because the original settings page was a placeholder and th
 preserved API layer has no system-settings, profile-save or password-change operation.
 There are no unconnected save buttons, notification toggles or invented configuration APIs.
 
-Account details use `/api/auth/getUserBaseInfo` and whitelist only ID, name, email and
-role ID. That service does not populate account status. Role/access details use
-`/api/auth/getUserRole` and `/api/auth/getUserPrivateInformation`, accepting the actual
-string permission list and distinguishing zero permissions from read failure. The three
-data sections load and refresh independently, with loading, retry and forbidden states.
+Account/access links to the personal center only when its route is authorized; it no
+longer repeats account fields or fetches role/permission details. The personal center
+remains the single account-detail page. Service status loads independently with loading,
+retry and forbidden states.
 
 The existing `/api/v1/system/logs/health` wrapper now propagates request failures instead
 of converting them into a synthetic `DOWN`. The page distinguishes transport/invalid-data
@@ -218,8 +217,8 @@ upstream response strings are excluded. Refresh performs reads and never trigger
 
 `/console/profile` is a shadcn-vue account-detail page with an initial avatar, identity
 summary, basic details and role/access information. It calls only the existing current-user
-`getUserBaseInfo`, `getUserRole` and `getUserPrivateInformation` wrappers, reusing the settings
-page's validated account/access projections. No administrator user-list API is used.
+`getUserBaseInfo`, `getUserRole` and `getUserPrivateInformation` wrappers, reusing the shared
+validated account/access projections. No administrator user-list API is used.
 Account details and access load independently; refreshing all data or retrying one failed
 section does not imply a failed request is an empty permission set.
 

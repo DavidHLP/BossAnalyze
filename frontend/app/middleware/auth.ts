@@ -12,6 +12,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo({ path: '/login', query: { reason: 'session' } }, { replace: true })
   }
   if (to.path !== '/console' && !findMenu(session.state.value.menus, to.path)) {
-    return abortNavigation(createError({ statusCode: 403, statusMessage: '无权访问此页面' }))
+    return abortNavigation(createError({ statusCode: 403, message: '无权访问此页面' }))
   }
 })
