@@ -1,0 +1,28 @@
+database/migrations/README-role-uniqueness.md
+  s_038777f029feac::t_d3e460be217844 3,5,7,9
+docs/operations/database-role-uniqueness.md
+  s_038777f029feac::t_d3e460be217844 1-73
+database/migrations/20261108-role-name-unique.sql
+  s_038777f029feac::t_d3e460be217844 32
+  s_038777f029feac::t_dd3408e482c7ec 1-31,33-38,41-46
+  s_038777f029feac::t_124b02ff7c4ec5 39-40
+database/migrations/verify-role-uniqueness.py
+  s_038777f029feac::t_911a0056fbbb67 1-21,23-115
+  s_038777f029feac::t_9b747e5af2f90e 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f7c5e86041c04fd5af69b9b4970624c2e9ff97ee",
+  "prompts": {},
+  "sessions": {
+    "s_038777f029feac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bc3c-3ac9-7040-89a9-b3d37b8098f2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
