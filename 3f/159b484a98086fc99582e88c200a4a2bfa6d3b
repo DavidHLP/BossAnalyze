@@ -1,0 +1,41 @@
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChart.java
+  s_afa3ce0cd93b1c::t_cbb85d113816ec 116
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/LogController.java
+  s_afa3ce0cd93b1c::t_cbb85d113816ec 45-48
+frontend/app/api/log/accesslog.ts
+  s_afa3ce0cd93b1c::t_cbb85d113816ec 7-17
+backend/api/src/test/java/com/david/hlp/web/system/auth/RecruitmentGatewayTest.java
+  s_afa3ce0cd93b1c::t_1296166e2b21c8 41-59
+backend/api/src/main/java/com/david/hlp/web/system/auth/controller/RecruitmentGatewayController.java
+  s_afa3ce0cd93b1c::t_cbb85d113816ec 30-36
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/ListBasicSet.java
+  s_afa3ce0cd93b1c::t_cbb85d113816ec 17-19,29,50
+backend/api/src/test/java/com/david/hlp/web/system/auth/LogGatewaySecurityTest.java
+  s_afa3ce0cd93b1c::t_f3c29f8abfe05a 52-53
+  s_afa3ce0cd93b1c::t_1296166e2b21c8 37-51,54-55
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/SalaryHotJob.java
+  s_afa3ce0cd93b1c::t_cbb85d113816ec 41
+frontend/app/lib/dashboard.ts
+  s_afa3ce0cd93b1c::t_cbb85d113816ec 38
+frontend/tests/dashboard.test.mjs
+  s_afa3ce0cd93b1c::t_cbb85d113816ec 13-15,68,107-109
+  s_afa3ce0cd93b1c::t_1296166e2b21c8 110-118
+backend/analytics/src/test/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChartTest.java
+  s_afa3ce0cd93b1c::t_a14897a759e2c1 93,97-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3f159b484a98086fc99582e88c200a4a2bfa6d3b",
+  "prompts": {},
+  "sessions": {
+    "s_afa3ce0cd93b1c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bc69-9ab6-7b40-87b8-9a2ab133716b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
