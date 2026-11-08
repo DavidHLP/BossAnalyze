@@ -21,7 +21,12 @@ service.interceptors.request.use(
     }
 
     // 排除无需鉴权的接口（登录、注册、发送注册验证码、注销等）
-    const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/sendRegisterEmail', '/api/auth/logout'];
+    const publicPaths = [
+      '/api/auth/login',
+      '/api/auth/register',
+      '/api/auth/sendRegisterEmail',
+      '/api/auth/logout',
+    ];
     const isPublicPath = publicPaths.some(path => config.url?.endsWith(path));
 
     const token = localStorage.getItem('token');

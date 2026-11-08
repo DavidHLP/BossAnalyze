@@ -85,7 +85,11 @@ async function submit() {
       >
         本机登录已清除，但服务器会话未能确认撤销。共享设备请手动联系管理员处理。
       </p>
-      <p v-else-if="route.query.reason === 'expired'" role="status" class="text-sm text-muted-foreground">
+      <p
+        v-else-if="route.query.reason === 'expired'"
+        role="status"
+        class="text-sm text-muted-foreground"
+      >
         会话已失效，请重新登录。
       </p>
       <UiField>

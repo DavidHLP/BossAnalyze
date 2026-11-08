@@ -161,9 +161,6 @@ public class MinioService {
                 || fileName.chars().anyMatch(Character::isISOControl)) {
             throw new BusinessException(403, "不能删除该图片");
         }
-        if (!StringUtils.hasText(fileName)) {
-            throw new IllegalArgumentException("文件名不能为空");
-        }
 
         try {
             minioClient.removeObject(

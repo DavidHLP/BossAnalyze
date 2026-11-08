@@ -214,38 +214,6 @@ public class DownstreamAuthFilter implements Filter {
         }
     }
 
-    private JsonNode findRouter(JsonNode nodes, String parentPath) {
-        for (JsonNode node : nodes) {
-            String path = resolvePath(node.path("path").asText(""), parentPath);
-            if (properties.getDashboardPath().equals(path)) {
-                return node;
-            }
-            JsonNode children = node.get("children");
-            if (children != null && children.isArray()) {
-                JsonNode match = findRouter(children, path);
-                if (match != null) {
-                    return match;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static String resolvePath(String raw, String parentPath) {
-        String path = raw == null ? "" : raw.trim();
-        if (path.isEmpty()) {
-            return parentPath;
-        }
-        if (!path.startsWith("/")) {
-            path = parentPath + "/" + path;
-        }
-        path = path.replaceAll("/{2,}", "/");
-        if (path.length() > 1 && path.endsWith("/")) {
-            path = path.substring(0, path.length() - 1);
-        }
-        return path;
-    }
-
     private void writeError(HttpServletResponse response, int status, String message) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");

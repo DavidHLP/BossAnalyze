@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import com.david.hlp.web.system.auth.mapper.TokenMapper;
 
-import java.util.List;
 /**
  * 注销服务类。
  *

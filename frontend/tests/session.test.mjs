@@ -37,7 +37,10 @@ test('login failures only classify explicit statuses and keep ambiguous failures
 
 test('only an explicit 401 expires the stored session; transient failures keep it', () => {
   assert.equal(sessionFailure({ code: 401 }), 'expired')
-  for (const error of [{ code: 500 }, { code: 502 }, { code: 503 }, { code: 504 }, new Error('timeout'), null]) {
+  const transientErrors = [
+    { code: 500 }, { code: 502 }, { code: 503 }, { code: 504 }, new Error('timeout'), null,
+  ]
+  for (const error of transientErrors) {
     assert.equal(sessionFailure(error), 'unavailable')
   }
 })
