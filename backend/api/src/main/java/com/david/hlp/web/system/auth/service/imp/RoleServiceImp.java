@@ -35,6 +35,12 @@ public class RoleServiceImp {
     private final PermissionMapper permissionMapper;
     private final RouterMapper routerMapper;
 
+    private void validateName(Role role, Long excludedId) {
+        role.setRoleName(role.getRoleName().trim());
+        if ("USER".equalsIgnoreCase(role.getRoleName())) role.setRoleName("USER");
+        Assert.isTrue(roleMapper.countByName(role.getRoleName(), excludedId) == 0, "角色名称已存在");
+    }
+
     /**
      * 根据角色ID获取角色信息
      *
@@ -108,6 +114,7 @@ public class RoleServiceImp {
         try {
             Assert.notNull(role, "角色信息不能为空");
             Assert.hasText(role.getRoleName(), "角色名称不能为空");
+            validateName(role, null);
             roleMapper.insertRole(role);
         } catch (IllegalArgumentException e) {
             log.warn("添加角色失败: {}", e.getMessage());
@@ -129,6 +136,11 @@ public class RoleServiceImp {
             Assert.notNull(role, "角色信息不能为空");
             Assert.notNull(role.getId(), "角色ID不能为空");
             Assert.hasText(role.getRoleName(), "角色名称不能为空");
+            Role existing = roleMapper.getRoleById(role.getId());
+            Assert.notNull(existing, "角色不存在");
+            Assert.isTrue(!"USER".equalsIgnoreCase(existing.getRoleName()) ||
+                    "USER".equals(role.getRoleName().trim()), "不能重命名默认 USER 角色");
+            validateName(role, role.getId());
             roleMapper.updateRole(role);
         } catch (IllegalArgumentException e) {
             log.warn("编辑角色失败: {}", e.getMessage());
@@ -180,6 +192,8 @@ public class RoleServiceImp {
     public void deleteRole(Long roleId) {
         try {
             Assert.notNull(roleId, "角色ID不能为空");
+            Role existing = roleMapper.getRoleById(roleId);
+            Assert.isTrue(existing == null || !"USER".equalsIgnoreCase(existing.getRoleName()), "不能删除默认 USER 角色");
             roleMapper.deleteRolePermissionByRoleId(roleId);
             roleMapper.deleteRole(roleId);
         } catch (IllegalArgumentException e) {

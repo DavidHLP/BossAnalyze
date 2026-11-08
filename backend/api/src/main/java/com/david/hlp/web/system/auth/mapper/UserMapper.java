@@ -6,7 +6,6 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Result;
-import org.springframework.cache.annotation.Cacheable;
 import java.util.List;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
@@ -26,8 +25,7 @@ public interface UserMapper extends BaseMapper<User> {
             "SELECT p.`permission` AS `authority` " +
             "FROM `permission` p " +
             "JOIN `role_permission` rp ON p.`id` = rp.`permission_id` " +
-            "WHERE rp.`role_id` = #{roleId}")
-    @Cacheable(value = "userAuthorities", key = "#roleId")
+            "WHERE rp.`role_id` = #{roleId} AND p.`status` = 1")
     List<String> listAuthoritiesByRoleId(Long roleId);
 
     @Select("SELECT `id`, `name`, `email`, `password`, `status`, `role_id` as roleId " +

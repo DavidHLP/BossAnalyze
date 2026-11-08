@@ -1,6 +1,7 @@
 package com.david.hlp.web.system.auth.service.imp;
 
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -106,6 +107,8 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO, To
             log.warn("登录失败: 邮箱{}不存在", request.getEmail());
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
+        var role = roleMapper.getRoleById(user.getRoleId());
+        Assert.isTrue(role != null && Integer.valueOf(1).equals(role.getStatus()), "角色已停用");
         user.setAuthorities(permissionMapper.listPermissionNamesByRoleId(user.getRoleId()));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -138,7 +141,9 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO, To
     @Override
     public Long getDefaultRoleId() {
         try {
-            return roleMapper.getDefaultRoleId();
+            Long roleId = roleMapper.getDefaultRoleId();
+            Assert.notNull(roleId, "必须存在唯一启用的 USER 角色");
+            return roleId;
         } catch (Exception e) {
             log.error("获取默认角色ID失败", e);
             throw e;

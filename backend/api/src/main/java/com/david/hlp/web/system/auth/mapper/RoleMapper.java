@@ -20,6 +20,9 @@ import org.apache.ibatis.annotations.Results;
 @Mapper
 public interface RoleMapper extends BaseMapper<Role> {
 
+    @Select("SELECT COUNT(*) FROM role WHERE role_name = #{name} AND (#{id} IS NULL OR id != #{id})")
+    int countByName(@Param("name") String name, @Param("id") Long id);
+
     /**
      * 根据角色ID获取角色信息
      * @param roleId 角色ID
@@ -32,7 +35,7 @@ public interface RoleMapper extends BaseMapper<Role> {
      * 获取默认用户角色ID
      * @return 默认用户角色ID
      */
-    @Select("SELECT id FROM role WHERE role_name = 'USER' LIMIT 1")
+    @Select("SELECT MIN(id) FROM role WHERE role_name = 'USER' HAVING COUNT(*) = 1 AND MIN(status) = 1")
     Long getDefaultRoleId();
 
     /**

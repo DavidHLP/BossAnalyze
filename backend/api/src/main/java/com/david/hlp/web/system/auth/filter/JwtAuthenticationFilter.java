@@ -34,17 +34,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   @Qualifier("userDetailsServiceImp")
   private final UserDetailsService userDetailsService;
 
-  private final String[] publicPaths = {
-      "/api/auth/login",
-      "/api/auth/register",
-      "/api/auth/logout",
-      "/api/auth/refresh-token",
-      "/api/repeater/auth/login",
-      "/api/auth/sendRegisterEmail",
-      "/api/v1/system/logs",
-      "/actuator/health",
-  };
-
   /**
    * 核心过滤逻辑。
    *
@@ -72,7 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     // 1. 检查是否为公开路径
-    boolean isPublicPath = Arrays.stream(publicPaths).anyMatch(path::startsWith);
+    boolean isPublicPath = Arrays.asList(SecurityConfiguration.PUBLIC_PATHS).contains(path);
 
     // 2. 检查Authorization头
     final String authHeader = request.getHeader("Authorization");
@@ -105,7 +94,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception e) {
           log.error("加载用户信息失败: {}", e.getMessage());
           response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-          response.getWriter().write(e.getMessage());
+          response.getWriter().write("Authentication required");
           return;
         }
 
@@ -125,7 +114,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     } catch (Exception e) {
       log.error("UserDetails获取权限过程发生错误: {}", e.getMessage());
       response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-      response.getWriter().write(e.getMessage());
+      response.getWriter().write("Authentication required");
       return;
     }
     // 使用键值对格式记录日志，便于后期数据分析
