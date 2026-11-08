@@ -41,11 +41,13 @@ export function useSession() {
         getUserRoutes(),
       ])
     } catch (error) {
+      const currentToken = localStorage.getItem('token')
+      if (currentToken && token !== currentToken) return restore()
       if (error && typeof error === 'object' && 'code' in error && error.code === 401) clear()
       throw error
     }
     const [user, permissions, routes] = result
-    if (token !== localStorage.getItem('token')) return false
+    if (token !== localStorage.getItem('token')) return restore()
     if (!user || typeof user !== 'object' || typeof user.email !== 'string') {
       throw new Error('Invalid user response')
     }

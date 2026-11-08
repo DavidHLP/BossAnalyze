@@ -49,6 +49,31 @@ test('HTTP 401 still clears the token and dispatches unauthorized', async () => 
   assert.deepEqual(events, ['unauthorized'])
 })
 
+test('a delayed 401 from a previous token cannot invalidate the newly signed-in session', async () => {
+  let token = 'previous-token'
+  let finish
+  const sent = Promise.withResolvers()
+  const events = []
+  globalThis.localStorage = {
+    getItem: () => token,
+    removeItem: () => { token = null },
+  }
+  window.dispatchEvent = event => events.push(event.type)
+  request.defaults.adapter = config => new Promise((resolve, reject) => {
+    finish = () => reject(new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', config, undefined,
+      { config, status: 401, headers: {}, data: {} }))
+    sent.resolve()
+  })
+  const oldRequest = request.get('/api/resume')
+  const rejected = assert.rejects(oldRequest, error => error.code === 401)
+  await sent.promise
+  token = 'new-token'
+  finish()
+  await rejected
+  assert.equal(token, 'new-token')
+  assert.deepEqual(events, [])
+})
+
 test('login-controller-shaped 500 responses remain neutral after request normalization', async () => {
   for (const message of ['登录失败: 用户不存在', '登录失败: 密码错误', '登录失败: private database error']) {
     request.defaults.adapter = async config => {

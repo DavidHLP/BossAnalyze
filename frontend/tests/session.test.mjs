@@ -181,7 +181,7 @@ async function sessionFixture() {
     localStorage: { getItem: key => storage.get(key) ?? null, removeItem: key => storage.delete(key), setItem: (key, value) => storage.set(key, value) },
     sessionStorage: { removeItem() {} },
     getUserBaseInfo: async () => ({ email: 'fixture@example.invalid' }),
-    getUserPrivateInformation: async () => { if (api.failure) throw api.failure; return [] },
+    getUserPrivateInformation: async () => { if (api.pending) return api.pending; if (api.failure) throw api.failure; return [] },
     getUserRoutes: async () => [node('/console/users')],
     login: async () => ({ token: 'synthetic-login' }),
   }, ['useSession'])
@@ -285,6 +285,31 @@ test('both real route middlewares block transient restoration and retry without 
     assert.equal(await guard(target), undefined)
     storage.delete('token')
     assert.equal((await guard(target)).query.redirect, target.fullPath)
+  }
+})
+
+test('stale restoration failures and successes use the new session in both route guards', async () => {
+  for (const file of ['middleware/auth.ts', 'middleware/signed-in.ts']) {
+    for (const code of [401, 503, null]) {
+      const { session, useSession, storage, api } = await sessionFixture()
+      const sessionLib = await import('../app/lib/session.ts')
+      const { defaultExport: guard } = await scriptRuntime(file, {
+        ...sessionLib, useSession, defineNuxtRouteMiddleware: fn => fn,
+        navigateTo: target => target, createError: error => error,
+        abortNavigation: error => { throw error },
+      }, ['defaultExport'])
+      const pending = Promise.withResolvers()
+      api.pending = pending.promise
+      const oldNavigation = guard({ path: '/console/users', fullPath: '/console/users' })
+      api.pending = null
+      await session.signIn('fixture@example.invalid', 'synthetic')
+      if (code) pending.reject({ code })
+      else pending.resolve([])
+      assert.equal(await oldNavigation, undefined)
+      assert.equal(storage.get('token'), 'synthetic-login')
+      assert.equal(session.state.value.ready, true)
+      assert.ok(findMenu(session.state.value.menus, '/console/users'))
+    }
   }
 })
 

@@ -59,7 +59,9 @@ service.interceptors.response.use(
     }
   },
   (error) => {
-    if (error.response?.status === 401) {
+    const token = typeof window === 'undefined' ? null : localStorage.getItem('token')
+    if (error.response?.status === 401 && token &&
+        error.config?.headers?.Authorization === `Bearer ${token}`) {
       localStorage.removeItem('token')
       // 触发全局登出逻辑
       window.dispatchEvent(new CustomEvent('unauthorized'))
