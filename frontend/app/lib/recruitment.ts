@@ -212,6 +212,7 @@ export function scatterData(jobs: JobSample[], x: string, y: string) {
     points,
     valid,
     groups: all.length,
+    allGroups: all,
     minX,
     maxX,
     minY,
