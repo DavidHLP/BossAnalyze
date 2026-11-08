@@ -1,0 +1,21 @@
+frontend/app/api/log/accesslog.ts
+  s_afa3ce0cd93b1c::t_0eb8046be2b305 9,13-14
+frontend/tests/dashboard.test.mjs
+  s_afa3ce0cd93b1c::t_0eb8046be2b305 107-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "50e38be5b3e8faae128384b8ac93c72b7d230b3f",
+  "prompts": {},
+  "sessions": {
+    "s_afa3ce0cd93b1c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bc69-9ab6-7b40-87b8-9a2ab133716b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
