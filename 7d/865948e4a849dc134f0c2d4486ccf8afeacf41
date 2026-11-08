@@ -1,0 +1,32 @@
+backend/api/src/main/java/com/david/hlp/web/common/entity/Result.java
+  s_f2f5a10de5dca9::t_0e09beea46ed6b 76,78,152
+backend/api/src/test/java/com/david/hlp/web/system/auth/DownstreamIntegrationTest.java
+  s_f2f5a10de5dca9::t_0e09beea46ed6b 80-89,114-118
+  s_f2f5a10de5dca9::t_295376199bc545 119-120
+backend/api/src/test/java/com/david/hlp/web/system/auth/IdentitySecurityTest.java
+  s_f2f5a10de5dca9::t_0e09beea46ed6b 194-212
+backend/commons/src/test/java/com/david/hlp/commons/security/DownstreamAuthFilterTest.java
+  s_f2f5a10de5dca9::t_0e09beea46ed6b 134-145
+frontend/tests/request.test.mjs
+  s_f2f5a10de5dca9::t_0e09beea46ed6b 66-83
+docs/security/architecture-remediation.md
+  s_f2f5a10de5dca9::t_0eb17bee517ba9 75-83
+backend/commons/src/main/java/com/david/hlp/commons/security/DownstreamAuthFilter.java
+  s_f2f5a10de5dca9::t_0e09beea46ed6b 72-77,127-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7d865948e4a849dc134f0c2d4486ccf8afeacf41",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
