@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.io.Serializable;
 import org.apache.spark.api.java.function.MapFunction;
+import org.apache.spark.sql.api.java.UDF1;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
@@ -143,7 +144,7 @@ public class TwoDimensionalAnalysisChart implements Serializable {
     /**
      * 处理职位数据：提取薪资值、学历值和经验值
      */
-    private Dataset<Row> processJobData(Dataset<Row> jobDf) {
+    Dataset<Row> processJobData(Dataset<Row> jobDf) {
         // 注册UDF函数用于提取薪资数值
         registerSalaryExtractorUdf();
 
@@ -164,76 +165,64 @@ public class TwoDimensionalAnalysisChart implements Serializable {
      * 注册薪资提取UDF函数
      */
     private void registerSalaryExtractorUdf() {
-        sparkSession.udf().register("extractSalary", (String salaryStr) -> {
-            if (salaryStr == null || salaryStr.isEmpty()) {
-                return null;
-            }
-
-            try {
-                Pattern singlePattern = Pattern.compile("^(\\d+)K$");
-                Pattern rangePattern = Pattern.compile("^(\\d+)-(\\d+)K$");
-
-                Matcher singleMatcher = singlePattern.matcher(salaryStr);
-                Matcher rangeMatcher = rangePattern.matcher(salaryStr);
-
-                if (singleMatcher.matches()) {
-                    // 单一数值，如"4K"
-                    return Integer.parseInt(singleMatcher.group(1));
-                } else if (rangeMatcher.matches()) {
-                    // 范围值，如"4-5K"
-                    int lower = Integer.parseInt(rangeMatcher.group(1));
-                    int upper = Integer.parseInt(rangeMatcher.group(2));
-                    return (lower + upper) / 2;
-                } else {
-                    // 其他格式忽略
-                    return null;
-                }
-            } catch (Exception e) {
-                return null;
-            }
-        }, DataTypes.IntegerType);
+        sparkSession.udf().register("extractSalary",
+                (UDF1<String, Double>) TwoDimensionalAnalysisChart::extractSalary, DataTypes.DoubleType);
     }
 
-    /**
-     * 注册经验映射UDF函数
-     */
+    static Double extractSalary(String salaryStr) {
+        if (salaryStr == null || salaryStr.isEmpty()) {
+            return null;
+        }
+        try {
+            Matcher single = Pattern.compile("^(\\d+)K$").matcher(salaryStr);
+            Matcher range = Pattern.compile("^(\\d+)-(\\d+)K$").matcher(salaryStr);
+            if (single.matches()) {
+                return (double) Integer.parseInt(single.group(1));
+            }
+            if (range.matches()) {
+                double lower = Integer.parseInt(range.group(1));
+                double upper = Integer.parseInt(range.group(2));
+                return (lower + upper) / 2.0;
+            }
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        return null;
+    }
+
     private void registerExperienceMapperUdf() {
-        sparkSession.udf().register("mapExperience", (String expStr) -> {
-            if (expStr == null || expStr.isEmpty()) {
-                return 0;
-            }
-
-            // 遍历映射表查找匹配的关键词
-            return EXPERIENCE_MAP.entrySet().stream()
-                    .filter(entry -> expStr.contains(entry.getKey()))
-                    .map(Map.Entry::getValue)
-                    .findFirst()
-                    .orElse(0);
-        }, DataTypes.IntegerType);
+        sparkSession.udf().register("mapExperience",
+                (UDF1<String, Integer>) TwoDimensionalAnalysisChart::mapExperience, DataTypes.IntegerType);
     }
 
-    /**
-     * 注册学历映射UDF函数
-     */
-    private void registerDegreeMapperUdf() {
-        sparkSession.udf().register("mapDegree", (String degreeStr) -> {
-            if (degreeStr == null || degreeStr.isEmpty()) {
-                return 0;
-            }
+    static Integer mapExperience(String value) {
+        return mapRequirement(value, EXPERIENCE_MAP);
+    }
 
-            // 遍历映射表查找匹配的关键词
-            return DEGREE_MAP.entrySet().stream()
-                    .filter(entry -> degreeStr.contains(entry.getKey()))
-                    .map(Map.Entry::getValue)
-                    .findFirst()
-                    .orElse(0);
-        }, DataTypes.IntegerType);
+    private void registerDegreeMapperUdf() {
+        sparkSession.udf().register("mapDegree",
+                (UDF1<String, Integer>) TwoDimensionalAnalysisChart::mapDegree, DataTypes.IntegerType);
+    }
+
+    static Integer mapDegree(String value) {
+        return mapRequirement(value, DEGREE_MAP);
+    }
+
+    private static Integer mapRequirement(String value, Map<String, Integer> mapping) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return mapping.entrySet().stream()
+                .filter(entry -> value.contains(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
     }
 
     /**
      * 应用城市和职位的过滤条件
      */
-    private Dataset<Row> applyFilters(Dataset<Row> processedDf, String cityName, String positionName, String xAxis,
+    Dataset<Row> applyFilters(Dataset<Row> processedDf, String cityName, String positionName, String xAxis,
             String yAxis) {
         // 应用过滤条件
         if (cityName != null && !cityName.isEmpty() && !"all".equalsIgnoreCase(cityName)) {
@@ -277,7 +266,7 @@ public class TwoDimensionalAnalysisChart implements Serializable {
     /**
      * 构建结果数据列表
      */
-    private List<JobAnalysisData> buildResultDataList(Dataset<Row> echartsDf) {
+    List<JobAnalysisData> buildResultDataList(Dataset<Row> echartsDf) {
         return echartsDf.map(
                 (MapFunction<Row, JobAnalysisData>) row -> {
                     return JobAnalysisData.builder()
@@ -285,7 +274,8 @@ public class TwoDimensionalAnalysisChart implements Serializable {
                             .positionName(row.getString(row.fieldIndex("position_name")))
                             .cityName(row.getString(row.fieldIndex("city_name")))
                             .salary(row.getString(row.fieldIndex("salary")))
-                            .salaryValue(getIntValue(row, "salary_value"))
+                            .salaryValue(row.isNullAt(row.fieldIndex("salary_value"))
+                                    ? null : row.getDouble(row.fieldIndex("salary_value")))
                             .degree(row.getString(row.fieldIndex("degree")))
                             .degreeValue(getIntValue(row, "degree_value"))
                             .experience(row.getString(row.fieldIndex("experience")))

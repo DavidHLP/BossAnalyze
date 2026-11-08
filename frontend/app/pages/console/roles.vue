@@ -109,7 +109,7 @@ async function saved(self: boolean, rows?: ManagedRole[]) {
   open.value = false
   if (self) {
     await nextTick()
-    await session.signOut()
+    await session.signOut(true)
     return
   }
   notice.value =

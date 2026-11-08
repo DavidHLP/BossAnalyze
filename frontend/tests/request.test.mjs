@@ -29,7 +29,7 @@ test('missing browser token still redirects without sending HTTP', async () => {
   globalThis.localStorage = { getItem: () => null }
   request.defaults.adapter = () => assert.fail('Unauthenticated request reached the network')
   await assert.rejects(request.get('/api/resume'))
-  assert.equal(window.location.href, '/login')
+  assert.equal(window.location.href, '/login?redirect=%2Fconsole')
 })
 
 test('HTTP 401 still clears the token and dispatches unauthorized', async () => {
@@ -47,6 +47,31 @@ test('HTTP 401 still clears the token and dispatches unauthorized', async () => 
   await assert.rejects(request.get('/api/resume'), error => error.code === 401)
   assert.deepEqual(removed, ['token'])
   assert.deepEqual(events, ['unauthorized'])
+})
+
+test('a delayed 401 from a previous token cannot invalidate the newly signed-in session', async () => {
+  let token = 'previous-token'
+  let finish
+  const sent = Promise.withResolvers()
+  const events = []
+  globalThis.localStorage = {
+    getItem: () => token,
+    removeItem: () => { token = null },
+  }
+  window.dispatchEvent = event => events.push(event.type)
+  request.defaults.adapter = config => new Promise((resolve, reject) => {
+    finish = () => reject(new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', config, undefined,
+      { config, status: 401, headers: {}, data: {} }))
+    sent.resolve()
+  })
+  const oldRequest = request.get('/api/resume')
+  const rejected = assert.rejects(oldRequest, error => error.code === 401)
+  await sent.promise
+  token = 'new-token'
+  finish()
+  await rejected
+  assert.equal(token, 'new-token')
+  assert.deepEqual(events, [])
 })
 
 test('login-controller-shaped 500 responses remain neutral after request normalization', async () => {

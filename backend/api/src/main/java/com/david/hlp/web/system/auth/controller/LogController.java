@@ -166,17 +166,15 @@ public class LogController {
         try {
             // 检查Spark服务连接
             String url = sparkServiceUrl + "/api/log/access/health";
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            restTemplate.getForEntity(url, String.class);
 
             health.put("status", "UP");
             health.put("sparkService", "UP");
-            health.put("sparkResponse", response.getBody());
             health.put("timestamp", System.currentTimeMillis());
 
         } catch (Exception e) {
             health.put("status", "DEGRADED");
             health.put("sparkService", "DOWN");
-            health.put("error", e.getMessage());
             health.put("timestamp", System.currentTimeMillis());
         }
 

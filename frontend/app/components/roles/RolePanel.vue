@@ -105,9 +105,11 @@ async function discard() {
   cancelDiscard()
   emit('update:open', false)
   await nextTick()
-  if (target) await navigateTo(target)
+  if (target === '/login') await useSession().signOut()
+  else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
+  if (useSession().state.value.invalidated) return true
   if (pending.value) return false
   if (!dirty.value) return true
   destination.value = to.fullPath
@@ -115,7 +117,7 @@ onBeforeRouteLeave((to) => {
   return false
 })
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (dirty.value || pending.value) {
+  if (!useSession().state.value.invalidated && (dirty.value || pending.value)) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -201,7 +203,7 @@ async function save(confirmedClear = false) {
       emit('unconfirmed')
       if (self.value) {
         pending.value = false
-        await useSession().signOut()
+        await useSession().signOut(true)
       }
     }
   } finally {

@@ -36,6 +36,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     private final UserMapper userMapper;
     private final TokenMapper tokenMapper;
     private final JwtService jwtService;
+    private final com.david.hlp.web.system.auth.mapper.RoleMapper roleMapper;
 
     /**
      * 根据用户邮箱加载用户详情
@@ -47,7 +48,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String jwt) throws UsernameNotFoundException {
         if (!tokenMapper.checkTokenValid(jwt)) {
-            log.warn("token已失效或被撤销: {}", jwt);
+            log.warn("token已失效或被撤销");
             throw new UsernameNotFoundException("token已失效或被撤销");
         }
         String username = jwtService.extractUsername(jwt);
@@ -65,6 +66,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         Assert.notNull(user.getRoleId(), "用户角色ID不能为空");
 
+        var role = roleMapper.getRoleById(user.getRoleId());
+        if (!user.isEnabled() || role == null || !Integer.valueOf(1).equals(role.getStatus())) {
+            throw new UsernameNotFoundException("账户或角色已停用");
+        }
+
+        // 每次请求读取权限，角色修改不依赖缓存过期。
         // 加载用户权限
         List<String> authorities = userMapper.listAuthoritiesByRoleId(user.getRoleId());
         if (authorities == null) {
@@ -75,7 +82,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         user.setAuthorities(authorities);
         // 验证 JWT 是否有效
         if (!jwtService.isTokenValid(jwt, user)) {
-            log.warn("无效的token: {}", jwt);
+            log.warn("无效的token");
             throw new UsernameNotFoundException("token已失效或被撤销");
         }
         return user;

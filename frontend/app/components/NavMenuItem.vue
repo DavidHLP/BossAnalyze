@@ -7,7 +7,7 @@ import { menuIcon } from '@/lib/menu-icons'
 import type { MenuItem } from '@/lib/session'
 
 const props = defineProps<{ item: MenuItem }>()
-const icon = computed(() => menuIcon(props.item.path))
+const icon = computed(() => menuIcon(props.item.path, props.item.icon))
 const route = useRoute()
 const { state, setOpen, setOpenMobile } = useSidebar()
 const active = computed(() => Boolean(findMenu([props.item], route.path)))

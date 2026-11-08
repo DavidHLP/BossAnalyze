@@ -9,13 +9,14 @@ import {
   Database02Icon,
 } from '@hugeicons/core-free-icons'
 import { getDashboardStats } from '@/api/log/accesslog'
-import { dashboardSnapshot } from '@/lib/dashboard'
+import { settingsFailure } from '@/lib/settings'
+import { dashboardSnapshot, snapshotScope, snapshotTime } from '@/lib/dashboard'
 import type { DashboardSnapshot } from '@/lib/dashboard'
 
 definePageMeta({ layout: 'console', middleware: 'auth' })
 const snapshot = shallowRef<DashboardSnapshot | null>(null)
 const pending = ref(true)
-const failed = ref(false)
+const failed = ref<false | 'error' | 'forbidden'>(false)
 const number = new Intl.NumberFormat('zh-CN')
 const metrics = computed(() => [
   {
@@ -52,8 +53,8 @@ async function load() {
   snapshot.value = null
   try {
     snapshot.value = dashboardSnapshot(await getDashboardStats())
-  } catch {
-    failed.value = true
+  } catch (error) {
+    failed.value = settingsFailure(error)
   } finally {
     pending.value = false
   }
@@ -86,9 +87,9 @@ onMounted(load)
     </div>
 
     <UiAlert v-if="failed" variant="destructive" role="alert">
-      <UiAlertTitle>看板数据读取失败</UiAlertTitle>
-      <UiAlertDescription>暂时无法获取统计数据，请检查服务连接后重试。</UiAlertDescription>
-      <div class="mt-3"><UiButton size="sm" variant="outline" @click="load">重试</UiButton></div>
+      <UiAlertTitle>{{ failed === 'forbidden' ? '无权读取看板数据' : '看板数据读取失败' }}</UiAlertTitle>
+      <UiAlertDescription>{{ failed === 'forbidden' ? '当前账号未获授权，请联系管理员。' : '暂时无法获取统计数据，请稍后重试。' }}</UiAlertDescription>
+      <div v-if="failed !== 'forbidden'" class="mt-3"><UiButton size="sm" variant="outline" @click="load">重试</UiButton></div>
     </UiAlert>
     <UiAlert v-else-if="!pending && !snapshot" role="status">
       <HugeiconsIcon :icon="Database02Icon" aria-hidden="true" />
@@ -182,9 +183,9 @@ onMounted(load)
       </div>
       <p class="text-xs leading-6 text-muted-foreground">
         <template v-if="snapshot"
-          >快照生成于 {{ snapshot.generatedAt.replace('T', ' ') }}（接口时间）。</template
+          >快照生成于 {{ snapshotTime(snapshot.generatedAt) }}。</template
         >
-        仅展示已有日志分析结果，刷新不会启动新的分析。在线人数、性能与安全指标暂未纳入实测展示。
+        {{ snapshotScope }}。仅展示已有日志分析结果，刷新不会启动新的分析。在线人数、性能与安全指标暂未纳入实测展示。
       </p>
     </template>
   </section>

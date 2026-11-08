@@ -102,7 +102,7 @@ function openEditor(mode: 'view' | 'create' | 'edit', user: ManagedUser | null =
 async function saved(self: boolean) {
   editorOpen.value = false
   if (self) {
-    await session.signOut()
+    await session.signOut(true)
     return
   }
   notice.value = editorMode.value === 'create' ? '用户已创建' : '用户信息已更新'

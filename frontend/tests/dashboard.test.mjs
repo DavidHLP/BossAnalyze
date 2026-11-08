@@ -137,3 +137,10 @@ test('health API preserves a degraded response and propagates transport failures
   }
   await assert.rejects(api.checkServiceHealth(), (error) => error.code === 503)
 })
+
+test('snapshot timestamps share an explicit timezone policy without inventing server timezone', async () => {
+  const { snapshotTime } = await import('../app/lib/dashboard.ts')
+  assert.equal(snapshotTime('2026-10-30T16:00:00'), '2026-10-30 16:00:00（服务端时间，时区未提供）')
+  assert.equal(snapshotTime('2026-10-30T16:00:00+08:00'), '2026-10-30 08:00:00.000Z（UTC）')
+  assert.equal(snapshotTime('2026-10-30T08:00:00.000Z'), '2026-10-30 08:00:00.000Z（UTC）')
+})

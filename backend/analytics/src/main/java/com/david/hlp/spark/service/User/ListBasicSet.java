@@ -48,8 +48,12 @@ public class ListBasicSet {
                 .option("fetchsize", "10000")
                 .load();
 
+        return positionNames(query, cityName);
+    }
+
+    List<String> positionNames(Dataset<Row> query, String cityName) {
         if (cityName != null && !cityName.equals("all")) {
-            query = query.where("city_name = '" + cityName + "'");
+            query = query.where(functions.col("city_name").equalTo(cityName));
         }
 
         return query.select("position_name")

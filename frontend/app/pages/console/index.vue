@@ -10,7 +10,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { getDashboardStats } from '@/api/log/accesslog'
 import { getUserRole, getUserPrivateInformation } from '@/api/auth/auth'
-import { dashboardSnapshot } from '@/lib/dashboard'
+import { dashboardSnapshot, snapshotScope, snapshotTime } from '@/lib/dashboard'
 import { accessSnapshot, settingsFailure } from '@/lib/settings'
 import { findMenu, menuShortcuts } from '@/lib/session'
 import { menuIcon } from '@/lib/menu-icons'
@@ -30,7 +30,7 @@ const pending = computed(() => statsState.value === 'loading' || accessState.val
 const number = new Intl.NumberFormat('zh-CN')
 const metrics = computed(() => [
   {
-    title: '累计访问量',
+    title: '总访问量',
     value: snapshot.value?.visits,
     description: '快照记录的访问请求数',
     icon: ViewIcon,
@@ -162,7 +162,7 @@ onMounted(refresh)
           ></UiAlert
         >
         <p v-else class="break-words text-xs text-muted-foreground">
-          数据范围：当前日志分析快照 · 生成时间 {{ snapshot.generatedAt }}
+          数据范围：{{ snapshotScope }} · 快照生成时间 {{ snapshotTime(snapshot.generatedAt) }}
         </p>
       </template>
     </section>
@@ -186,7 +186,7 @@ onMounted(refresh)
                 ><span
                   class="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/5 text-primary"
                   ><HugeiconsIcon
-                    :icon="menuIcon(item.path)"
+                    :icon="menuIcon(item.path, item.icon)"
                     class="size-5"
                     aria-hidden="true" /></span
                 ><span class="min-w-0 flex-1 break-words text-sm font-medium">{{ item.title }}</span

@@ -2,6 +2,10 @@
 import type { NuxtError } from '#app'
 
 const props = defineProps<{ error: NuxtError }>()
+const retryPath = computed(() => {
+  const data = props.error.data as { sessionRestore?: boolean; redirect?: string } | undefined
+  return data?.sessionRestore ? data.redirect : null
+})
 const title = computed(() =>
   props.error.statusCode === 403
     ? '无权访问此页面'
@@ -21,10 +25,13 @@ useHead({ title: () => `${title.value} · BossAnalyze` })
         {{
           error.statusCode === 403
             ? '当前账号没有此页面的访问权限，请返回工作台或使用其他账号登录。'
-            : '请返回工作台继续操作，或稍后重试。'
+            : retryPath
+              ? '暂时无法恢复会话，登录凭据已保留。页面权限尚未确认，请重试。'
+              : '请返回工作台继续操作，或稍后重试。'
         }}
       </p>
       <div class="flex flex-wrap gap-3">
+        <UiButton v-if="retryPath" @click="clearError({ redirect: retryPath })">重试恢复会话</UiButton>
         <UiButton @click="clearError({ redirect: '/console' })">返回工作台</UiButton>
         <UiButton variant="outline" @click="clearError({ redirect: '/login' })">前往登录</UiButton>
       </div>

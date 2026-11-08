@@ -95,5 +95,22 @@ test('scatter aggregation preserves zero coordinates and all valid sample counts
   assert.equal(bounded.valid, 1201)
   assert.equal(bounded.groups, 1201)
   assert.equal(bounded.points.length, 1000)
+  assert.equal(bounded.allGroups.length, 1201)
+  assert.equal(bounded.allGroups.reduce((sum, point) => sum + point.count, 0), 1201)
+  assert.deepEqual(bounded.allGroups.at(-1), { x: 1200, y: jobs[0].degreeValue, count: 1 })
   assert.equal(scatterData([], 'salary_value', 'degree_value').valid, 0)
+})
+
+test('decimal salaries survive projection and unknown dimensions are excluded only from affected axes', () => {
+  const samples = jobSamples([
+    { salaryValue: 4.5, degreeValue: 0, experienceValue: 0 },
+    { salaryValue: 5, degreeValue: null, experienceValue: 2 },
+    { salaryValue: 6, degreeValue: 4, experienceValue: null },
+  ])
+  assert.equal(jobSummary(samples).average, (4.5 + 5 + 6) / 3)
+  const degree = scatterData(samples, 'salary_value', 'degree_value')
+  assert.equal(degree.valid, 2)
+  assert.deepEqual(degree.allGroups[0], { x: 4.5, y: 0, count: 1 })
+  assert.equal(scatterData(samples, 'degree_value', 'experience_value').valid, 1)
+  assert.equal(scatterData(samples, 'salary_value', 'experience_value').valid, 2)
 })
