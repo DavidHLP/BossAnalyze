@@ -1,0 +1,37 @@
+backend/analytics/src/main/java/com/david/hlp/spark/model/User/JobAnalysisData.java
+  s_d1a7f0fad08003::t_a5d76c505dfa7f 22
+backend/analytics/pom.xml
+  s_d1a7f0fad08003::t_a5d76c505dfa7f 16-19
+  s_d1a7f0fad08003::t_ff54fdf8c80742 15
+frontend/app/api/boss/user/user.d.ts
+  s_d1a7f0fad08003::t_c6a04cf50c9d05 17,19,21,31
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChart.java
+  s_d1a7f0fad08003::t_a5d76c505dfa7f 13,147,168-170,172-180,182-190,194-196,198-199,203-209,211-219,225,269,277-278
+frontend/tests/recruitment.test.mjs
+  s_d1a7f0fad08003::t_c6a04cf50c9d05 98-100,103-115
+  s_d1a7f0fad08003::t_74a787caa978f2 116
+backend/analytics/src/test/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChartTest.java
+  s_d1a7f0fad08003::t_1398e45a5d270c 74-78
+  s_d1a7f0fad08003::t_e7da1f7c7a3be4 1-73,79-86
+frontend/app/lib/recruitment.ts
+  s_d1a7f0fad08003::t_c6a04cf50c9d05 215
+frontend/app/components/recruitment/ScatterPlot.vue
+  s_d1a7f0fad08003::t_c6a04cf50c9d05 6-8,23,35,37,68,71,73-99
+  s_d1a7f0fad08003::t_1398e45a5d270c 9-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "64d7a63f1580c7dc66f65e3b8052ff81ae604f74",
+  "prompts": {},
+  "sessions": {
+    "s_d1a7f0fad08003": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ba5e-a2d3-7700-b444-0269bad3bd4c",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
