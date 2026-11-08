@@ -1,0 +1,52 @@
+README.md
+  s_3f9ab12ec3a25e::t_c571101029e1c2 6-7,17-21,78-84,96,98-123,126-128,130,132-140,142,146-147,152-153,159-164,170-174
+backend/crawler/pom.xml
+  s_3f9ab12ec3a25e::t_0e208ec1246256 1-130
+frontend/README.md
+  s_3f9ab12ec3a25e::t_0e208ec1246256 1-56,59-86,88-318
+  s_3f9ab12ec3a25e::t_78f1c8470ec66b 57-58,87
+backend/pom.xml
+  s_3f9ab12ec3a25e::t_0e208ec1246256 1-350
+backend/analytics/pom.xml
+  s_3f9ab12ec3a25e::t_0e208ec1246256 1-132
+frontend/package.json
+  s_3f9ab12ec3a25e::t_0e208ec1246256 1-40
+docs/project-structure.md
+  s_3f9ab12ec3a25e::t_133c4e2525d873 1-53
+backend/api/pom.xml
+  s_3f9ab12ec3a25e::t_0e208ec1246256 1-328
+tools/credential-contract-tests/pom.xml
+  s_3f9ab12ec3a25e::t_0e208ec1246256 40,46-53
+tools/credential-contract-tests/src/test/java/com/david/hlp/contracts/SensitiveServiceContractTest.java
+  s_3f9ab12ec3a25e::t_0e208ec1246256 49
+docs/frontend-api/README.md
+  s_3f9ab12ec3a25e::t_0e208ec1246256 18,21
+  s_3f9ab12ec3a25e::t_537ff79f00ba3a 3-6
+  s_3f9ab12ec3a25e::t_78f1c8470ec66b 49-50
+database/README.md
+  s_3f9ab12ec3a25e::t_133c4e2525d873 1-12
+.github/workflows/build.yml
+  s_3f9ab12ec3a25e::t_0e208ec1246256 30,33,45
+backend/commons/pom.xml
+  s_3f9ab12ec3a25e::t_0e208ec1246256 1-89
+tools/credential-contract-tests/src/test/java/com/david/hlp/contracts/RedisPlaceholderContractTest.java
+  s_3f9ab12ec3a25e::t_0e208ec1246256 26,42,50,69,75,83,89
+docs/local-development.md
+  s_3f9ab12ec3a25e::t_0e208ec1246256 10,13-14,30,36-38,46,53-55,66,88-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f815158a26dc6e8fe3eafb0aada9e0f866c8a33",
+  "prompts": {},
+  "sessions": {
+    "s_3f9ab12ec3a25e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b8fa-34fe-7382-8c8f-09b9706fedcc",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
