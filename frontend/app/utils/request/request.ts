@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { loginLocation } from '../../lib/session.ts'
 import type { Request } from '@/utils/request/request.d'
 
 // 创建一个 axios 实例
@@ -27,7 +28,8 @@ service.interceptors.request.use(
 
     // 如果不是公开路径且没有token，直接拒绝请求
     if (!isPublicPath && !token) {
-      window.location.href = '/login';
+      const target = loginLocation(`${window.location.pathname ?? ''}${window.location.search ?? ''}${window.location.hash ?? ''}`);
+      window.location.href = `/login?${new URLSearchParams(target.query)}`;
       return Promise.reject('No token available');
     }
 

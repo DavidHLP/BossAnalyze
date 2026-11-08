@@ -7,6 +7,22 @@ const email = ref('')
 const password = ref('')
 const pending = ref(false)
 const error = ref('')
+const canRestore = ref(false)
+onMounted(() => { canRestore.value = Boolean(localStorage.getItem('token')) })
+async function retrySession() {
+  pending.value = true
+  error.value = ''
+  try {
+    if (await session.restore()) {
+      await navigateTo(loginDestination(route.query.redirect, session.state.value.menus), { replace: true })
+    } else error.value = '会话已失效，请重新登录。'
+  } catch {
+    error.value = '暂时无法恢复会话，请重试。'
+  } finally {
+    canRestore.value = Boolean(localStorage.getItem('token'))
+    pending.value = false
+  }
+}
 
 async function submit() {
   if (pending.value) return
@@ -19,7 +35,8 @@ async function submit() {
       replace: true,
     })
   } catch (cause) {
-    error.value = loginFailure(cause)
+    canRestore.value = Boolean(localStorage.getItem('token'))
+    error.value = canRestore.value ? '登录凭据已获取，但会话恢复失败，请重试恢复。' : loginFailure(cause)
   } finally {
     pending.value = false
   }
@@ -68,6 +85,7 @@ async function submit() {
         <UiButton type="submit" size="lg" class="w-full" :disabled="pending">
           {{ pending ? '正在登录…' : '登录' }}
         </UiButton>
+        <UiButton v-if="canRestore" type="button" variant="outline" :disabled="pending" @click="retrySession">重试恢复会话</UiButton>
         <UiFieldDescription class="mt-2 text-center">
           需要账号或访问权限？请联系管理员。
         </UiFieldDescription>

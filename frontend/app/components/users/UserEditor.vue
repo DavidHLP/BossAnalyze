@@ -72,9 +72,11 @@ async function discard() {
   discardOpen.value = false
   emit('update:open', false)
   await nextTick()
-  if (target) await navigateTo(target)
+  if (target === '/login') await useSession().signOut()
+  else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
+  if (useSession().state.value.invalidated) return true
   if (saving.value) return false
   if (!dirty.value) return true
   destination.value = to.fullPath
@@ -82,7 +84,7 @@ onBeforeRouteLeave((to) => {
   return false
 })
 const beforeUnload = (event: BeforeUnloadEvent) => {
-  if (dirty.value || saving.value) {
+  if (!session.state.value.invalidated && (dirty.value || saving.value)) {
     event.preventDefault()
     event.returnValue = ''
   }

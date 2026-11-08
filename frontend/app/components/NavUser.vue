@@ -39,7 +39,7 @@ const { signOut } = useSession()
             <span class="block truncate text-xs text-muted-foreground">{{ user.email }}</span>
           </UiDropdownMenuLabel>
           <UiDropdownMenuSeparator />
-          <UiDropdownMenuItem @select="signOut">
+          <UiDropdownMenuItem @select="() => signOut()">
             <HugeiconsIcon :icon="Logout01Icon" aria-hidden="true" />退出登录
           </UiDropdownMenuItem>
         </UiDropdownMenuContent>

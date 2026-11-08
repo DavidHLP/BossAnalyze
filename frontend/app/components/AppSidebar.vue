@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Briefcase01Icon, Home01Icon, ChartHistogramIcon } from '@hugeicons/core-free-icons'
+import { navigationMenus } from '@/lib/session'
 import type { SidebarProps } from '@/components/ui/sidebar'
 import { useSidebar } from '@/components/ui/sidebar'
 
@@ -56,7 +57,7 @@ const { setOpenMobile } = useSidebar()
           </UiSidebarMenuItem>
         </UiSidebarMenu>
       </UiSidebarGroup>
-      <NavMain :items="session.menus" />
+      <NavMain :items="navigationMenus(session.menus)" />
     </UiSidebarContent>
     <UiSidebarFooter><NavUser v-if="session.user" :user="session.user" /></UiSidebarFooter>
     <UiSidebarRail />

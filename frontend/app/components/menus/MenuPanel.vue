@@ -61,14 +61,14 @@ const basicFields = [
 const routeFields = [
   { key: 'path', label: '路由路径', required: true },
   { key: 'component', label: '组件标识', required: false },
-  { key: 'redirect', label: '重定向路径', required: false },
-  { key: 'icon', label: '图标标识', required: false },
+  { key: 'redirect', label: '重定向路径（当前控制台不生效）', required: false },
+  { key: 'icon', label: '图标标识（如 UserGroupIcon，未知标识使用默认图标）', required: false },
 ] as const
 const flags = [
   { key: 'hidden', label: '隐藏整个节点' },
   { key: 'metaHidden', label: '隐藏菜单入口' },
-  { key: 'alwaysShow', label: '始终显示' },
-  { key: 'keepAlive', label: '缓存页面' },
+  { key: 'alwaysShow', label: '始终显示（当前控制台不生效）' },
+  { key: 'keepAlive', label: '缓存页面（当前控制台不生效）' },
 ] as const
 watch(
   () => props.open,
@@ -97,9 +97,11 @@ async function discard() {
   initial.value = JSON.stringify(draft)
   emit('update:open', false)
   await nextTick()
-  if (target) await navigateTo(target)
+  if (target === '/login') await useSession().signOut()
+  else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
+  if (useSession().state.value.invalidated) return true
   if (pending.value) return false
   if (!dirty.value) return true
   destination.value = to.fullPath
@@ -107,7 +109,7 @@ onBeforeRouteLeave((to) => {
   return false
 })
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (dirty.value || pending.value) {
+  if (!useSession().state.value.invalidated && (dirty.value || pending.value)) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -206,6 +208,7 @@ async function save() {
           mode === 'create' ? `上级：${parent?.meta.metaTitle || '顶级菜单'}` : node?.meta.metaTitle
         }}</UiSheetDescription>
       </UiSheetHeader>
+      <p class="px-6 text-xs text-muted-foreground">隐藏菜单入口仅影响导航，已授权页面仍可直达；隐藏整个节点同时移除该节点及子节点。</p>
       <UiButton
         variant="ghost"
         size="icon-sm"

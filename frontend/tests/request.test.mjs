@@ -29,7 +29,7 @@ test('missing browser token still redirects without sending HTTP', async () => {
   globalThis.localStorage = { getItem: () => null }
   request.defaults.adapter = () => assert.fail('Unauthenticated request reached the network')
   await assert.rejects(request.get('/api/resume'))
-  assert.equal(window.location.href, '/login')
+  assert.equal(window.location.href, '/login?redirect=%2Fconsole')
 })
 
 test('HTTP 401 still clears the token and dispatches unauthorized', async () => {

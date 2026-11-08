@@ -12,7 +12,7 @@ const current = computed(() => findMenu(session.value.menus, route.path))
       <UiCardTitle
         ><h1>{{ current?.title }}</h1></UiCardTitle
       >
-      <UiCardDescription>此业务页面正在重新构建，现有数据保持不变。</UiCardDescription>
+      <UiCardDescription>此功能尚未开放，当前仅提供已授权的导航入口。请返回工作台使用现有功能。</UiCardDescription>
     </UiCardHeader>
     <UiCardFooter
       ><UiButton as-child variant="outline"
