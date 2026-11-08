@@ -43,7 +43,6 @@ security:
     public-paths:
       - /actuator
       - /error
-      - /api/log/access/health
     permission-protected-paths:
       - /api/log/access
     dashboard-path: /console/dashboard
