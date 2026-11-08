@@ -113,7 +113,7 @@ public class TwoDimensionalAnalysisChart implements Serializable {
                 .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
                 .option("user", environment.getRequiredProperty("spring.datasource.username"))
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
-                .option("dbtable", "t_job_detail")
+                .option("dbtable", ListBasicSet.ACTIVE_JOBS_TABLE)
                 .option("fetchsize", "10000")
                 .load())
                 .select("position_id", "position_name", "detail_data", "city_name", "html_url", "employee_benefits",

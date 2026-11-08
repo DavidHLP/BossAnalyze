@@ -14,6 +14,9 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class ListBasicSet {
+    // Filter raw MySQL numbers before JDBC can map TINYINT(1) to Boolean.
+    static final String ACTIVE_JOBS_TABLE = "(SELECT * FROM t_job_detail WHERE is_deleted = 0) active_jobs";
+
     private final SparkSession sparkSession;
     private final Environment environment;
 
@@ -23,7 +26,7 @@ public class ListBasicSet {
                 .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
                 .option("user", environment.getRequiredProperty("spring.datasource.username"))
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
-                .option("dbtable", "t_job_detail")
+                .option("dbtable", ACTIVE_JOBS_TABLE)
                 .option("fetchsize", "10000")
                 .load())
                 .select("city_name")
@@ -44,7 +47,7 @@ public class ListBasicSet {
                 .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
                 .option("user", environment.getRequiredProperty("spring.datasource.username"))
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
-                .option("dbtable", "t_job_detail")
+                .option("dbtable", ACTIVE_JOBS_TABLE)
                 .option("fetchsize", "10000")
                 .load());
 

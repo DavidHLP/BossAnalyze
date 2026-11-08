@@ -90,12 +90,12 @@ class TwoDimensionalAnalysisChartTest {
             assertTrue(options.positionNames(cities, "' OR true --").isEmpty());
             assertEquals(3, options.positionNames(cities, "all").size());
             assertEquals(3, options.positionNames(cities, null).size());
-            assertSoftDeleteTypesAcrossRecruitmentReaders(spark);
+            assertDefensiveFilterOnAlreadyDecodedRows(spark);
         }
     }
 
-    private void assertSoftDeleteTypesAcrossRecruitmentReaders(SparkSession spark) {
-        // MySQL TINYINT(1) is exposed as Boolean; older fixtures used integers.
+    private void assertDefensiveFilterOnAlreadyDecodedRows(SparkSession spark) {
+        // This tests the defensive post-read filter only; raw JDBC flags require SQL filtering.
         for (var type : Arrays.asList(DataTypes.BooleanType, DataTypes.IntegerType)) {
             boolean bool = type.equals(DataTypes.BooleanType);
             var schema = new StructType().add("city_name", DataTypes.StringType)

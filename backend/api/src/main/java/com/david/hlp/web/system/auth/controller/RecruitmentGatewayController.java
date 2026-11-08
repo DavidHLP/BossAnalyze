@@ -27,7 +27,13 @@ public class RecruitmentGatewayController {
         String query = request.getQueryString();
         URI uri = URI.create(sparkServiceUrl + request.getRequestURI() + (query == null ? "" : "?" + query));
         try {
-            return restTemplate.getForEntity(uri, String.class);
+            ResponseEntity<String> upstream = restTemplate.getForEntity(uri, String.class);
+            var response = ResponseEntity.status(upstream.getStatusCode());
+            // These JSON endpoints must not forward upstream connection/framing headers.
+            if (upstream.getHeaders().getContentType() != null) {
+                response.contentType(upstream.getHeaders().getContentType());
+            }
+            return response.body(upstream.getBody());
         } catch (RestClientResponseException error) {
             return ResponseEntity.status(error.getStatusCode()).body(error.getResponseBodyAsString());
         } catch (ResourceAccessException error) {

@@ -38,7 +38,7 @@ public class SalaryHotJob {
 
         // 从MySQL数据库加载数据
         Dataset<Row> salaryDf = ListBasicSet.activeRows(sparkSession.read()
-                .jdbc(environment.getRequiredProperty("spring.datasource.url"), "t_job_detail", connectionProperties))
+                .jdbc(environment.getRequiredProperty("spring.datasource.url"), ListBasicSet.ACTIVE_JOBS_TABLE, connectionProperties))
                 .select("position_name", "detail_data", "city_name");
 
         // 解析JSON数据并提取薪资信息

@@ -35,13 +35,10 @@ function distribution(value: unknown): CountRow[] {
 }
 
 export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
+  if (value === null) return null
   if (!object(value) || !object(value.overview)) throw new Error('Invalid dashboard response')
   const visits = count(value.overview.totalVisits)
   const visitors = count(value.overview.uniqueVisitors)
-  // The gateway returns only these sections when the upstream snapshot is unavailable.
-  if (!('heatMapData' in value) && !('topPages' in value) && !('deviceStats' in value)) {
-    return null
-  }
   // Hutool's cached LocalDateTime is returned as epoch milliseconds by the gateway.
   const generatedAt =
     typeof value.generatedAt === 'number' &&

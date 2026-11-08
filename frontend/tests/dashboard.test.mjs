@@ -10,11 +10,9 @@ import request from '../app/utils/request/request.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/dashboard.json', import.meta.url)))
 
-test('gateway defaults are unavailable snapshots, while real zero snapshots remain zero', () => {
-  assert.equal(
-    dashboardSnapshot({ overview: { totalVisits: 0, uniqueVisitors: 0 }, generatedAt: 1 }),
-    null,
-  )
+test('explicit no-content is unavailable, while real zero snapshots remain zero', () => {
+  assert.equal(dashboardSnapshot(null), null)
+  assert.throws(() => dashboardSnapshot({ overview: { totalVisits: 0, uniqueVisitors: 0 }, generatedAt: 1 }), /Invalid/)
   const zero = structuredClone(fixture)
   zero.overview = { totalVisits: 0, uniqueVisitors: 0 }
   zero.heatMapData.hourHeatmap = {}
@@ -67,7 +65,7 @@ test('generation timestamps normalize cache milliseconds and retain valid string
 })
 
 test('malformed snapshots and invalid counts fail instead of implying no data', () => {
-  for (const value of [null, {}, { overview: { totalVisits: '0', uniqueVisitors: 0 } }]) {
+  for (const value of [undefined, {}, { overview: { totalVisits: '0', uniqueVisitors: 0 } }]) {
     assert.throws(() => dashboardSnapshot(value), /Invalid/)
   }
   for (const invalid of [-1, NaN, Infinity, '10', null]) {
@@ -106,15 +104,19 @@ test('dashboard API preserves response and propagates transport errors for retry
     return { config, status: 200, headers: {}, data: fixture }
   }
   assert.deepEqual(await api.getDashboardStats(), fixture)
-  request.defaults.adapter = async (config) => {
-    throw new AxiosError('Unavailable', 'ERR_BAD_RESPONSE', config, undefined, {
-      config,
-      status: 503,
-      headers: {},
-      data: { message: 'Unavailable' },
-    })
+  request.defaults.adapter = async (config) => ({ config, status: 204, headers: {}, data: '' })
+  assert.equal(await api.getDashboardStats(), null)
+  for (const status of [403, 503]) {
+    request.defaults.adapter = async (config) => {
+      throw new AxiosError('Unavailable', 'ERR_BAD_RESPONSE', config, undefined, {
+        config,
+        status,
+        headers: {},
+        data: { message: 'Unavailable' },
+      })
+    }
+    await assert.rejects(api.getDashboardStats(), (error) => error.code === status)
   }
-  await assert.rejects(api.getDashboardStats(), (error) => error.code === 503)
 })
 
 test('health API preserves a degraded response and propagates transport failures', async () => {
