@@ -37,9 +37,8 @@ public class SalaryHotJob {
         connectionProperties.put("fetchsize", "10000");
 
         // 从MySQL数据库加载数据
-        Dataset<Row> salaryDf = sparkSession.read()
-                .jdbc(environment.getRequiredProperty("spring.datasource.url"), "t_job_detail", connectionProperties)
-                .filter(col("is_deleted").equalTo(0))
+        Dataset<Row> salaryDf = ListBasicSet.activeRows(sparkSession.read()
+                .jdbc(environment.getRequiredProperty("spring.datasource.url"), "t_job_detail", connectionProperties))
                 .select("position_name", "detail_data", "city_name");
 
         // 解析JSON数据并提取薪资信息
