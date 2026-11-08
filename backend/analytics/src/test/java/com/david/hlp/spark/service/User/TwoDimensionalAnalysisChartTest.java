@@ -76,6 +76,19 @@ class TwoDimensionalAnalysisChartTest {
             assertEquals(2, degreeExperience.size());
             assertNull(degreeExperience.get(1).getSalaryValue());
             assertTrue(new ObjectMapper().valueToTree(degreeExperience.get(1)).get("salaryValue").isNull());
+
+            var cities = spark.createDataFrame(Arrays.asList(
+                    RowFactory.create("普通城市", "普通职位"),
+                    RowFactory.create("O'Reilly", "含引号职位"),
+                    RowFactory.create("' OR 1=1 --", "表达式文本职位")),
+                    new StructType().add("city_name", DataTypes.StringType)
+                            .add("position_name", DataTypes.StringType));
+            var options = new ListBasicSet(spark, null);
+            assertEquals(Arrays.asList("含引号职位"), options.positionNames(cities, "O'Reilly"));
+            assertEquals(Arrays.asList("表达式文本职位"), options.positionNames(cities, "' OR 1=1 --"));
+            assertTrue(options.positionNames(cities, "' OR true --").isEmpty());
+            assertEquals(3, options.positionNames(cities, "all").size());
+            assertEquals(3, options.positionNames(cities, null).size());
         }
     }
 
