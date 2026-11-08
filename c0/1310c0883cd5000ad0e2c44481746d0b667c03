@@ -1,0 +1,24 @@
+backend/api/src/test/java/com/david/hlp/web/minio/ImageIntegrityTest.java
+  s_f2f5a10de5dca9::t_c99e39b6bc9410 11-14,57-82
+  s_f2f5a10de5dca9::t_04cd06ef149fee 83
+backend/api/src/main/java/com/david/hlp/web/common/entity/Result.java
+  s_f2f5a10de5dca9::t_c99e39b6bc9410 11-12,124,128,131,142
+backend/api/src/main/java/com/david/hlp/web/minio/controller/ImageController.java
+  s_f2f5a10de5dca9::t_c99e39b6bc9410 19,94,99,112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c01310c0883cd5000ad0e2c44481746d0b667c03",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
