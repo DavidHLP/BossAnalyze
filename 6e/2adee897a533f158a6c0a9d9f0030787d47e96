@@ -1,0 +1,25 @@
+tools/credential-contract-tests/src/test/java/com/david/hlp/contracts/ExternalCredentialsContractTest.java
+  s_0baa604ae2a61a::t_e89e116980348e 8-10,139,142-146,154-165,170,175-178,185-197
+tools/credential-contract-tests/pom.xml
+  s_0baa604ae2a61a::t_e89e116980348e 21
+docs/local-development.md
+  s_0baa604ae2a61a::t_e89e116980348e 99-111,117,126
+tools/credential-contract-tests/README.md
+  s_0baa604ae2a61a::t_e89e116980348e 8,13-14,20,30-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6e2adee897a533f158a6c0a9d9f0030787d47e96",
+  "prompts": {},
+  "sessions": {
+    "s_0baa604ae2a61a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bc46-3e9a-7b83-b46c-01f0fe246acc",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
