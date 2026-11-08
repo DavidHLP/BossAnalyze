@@ -1,0 +1,82 @@
+frontend/tests/request.test.mjs
+  s_dae36c4723b901::t_791783534e7195 32
+frontend/app/lib/menu-icons.ts
+  s_dae36c4723b901::t_efc606895fddee 21-30,32
+  s_dae36c4723b901::t_15a97c3996be6a 31
+frontend/app/components/menus/MenuPanel.vue
+  s_dae36c4723b901::t_15a97c3996be6a 64,70-71
+  s_dae36c4723b901::t_42e1592d38c01c 65,211
+  s_dae36c4723b901::t_2be151aa8879aa 100-101,104,112
+frontend/app/pages/console/roles.vue
+  s_dae36c4723b901::t_2be151aa8879aa 112
+frontend/app/components/roles/RolePanel.vue
+  s_dae36c4723b901::t_2be151aa8879aa 108-109,112,120,206
+frontend/app/components/users/UserEditor.vue
+  s_dae36c4723b901::t_2be151aa8879aa 75-76,79,87
+frontend/app/components/NavUser.vue
+  s_dae36c4723b901::t_2be151aa8879aa 42
+frontend/app/composables/useSession.ts
+  s_dae36c4723b901::t_df70aa2b177e12 39-41
+  s_dae36c4723b901::t_2be151aa8879aa 3,9,20,36-38,42-47,73,78-83,85
+frontend/app/pages/console/index.vue
+  s_dae36c4723b901::t_a863d54aba98b3 13,33,165,189
+frontend/app/layouts/console.vue
+  s_dae36c4723b901::t_15a97c3996be6a 12-13,17
+  s_dae36c4723b901::t_efc606895fddee 14-16,23-27,49-55
+frontend/tests/dashboard.test.mjs
+  s_dae36c4723b901::t_a26bc4f2a4ad76 140-146
+frontend/app/components/LoginForm.vue
+  s_dae36c4723b901::t_15a97c3996be6a 10-25,38-39,88
+frontend/app/components/AppSidebar.vue
+  s_dae36c4723b901::t_15a97c3996be6a 4,60
+frontend/app/pages/console/users.vue
+  s_dae36c4723b901::t_2be151aa8879aa 105
+frontend/app/pages/console/dashboard.vue
+  s_dae36c4723b901::t_a863d54aba98b3 12-13,19,56-57,90-92,186,188
+frontend/app/lib/dashboard.ts
+  s_dae36c4723b901::t_a863d54aba98b3 91-98
+frontend/app/lib/session.ts
+  s_dae36c4723b901::t_42e1592d38c01c 56,70-74,96,120-121
+  s_dae36c4723b901::t_d6c37e1a36ef00 88
+  s_dae36c4723b901::t_2be151aa8879aa 4-5,93,97,99-114,118-119
+  s_dae36c4723b901::t_031ac29d7e6a67 98
+frontend/tests/session.test.mjs
+  s_dae36c4723b901::t_791783534e7195 99,150-159,161,163-166,171-265,288
+  s_dae36c4723b901::t_df70aa2b177e12 167-170
+  s_dae36c4723b901::t_1ef36defef2087 289-297
+  s_dae36c4723b901::t_877e868d0228a5 162
+  s_dae36c4723b901::t_4228cffd20fe12 160,266-287
+frontend/app/middleware/signed-in.ts
+  s_dae36c4723b901::t_15a97c3996be6a 1,7-11,14
+  s_dae36c4723b901::t_3a1baa6da11d7b 12
+frontend/app/plugins/session.client.ts
+  s_dae36c4723b901::t_15a97c3996be6a 3,5-6
+frontend/app/components/NavMenuItem.vue
+  s_dae36c4723b901::t_15a97c3996be6a 10
+frontend/app/middleware/auth.ts
+  s_dae36c4723b901::t_3a1baa6da11d7b 15,18
+  s_dae36c4723b901::t_15a97c3996be6a 1,8,10-14
+frontend/app/error.vue
+  s_dae36c4723b901::t_15a97c3996be6a 5-8,34
+  s_dae36c4723b901::t_efc606895fddee 28-30
+frontend/app/pages/console/[...slug].vue
+  s_dae36c4723b901::t_15a97c3996be6a 15
+frontend/app/utils/request/request.ts
+  s_dae36c4723b901::t_15a97c3996be6a 2,31-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f29e026e568708fd5a619efe428878e70fdec72b",
+  "prompts": {},
+  "sessions": {
+    "s_dae36c4723b901": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ba5e-7544-7911-9d3c-94c6acb8fe94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
