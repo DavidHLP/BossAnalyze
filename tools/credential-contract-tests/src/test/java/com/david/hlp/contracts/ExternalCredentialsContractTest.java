@@ -3,17 +3,14 @@ package com.david.hlp.contracts;
 import com.david.hlp.crawler.ai.service.AIExtractionOfJobRequirementsAPI;
 import com.david.hlp.spark.utils.IpGeoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.ClassicHttpRequest;
-import org.apache.hc.core5.http.ContentType;
-import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.apache.hc.core5.http.message.BasicClassicHttpResponse;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Path;
+import java.nio.file.Files;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -31,8 +28,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -141,12 +136,14 @@ class ExternalCredentialsContractTest {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "\t\n"})
-    void ipGeoRejectsMissingOrBlankEnvironmentValueDuringInitialization(String value) {
+    void ipGeoStartsWithoutOnlineCredentialOrDatabase(String value) {
         try (MockedStatic<HttpClients> clients = mockStatic(HttpClients.class)) {
             runner(optional("IPGEOLOCATION_API_KEY", value), IpGeoConfig.class).run(context -> {
-                assertThat(context).hasFailed();
-                assertThat(context.getStartupFailure()).hasRootCauseInstanceOf(IllegalStateException.class)
-                        .hasRootCauseMessage("IP geolocation API key is required; configure IPGEOLOCATION_API_KEY or ipgeolocation.api.key");
+                assertThat(context).hasNotFailed();
+                var service = context.getBean(IpGeoService.class);
+                assertThat(service.getStatus()).isEqualTo("unconfigured");
+                assertThat(service.getIpGeoInfo("8.8.8.8"))
+                        .containsExactlyInAnyOrderEntriesOf(Map.of("country_name", "", "city", ""));
                 clients.verifyNoInteractions();
             });
         }
@@ -154,45 +151,50 @@ class ExternalCredentialsContractTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"", " "})
-    void explicitBlankIpGeoPropertyDoesNotFallBackToEnvironment(String value) {
-        runner(Map.of("ipgeolocation.api.key", value, "IPGEOLOCATION_API_KEY", SYNTHETIC),
-                IpGeoConfig.class).run(context -> assertThat(context).hasFailed());
+    void obsoleteIpGeoKeysDoNotEnableOnlineLookup(String value) {
+        try (MockedStatic<HttpClients> clients = mockStatic(HttpClients.class)) {
+            runner(Map.of("ipgeolocation.api.key", value, "IPGEOLOCATION_API_KEY", SYNTHETIC),
+                    IpGeoConfig.class).run(context -> {
+                assertThat(context).hasNotFailed();
+                var service = context.getBean(IpGeoService.class);
+                assertThat(service.getStatus()).isEqualTo("unconfigured");
+                assertThat(service.getIpGeoInfo("8.8.8.8")).containsEntry("country_name", "")
+                        .doesNotContainKeys("latitude", "longitude");
+                clients.verifyNoInteractions();
+            });
+        }
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"IPGEOLOCATION_API_KEY", "ipgeolocation.api.key"})
-    void configuredIpGeoHandlesLocalAddressesWithoutAnyHttpClient(String property) {
+    void obsoleteIpGeoKeysKeepLocalAndInvalidAddressesUnknown(String property) {
         try (MockedStatic<HttpClients> clients = mockStatic(HttpClients.class)) {
             runner(Map.of(property, SYNTHETIC), IpGeoConfig.class).run(context -> {
                 assertThat(context).hasNotFailed();
                 var service = context.getBean(IpGeoService.class);
-                assertThat(service.getIpGeoInfo("127.0.0.1")).containsEntry("country_name", "本地网络");
-                assertThat(service.getIpGeoInfo("::1")).containsEntry("country_name", "本地网络");
-                assertThat(service.getIpGeoInfo(null)).containsEntry("country_name", "");
+                for (String ip : new String[]{"127.0.0.1", "::1", null, "example.com"}) {
+                    assertThat(service.getIpGeoInfo(ip))
+                            .containsExactlyInAnyOrderEntriesOf(Map.of("country_name", "", "city", ""));
+                }
                 clients.verifyNoInteractions();
             });
         }
     }
 
     @Test
-    void ipGeoUsesConfiguredPropertyAndParsesOnlyMockedHttp() throws Exception {
-        CloseableHttpClient client = mock(CloseableHttpClient.class);
-        var response = new BasicClassicHttpResponse(200);
-        response.setEntity(new StringEntity("{\"country_name\":\"Test Country\",\"city\":\"Test City\"}",
-                ContentType.APPLICATION_JSON));
-        when(client.executeOpen(isNull(), any(ClassicHttpRequest.class), isNull())).thenReturn(response);
-        try (MockedStatic<HttpClients> clients = mockStatic(HttpClients.class)) {
-            clients.when(HttpClients::createDefault).thenReturn(client);
-            runner(Map.of("ipgeolocation.api.key", SYNTHETIC, "IPGEOLOCATION_API_KEY", "unused-synthetic"),
-                    IpGeoConfig.class).run(context -> {
-                assertThat(context.getBean(IpGeoService.class).getIpGeoInfo("203.0.113.1"))
-                        .containsEntry("country_name", "Test Country").containsEntry("city", "Test City");
-            });
-            var request = ArgumentCaptor.forClass(ClassicHttpRequest.class);
-            verify(client).executeOpen(isNull(), request.capture(), isNull());
-            assertThat(request.getValue().getUri().getRawQuery()).contains("apiKey=" + SYNTHETIC);
-            assertThat(request.getValue().getFirstHeader("Accept").getValue()).isEqualTo("application/json");
-            verify(client).close();
+    void absentOrInvalidOfflineDatabaseNeverFallsBackToHttp(@TempDir Path directory) throws Exception {
+        var invalid = Files.writeString(directory.resolve("invalid.mmdb"), "synthetic invalid database");
+        for (Path path : new Path[]{directory.resolve("missing.mmdb"), invalid}) {
+            try (MockedStatic<HttpClients> clients = mockStatic(HttpClients.class)) {
+                runner(Map.of("geolocation.mmdb-path", path.toString()), IpGeoConfig.class).run(context -> {
+                    assertThat(context).hasNotFailed();
+                    var service = context.getBean(IpGeoService.class);
+                    assertThat(service.getStatus()).isEqualTo("unavailable");
+                    assertThat(service.getIpGeoInfo("8.8.8.8"))
+                            .containsExactlyInAnyOrderEntriesOf(Map.of("country_name", "", "city", ""));
+                    clients.verifyNoInteractions();
+                });
+            }
         }
     }
 }
