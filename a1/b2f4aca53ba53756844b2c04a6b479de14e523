@@ -1,0 +1,42 @@
+AGENTS.md
+  s_3f9ab12ec3a25e::t_d6ab213a489f28 1-4,8-10,12,14,19,22,30,32,34,36,38,40,42,44,46
+  s_c821e5357f796b::t_202d4636452746 5-7,11,13,15-18,20-21,23-29,31,33,35,37,39,41,43,45,47
+docs/agents/domain.md
+  s_ac54ba2310c8a7::t_49a0eaca8be396 1-30
+docs/agents/issue-tracker.md
+  s_ac54ba2310c8a7::t_357e1fe89705cd 1-44
+docs/agents/triage-labels.md
+  s_ac54ba2310c8a7::t_58c8f3336e63a0 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1b2f4aca53ba53756844b2c04a6b479de14e523",
+  "prompts": {},
+  "sessions": {
+    "s_3f9ab12ec3a25e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b8fa-34fe-7382-8c8f-09b9706fedcc",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    },
+    "s_ac54ba2310c8a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18898-88e1-7bd2-84f7-029d749d5fa8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    },
+    "s_c821e5357f796b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b935-d170-76c3-8b4a-02935a9e29db",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
