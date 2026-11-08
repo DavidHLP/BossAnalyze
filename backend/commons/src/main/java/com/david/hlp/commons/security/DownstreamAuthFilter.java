@@ -69,6 +69,12 @@ public class DownstreamAuthFilter implements Filter {
         if (contextPath != null && !contextPath.isEmpty() && path.startsWith(contextPath)) {
             path = path.substring(contextPath.length());
         }
+        // MVC decodes segments and strips matrix parameters; reject ambiguous routes before authorization.
+        if (path.contains("%") || path.contains(";") || path.contains("\\") || path.contains("//")
+                || !path.equals(org.springframework.util.StringUtils.cleanPath(path))) {
+            writeError(response, HttpServletResponse.SC_BAD_REQUEST, "请求路径必须使用规范形式");
+            return;
+        }
 
         if ("OPTIONS".equalsIgnoreCase(request.getMethod()) || isPublic(path)) {
             chain.doFilter(request, response);
@@ -118,7 +124,8 @@ public class DownstreamAuthFilter implements Filter {
             return false;
         }
         for (String prefix : prefixes) {
-            if (prefix != null && !prefix.isEmpty() && path.startsWith(prefix)) {
+            if (prefix != null && !prefix.isEmpty()
+                    && (path.equals(prefix) || path.startsWith(prefix.endsWith("/") ? prefix : prefix + "/"))) {
                 return true;
             }
         }

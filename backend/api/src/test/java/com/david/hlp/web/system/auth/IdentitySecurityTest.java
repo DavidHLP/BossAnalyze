@@ -191,4 +191,23 @@ class IdentitySecurityTest {
         }
         mvc.perform(get("/api-error-test")).andExpect(status().isForbidden());
     }
+
+    @Test void wrongDeletionConfirmationDoesNotInvalidateTheSessionOrDelete() throws Exception {
+        var users = mock(UserServiceImp.class);
+        var passwords = mock(PasswordService.class);
+        var auth = mock(AuthServiceImp.class);
+        when(auth.getPassword(1L)).thenReturn("synthetic-hash");
+        when(passwords.matches("wrong-confirmation", "synthetic-hash")).thenReturn(false);
+        SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        principal(), null, List.of()));
+        var mvc = MockMvcBuilders.standaloneSetup(
+                new com.david.hlp.web.system.auth.controller.UserController(users, passwords, auth))
+                .setControllerAdvice(new GlobalExceptionHandler()).build();
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/user/deleteUser")
+                .contentType("application/json").content("{\"id\":2,\"password\":\"wrong-confirmation\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value(1006));
+        verify(users, never()).deleteUser(any());
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+    }
 }

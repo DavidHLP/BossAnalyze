@@ -131,6 +131,18 @@ class DownstreamAuthFilterTest {
         assertTrue(passed.get());
     }
 
+    @Test
+    void noncanonicalRoutesAreRejectedBeforeIdentityAndPublicPrefixChecks() throws Exception {
+        for (String path : List.of("/api/%6cog/access/analysis/trigger", "/api/log/access/analysis/%74rigger",
+                "/api/log/access/analysis/trigger;x=1", "/api/log/access/health/../analysis/trigger",
+                "/api/log/access//analysis/trigger", "/api/log/access/analysis\\trigger")) {
+            assertEquals(400, run("POST", path, "Bearer live-token").getStatus());
+            assertFalse(passed.get());
+        }
+        assertEquals(401, run("GET", "/api/log/access/health-extra", null).getStatus());
+        server.verify();
+    }
+
     private MockHttpServletResponse run(String method, String path, String authorization) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(method, path);
         if (authorization != null) {

@@ -73,9 +73,9 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
         if (code == null) return HttpStatus.INTERNAL_SERVER_ERROR;
         return switch (code) {
             case 1001, 1008, 1011 -> HttpStatus.CONFLICT;
-            case 1002, 1006 -> HttpStatus.UNAUTHORIZED;
+            case 1002 -> HttpStatus.UNAUTHORIZED;
             case 1005, 1010 -> HttpStatus.NOT_FOUND;
-            case 1003, 1004, 1007, 1009 -> HttpStatus.BAD_REQUEST;
+            case 1003, 1004, 1006, 1007, 1009 -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
     }

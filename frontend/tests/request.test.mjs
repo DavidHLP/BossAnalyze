@@ -63,6 +63,24 @@ test('logout is public and reaches the server without a token or redirect', asyn
   assert.equal(window.location.href, '/console')
 })
 
+test('wrong operator confirmation preserves the session for inline retry', async () => {
+  const removed = []
+  const events = []
+  globalThis.localStorage = {
+    getItem: () => 'test-session-token',
+    removeItem: key => removed.push(key),
+  }
+  window.dispatchEvent = event => events.push(event.type)
+  request.defaults.adapter = async config => {
+    const response = { config, status: 400, headers: {}, data: { code: 1006, message: '密码错误' } }
+    throw new AxiosError('Bad request', 'ERR_BAD_REQUEST', config, undefined, response)
+  }
+  await assert.rejects(request.post('/api/user/deleteUser', { id: 2, password: 'wrong' }),
+    error => error.code === 400 && error.data.code === 1006)
+  assert.deepEqual(removed, [])
+  assert.deepEqual(events, [])
+})
+
 test('logout 401 leaves revocation feedback to signOut instead of the expiry flow', async () => {
   const removed = []
   const events = []

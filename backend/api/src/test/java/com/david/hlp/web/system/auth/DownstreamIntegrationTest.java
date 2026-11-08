@@ -77,6 +77,16 @@ class DownstreamIntegrationTest {
                 when(permissions.getUserPermissions(1L)).thenReturn(List.of("custom:dashboard"));
                 assertEquals(200, downstream(filter, "/api/log/access/dashboard/stats"));
                 assertEquals(403, downstream(filter, properties.getTriggerPath()));
+                var endpoint = new TriggerEndpoint();
+                var downstreamMvc = MockMvcBuilders.standaloneSetup(endpoint).addFilters(filter).build();
+                for (String path : List.of("/api/log/access/analysis/%74rigger",
+                        "/api/log/access/analysis/trigger;x=1", "/api/%6cog/access/analysis/trigger",
+                        "/api/log/access/analysis/../analysis/trigger")) {
+                    downstreamMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post(URI.create(path)).header("Authorization", "Bearer synthetic-token"))
+                            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest());
+                }
+                assertEquals(0, endpoint.calls);
                 when(permissions.getUserPermissions(1L)).thenReturn(List.of("custom:dashboard", "logs.analysis.trigger"));
                 assertEquals(200, downstream(filter, properties.getTriggerPath()));
                 when(permissions.getUserPermissions(1L)).thenReturn(List.of());
@@ -99,6 +109,13 @@ class DownstreamIntegrationTest {
         filter.doFilter(request, response, (a, b) -> reached[0] = true);
         assertEquals(response.getStatus() == 200, reached[0]);
         return response.getStatus();
+    }
+
+    @org.springframework.web.bind.annotation.RestController
+    static class TriggerEndpoint {
+        int calls;
+        @org.springframework.web.bind.annotation.PostMapping("/api/log/access/analysis/trigger")
+        String trigger() { calls++; return "reached"; }
     }
 
     @Test void logGatewayUsesTrustedTemplateWithoutForwardingToForeignDestinations() {
