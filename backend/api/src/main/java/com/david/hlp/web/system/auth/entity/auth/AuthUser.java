@@ -75,6 +75,7 @@ public class AuthUser implements UserDetails {
         return userId;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Override
     public String getPassword() {
         return password;

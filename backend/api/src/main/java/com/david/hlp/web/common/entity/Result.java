@@ -68,6 +68,18 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
                 HttpStatus.OK);
     }
 
+    private static HttpStatus errorStatus(Integer code) {
+        if (code != null && code >= 400 && code <= 599 && HttpStatus.resolve(code) != null) return HttpStatus.valueOf(code);
+        if (code == null) return HttpStatus.INTERNAL_SERVER_ERROR;
+        return switch (code) {
+            case 1001, 1008, 1011 -> HttpStatus.CONFLICT;
+            case 1002, 1006 -> HttpStatus.UNAUTHORIZED;
+            case 1005, 1010 -> HttpStatus.NOT_FOUND;
+            case 1003, 1004, 1007, 1009 -> HttpStatus.BAD_REQUEST;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+    }
+
     public static <T> Result<T> error(Integer code, String message) {
         return new Result<>(
                 ResultBody.<T>builder()
@@ -75,7 +87,7 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
                         .message(message)
                         .timestamp(System.currentTimeMillis())
                         .build(),
-                HttpStatus.INTERNAL_SERVER_ERROR);
+                errorStatus(code));
     }
 
     public static <T> Result<T> error(ResultCode code) {
@@ -85,7 +97,7 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
                         .message(code.getMessage())
                         .timestamp(System.currentTimeMillis())
                         .build(),
-                HttpStatus.INTERNAL_SERVER_ERROR);
+                errorStatus(code.getCode()));
     }
 
     public static <T> Result<T> error(ResultCode code, String message) {
@@ -95,7 +107,7 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
                         .message(message)
                         .timestamp(System.currentTimeMillis())
                         .build(),
-                HttpStatus.INTERNAL_SERVER_ERROR);
+                errorStatus(code.getCode()));
     }
 
     /**

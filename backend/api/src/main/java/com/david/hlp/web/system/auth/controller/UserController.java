@@ -1,5 +1,8 @@
 package com.david.hlp.web.system.auth.controller;
 
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.web.server.ResponseStatusException;
+import com.david.hlp.web.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,6 +48,8 @@ public class UserController extends BaseController {
                 pageInfo.getSize(),
                 pageInfo.getQuery()
             ));
+        } catch (BusinessException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("获取用户管理信息异常: page={}, size={}, 错误={}", 
                 pageInfo.getNumber(), pageInfo.getSize(), e.getMessage(), e);
@@ -69,6 +74,8 @@ public class UserController extends BaseController {
             return Result.success("删除成功");
         } catch (ApiException e) {
             throw e; // 已记录日志的异常直接抛出
+        } catch (BusinessException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("删除用户异常: userId={}, 错误={}", user.getId(), e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "删除用户失败: " + e.getMessage());
@@ -86,6 +93,8 @@ public class UserController extends BaseController {
         try {
             userService.updateUser(user);
             return Result.success("更新成功");
+        } catch (BusinessException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("更新用户信息异常: userId={}, 错误={}", user.getId(), e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "更新用户信息失败: " + e.getMessage());
@@ -97,6 +106,8 @@ public class UserController extends BaseController {
         try {
             userService.addUser(user);
             return Result.success("添加成功");
+        } catch (BusinessException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("添加用户异常: email={}, 错误={}", user.getEmail(), e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "添加用户失败: " + e.getMessage());

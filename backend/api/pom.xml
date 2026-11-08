@@ -121,6 +121,12 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Isolated SQL contract tests; never connect to business databases. -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<!-- MySQL Database Driver -->
 		<dependency>
 			<groupId>com.mysql</groupId>

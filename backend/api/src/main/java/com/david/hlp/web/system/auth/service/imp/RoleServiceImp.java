@@ -31,6 +31,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RoleServiceImp {
 
+    private void rejectDuplicate(Role role) {
+        Long existing = roleMapper.findIdByName(role.getRoleName());
+        if (existing != null && !existing.equals(role.getId())) {
+            throw new com.david.hlp.web.common.exception.BusinessException(409, "角色名称重复");
+        }
+    }
+
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
     private final RouterMapper routerMapper;
@@ -108,6 +115,7 @@ public class RoleServiceImp {
         try {
             Assert.notNull(role, "角色信息不能为空");
             Assert.hasText(role.getRoleName(), "角色名称不能为空");
+            rejectDuplicate(role);
             roleMapper.insertRole(role);
         } catch (IllegalArgumentException e) {
             log.warn("添加角色失败: {}", e.getMessage());
@@ -129,6 +137,13 @@ public class RoleServiceImp {
             Assert.notNull(role, "角色信息不能为空");
             Assert.notNull(role.getId(), "角色ID不能为空");
             Assert.hasText(role.getRoleName(), "角色名称不能为空");
+            Role stored = roleMapper.getRoleById(role.getId());
+            if (stored == null) throw new com.david.hlp.web.common.exception.BusinessException(404, "角色不存在");
+            if ("USER".equalsIgnoreCase(stored.getRoleName()) &&
+                    (!"USER".equals(role.getRoleName()) || !Integer.valueOf(1).equals(role.getStatus()))) {
+                throw new com.david.hlp.web.common.exception.BusinessException("默认角色不能改名或停用");
+            }
+            rejectDuplicate(role);
             roleMapper.updateRole(role);
         } catch (IllegalArgumentException e) {
             log.warn("编辑角色失败: {}", e.getMessage());
@@ -180,6 +195,11 @@ public class RoleServiceImp {
     public void deleteRole(Long roleId) {
         try {
             Assert.notNull(roleId, "角色ID不能为空");
+            Role stored = roleMapper.getRoleById(roleId);
+            if (stored == null) throw new com.david.hlp.web.common.exception.BusinessException(404, "角色不存在");
+            if ("USER".equalsIgnoreCase(stored.getRoleName())) {
+                throw new com.david.hlp.web.common.exception.BusinessException("默认角色不能删除");
+            }
             roleMapper.deleteRolePermissionByRoleId(roleId);
             roleMapper.deleteRole(roleId);
         } catch (IllegalArgumentException e) {

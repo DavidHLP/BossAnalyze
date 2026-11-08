@@ -52,6 +52,9 @@ public class UserServiceImp {
     }
 
     public void updateUser(User user) {
+        if (user.getPassword() != null) {
+            throw new com.david.hlp.web.common.exception.BusinessException("此接口不支持修改密码");
+        }
         userMapper.updateById(user);
     }
 

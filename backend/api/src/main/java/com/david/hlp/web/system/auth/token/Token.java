@@ -15,6 +15,7 @@ import com.david.hlp.web.system.auth.entity.auth.AuthUser;
 @AllArgsConstructor
 public class Token implements Serializable {
     private Long id;
+    private java.time.LocalDateTime createTime;
     private AuthUser authUser;
     private Long userId;
     private String token;

@@ -46,8 +46,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
      */
     @Override
     public UserDetails loadUserByUsername(String jwt) throws UsernameNotFoundException {
-        if (!tokenMapper.checkTokenValid(jwt)) {
-            log.warn("token已失效或被撤销: {}", jwt);
+        if (!Boolean.TRUE.equals(tokenMapper.checkTokenValid(jwt))) {
+            log.warn("token已失效或被撤销");
             throw new UsernameNotFoundException("token已失效或被撤销");
         }
         String username = jwtService.extractUsername(jwt);
@@ -65,6 +65,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         Assert.notNull(user.getRoleId(), "用户角色ID不能为空");
 
+        if (!user.isEnabled() || !userMapper.isRoleEnabled(user.getRoleId())) {
+            throw new UsernameNotFoundException("用户或角色已停用");
+        }
         // 加载用户权限
         List<String> authorities = userMapper.listAuthoritiesByRoleId(user.getRoleId());
         if (authorities == null) {
@@ -75,7 +78,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         user.setAuthorities(authorities);
         // 验证 JWT 是否有效
         if (!jwtService.isTokenValid(jwt, user)) {
-            log.warn("无效的token: {}", jwt);
+            log.warn("无效的token");
             throw new UsernameNotFoundException("token已失效或被撤销");
         }
         return user;

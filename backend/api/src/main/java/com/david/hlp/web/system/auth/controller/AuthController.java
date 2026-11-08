@@ -1,5 +1,7 @@
 package com.david.hlp.web.system.auth.controller;
 
+import org.springframework.web.server.ResponseStatusException;
+import com.david.hlp.web.common.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +43,22 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class AuthController extends BaseController {
 
+    private final com.david.hlp.web.system.auth.LogoutService logoutService;
+    private final com.david.hlp.web.system.auth.mapper.RoleMapper roleMapper;
+
+    @PostMapping("/logout")
+    public Result<Void> logout(jakarta.servlet.http.HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
+        logoutService.logout(request, response, null);
+        return Result.success();
+    }
+
+    @GetMapping("/hasPagePermission")
+    public Result<Boolean> hasPagePermission(@RequestParam String path) {
+        var grants = permissionService.getUserPermissions(getCurrentUserId());
+        return Result.success(roleMapper.permissionsForPath(path).stream().anyMatch(grants::contains));
+    }
+
     private final AuthServiceImp authService;
     private final RouterServiceImp routerService;
     private final PermissionService permissionService;
@@ -71,6 +89,8 @@ public class AuthController extends BaseController {
                         RedisKeyEnum.REGISTER_CODE_KEY.getTimeUnit());
             });
             return Result.success("验证码已发送");
+        } catch (BusinessException | ApiException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("注册失败: 操作频繁，请稍后再试");
             throw new BusinessException(ResultCode.LOCK_HAS_USED);
@@ -92,6 +112,8 @@ public class AuthController extends BaseController {
         } catch (final DuplicateKeyException e) {
             log.warn("用户注册失败: 用户已存在, email={}", request.getEmail());
             throw new BusinessException(ResultCode.USER_EXISTS);
+        } catch (BusinessException | ApiException | ResponseStatusException e) {
+            throw e;
         } catch (final Exception e) {
             log.error("用户注册异常: {}", e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "注册失败: " + e.getMessage());
@@ -120,6 +142,8 @@ public class AuthController extends BaseController {
                     RedisKeyEnum.TOKEN_REFRESH_KEY.getTimeout(),
                     RedisKeyEnum.TOKEN_REFRESH_KEY.getTimeUnit());
             return Result.success(token);
+        } catch (BusinessException | ApiException | ResponseStatusException e) {
+            throw e;
         } catch (final Exception e) {
             log.error("用户登录异常: email={}, 错误={}", request.getEmail(), e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "登录失败: " + e.getMessage());
@@ -183,6 +207,8 @@ public class AuthController extends BaseController {
             Objects.requireNonNull(router, "路由信息不能为空");
             routerService.editRouter(router);
             return Result.success("编辑成功");
+        } catch (BusinessException | ApiException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("编辑路由异常: routerId={}, 错误={}", router != null ? router.getId() : "null", e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "编辑失败: " + e.getMessage());
@@ -201,6 +227,8 @@ public class AuthController extends BaseController {
             Objects.requireNonNull(router, "路由信息不能为空");
             routerService.addRouter(router);
             return Result.success("添加成功");
+        } catch (BusinessException | ApiException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("添加路由异常: 错误={}", e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "添加失败: " + e.getMessage());
@@ -219,6 +247,8 @@ public class AuthController extends BaseController {
             Objects.requireNonNull(router, "路由信息不能为空");
             routerService.deleteRouter(router);
             return Result.success("删除成功");
+        } catch (BusinessException | ApiException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("删除路由异常: routerId={}, 错误={}", router != null ? router.getId() : "null", e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "删除失败: " + e.getMessage());
@@ -248,6 +278,8 @@ public class AuthController extends BaseController {
             Objects.requireNonNull(role, "角色信息不能为空");
             roleService.addRole(role);
             return Result.success("添加成功");
+        } catch (BusinessException | ApiException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("添加角色异常: 错误={}", e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "添加失败: " + e.getMessage());
@@ -266,6 +298,8 @@ public class AuthController extends BaseController {
             Objects.requireNonNull(role, "角色信息不能为空");
             roleService.editRole(role);
             return Result.success("编辑成功");
+        } catch (BusinessException | ApiException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("编辑角色异常: roleId={}, 错误={}", role != null ? role.getId() : "null", e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "编辑失败: " + e.getMessage());
@@ -286,6 +320,8 @@ public class AuthController extends BaseController {
             System.out.println("rolePermissionUpdateResponse:" + rolePermissionUpdateResponse);
             roleService.updateRolePermissions(rolePermissionUpdateResponse);
             return Result.success("更新成功");
+        } catch (BusinessException | ApiException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("更新角色权限异常: roleId={}, 错误={}",
                     rolePermissionUpdateResponse != null ? rolePermissionUpdateResponse.getRoleId() : "null",
@@ -306,6 +342,8 @@ public class AuthController extends BaseController {
             Objects.requireNonNull(role, "角色信息不能为空");
             roleService.deleteRole(role.getId());
             return Result.success("删除成功");
+        } catch (BusinessException | ApiException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("删除角色异常: roleId={}, 错误={}", role != null ? role.getId() : "null", e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "删除失败: " + e.getMessage());

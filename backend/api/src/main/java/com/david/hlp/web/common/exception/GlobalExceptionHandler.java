@@ -35,6 +35,31 @@ public class GlobalExceptionHandler {
     private static final String DATE_FORMAT_ERROR_MSG = "日期时间格式错误，请使用正确的格式 (yyyy-MM-dd'T'HH:mm:ss)";
     private static final String DB_ERROR_MSG = "数据库操作异常，请联系管理员";
 
+    @ExceptionHandler(ApiException.class)
+    public Result<Void> handleApiException(ApiException ex) {
+        return Result.error(ex.getResultCode());
+    }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public Result<Void> handleResponseStatusException(org.springframework.web.server.ResponseStatusException ex) {
+        return Result.error(ex.getStatusCode().value(), ex.getReason());
+    }
+
+    @ExceptionHandler(org.springframework.dao.DuplicateKeyException.class)
+    public Result<Void> handleDuplicateKeyException(org.springframework.dao.DuplicateKeyException ex) {
+        return Result.error(409, "数据重复");
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public Result<Void> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return Result.error(400, ex.getMessage());
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public Result<Void> handleAccessDeniedException(Exception ex) {
+        return Result.error(ResultCode.FORBIDDEN);
+    }
+
     @ExceptionHandler(BusinessException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleBusinessException(final BusinessException ex) {

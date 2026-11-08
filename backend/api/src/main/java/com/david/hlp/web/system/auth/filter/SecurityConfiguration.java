@@ -19,30 +19,12 @@ public class SecurityConfiguration {
         private final JwtAuthenticationFilter jwtAuthFilter;
         private final AuthenticationProvider authenticationProvider;
 
-        private static final String[] AUTH_WHITELIST = {
-                        "/api/auth/**",
-                        "/api/user/**",
-                        "/api/role/**",
-                        "/api/repeater/**",
-                        "/api/repeater/**",
-                        "/api/boss/**",
-                        "/api/proxy/**",
-                        "/api/boss/basic/**",
-                        "/api/boss/user/**",
-                        "/api/resume/**",
-                        "/api/image/**",
-                        "/api/ai/**",
-                        "/api/v1/system/logs/**",
-                        "/actuator/health",
-                        "/actuator/health/readiness",
-                        "/actuator/health/liveness"
-        };
-
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                 http
                                 .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers(AUTH_WHITELIST).permitAll()
+                                                .requestMatchers(JwtAuthenticationFilter.PUBLIC_PATHS.toArray(String[]::new)).permitAll()
+                                                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                                                 // .requestMatchers("/api/user/**").hasRole("ADMIN")
                                                 // .requestMatchers("/api/role/**").hasRole("ADMIN")
                                                 // .requestMatchers("/api/auth/**").hasRole("ADMIN")
