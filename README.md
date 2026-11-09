@@ -12,6 +12,8 @@
 [![Documentation](https://img.shields.io/badge/Docs-deepwiki.com-8A2BE2?style=flat&logo=gitbook&logoColor=white)](https://deepwiki.com/DavidHLP/BossAnalyze)
 
 For local startup and connectivity checks, see [Local Development](docs/local-development.md).
+Current local acceptance and remaining external gates are recorded in the
+[non-BOSS delivery report](docs/operations/non-boss-delivery-20261109.md).
 
 The frontend is being rebuilt on Nuxt 4 and shadcn-vue preset `a2lQlAlu` with pointer
 styles enabled. The API layer lives under `frontend/app/`; login, the console, management
@@ -35,11 +37,13 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 
 ### ✨ 核心功能
 
-- **📊 多维度分析**：支持城市、职位、行业、公司规模等多维度交叉分析
-- **📈 实时看板**：动态展示关键指标和趋势变化
-- **🤖 智能推荐**：基于 AI 算法的个性化职位推荐
-- **🔍 技能图谱**：可视化展示技能关联性和需求热度
-- **💰 薪资预测**：基于大数据的精准薪资范围预测
+- **📊 招聘分析**：城市、职位、薪资及学历/经验坐标分析，保留真实空数据状态。
+- **📈 访问看板**：展示已生成的日志快照；尚无快照时明确显示空态，不填充演示指标。
+- **🔒 账户与权限**：登录、会话撤销及用户、角色、菜单的后端授权管理。
+- **📄 简历 API 与文件存储**：MongoDB 简历持久化及 RustFS 图片上传/读取；当前简历编辑 UI 仍是重建占位。
+- **🤖 AI 接口**：Python CommandCode Jev 证据提取和多维匹配，具备内部认证、来源/字节校验及部分结果处理；真实模型质量尚未批准，自动调度与写回关闭。
+
+技能图谱、薪资预测及完整智能推荐是后续产品方向，不属于当前已验收能力。固定 Jev 1.14.0 当前没有 ZDR 上游；详见[本地启动与 AI 边界](docs/local-development.md#python-ai-service-and-privacy-boundary)。
 
 ### 🎯 目标用户
 
@@ -69,9 +73,10 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 | **Apache Spark** | 4.0.0        | 大数据处理框架                 | 处理大规模 BOSS 直聘数据、用户行为分析、实时计算                 |
 | **MySQL**        | 8.0+         | 关系型数据库                   | 存储用户账户、权限、系统配置等核心结构化数据                     |
 | **Redis**        | 6.2+         | 高性能键值对存储               | 会话管理、缓存热点数据、分布式锁、限流控制                       |
-| **Hadoop HDFS**  | 3.3.4        | 分布式文件系统                 | 集中存储和管理系统日志、用户行为日志等海量数据                   |
+| **Hadoop HDFS**  | 3.4.0        | 分布式文件系统                 | 集中存储和管理系统日志、用户行为日志等海量数据                   |
 | **MongoDB**      | 6.0+         | 文档数据库                     | 存储非结构化数据，如 JSON 格式的简历数据、用户配置信息           |
-| **MinIO**        | RELEASE.2023 | 高性能对象存储                 | 存储用户上传的简历附件、分析报告等文件                           |
+| **RustFS**       | 1.0.4        | S3 兼容对象存储                | 图片上传及隔离下载，保留 MinIO Java SDK 和 `minio.*` 配置契约      |
+| **Python**       | 3.12–3.14    | FastAPI / CommandCode Jev      | AI 证据提取和匹配，使用锁定依赖；Spark 继续由 Java 运行            |
 
 ### 前端技术
 
@@ -89,7 +94,7 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 - **构建工具**：Maven 3.9.6+
 - **容器化**：Docker 20.10+
 - **CI/CD**：GitHub Actions
-- **代码质量**：SonarQube, ESLint, Prettier
+- **质量检查**：JUnit、Node test runner、Pytest、TypeScript 类型检查
 
 ## 🏗️ 项目结构
 
@@ -101,6 +106,7 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 │   ├── api/                     # 业务 API、认证与管理
 │   ├── crawler/                 # 招聘数据采集与 AI 处理
 │   └── analytics/               # 招聘和访问日志分析
+├── ai-service/                  # Python FastAPI / CommandCode Jev
 ├── frontend/                    # Nuxt 4 + shadcn-vue
 │   ├── app/
 │   │   ├── api/                 # HTTP 请求封装与类型
@@ -125,13 +131,15 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 
 目录使用职责命名，Java 包名、Maven 坐标、JAR 名称、服务标识和 HTTP 路由保持不变。
 从旧 checkout 升级时，请按[目录迁移说明](docs/project-structure.md)调整本地命令和 IDE 路径。
-仓库没有提供 Dockerfile 或 Compose 编排；外部基础设施请自行配置。
+仓库提供 `deploy/rustfs/compose.yaml` 和存储兼容性检查；MySQL、Redis、MongoDB 与 SMTP 需按[本地开发说明](docs/local-development.md)配置。不要用初始化 SQL 覆盖现有库。
 
 ### 构建与验证
 
 ```sh
 mvn -f backend/pom.xml clean verify
 mvn -f tools/credential-contract-tests/pom.xml clean verify
+uv sync --frozen --project ai-service
+(cd ai-service && uv run --frozen pytest)
 cd frontend
 pnpm install --frozen-lockfile
 pnpm type-check

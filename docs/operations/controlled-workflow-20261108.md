@@ -3,10 +3,11 @@
 在仓库根目录运行：
 
 ```sh
+uv sync --frozen --project ai-service
 python tools/workflow-fixture/run.py
 ```
 
-入口只构建 `commons` 和 `crawler` 所需 reactor（`-DskipTests package`），从刚构建的 crawler JAR 提取当前类和已有依赖，用 Java 17 编译 fixture 组装代码；不使用旧 `/tmp` Java class，不运行付费重放脚本、不安装依赖。默认 Java 为 mise `zulu-17`，Maven 为 mise `3.9.16/apache-maven-3.9.16/bin/mvn`，Python 为已有 `/tmp/boss-jev-rereview-evidence/venv/bin/python`。机器路径变化时分别设置 `WORKFLOW_JAVA_HOME`、`WORKFLOW_MAVEN`、`WORKFLOW_PYTHON` 指向已有工具链/venv。需要 `/usr/bin/chromium` 和已有 loopback MySQL；不需要 BOSS 登录、provider key、真实账号或简历。
+入口只构建 `commons` 和 `crawler` 所需 reactor（`-DskipTests package`），从刚构建的 crawler JAR 提取当前类和已有依赖，用 Java 17 编译 fixture 组装代码；不使用旧 `/tmp` Java class，不运行付费重放脚本、不安装依赖。默认 Java 为 mise `zulu-17`，Maven 为 mise `3.9.16/apache-maven-3.9.16/bin/mvn`，Python 为通过锁文件安装的 `ai-service/.venv/bin/python`。机器路径变化时分别设置 `WORKFLOW_JAVA_HOME`、`WORKFLOW_MAVEN`、`WORKFLOW_PYTHON` 指向已有工具链/venv。需要 `/usr/bin/chromium` 和已有 loopback MySQL；不需要 BOSS 登录、provider key、真实账号或简历。
 
 输出首行给出本轮私有目录 `/tmp/boss-workflow-20261108-*`，末行是 JSON 状态和 DTO 路径。目录和文件默认仅当前用户可读。正常退出和 SIGTERM/键盘中断执行清理；`cleanup.json` 中 `liveOwnedProcesses: []` 才表示未发现存活的自有进程。`processes.json` 记录进程及观察到的浏览器子进程的 PID、内核 starttime、父 PID 和进程组。SIGKILL/断电无法运行 finally，需要按该清单核对身份后清理。
 
@@ -23,7 +24,7 @@ python tools/workflow-fixture/run.py
 
 Provider 回应形状复用 `ai-service/tests/test_contract.py` 的 `fixture`：noul=0.99、choice=scored、score 分布为相邻两档各 0.5。为验证排序，jobId=2 的匹配 rawScore 为 2.5，其余为 3.5。这里故意将每个候选同时判为要求和福利；这是确定性传输/校验 fixture，不是语义质量、独立 gold 或人工标注。标签保持 pending；不改变生产 quality/writeback 全局开关。
 
-组装结构参考 `/tmp/boss-jev-postfix-41420e0` 的 MockTransport/事务 harness 和 `/tmp/boss-jev-identity-7255a96` 的 MyBatis/HTTP harness；交付入口不依赖它们的脚本、类或导出。只使用现有独立 venv 的运行时依赖。
+组装结构参考 `/tmp/boss-jev-postfix-41420e0` 的 MockTransport/事务 harness 和 `/tmp/boss-jev-identity-7255a96` 的 MyBatis/HTTP harness；交付入口不依赖它们的脚本、类、导出或临时venv。默认复用本仓库按锁文件安装的venv；也可通过WORKFLOW_PYTHON显式指定已有环境。
 
 ## 数据流与证据
 
