@@ -50,3 +50,17 @@ Python使用专属run cwd与显式PYTHONPATH指向版本ai-service；crawler专�
 - controller/offline_checks.py：`565a49c3a2da21dfcb999d51700273b49e7cd3a5bd1874cff0532675879f43a6`
 
 未运行 inventory、gate、真实 probe、canary、switch、rollback 或 accept；现行服务未因本轮修正改变。完整修正指针为 `/tmp/boss-final-deploy-controller-fixes-handoff.md`；必须完成修正后复核及 root 的现场配置、预算和身份检查再执行。
+
+### 身份与探针回收补充修正
+
+后续复核确认并修复了首次 starttime 不可读、停止前身份不可读及探针 SIGTERM 被拒绝的异常分类缺口。启动先持久记录 PID/starttime=null，再核验身份；journal 不依赖额外 /proc 读取。身份不可读和无法完成安全回收统一进入 SafetyHalt，保留 pending，停止进一步服务操作。正常 InterruptedError 在完成清理后仍可恢复。
+
+探针改为控制器进程内调用，直接管理 Java 子进程，避免双层超时遗留后代：登记期间屏蔽终端信号，保存独立 probe-child.json，pidfd 发送 SIGTERM、最长60秒回收、不强杀，未知身份/无法回收保留记录并禁止覆盖。
+
+最终本轮合成检查 23 项、语法检查3项均通过，包含 SIGTERM PermissionError 沿 switch→python_contract 的传播反例（restore 未调用、pending 保留）。日志 `controller/signal-fixes-offline.log`；固定文件摘要：
+
+- control.py：`74d987e73325b596ebde7618bf76e7e9730f49c5902837f8c612dab2fc3584de`
+- controller/probe.py：`ef41409aaa75b652b7c16a365649348fec6428a3aafd6ca78c1f91e5a930aea9`
+- controller/offline_checks.py：`735c37c2de94f6cc1a6383763ad723eff74f540d859803f3f2a07dec4d108a04`
+
+以上替代旧版摘要；私有实际文件为审查对象。真实 canary、预算不变、冷启动回退和切换尚未执行；不得把离线检查当运行验收。
