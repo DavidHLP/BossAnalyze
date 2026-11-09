@@ -1,0 +1,28 @@
+docs/operations/boss-sampling-acceptance-20261108.md
+  s_f2f5a10de5dca9::t_d41f5cfddc9081 1-19
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/DetailParser.java
+  s_f2f5a10de5dca9::t_5883bce7ee787e 66-67
+backend/crawler/src/test/java/com/david/hlp/crawler/sample/RecruitmentSamplerTest.java
+  s_f2f5a10de5dca9::t_5883bce7ee787e 302
+  s_f2f5a10de5dca9::t_8b9a77d534ccd4 308,362
+backend/crawler/src/test/resources/sample/boss-detail.html
+  s_f2f5a10de5dca9::t_5883bce7ee787e 1-2
+docs/recruitment-sampling.md
+  s_f2f5a10de5dca9::t_d2545f33f5dd8b 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "feba0ead640d25fc84c9e6b6e857068dbf3fd4cf",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
