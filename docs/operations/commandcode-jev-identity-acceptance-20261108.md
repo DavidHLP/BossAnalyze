@@ -74,3 +74,11 @@ JD明确写“必须熟练Python编程；必须具有数据分析项目经历；
 两个Python HTTP进程和两个Java进程都记录PID+/proc starttime。只在本轮Java身份匹配时SIGTERM/wait；Java退出143为主动清理，shutdown hook关闭Tomcat/SqlSession；Python关闭server/http client正常退出。cleanup.json核实四个确切身份均已退出。原8080仍保持原监听，未替换/重启服务；无现行账号/角色/业务数据变更。
 
 未验收：真实scored数值分支、v1成功/unknown映射完整返回（仅测试v1身份拒绝）、现行主API网关新路由部署、独立人工gold/holdout及领域质量、排序、生产性能/p95、正式调度/writeback、部署/回退、浏览器、全量unit suite和CI。quality仍不批准；完整身份链通过不覆盖这些门槛。
+
+## 归属拒绝状态修复后复验
+
+以上保留基线 7255a96 的原始结果。后续源码提交 `8344e09` 在 `AuthorizedResume` 分别映射主 API 的 HTTP 401、403/404 和服务故障，避免把真实归属拒绝映射为 503；不暴露上游响应内容。已有 MatchBoundaryTest 扩展五种真实 HTTP 状态，commons/crawler 离线 Maven verify 共 37 项通过，无失败、错误或跳过，日志 `/tmp/boss-jev-authfix-maven.log`。
+
+使用新构建 crawler/commons 类重新编译隔离 MVC harness，经未修改的真实主 API 再测：匿名/无效令牌 401、自报身份及非法简历 ID 422、跨账号简历 403、两次退出均 200。Python 内部调用和 provider 调用均为 0；账本前后均为 213772/230000。证据 `/tmp/boss-jev-authfix-20261108/negative-results.json`。本轮只复验拒绝链，不重跑付费成功调用；自有 Java/Python 进程已清理，原服务、原业务记录及既有证据保留。
+
+用户随后确认没有独立标注集，要求参考 get_jobs 获取多平台招聘数据。采集提供事实样本，不能代替人工的职位要求、福利和简历排序标签；正式质量批准、调度及写回继续关闭。
