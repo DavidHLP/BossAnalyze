@@ -36,7 +36,7 @@ def stat(pid):
 
 def observe():
     current = {int(entry.name): stat(int(entry.name)) for entry in Path('/proc').iterdir() if entry.name.isdigit()}
-    owned = {p.pid for p in processes} | {row['pid'] for row in records.values()
+    owned = {row['pid'] for row in records.values()
         if current.get(row['pid']) and current[row['pid']][1] == row['starttime']}
     for _ in range(20):
         found = {pid for pid, value in current.items() if value and value[3] in owned}
@@ -56,6 +56,10 @@ def start(name, args):
     finally:
         log.close()
     processes.append(p)
+    value = stat(p.pid)
+    if value:
+        records[(p.pid, value[1])] = dict(pid=p.pid, starttime=value[1],
+            processGroup=value[0], parentPid=value[3])
     observe()
     return p
 
@@ -117,11 +121,6 @@ finally:
             except subprocess.TimeoutExpired:
                 p.kill()
                 p.wait(timeout=5)
-        # Only our fresh process groups; clean any leftover browser descendants.
-        try:
-            os.killpg(p.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
     def live_owned():
         live = []
         for row in records.values():
