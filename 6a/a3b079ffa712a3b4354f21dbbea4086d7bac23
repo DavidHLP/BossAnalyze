@@ -1,0 +1,22 @@
+backend/commons/src/test/java/com/david/hlp/commons/utils/RedisCacheUtilTest.java
+  s_f2f5a10de5dca9::t_43e86226770c85 4,19-27,45,48-50
+backend/commons/src/main/java/com/david/hlp/commons/utils/RedisCacheUtil.java
+  s_f2f5a10de5dca9::t_37d5f3ffab2ca6 86-87
+  s_f2f5a10de5dca9::t_949671273cc013 88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6aa3b079ffa712a3b4354f21dbbea4086d7bac23",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
