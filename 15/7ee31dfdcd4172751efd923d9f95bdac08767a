@@ -1,0 +1,37 @@
+frontend/tests/client-ip.test.mjs
+  s_0cc1e224b7bdf0::t_9a6983cf03cbd6 52-53
+backend/crawler/src/test/java/com/david/hlp/crawler/ai/service/JevContractTest.java
+  s_0cc1e224b7bdf0::t_75d1e3227d20f5 43,48-58,69-75,95-121
+  s_0cc1e224b7bdf0::t_b0d11b3e2cbc88 33-42,44-47,122
+frontend/app/api/ai/matches.ts
+  s_0cc1e224b7bdf0::t_203b212086bc5f 27,33
+backend/crawler/src/main/java/com/david/hlp/crawler/ai/service/AIExtractionOfJobRequirements.java
+  s_bb1f0d83a6c683::t_948792683eaa3c 64-66
+  s_0cc1e224b7bdf0::t_934e23324bbe2a 21-22,74,78,101-102
+docs/operations/commandcode-jev-java.md
+  s_0cc1e224b7bdf0::t_b0b8067144755f 28-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "157ee31dfdcd4172751efd923d9f95bdac08767a",
+  "prompts": {},
+  "sessions": {
+    "s_0cc1e224b7bdf0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1be50-635e-7131-bb2b-be9c970c626b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    },
+    "s_bb1f0d83a6c683": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1be44-a395-7911-988e-b5687d792f5c",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
