@@ -124,16 +124,17 @@ DROP TABLE IF EXISTS `token`;
 CREATE TABLE `token` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID，自增',
   `user_id` bigint NOT NULL COMMENT '用户ID，外键关联user表',
-  `token` varchar(255) NOT NULL COMMENT 'Token值',
+  `token` varchar(2560) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT 'Token值',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `token_type` varchar(20) NOT NULL COMMENT '令牌类型: BEARER',
   `expired` tinyint(1) DEFAULT '0',
   `revoked` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_token_value` (`token`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `token_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=180 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Token表';
+) ENGINE=InnoDB AUTO_INCREMENT=180 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='Token表';
 
 -- ----------------------------
 -- Table structure for user

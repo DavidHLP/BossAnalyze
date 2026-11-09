@@ -1,5 +1,10 @@
 package com.david.hlp.web.system.auth.utils;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.json.JsonWriteFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.io.SerializationException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -23,6 +28,7 @@ import com.david.hlp.web.common.security.CredentialConfiguration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
@@ -33,6 +39,10 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class JwtService {
+
+  // Keep supplementary Unicode identities within the full-token index capacity.
+  private static final ObjectMapper TOKEN_JSON = new ObjectMapper(JsonFactory.builder()
+          .enable(JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8).build());
 
   @Value("${application.security.jwt.secret-key:}")
   private String secretKey;
@@ -77,15 +87,7 @@ public class JwtService {
    * @return JWT 令牌。
    */
   public String generateToken(UserDetails userDetails) {
-    Map<String, Object> claims = new HashMap<>();
-
-    return Jwts.builder()
-            .setClaims(claims)
-            .setSubject(userDetails.getUsername())
-            .setIssuedAt(new Date(System.currentTimeMillis()))
-            .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24小时
-            .signWith(getSignInKey(), SignatureAlgorithm.HS256)
-            .compact();
+    return buildToken(new HashMap<>(), userDetails, 1000L * 60 * 60 * 24); // 24小时
   }
 
   /**
@@ -163,11 +165,20 @@ public class JwtService {
    * @return JWT 令牌。
    */
   private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
+    Date issuedAt = new Date();
     return Jwts.builder()
+            .serializeToJsonWith(claims -> {
+              try {
+                return TOKEN_JSON.writeValueAsBytes(claims);
+              } catch (JsonProcessingException e) {
+                throw new SerializationException("JWT JSON serialization failed", e);
+              }
+            })
             .setClaims(extraClaims)
+            .setId(UUID.randomUUID().toString())
             .setSubject(userDetails.getUsername())
-            .setIssuedAt(new Date())
-            .setExpiration(new Date(System.currentTimeMillis() + expiration))
+            .setIssuedAt(issuedAt)
+            .setExpiration(new Date(issuedAt.getTime() + expiration))
             .signWith(getSignInKey(), SignatureAlgorithm.HS256)
             .compact();
   }

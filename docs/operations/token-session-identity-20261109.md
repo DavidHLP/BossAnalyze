@@ -1,0 +1,40 @@
+# Token session identity — 2026-11-09
+
+Issue: <https://github.com/DavidHLP/BossAnalyze/issues/56> (part of #54). Implementation delivery is separate from database rehearsal, migration, deployment and acceptance. This document does not claim an existing database has been repaired.
+
+本机现库迁移及运行验收另见[会话身份与简历版本验收](token-session-acceptance-20261109.md)；以下实现阶段的测试限制保留为历史边界。
+
+## Behavior and capacity
+
+All three JwtService issuance paths share one builder. A fresh random UUID v4 jti is assigned after caller claims, so caller jti cannot override it. Ordinary access tokens retain the existing fixed 24-hour lifetime; the extra-claims overload retains `jwtExpiration`, refresh retains `refreshExpiration`, and every path retains HS256 and the configured signing key. Issued-at and expiry use one time sample. Other extra claims remain available. Verification does not require jti, so historical no-jti JWTs remain compatible; their expiry and persisted revoked/expired flags still apply.
+
+The current login stores the ordinary access token. No Mapper changes are needed: save, lookup, validity checks, single-session revoke and batch invalidation already compare full token values. The schema now makes that value unique and case sensitive. No new session framework, jti storage column or key rotation is introduced.
+
+`user.email` is VARCHAR(255), and the DTO imposes no narrower character constraint. The new JWT JSON writer combines supplementary Unicode into UTF-8; the previous default can escape each surrogate separately and exceed the full-index budget for 255 supplementary characters. At most six JSON bytes per identity character are needed with this writer (1530 bytes for 255 characters); reserving 256 more payload bytes for the current field names, UUID and integer timestamps yields at most 2382 base64url payload bytes, plus the HS256 header/signature/separators, below 2560. Tests also cover a 255-character ASCII email, 255 supplementary characters and 255 maximally escaped control characters. Arbitrarily large extra claims are outside this storage bound; no current persisted caller supplies them. The signature algorithm and claim meanings are unchanged.
+
+The target is `token.token VARCHAR(2560) CHARACTER SET ascii COLLATE ascii_bin NOT NULL`, full unique BTREE, InnoDB DYNAMIC. 2560 bytes fit below MySQL 8's 3072-byte key limit with at least 16KiB pages. JWT compact strings are ASCII base64url plus dots; `ascii_bin` preserves case. Because this collation pads spaces, the migration rejects trailing-space legacy values rather than silently conflating them.
+
+## Parent operator procedure
+
+1. Preserve the private audit and original counterexample. The supplied audit recorded 98 rows, maximum length 175, zero historical/active duplicate groups and the legacy VARCHAR(255) UTF8 CI column. These are supplied historical facts, not a substitute for a fresh audit. Do not publish token values, real signing keys or credential files.
+2. Record the deployed artifact and rollback identity. Arrange an exclusive maintenance window and stop every token writer before the audit/ALTER, including other API replicas. Keep writers stopped until verification completes. Do not rotate keys or revoke sessions to prepare this migration.
+3. Back up the actual schema/data privately and prove restoration into a separate empty database. Never import `database/system.sql` into an existing schema. Do not rehearse with business authentication against the restored production identities: use synthetic rows and an independent synthetic key for acceptance fixtures.
+4. Audit `SHOW CREATE TABLE token`, `information_schema.columns`, `information_schema.statistics`, MySQL version, InnoDB page size/row format and foreign keys. Aggregate row counts/lengths and byte-identical duplicate groups for all rows and active rows. Check ASCII and trailing spaces before conversion. The migration repeats its guards, but the operator must inspect unexpected structures first. Unsupported source definitions require investigation; do not broaden the script blindly.
+5. In the isolated MySQL 8 restore, run `database/migrations/20261109-token-identity.sql` using an explicitly selected schema and mysql batch **without `--force`**. No automatic startup hook runs it. Supply private connection configuration outside the repository. The script requires ALTER privileges but no stored routine privileges. Capture exit status and aggregate before/after state. On any error stop; DDL commits implicitly and lock timeouts do not imply a rollback of earlier operator actions.
+6. Complete the matrix below using synthetic fixtures in disposable schemas. Only after rehearsal passes should the parent repeat fresh audit/backup and apply the exact reviewed SQL to the authorized target. Confirm rows/IDs/flags/timestamps/token bytes are unchanged, the column is exact and a visible full unique BTREE exists. Record the migration result privately.
+7. Deploy the reviewed Java 17 API artifact after the schema is ready, preserving its previous artifact/configuration/key. Use an authorized synthetic account for two same-second logins: token strings and jti must differ; both sessions initially work; logging out one invalidates only that session; replay is rejected and the other session remains valid. Verify legacy no-jti session compatibility and unchanged permissions/role disablement. Do not publish bearer strings.
+8. On deployment failure restore the prior API artifact and unchanged key/configuration; retain the expanded ASCII column and unique index. An old binary can again generate duplicate tokens, so restoration does not resolve the issue; keep login writes restricted until corrected. Never shrink to 255, delete duplicate rows, revoke all sessions or import a snapshot as rollback. Investigate failed DDL by inspecting actual metadata first; MySQL 8 InnoDB applies this single ALTER atomically, and rerunning checks both column and index state.
+
+## Required isolated MySQL matrix
+
+- Clean legacy schema: preserve all rows/bytes/IDs/flags/timestamps, apply target column and full unique index; rerun skips.
+- Target column without index: add only the index. Legacy column with a correctly defined full unique index under another name: reuse it and convert only the column. Exact target with equivalent index: skip.
+- Byte-identical duplicates, including expired/revoked rows: nonzero exit, no data/structure changes. No deduplication. Case-distinct ASCII values: survive conversion and remain independently addressable.
+- Non-ASCII, trailing spaces, incompatible type/length/nullability/default/generated column, foreign key involving token value, wrong table engine/row format/page size: refuse before ALTER.
+- Unknown same-name index, nonunique/composite/prefix/invisible token index: refuse before ALTER. Do not drop/recreate an unknown index.
+- Synthetic maximum identities for ordinary/extra-claims/refresh paths: insert and read byte-for-byte; duplicate full token insert fails (1062), case-distinct token values remain separate. Single-session revoke affects one row.
+- A held metadata lock: fail within configured lock-wait bounds, inspect and safely rerun after release. A fresh audit must be repeated after any intervening writer activity.
+
+## Local implementation verification boundary
+
+Java 17 affected commons/api verification and isolated credential contracts use synthetic keys/fixtures, H2 and mocks. `DownstreamIntegrationTest` is explicitly excluded because it binds a local HTTP port, prohibited in this implementation task. H2 strips only the MySQL ASCII/collation clause and unrelated user foreign key from the token snapshot; it verifies capacity, full uniqueness and real mapper behavior, not MySQL DDL/collation/locking. No real service, port, business database, Docker, browser, model, real credential or migration is used for this implementation. Exact executed commands, counts and preserved failures are recorded in the implementation handoff outside the repository.

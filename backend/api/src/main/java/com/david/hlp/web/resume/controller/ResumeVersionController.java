@@ -46,7 +46,7 @@ public class ResumeVersionController extends BaseController {
             }
 
             String commitId = versionControlService.commit(resumeId, userId, message, content);
-            return Result.success(commitId);
+            return Result.success(commitId, "提交成功");
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -118,7 +118,7 @@ public class ResumeVersionController extends BaseController {
             String targetBranch = request.get("target");
 
             String mergeCommitId = versionControlService.mergeBranch(resumeId, userId, sourceBranch, targetBranch);
-            return Result.success(mergeCommitId);
+            return Result.success(mergeCommitId, "合并成功");
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -202,7 +202,7 @@ public class ResumeVersionController extends BaseController {
 
         try {
             String content = versionControlService.stashPop(resumeId, userId);
-            return Result.success(content);
+            return Result.success(content, "恢复成功");
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -264,7 +264,7 @@ public class ResumeVersionController extends BaseController {
             versionControlService.recordRollbackOperation(resumeId, userId, "REVERT",
                     commitId, revertCommitId, "回滚指定提交的更改");
 
-            return Result.success(revertCommitId);
+            return Result.success(revertCommitId, "撤销成功");
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {

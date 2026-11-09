@@ -1,6 +1,7 @@
 package com.david.hlp.web.resume;
 
 import com.david.hlp.web.resume.entity.Resume;
+import com.david.hlp.web.resume.controller.ResumeVersionController;
 import com.david.hlp.web.resume.service.ResumeService;
 import com.david.hlp.web.resume.service.ResumeVersionControlService;
 import com.david.hlp.web.common.exception.BusinessException;
@@ -87,6 +88,26 @@ class ResumeIntegrityTest {
         verify(mongo).updateFirst(argThat((Query q) -> q.getQueryObject().equals(
                 new Document("id", "mine").append("userId", 1L).append("docType", "meta"))),
                 argThat((Update u) -> "renamed".equals(((Document) u.getUpdateObject().get("$set")).get("title"))), eq(Resume.class));
+    }
+
+    @Test
+    void versionStringResultsAreReturnedAsDataForFrontendCallers() {
+        ResumeVersionControlService versions = mock(ResumeVersionControlService.class);
+        ResumeVersionController controller = new ResumeVersionController(versions) {
+            @Override
+            protected Long getCurrentUserId() { return 1L; }
+        };
+        when(versions.commit("mine", 1L, "save", "new content")).thenReturn("commit-123");
+        when(versions.mergeBranch("mine", 1L, "feature", "main")).thenReturn("merge-123");
+        when(versions.stashPop("mine", 1L)).thenReturn("恢复的内容\nUnicode 简历");
+        when(versions.revertCommit("mine", 1L, "commit-123")).thenReturn("revert-123");
+        assertEquals("commit-123", controller.commit("mine", Map.of(
+                "message", "save", "content", "new content")).getBody().getData());
+        assertEquals("merge-123", controller.mergeBranch("mine", Map.of(
+                "source", "feature", "target", "main")).getBody().getData());
+        assertEquals("恢复的内容\nUnicode 简历", controller.stashPop("mine").getBody().getData());
+        assertEquals("revert-123", controller.revertCommit("mine", Map.of(
+                "commitId", "commit-123")).getBody().getData());
     }
 
     private MongoTemplate fixture(Resume meta, Resume... commits) {
