@@ -21,7 +21,7 @@ ZDR 是供应商政策及路由保证，不是本次独立审计其存储系统�
 
 ## 离线评估入口
 
-未在本仓库找到独立人工 gold runner；新增 `app.evaluate`，仅读本地文件、标准输出汇总，不调用 provider、不读密钥/预算账本、不写质量开关或数据库。
+`app.evaluate` 是独立离线人工 gold runner，仅读本地文件、标准输出汇总，不调用 provider、不读密钥/预算账本、不写质量开关或数据库。
 
 ```sh
 cd ai-service
@@ -34,17 +34,20 @@ uv run --frozen python -m app.evaluate \
 
 最后两个数值只是运行示例，不是本项目已批准样本量或排序门槛。应在看测试结果前由独立验收者冻结；`min-samples` 同时应用整体和每个 subgroup。既有候选召回 >=0.98、已接受 precision >=0.95、证据一致性 =1 不降低。unknownAgreement=1 为该份人工标签的明确一致性检查，不替代概率校准。分类 recall 单独报告，不用拒答比例掩盖召回。排序门槛须显式提供，无默认已批准值。
 
-所有 JSONL 每行一个对象，禁止重复 id/JSON key、缺字段、额外字段。格式如下（仅形状说明，无 gold 标签）：
+所有 JSONL 每行一个对象，禁止重复 id/JSON key、缺必填字段、额外字段。格式如下（仅形状说明，无 gold 标签）：
 
-- gold：`id, groupId, source, split, reviewStatus, reviewer, annotationOrigin, dataOrigin, subgroup, requirements, benefits, unknown, ranking`。
+- gold：`id, groupId, source, split, reviewStatus, reviewer, annotationOrigin, dataOrigin, subgroup, requirements, benefits, unknown, ranking`，另有可空 `coreRequirements`（默认 null）。
 - `source` 是本地原始字符串叶子的 JSON Pointer → 原字符串映射，例如 `/job/jobDescription/requirements`、`/resume`。不能放旧 AI 输出当事实。`groupId` 由数据负责人按同一 JD/近重复职位分组，跨训练/阈值校准/测试保持一致。
 - `split="test"`, `reviewStatus="reviewed"`, `annotationOrigin="human"`，非空人工 reviewer、subgroup 必填。`dataOrigin` 仅 `real_public` / `real_authorized` / `synthetic`；synthetic 永不产生总体 pass。独立人工先复核原文、要求/福利、unknown 和排序，再冻结 gold；不允许 Jev 或脚本生成标签冒充人工。元数据是可审计声明，runner 无法验证签名或人类身份。
 - requirements/benefits 均为完整 `Evidence` 列表：`{sourcePath,start,end,text}`，Unicode code point 半开跨度，必须精确原文切片。空列表须表示人工确认无阳性，不能表示 pending。预测沿用相同证据形状；将既有 extraction 的 evidence 展平、去重，保留原始 sourcePath 和跨度。gold 和预测必须事前约定同一跨度粒度；precision/recall 按精确跨度匹配，候选召回允许较大候选包含标注子跨度。
+- `coreRequirements` 是各自 requirements 的证据子集，沿用原始 sourcePath/start/end/text 身份、跨度、去重和原文核验。gold 由独立人工选择，预测来自冻结实际输出；null 表示缺标注/输出，`[]` 只表示已确认无核心阳性。输出 `coreSelection` 的 tp/predicted/gold/precision/recall；计数为已提供标签的观测数，任一侧缺失时完整 precision/recall 为 null。核心 precision 复用 >=0.95 门槛，缺失标签也不能掩盖可比较样本已观察到的 precision 失败。
 - unknown 为相同非空维度键集合 → bool（例如 `jobId:skills`），gold 人工判断是否证据不足，预测取实际 unknown，不能由分数猜。输出 unknownCoverage、unknownAgreement 与计数，缺预测项不能从样本中删除。
 - ranking 为同一请求中人工严格排序的可比较 jobId 列表，不支持平局；无可比较排序填 `[]`，该指标 unverifiable。预测列表必须来自冻结的实际分数降序，不能从 gold 抄写，不可评分的职位不补零/不填 ID。缺失预测职位对该 gold 相关 pair 计不一致；额外或重复 ID 拒绝。
 - predictions：`id, model, candidates, requirements, benefits, unknown, ranking`；model 固定 `typesafe/jev-1.14.0`，candidates 为切分候选证据列表。必须覆盖全部 gold id，失败样本也不得静默丢弃；如果没有可用完整冻结预测，整次无法验证。
+- predictions 另有可空 `latencyMs` 和 `costUsd`（默认 null）。latencyMs 只接受有限非负数值毫秒，拒绝 bool、字符串、NaN/Infinity 和负数；costUsd 只接受非负 USD 定点十进制字符串（数字加可选小数部分），拒绝数值、bool、非有限值。真实 0 与未知 null 分开；不从 token 预留或公开单价推算实际费用。
+- 观测以每条 prediction 对应的完整操作为单位：延迟从操作开始到成功/失败终态，包含重试和等待；成本来自可审计实际计费记录，包含该操作失败尝试与重试费用。失败样本继续纳入同一总体；跨记录共享请求费用只能在有可靠归属、无重复计费时分配，否则保留 null。无法可靠获得完整观测时不补零，也不删除该样本。runner 不采样时钟、不请求账单、不生成这些观测。
 - development：所有训练、提示调优、阈值校准来源的 `id, groupId, source` manifest，必传，确实没有开发集可给空文件并由审核者确认。检测 test 与 development 的 id/groupId、规范化内容和相似度 >=0.9 的近重复，同时拒绝测试集自身重复组。不保证检测所有语义改写/泄漏；人工分组及完整 manifest 仍是前提，不能只提交部分开发来源。
 
-汇总包含 overall/subgroups 的样本及分母、两类 tp/predicted/gold/precision/recall、候选召回、原文证据一致性（含候选）、unknown 覆盖/一致性、排序 pair agreement。不回显原文。零分母用 null；缺样本、合成集、无排序/阳性等不可判断情形为 unverifiable；已观察指标失败为 fail。无效/pending/泄漏输入拒绝，accepted samples=0，不报告虚构质量分数。
+汇总包含 overall/subgroups 的样本及分母、两类 tp/predicted/gold/precision/recall、候选召回、原文证据一致性（含候选）、unknown 覆盖/一致性、排序 pair agreement，以及核心选择、成本与延迟。`cost` 包含 `totalUsd`（精确求和字符串或 null）、`knownSamples`、`coverage`；`latency` 包含 `p95Ms`（毫秒数或 null）、`knownSamples`、`coverage`、`percentileMethod="nearest-rank"`。仅整体/该子组 N>0 且全部样本均有相应观测时输出聚合，否则聚合为 null；coverage 为 knownSamples/N，空总体为 null。p95 是该总体延迟排序后第 ceil(0.95*N) 个值，不使用已知子集替代完整总体。不回显原文。零分母用 null；缺样本、合成集、无排序/阳性等不可判断情形为 unverifiable；已观察指标失败为 fail。无效/pending/泄漏输入拒绝，accepted samples=0，不报告虚构质量分数。
 
-退出码 pass=0、fail=1、unverifiable=2。`qualityApproval` 始终 unverifiable：离线指标 pass 也不是 `AI_QUALITY_APPROVED` 授权。成本、p95、核心项质量及生产身份/部署验收不在此 runner 范围，须分别完成。当前无真实人工 gold，本次仅合成单测，不输出领域质量通过率。
+退出码 pass=0、fail=1、unverifiable=2。`qualityApproval` 始终 unverifiable：离线指标 pass 也不是 `AI_QUALITY_APPROVED` 授权。历史 JSONL 无新增字段仍可加载，但缺新标注、完整成本/延迟观测或可比较核心阳性时不能产生 pass，而为 unverifiable；已知指标失败仍优先为 fail。生产身份/部署验收须分别完成。当前无真实人工 gold，本次仅合成单测；单测来源元数据、标签和遥测均为模拟，不能作为真实人工 gold、成本、延迟或领域质量通过率。
