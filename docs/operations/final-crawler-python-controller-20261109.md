@@ -64,3 +64,7 @@ Python使用专属run cwd与显式PYTHONPATH指向版本ai-service；crawler专�
 - controller/offline_checks.py：`735c37c2de94f6cc1a6383763ad723eff74f540d859803f3f2a07dec4d108a04`
 
 以上替代旧版摘要；私有实际文件为审查对象。真实 canary、预算不变、冷启动回退和切换尚未执行；不得把离线检查当运行验收。
+
+## 现场适配及最终记录
+
+现场发现并修正：Python专用预算/并发/重试不与Java无效默认值强行配对；Docker基础设施用固定容器API元数据及监听inode保护，直接服务保留严格PID/owner；受控crawler CLI参数改为替换，避免Spring重复端口解析失败；bind预检使用SO_REUSEADDR。最终25项合成检查通过。新/旧canary、正式切换和无模型HTTP曾通过，随后整栈在本次继续前已停止。当前摘要、事实和回退前置条件以[运行报告](final-crawler-python-deployment-20261109.md)为准；前述摘要/状态属于各历史版本。
