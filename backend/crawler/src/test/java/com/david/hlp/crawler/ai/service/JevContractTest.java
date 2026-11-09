@@ -30,6 +30,32 @@ class JevContractTest {
         // 19 code points of text, following one emoji.
         assertEquals(List.of("Java, (Spring Boot)"),ai.texts(ai.analyze("42","{\"text\":\"😀Java, (Spring Boot)\"}"),"requirements"));server.verify();
     }
+    @Test void extractionTotalSpansBatchesButKeepsCandidateAndEvidenceLimits() throws Exception {
+        for (String mode : List.of("49", "192", "193", "duplicate", "bad-evidence", "numeric-id", "overflow")) {
+            int count = mode.matches("[0-9]+") ? Integer.parseInt(mode) : 49;
+            var items = json.createArrayNode();
+            var source = json.createObjectNode().putObject("jobDescription");
+            for (int i=0;i<count;i++) {
+                String text="条件"+i;
+                source.put("r"+i,text);
+                var item=items.addObject().put("candidateId","c"+i).put("text",text).put("probability",0.99).putNull("importance");
+                item.putArray("evidence").addObject().put("sourcePath","/jobDescription/r"+i).put("start",0).put("end",text.length()).put("text",text);
+            }
+            if(mode.equals("duplicate"))((com.fasterxml.jackson.databind.node.ObjectNode)items.get(1)).put("candidateId","c0");
+            if(mode.equals("bad-evidence"))((com.fasterxml.jackson.databind.node.ObjectNode)items.get(0).path("evidence").get(0)).put("text","invented");
+            if(mode.equals("overflow"))((com.fasterxml.jackson.databind.node.ObjectNode)items.get(0).path("evidence").get(0)).put("start",4294967296L);
+            var response=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(analysis("needs_review",items.toString()));
+            response.set("benefits",items.deepCopy());
+            var core=response.putArray("coreRequirements");for(int i=0;i<Math.min(20,count);i++)core.add(items.get(i));
+            if(mode.equals("numeric-id"))response.put("jobId",42);
+            var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
+            server.expect(requestTo("http://synthetic.test/internal/v1/job-analysis")).andRespond(withSuccess(response.toString(),MediaType.APPLICATION_JSON));
+            var input=json.createObjectNode();input.set("jobDescription",source);
+            if(mode.equals("49")||mode.equals("192"))assertEquals(count,ai.analyze("42",input.toString()).path("requirements").size());
+            else assertEquals(502,assertThrows(ResponseStatusException.class,()->ai.analyze("42",input.toString())).getStatusCode().value());
+            server.verify();
+        }
+    }
     @Test void badEvidenceAndNonfiniteScoresFailClosed()throws Exception{
         assertThrows(ResponseStatusException.class,()->AIExtractionOfJobRequirements.evidence(json.readTree("[{\"sourcePath\":\"/x\",\"start\":0,\"end\":1,\"text\":\"invented\"}]"),json.readTree("{\"x\":\"a\"}"),"invented"));
         assertThrows(ResponseStatusException.class,()->AIExtractionOfJobRequirements.optionalNumber(com.fasterxml.jackson.databind.node.DoubleNode.valueOf(Double.NaN),10));
@@ -39,6 +65,13 @@ class JevContractTest {
         var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
         server.expect(requestTo("http://synthetic.test/internal/v1/job-analysis")).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
         assertEquals(503,assertThrows(ResponseStatusException.class,()->ai.analyze("42","{}")).getStatusCode().value());server.verify();
+    }
+    @Test void pythonInputLimitsRemainInputErrorsWithoutRetry(){
+        for(HttpStatus status:List.of(HttpStatus.BAD_REQUEST,HttpStatus.UNPROCESSABLE_ENTITY)) {
+            var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
+            server.expect(requestTo("http://synthetic.test/internal/v1/job-analysis")).andRespond(withStatus(status));
+            assertEquals(status.value(),assertThrows(ResponseStatusException.class,()->ai.analyze("42","{}")).getStatusCode().value());server.verify();
+        }
     }
     @Test void missingTokenDoesNotPreventConstruction(){
         var ai=new AIExtractionOfJobRequirements(json,"http://synthetic.test","","model");
@@ -58,6 +91,34 @@ class JevContractTest {
     @Test void canonicalSourceKeepsSnapshotAndHasStableKeyOrder()throws Exception{
         var store=new JobAnalysisStore(mock(JdbcTemplate.class),mock(PlatformTransactionManager.class),json,client(),false);
         assertEquals(store.canonical(json.readTree("{\"b\":[2,1],\"a\":\"😀\"}")),store.canonical(json.readTree("{\"a\":\"😀\",\"b\":[2,1]}")));
+    }
+    @Test void pythonFiveLevelAndNullableDimensionShapeIsAcceptedWithoutDroppingValidation() throws Exception {
+        for(String mode:List.of("valid","unknown","bad-distribution","missing-nullable")) {
+            var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
+            var out=json.createObjectNode().put("complete",!mode.equals("unknown")).put("model","typesafe/jev-1.14.0").put("policyVersion","jev-policy-1").put("requestId","test");
+            out.putObject("usage").putNull("inputTokens").put("outputTokens",30);
+            var item=out.putArray("items").addObject().put("jobId","42").put("status",mode.equals("unknown")?"insufficient_evidence":"scored");
+            if(mode.equals("unknown"))item.putNull("score");else item.put("score",8.75);
+            var dims=item.putArray("dimensions");
+            for(String name:List.of("skills","relevant_experience","experience","education")) {
+                var d=dims.addObject().put("name",name);
+                if(name.equals("education")||mode.equals("unknown")) {
+                    d.put("status",mode.equals("unknown")?"unknown":"not_applicable").putNull("rawScore").putNull("confidence").putNull("probabilities").putArray("evidence");
+                } else {
+                    d.put("status","scored").put("rawScore",3.5).put("confidence",0.95);
+                    d.putObject("probabilities").put("0",0).put("1",0).put("2",0).put("3",0.5).put("4",0.5);
+                    var ev=d.putArray("evidence");
+                    for(String path:List.of("/job/jobTags/0","/resume"))ev.addObject().put("sourcePath",path).put("start",0).put("end",5).put("text","😀Java");
+                }
+            }
+            if(mode.equals("bad-distribution"))((com.fasterxml.jackson.databind.node.ObjectNode)dims.get(0).path("probabilities")).put("4",0.1);
+            if(mode.equals("missing-nullable"))((com.fasterxml.jackson.databind.node.ObjectNode)dims.get(3)).remove("probabilities");
+            server.expect(requestTo("http://synthetic.test/internal/v1/match-batch")).andRespond(withSuccess(out.toString(),MediaType.APPLICATION_JSON));
+            var job=json.createObjectNode().put("jobId","42");job.putObject("detailData").putArray("jobTags").add("😀Java");
+            if(mode.equals("valid")||mode.equals("unknown"))assertEquals(out,ai.match("😀Java",List.of(job),30000));
+            else assertEquals(502,assertThrows(ResponseStatusException.class,()->ai.match("😀Java",List.of(job),30000)).getStatusCode().value());
+            server.verify();
+        }
     }
     @Test void matchIdSetAndUnknownScoredCombinationAreRejected() throws Exception {
         for (String id : List.of("extra", "42")) {

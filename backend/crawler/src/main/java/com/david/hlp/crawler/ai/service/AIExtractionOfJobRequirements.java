@@ -18,6 +18,8 @@ public class AIExtractionOfJobRequirements {
     private final String url;
     private final String token;
     private final String model;
+    @Value("${AI_MAX_CANDIDATES:192}")
+    private int maxCandidates = 192;
     @org.springframework.beans.factory.annotation.Autowired
     public AIExtractionOfJobRequirements(ObjectMapper json,
             @Value("${crawler.ai.service-url:http://127.0.0.1:8090}") String url,
@@ -59,7 +61,9 @@ public class AIExtractionOfJobRequirements {
             }
             return result;
         } catch (RestClientResponseException e) {
-            throw error(e.getStatusCode().value() == 504 ? 504 : e.getStatusCode().value() == 502 ? 502 : 503, "AI_UNAVAILABLE");
+            int status=e.getStatusCode().value();
+            if(status==400 || status==422)throw error(status,"AI_INVALID_INPUT");
+            throw error(status == 504 ? 504 : status == 502 ? 502 : 503, "AI_UNAVAILABLE");
         } catch (ResourceAccessException e) { throw error(504, "AI_DEADLINE"); }
         catch (RestClientException e) { throw error(502, "AI_BAD_OUTPUT"); }
     }
@@ -67,11 +71,11 @@ public class AIExtractionOfJobRequirements {
         JsonNode input = detail(source);
         var body = json.createObjectNode().put("jobId", id); body.set("detailData", input);
         JsonNode result = post("/internal/v1/job-analysis", body, 30000);
-        if (!id.equals(result.path("jobId").asText()) || !result.path("pipelineVersion").asText().equals("jev-1")
+        if (!result.path("jobId").isTextual() || !id.equals(result.path("jobId").asText()) || !result.path("pipelineVersion").asText().equals("jev-1")
                 || !Set.of("complete", "no_evidence", "needs_review").contains(result.path("status").asText())) throw error(502, "AI_BAD_OUTPUT");
         for (String field : List.of("requirements", "benefits", "coreRequirements")) {
             JsonNode items = result.path(field);
-            if (!items.isArray() || items.size() > (field.equals("coreRequirements") ? 20 : 48)) throw error(502, "AI_BAD_OUTPUT");
+            if (!items.isArray() || items.size() > (field.equals("coreRequirements") ? 20 : maxCandidates)) throw error(502, "AI_BAD_OUTPUT");
             Set<String> ids = new HashSet<>();
             for (JsonNode item : items) {
                 if (!item.path("candidateId").isTextual() || !ids.add(item.path("candidateId").asText()) || !item.path("text").isTextual()) throw error(502, "AI_BAD_OUTPUT");
@@ -94,7 +98,8 @@ public class AIExtractionOfJobRequirements {
                 String path = e.path("sourcePath").textValue();
                 if (path == null || !path.startsWith("/")) throw new IllegalArgumentException();
                 JsonNode value = source.at(path);
-                if (!value.isTextual() || !e.path("start").isIntegralNumber() || !e.path("end").isIntegralNumber()) throw new IllegalArgumentException();
+                if (!value.isTextual() || !e.path("start").isIntegralNumber() || !e.path("end").isIntegralNumber()
+                        || !e.path("start").canConvertToInt() || !e.path("end").canConvertToInt()) throw new IllegalArgumentException();
                 String s = value.asText(); int start = e.path("start").intValue(), end = e.path("end").intValue();
                 if (start < 0 || end <= start || end > s.codePointCount(0,s.length())) throw new IllegalArgumentException();
                 String slice = s.substring(s.offsetByCodePoints(0,start), s.offsetByCodePoints(0,end));

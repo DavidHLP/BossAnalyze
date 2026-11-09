@@ -24,10 +24,10 @@ export interface MatchEnvelope {
   items: MatchItem[]
   unrankable: MatchItem[]
   consideredCount: number
-  scope: unknown
+  scope: { cities: string[]; position: string; limit: 100; truncated: boolean }
   complete: boolean
   model: string
   policyVersion: string
 }
 export const getMatches = (input: MatchRequest): Promise<MatchEnvelope> =>
-  request.post('/api/v2/ai/matches', input)
+  request.post('/api/v2/ai/matches', input, { timeout: 40000 })

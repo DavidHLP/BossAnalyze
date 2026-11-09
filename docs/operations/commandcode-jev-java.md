@@ -25,3 +25,5 @@ Requests accept either direct authorized resume text or `resumeId`, not both. `u
 Rollback: disable scheduling and invalidate running leases/fences through an explicitly reviewed operational action, then roll back the application to a JSON-reader-compatible release. Preserve the sidecar and JSON arrays. Never delete volumes, clear tables, reenable old Ollama/OpenRouter execution or replay the whole database for rollback.
 
 Local verification is synthetic and does not prove real MySQL contention, real provider quality/latency/cost, ZDR, resume privacy policy approval, or deployment readiness. Parent acceptance must separately exercise two-connection lease contention, expiration/deletion/source-change races, migration idempotence and atomic rollback in an isolated MySQL schema. No real DDL or model call was executed during implementation.
+
+Integration limit: `AI_MAX_CANDIDATES` (default 192) must be identical for Java and Python. It bounds each full requirements/benefits result; 48 bounds only one classification batch. Core output remains at most 20. Candidate IDs and exact source evidence remain validated.
