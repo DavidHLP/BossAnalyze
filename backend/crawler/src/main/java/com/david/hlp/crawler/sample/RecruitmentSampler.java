@@ -81,7 +81,7 @@ public final class RecruitmentSampler {
                     Response response = request.response();
                     if (response != null) capture.received(response);
                 });
-                if (!attached && cookies.isEmpty()) manualLogin(page, capture, options);
+                if (!attached && cookies.isEmpty() && options.source.jobId() == null) manualLogin(page, capture, options);
                 return collect(page, capture, options, output);
             } catch (Stop stop) {
                 output.write(DetailParser.failed(DetailParser.base(options.source, Instant.now().toString()), stop.status));

@@ -209,6 +209,33 @@ class RecruitmentSamplerTest {
         }
     }
 
+    @Test void anonymousDetailNavigatesDirectlyButListStillStartsManualLogin() throws Exception {
+        for (String url : List.of(URL, "https://www.zhipin.com/web/geek/jobs")) {
+            Playwright driver = mock(Playwright.class);
+            BrowserType chromium = mock(BrowserType.class);
+            Browser browser = mock(Browser.class);
+            BrowserContext context = mock(BrowserContext.class);
+            Page page = mock(Page.class);
+            when(driver.chromium()).thenReturn(chromium);
+            when(chromium.launch(any(BrowserType.LaunchOptions.class))).thenReturn(browser);
+            when(browser.newContext()).thenReturn(context);
+            when(context.newPage()).thenReturn(page);
+            when(page.navigate(anyString(), any(Page.NavigateOptions.class)))
+                    .thenThrow(new RecruitmentSampler.Stop("auth_required"));
+            var options = options(url, url.equals(URL) ? "public-detail" : "manual-list", temp.resolve("unused-cancel"));
+            try (var factory = mockStatic(Playwright.class)) {
+                factory.when(() -> Playwright.create(any(Playwright.CreateOptions.class))).thenReturn(driver);
+                assertEquals(2, RecruitmentSampler.run(options));
+            }
+            verify(page).navigate(eq(url.equals(URL) ? URL : "https://www.zhipin.com/"), any(Page.NavigateOptions.class));
+            verify(page).close();
+            verify(browser).close();
+            verify(driver).close();
+            assertTrue(Files.readString(options.output().resolve("samples.jsonl")).contains("auth_required"));
+            assertEquals("", Files.readString(options.output().resolve("labels.jsonl")));
+        }
+    }
+
     @Test void preCancelledRunNeverCreatesPlaywrightAndWritesCancelled() throws Exception {
         Path cancel = temp.resolve("cancel");
         Files.createFile(cancel);

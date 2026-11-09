@@ -16,7 +16,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 
 ## 父任务人工运行方式
 
-以下命令会操作浏览器，只供父任务在授权环境验收使用；本实现任务没有执行这些采集命令。不要用普通 `java -jar`，它仍是原 Spring 服务入口。
+以下命令会操作浏览器，只在授权环境运行；本轮实际结果见 `docs/operations/boss-sampling-acceptance-20261108.md`。不要用普通 `java -jar`，它仍是原 Spring 服务入口。
 
 已有本机 CDP（工具不会启动调试端口或改浏览器安全配置）：
 
@@ -32,7 +32,7 @@ java -Dloader.main=com.david.hlp.crawler.sample.RecruitmentSampler \
 
 CDP 只接受 `http://127.0.0.1:端口` 或 `http://[::1]:端口`（可带尾部 `/`）；不允许远端、userinfo、query 或其他路径。复用首个已有上下文，**不读取 Cookie、不枚举 Profile、不操作现有标签页**；仅创建自己的标签页。结束时关闭自己的标签页并断开客户端，不关闭附着浏览器及其他标签页。
 
-没有有效 CDP 时，可以去掉 `--cdp`：工具启动非持久化的临时可见 Chromium，在 BOSS 首页等待人工扫码/登录，完成后需在终端按 Enter，最多等待 120 秒。临时上下文不读取个人浏览器资料，不调用 storageState/save Cookie；退出时关闭自己创建的浏览器，不保存新认证。需要本机已有 Playwright 1.39 对应 Chromium；工具不安装浏览器或启动新服务。
+没有有效 CDP 时，可以去掉 `--cdp`：工具启动非持久化的临时可见 Chromium。明确详情 URL 直接尝试公开读取，不进入人工登录；遇登录或验证即失败关闭，不自动重试。列表 URL 仍在 BOSS 首页等待人工扫码/登录，完成后需在终端按 Enter，最多等待 120 秒。临时上下文不读取个人浏览器资料，不调用 storageState/save Cookie；退出时关闭自己创建的浏览器，不保存新认证。需要本机已有 Playwright 1.39 对应 Chromium；工具不安装浏览器或启动新服务。
 
 可用 `--cookies /absolute/private/boss-cookies.json` 替代 `--cdp`，将用户显式提供的 BOSS Cookie 注入临时上下文，不读取其他位置。文件应是 1–100 个对象的 JSON 数组，每项 name/value/domain/path；domain 只能为 `www.zhipin.com`、`zhipin.com` 或 `.zhipin.com`，path 必须 `/`，可含 httpOnly。工具强制 secure，不保存回文件。只接受普通、非符号链接、上限 128 KiB 的私有文件，组和其他用户不得有任何权限（例如 0600）。整份文件出现外平台域名即拒绝。不要把真实 Cookie 写入仓库、终端命令或报告。**有 Cookie 不代表登录有效**；不会按 Cookie 名称判定登录。CDP 与 Cookie 参数不能同时使用。
 
@@ -74,4 +74,4 @@ labels.jsonl 只对应成功样本，status=pending，requirements/benefits/evid
 - [Boss.java 1188–1229：详情监听与身份字段](https://github.com/loks666/get_jobs/blob/36bf5f986fad93374d77b99205c7684f8450874a/src/main/java/com/getjobs/worker/boss/Boss.java#L1188-L1229)
 - [PlaywrightManager.java：参考会话管理](https://github.com/loks666/get_jobs/blob/36bf5f986fad93374d77b99205c7684f8450874a/src/main/java/com/getjobs/worker/manager/PlaywrightManager.java)
 
-本实现未启动/连接真实浏览器、读取本机用户资料、真实 Cookie 或私有首条样本，也未真实采集。用户已授权使用现有登录态，但父任务当前可连接浏览器跳登录页；缺有效 CDP/Cookie 入口仍是运行阻塞，不能把授权或合成 fixture 成功等同有效登录。本轮 Spec 修复仅使用内存 mock 和合成 SSR/JSON 验证；父任务此前公开页观察不算本轮在线证明，父任务后续遇安全检查已停止，本轮没有重访。卡片结构、公司字段、SSR 和真实详情响应需父任务另行验收；页面漂移可能明确 unsupported_layout。其他招聘平台不属于当前版本。
+此前实现及 Spec 修复阶段未启动/连接真实浏览器、读取本机用户资料、真实 Cookie 或私有首条样本，也未真实采集。用户已授权使用现有登录态，但父任务当前可连接浏览器跳登录页；缺有效 CDP/Cookie 入口仍是运行阻塞，不能把授权或合成 fixture 成功等同有效登录。本轮 Spec 修复仅使用内存 mock 和合成 SSR/JSON 验证；父任务此前公开页观察不算本轮在线证明，父任务后续遇安全检查已停止，本轮没有重访。卡片结构、公司字段、SSR 和真实详情响应需父任务另行验收；页面漂移可能明确 unsupported_layout。其他招聘平台不属于当前版本。

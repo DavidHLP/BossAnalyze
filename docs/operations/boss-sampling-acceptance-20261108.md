@@ -25,3 +25,19 @@
 修复在正文读取、最后一次页面 URL 检查后，再确认停止信号及 capture 状态：合法 JSON 优先；未完成请求或错误不得转成 SSR 成功；api_error 保持停止行为。没有放宽来源、身份、代际或 JSON 校验。现有采样测试文件新增四种真实 capture 事件时序，验证三种失败均无 SSR 成功或标注，合法结果仍走 JSON 来源。
 
 最终 Java17 commons/crawler 离线 verify 共54项通过，失败、错误、跳过均0；日志 `/tmp/boss-sampling-ssr-race-final-verify.log`。新增时序由 Mockito 在内存中触发，不是对真实 BOSS 发生频率或完整 CLI 的证明。真实登录态采集、福利字段与正式质量门槛仍未关闭。
+
+
+## 本轮匿名 CLI 运行（2026-11-08，本地）
+
+基线 `066bad562bbaf4a9d20a85b3984496e33beaf514`。最小修正：无 CDP/Cookie 的明确详情 URL 直接尝试公开读取，列表仍进入手工登录。没有新增 flags、合成 Cookie、依赖升级，JSON/SSR/身份/停止判断未改变。
+
+- 现有 loopback Chromium 端口 40103 的 `/json/version` 返回 HTTP 错误，9222 不可连接；没有得到有效 CDP，也没有用户指定 Cookie 文件。未枚举个人 Profile、导出 Cookie、改用户浏览器配置或重启浏览器；列表未运行。
+- 使用原 Playwright 1.39 Java CLI 从官方源安装 Chromium 1084/FFmpeg 1009 到仓库外 0700 私有缓存。`com.microsoft.playwright.CLI --version` 本地检查 exit 0，Version 1.39.0。
+- 对明确公开详情 `https://www.zhipin.com/job_detail/125f665f897603f30nx_0tS-GFJR.html`、`--limit 1`，打包 PropertiesLauncher 实际调用在外层 50 秒上限超时；wrapper exit 1，未观察到 CLI 自身退出码或状态输出。未确认该次已发出网站请求。
+- 随后以相同已编译 CLI 的直接 classpath 入口排查，实际启动私有缓存中的临时 Chromium，但仍在外层 40 秒上限超时，wrapper exit 1，未观察到 CLI 自身退出码或状态输出。两次调用相隔超过 2 秒，仅同一详情 URL，无列表滚动或后续详情尝试；这不是成功的完整采集链路，也未确认挂起发生在启动、导航还是清理。
+- 两个新输出目录的 samples/labels 文件均为空，合法样本 **0**，真实标签 **0**；没有当前 DOM/JSON 福利证据，rawBenefits 维持 null。没有把技能标签当福利，也没有复用此前样本冒充本次结果。没有当前登录/验证码页的可读证据，不能将此次超时改称 auth_required 或 verification_required。
+- 超时由外层 subprocess 终止 Java 子进程；事后按本轮私有缓存 executable 路径检查无遗留浏览器进程。用户浏览器/标签页未操作。该证据不等于正常 finally 关闭的真实验收，真实取消/关窗/附着会话生命周期仍未验收。
+- 打包 CLI 预置取消实测 exit 2 / cancelled，labels 为空。零 Playwright 创建及 attached 不调用 Browser.close 的证据仍为离线 mock 断言，不冒称真实会话保护测试通过。
+- 受影响 Java17 commons/crawler verify 最终 exit 0，55 项测试（commons 15 + crawler 40，采样 18），失败/错误/跳过均 0，日志 `/tmp/boss-final-runtime-verify-final.log`。首次运行因新增测试传 null 给既有 helper 而失败，修正测试输入后重跑；首次失败日志 `/tmp/boss-final-runtime-verify.log` 保留。
+
+具体 argv、外层超时、权限和私有运行目录由本机交接 `/tmp/boss-final-boss-runtime-handoff.md` 指向。完整真实 JD/PII/会话未入 Git。本轮没有业务服务启停、数据库写入、模型调用、SMTP/ai-service 修改、push/PR/watch。没有真实有效会话与可读页面，线上采样、福利含义与独立标注评估仍未通过。
