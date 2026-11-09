@@ -1,0 +1,19 @@
+docs/operations/local-api-deployment-20261108.md
+  s_19c8192c423b21::t_15caba2876f0b4 1-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "337f3494865ab3724695239f58a8d5cf83ff7b41",
+  "prompts": {},
+  "sessions": {
+    "s_19c8192c423b21": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bee4-a72a-7bd2-8836-1eff717d9f17",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
