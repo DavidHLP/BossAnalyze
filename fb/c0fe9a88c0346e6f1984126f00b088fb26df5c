@@ -1,0 +1,29 @@
+backend/crawler/src/main/java/com/david/hlp/crawler/ai/service/AIExtractionOfJobRequirements.java
+  s_f2f5a10de5dca9::t_7e4e4e0c01bc5e 52-53,63,189-193
+ai-service/app/pipeline.py
+  s_f2f5a10de5dca9::t_7e4e4e0c01bc5e 27-34
+docs/operations/commandcode-jev-python.md
+  s_f2f5a10de5dca9::t_8f261f16308866 55-56
+backend/crawler/src/test/java/com/david/hlp/crawler/ai/service/JevContractTest.java
+  s_f2f5a10de5dca9::t_0749eb17415960 109-124
+backend/crawler/src/test/java/com/david/hlp/crawler/ai/service/MatchBoundaryTest.java
+  s_f2f5a10de5dca9::t_e123cf11a71108 66-67,74-75
+ai-service/tests/test_contract.py
+  s_f2f5a10de5dca9::t_0749eb17415960 133-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fbc0fe9a88c0346e6f1984126f00b088fb26df5c",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
