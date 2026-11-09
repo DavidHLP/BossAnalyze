@@ -147,7 +147,9 @@ class Pipeline:
 
         tasks = [asyncio.create_task(guarded(job)) for job in req.jobs]
         try:
-            _, pending = await asyncio.wait(tasks, timeout=max(0, deadline - monotonic()))
+            pending = set()
+            if tasks:
+                _, pending = await asyncio.wait(tasks, timeout=max(0, deadline - monotonic()))
             for task in pending:
                 task.cancel()
             await asyncio.gather(*pending, return_exceptions=True)

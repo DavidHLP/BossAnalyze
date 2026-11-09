@@ -363,6 +363,20 @@ async def test_match_deadline_without_completed_jobs_remains_504():
         assert response.status_code == 504 and cancelled.is_set()
 
 
+async def test_empty_match_batch_returns_empty_success_without_provider_call():
+    def handler(request):
+        raise AssertionError("Empty batches must not call the provider")
+
+    app, client = await api(handler=handler)
+    async with client:
+        response = await client.post("/internal/v1/match-batch", headers=AUTH,
+                                     json={"resume": "合成经历", "jobs": []})
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["items"] == [] and result["complete"] is True
+        assert result["usage"] == dict(inputTokens=None, outputTokens=None)
+
+
 async def test_not_applicable_reweights_and_missing_links_prevents_scoring():
     def handler(request):
         p = json.loads(request.content)
