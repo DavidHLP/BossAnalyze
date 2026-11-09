@@ -1,0 +1,21 @@
+ai-service/pyproject.toml
+  s_2071392c00ec3d::t_e3b8d518b64f03 5,8
+ai-service/uv.lock
+  s_2071392c00ec3d::t_5e78dd74e5bf3d 2,44,56,59,65,98,105,107,109,282,291,293,311,317,319
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "05758057bf367d5ee6a199c7a341dcce35569279",
+  "prompts": {},
+  "sessions": {
+    "s_2071392c00ec3d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c0fd-5443-7d82-b46c-cac91744b6e5",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
