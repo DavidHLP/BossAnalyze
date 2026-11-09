@@ -52,8 +52,22 @@ def load(path, schema):
     return rows
 
 
+def normalize_text(text):
+    return re.sub(r"\W+", "", unicodedata.normalize("NFKC", text)).casefold()
+
+
 def normalized(row):
-    return re.sub(r"\W+", "", unicodedata.normalize("NFKC", " ".join(sorted(row.source.values())))).casefold()
+    return normalize_text(" ".join(sorted(row.source.values())))
+
+
+def job_descriptions(row):
+    groups = {}
+    for path, text in row.source.items():
+        parts = path.split("/")
+        if "jobDescription" in parts:
+            group = tuple(parts[:parts.index("jobDescription")])
+            groups.setdefault(group, []).append(text)
+    return [normalize_text(" ".join(sorted(texts))) for texts in groups.values()]
 
 
 def spans(entries, source):
@@ -137,7 +151,9 @@ def evaluate(gold, predicted, development, min_samples, min_ranking):
     for i, a in enumerate(gold):
         for b in [*gold[i + 1:], *development]:
             if (a.id == b.id or a.groupId == b.groupId or normalized(a) == normalized(b)
-                    or SequenceMatcher(None, normalized(a), normalized(b), autojunk=False).ratio() >= 0.9):
+                    or SequenceMatcher(None, normalized(a), normalized(b), autojunk=False).ratio() >= 0.9
+                    or any(x and y and SequenceMatcher(None, x, y, autojunk=False).ratio() >= 0.9
+                           for x in job_descriptions(a) for y in job_descriptions(b))):
                 raise ValueError("test leakage or duplicate group")
     predictions = {p.id: p for p in predicted}
     if len(predictions) != len(predicted) or predictions.keys() != {g.id for g in gold}:

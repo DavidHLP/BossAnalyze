@@ -66,6 +66,21 @@ def test_split_group_exact_and_normalized_content_leakage_rejected(source, group
         run(g, p, [Record(id="development", groupId=group, source={"/jobDescription": source})])
 
 
+@pytest.mark.parametrize("path", ["/jobDescription", "/job/jobDescription/requirements",
+                                  "/jobs/one/jobDescription/requirements"])
+def test_same_job_with_different_resumes_cannot_cross_splits(path):
+    g, p = sample()
+    jd = g["source"].pop("/jobDescription")
+    g["source"] = {path: jd, "/resume": "甲" * 200}
+    for record in (g, p):
+        for field in ("requirements", "benefits", "candidates"):
+            for evidence in record.get(field, []):
+                evidence["sourcePath"] = path
+    development = Record(id="dev", groupId="other", source={path: jd, "/resume": "乙" * 200})
+    with pytest.raises(ValueError, match="test leakage"):
+        run(g, p, [development])
+
+
 def test_missing_annotations_and_duplicate_json_keys_rejected(tmp_path):
     g, _ = sample()
     del g["benefits"]
