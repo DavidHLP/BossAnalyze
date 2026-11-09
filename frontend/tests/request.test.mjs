@@ -154,3 +154,78 @@ test('legacy HTTP 200 login failures cannot be mistaken for a service outage aft
   assert.equal(result.token, undefined)
   assert.equal(loginFailure(new Error('Missing token')), '登录失败，请检查邮箱、密码及服务连接后重试。')
 })
+
+// Exercise the installed consumers, including pnpm patches, without external services.
+test('dependency merges reject prototype setters in source and target without losing merge behavior', async () => {
+  const { createRequire } = await import('node:module')
+  const require = createRequire(import.meta.url)
+  const shadcn = createRequire(require.resolve('shadcn-vue'))
+  for (const entry of ['deepmerge', 'deepmerge/dist/umd.js']) {
+    const merge = shadcn(entry)
+    const payload = JSON.parse('{"__proto__":{"isAdmin":true}}')
+    for (const [target, source] of [
+      [Object.create(null), payload], [payload, {}],
+      [{ session: null }, { session: payload }], [{ session: 0 }, { session: payload }],
+    ]) {
+      for (const options of [{}, { clone: false }]) {
+        const result = merge(target, source, options)
+        const value = result.session ?? result
+        assert.equal(Object.getPrototypeOf(value), Object.prototype)
+        assert.equal(value.isAdmin, undefined)
+        assert.equal({}.isAdmin, undefined)
+      }
+    }
+    const symbol = Symbol('metadata')
+    assert.deepEqual(merge({ nested: { a: 1 }, items: [1] }, { nested: { b: 2 }, items: [2], [symbol]: 3 }),
+      { nested: { a: 1, b: 2 }, items: [1, 2], [symbol]: 3 })
+    assert.deepEqual(merge({ items: [1] }, { items: [2] }, { arrayMerge: (_, source) => source }), { items: [2] })
+  }
+})
+
+test('source map consumer keeps Unicode, spaces and literal plus paths with the ESM decoder', async () => {
+  const { createRequire } = await import('node:module')
+  let require = createRequire(import.meta.url)
+  for (const name of ['nuxt/package.json', '@nuxt/vite-builder/package.json', 'vite', 'stylus', 'css']) {
+    require = createRequire(require.resolve(name))
+  }
+  const resolve = require('source-map-resolve')
+  let readPath
+  const result = resolve.resolveSourceMapSync('/*# sourceMappingURL=a%20b+%E4%B8%AD.map */', '/tmp/style.css', path => {
+    readPath = path
+    return '{"version":3,"sources":[],"names":[],"mappings":""}'
+  })
+  assert.equal(readPath, '/tmp/a b+中.map')
+  assert.equal(result.map.version, 3)
+})
+
+test('updated glob and minimatch preserve archiving, tracing and source file selection', async () => {
+  const { createRequire } = await import('node:module')
+  const { mkdtemp, writeFile, rm } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const root = createRequire(import.meta.url)
+  const shadcn = createRequire(root.resolve('shadcn-vue'))
+  const { Project } = shadcn('ts-morph')
+  const project = new Project({ useInMemoryFileSystem: true })
+  project.createSourceFile('/src/one.ts', 'export const one = 1')
+  project.createSourceFile('/src/two.ts', 'export const two = 2')
+  assert.equal(project.getSourceFiles(['/src/*.ts', '!/src/two.ts']).length, 1)
+  const nuxt = createRequire(root.resolve('nuxt/package.json'))
+  const nitroServer = createRequire(nuxt.resolve('@nuxt/nitro-server'))
+  const nitro = createRequire(nitroServer.resolve('nitropack/package.json'))
+  const archiver = createRequire(nitro.resolve('archiver'))
+  const utils = archiver('archiver-utils')
+  const { nodeFileTrace } = nitro('@vercel/nft')
+  const dir = await mkdtemp(join(tmpdir(), 'boss-dependency-'))
+  try {
+    await writeFile(join(dir, 'entry.cjs'), "module.exports = require('./value.cjs')")
+    await writeFile(join(dir, 'value.cjs'), 'module.exports = 1')
+    assert.deepEqual(utils.file.expand({ cwd: dir }, ['*.cjs', '!value.cjs']), ['entry.cjs'])
+    const trace = await nodeFileTrace([join(dir, 'entry.cjs')], { base: dir })
+    assert.ok(trace.fileList.has('value.cjs'))
+    const nft = createRequire(nitro.resolve('@vercel/nft'))
+    assert.equal((await nft('glob').glob('*.cjs', { cwd: dir })).length, 2)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
