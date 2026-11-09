@@ -1,0 +1,32 @@
+backend/api/pom.xml
+  s_f7e4494ca9b5bc::t_4113261333ea87 226-228
+  s_f7e4494ca9b5bc::t_94c9c3ec5c8d5d 225
+backend/commons/src/main/java/com/david/hlp/commons/config/RedisUtilsAutoConfiguration.java
+  s_f7e4494ca9b5bc::t_b9af71e58f1374 43
+  s_f7e4494ca9b5bc::t_be08ddfe8261a4 6,42
+backend/pom.xml
+  s_f7e4494ca9b5bc::t_4113261333ea87 236-241
+  s_f7e4494ca9b5bc::t_be08ddfe8261a4 47,54,56,60,105,214-218
+backend/commons/src/test/java/com/david/hlp/commons/config/RedisUtilsAutoConfigurationTest.java
+  s_f7e4494ca9b5bc::t_be08ddfe8261a4 1-28
+tools/credential-contract-tests/pom.xml
+  s_f7e4494ca9b5bc::t_be08ddfe8261a4 17,25
+deploy/rustfs/pom.xml
+  s_f7e4494ca9b5bc::t_8dc9d704903bed 5-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "49ec611c387c363968df1e680f42b781c214a478",
+  "prompts": {},
+  "sessions": {
+    "s_f7e4494ca9b5bc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c0fd-52b9-7460-9426-fbaa8fda1c2a",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
