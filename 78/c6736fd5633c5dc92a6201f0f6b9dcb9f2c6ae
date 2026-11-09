@@ -1,0 +1,28 @@
+backend/crawler/src/test/java/com/david/hlp/crawler/ai/service/JevContractTest.java
+  s_0cc1e224b7bdf0::t_75d1e3227d20f5 43,48-58,88-114
+  s_0cc1e224b7bdf0::t_b0d11b3e2cbc88 33-42,44-47,115
+backend/crawler/src/main/java/com/david/hlp/crawler/ai/service/AIExtractionOfJobRequirements.java
+  s_0cc1e224b7bdf0::t_934e23324bbe2a 21-22,72,76,99-100
+docs/operations/commandcode-jev-java.md
+  s_0cc1e224b7bdf0::t_b0b8067144755f 28-29
+frontend/app/api/ai/matches.ts
+  s_0cc1e224b7bdf0::t_203b212086bc5f 27,33
+frontend/tests/client-ip.test.mjs
+  s_0cc1e224b7bdf0::t_9a6983cf03cbd6 52-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78c6736fd5633c5dc92a6201f0f6b9dcb9f2c6ae",
+  "prompts": {},
+  "sessions": {
+    "s_0cc1e224b7bdf0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1be50-635e-7131-bb2b-be9c970c626b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
