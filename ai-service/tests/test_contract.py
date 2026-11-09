@@ -322,31 +322,114 @@ async def test_partial_match_failure_keeps_exact_job_ids():
         assert not r.json()["complete"]
 
 
-@pytest.mark.parametrize("cfg_ms,request_ms", [(1000, 50), (50, 1000)])
-async def test_partial_match_deadline_keeps_completed_job_and_cancels_unfinished(cfg_ms, request_ms):
-    cancelled = asyncio.Event()
+@pytest.fixture
+async def deadline_clock(monkeypatch):
+    # Control business time only; asyncio watchdogs retain the real loop clock.
+    now = [monotonic()]
+    monkeypatch.setattr("app.pipeline.monotonic", lambda: now[0])
+    monkeypatch.setattr("app.jev.monotonic", lambda: now[0])
 
-    async def handler(request):
-        payload = json.loads(request.content)
-        if json.loads(payload["state"])["jobId"] == "slow":
+    def advance(seconds):
+        now[0] += seconds
+
+    return advance
+
+
+@pytest.fixture
+def expire_match_deadline(monkeypatch, deadline_clock):
+    original_wait = asyncio.wait
+
+    def install(started, timeout_ms, expect_completed=True):
+        async def wait_at_deadline(tasks, *, timeout):
+            assert timeout == pytest.approx(timeout_ms / 1000)
+            # This is a real-time test guard, not a longer inference deadline.
+            await asyncio.wait_for(started.wait(), timeout=1)
+            if expect_completed:
+                done, _ = await original_wait(tasks, timeout=1, return_when=asyncio.FIRST_COMPLETED)
+                assert done, "The fast job must complete before advancing the deadline"
+            deadline_clock(timeout_ms / 1000 + 0.001)
+            return await original_wait(tasks, timeout=0)
+
+        monkeypatch.setattr("app.pipeline.asyncio.wait", wait_at_deadline)
+
+    return install
+
+
+@pytest.mark.parametrize("cfg_ms,request_ms", [(1000, 50), (50, 1000)])
+async def test_partial_match_deadline_keeps_completed_job_and_cancels_unfinished(
+        cfg_ms, request_ms, deadline_clock, expire_match_deadline, monkeypatch):
+    started, cancelled = asyncio.Event(), asyncio.Event()
+    provider_tasks = []
+
+    async def ask(state, questions, deadline, usage):
+        # No Jev/HTTP timeout: only Pipeline can cancel this blocked inference.
+        provider_tasks.append(asyncio.current_task())
+        if json.loads(state)["jobId"] == "slow":
+            started.set()
             try:
                 await asyncio.Event().wait()
             finally:
+                await asyncio.sleep(0)  # Cancellation cleanup must be joined.
                 cancelled.set()
-        return httpx.Response(200, json=fixture(payload))
+        else:
+            await started.wait()
+        return fixture(dict(model=CFG.model, questions=questions))["answers"]
+
+    app, client = await api(replace(CFG, deadline_ms=cfg_ms))
+    monkeypatch.setattr(app.state.jev, "ask", ask)
+    expire_match_deadline(started, min(cfg_ms, request_ms))
+    try:
+        # Bound broken cancellation paths independently of the business deadline.
+        async with client, asyncio.timeout(1):
+            response = await client.post("/internal/v1/match-batch", headers=AUTH, json={
+                "resume": "合成 Python 经历", "timeoutMs": request_ms,
+                "jobs": [{"jobId": job_id, "detailData": DETAIL} for job_id in ("ok", "slow")]})
+            assert response.status_code == 200, response.text
+            result = response.json()
+            completed, failed = result["items"]
+            assert completed["jobId"] == "ok" and completed["score"] == pytest.approx(8.75)
+            assert failed == dict(jobId="slow", status="failed", score=None, dimensions=[])
+            assert not result["complete"] and cancelled.is_set()
+            assert len(provider_tasks) == 2 and all(task.done() for task in provider_tasks)
+            assert result["usage"] == dict(inputTokens=None, outputTokens=None)
+    finally:
+        for task in provider_tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*provider_tasks, return_exceptions=True)
+        await app.state.jev.close()
+
+
+@pytest.mark.parametrize("cfg_ms,request_ms", [(1000, 50), (50, 1000)])
+async def test_partial_match_deadline_before_provider_start_keeps_completed_job(
+        cfg_ms, request_ms, deadline_clock):
+    calls = []
+
+    def handler(request):
+        payload = json.loads(request.content)
+        calls.append(json.loads(payload["state"])["jobId"])
+        assert calls == ["ok"], "Expired work must not reach the provider"
+        response = httpx.Response(200, json=fixture(payload))
+        # Model time spent processing the first job before the next job can run.
+        deadline_clock(min(cfg_ms, request_ms) / 1000 + 0.001)
+        return response
 
     app, client = await api(replace(CFG, deadline_ms=cfg_ms), handler)
-    async with client:
-        response = await client.post("/internal/v1/match-batch", headers=AUTH, json={
-            "resume": "合成 Python 经历", "timeoutMs": request_ms,
-            "jobs": [{"jobId": job_id, "detailData": DETAIL} for job_id in ("ok", "slow")]})
-        assert response.status_code == 200, response.text
-        result = response.json()
-        completed, failed = result["items"]
-        assert completed["jobId"] == "ok" and completed["score"] == pytest.approx(8.75)
-        assert failed == dict(jobId="slow", status="failed", score=None, dimensions=[])
-        assert not result["complete"] and cancelled.is_set()
-        assert result["usage"] == dict(inputTokens=None, outputTokens=None)
+    try:
+        # Bound broken cancellation paths independently of the business deadline.
+        async with client, asyncio.timeout(1):
+            response = await client.post("/internal/v1/match-batch", headers=AUTH, json={
+                "resume": "合成 Python 经历", "timeoutMs": request_ms,
+                "jobs": [{"jobId": job_id, "detailData": DETAIL} for job_id in ("ok", "slow")]})
+            assert response.status_code == 200, response.text
+            result = response.json()
+            completed, failed = result["items"]
+            assert completed["jobId"] == "ok" and completed["score"] == pytest.approx(8.75)
+            assert failed == dict(jobId="slow", status="failed", score=None, dimensions=[])
+            assert not result["complete"] and calls == ["ok"]
+            assert result["usage"] == dict(inputTokens=None, outputTokens=None)
+    finally:
+        await app.state.jev.close()
 
 
 async def test_match_external_cancellation_cleans_tasks_and_propagates():
@@ -373,21 +456,72 @@ async def test_match_external_cancellation_cleans_tasks_and_propagates():
         assert cancelled.is_set()
 
 
-async def test_match_deadline_without_completed_jobs_remains_504():
-    cancelled = asyncio.Event()
+async def test_match_deadline_without_completed_jobs_remains_504(
+        expire_match_deadline, monkeypatch):
+    started, cancelled = asyncio.Event(), asyncio.Event()
+    tasks = []
 
-    async def handler(request):
+    async def ask(state, questions, deadline, usage):
+        tasks.append(asyncio.current_task())
+        started.set()
         try:
             await asyncio.Event().wait()
         finally:
+            await asyncio.sleep(0)
             cancelled.set()
 
-    app, client = await api(handler=handler)
-    async with client:
-        response = await client.post("/internal/v1/match-batch", headers=AUTH, json={
-            "resume": "合成经历", "timeoutMs": 50,
-            "jobs": [{"jobId": "slow", "detailData": DETAIL}]})
-        assert response.status_code == 504 and cancelled.is_set()
+    app, client = await api()
+    monkeypatch.setattr(app.state.jev, "ask", ask)
+    expire_match_deadline(started, 50, expect_completed=False)
+    try:
+        # Bound broken cancellation paths independently of the business deadline.
+        async with client, asyncio.timeout(1):
+            response = await client.post("/internal/v1/match-batch", headers=AUTH, json={
+                "resume": "合成经历", "timeoutMs": 50,
+                "jobs": [{"jobId": "slow", "detailData": DETAIL}]})
+            assert response.status_code == 504 and cancelled.is_set()
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await app.state.jev.close()
+
+
+async def test_match_deadline_joins_cancellation_before_return(expire_match_deadline, monkeypatch):
+    from app.main import MatchRequest
+    from app.pipeline import Pipeline
+
+    started, cancelled = asyncio.Event(), asyncio.Event()
+    tasks = []
+
+    async def ask(state, questions, deadline, usage):
+        tasks.append(asyncio.current_task())
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await asyncio.sleep(0)
+            cancelled.set()
+
+    jev = Jev(CFG, httpx.MockTransport(lambda request: pytest.fail("Unexpected provider call")))
+    monkeypatch.setattr(jev, "ask", ask)
+    expire_match_deadline(started, 50, expect_completed=False)
+    try:
+        with pytest.raises(ServiceError) as error:
+            # Same-task real-time guard also bounds a missing cancellation before join.
+            async with asyncio.timeout(1):
+                await Pipeline(jev).match(MatchRequest(resume="合成经历", timeoutMs=50,
+                                                      jobs=[{"jobId": "slow", "detailData": DETAIL}]))
+        assert error.value.code == "deadline_exhausted"
+        # Assert at the Pipeline boundary, before HTTP/ASGI scheduling can hide a missing join.
+        assert cancelled.is_set() and all(task.done() for task in tasks)
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await jev.close()
 
 
 async def test_empty_match_batch_returns_empty_success_without_provider_call():
