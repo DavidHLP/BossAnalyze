@@ -1,0 +1,25 @@
+docs/recruitment-sampling.md
+  s_a55eb11da74355::t_667f8eae776fa7 19,35,77
+docs/operations/boss-sampling-acceptance-20261108.md
+  s_a55eb11da74355::t_baa0a62891e363 28-43
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/RecruitmentSampler.java
+  s_a55eb11da74355::t_547a2ed327130e 84
+backend/crawler/src/test/java/com/david/hlp/crawler/sample/RecruitmentSamplerTest.java
+  s_a55eb11da74355::t_a71cd17bd83333 212-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0af6c9889c35e80790480d096acd3fe20049d84e",
+  "prompts": {},
+  "sessions": {
+    "s_a55eb11da74355": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bed6-0f2b-7c32-865e-850bc5b32bb2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
