@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ContentDisposition;
+import java.nio.charset.StandardCharsets;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -68,6 +70,18 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
                 HttpStatus.OK);
     }
 
+    private static HttpStatus errorStatus(Integer code) {
+        if (code != null && code >= 400 && code <= 599 && HttpStatus.resolve(code) != null) return HttpStatus.valueOf(code);
+        if (code == null) return HttpStatus.INTERNAL_SERVER_ERROR;
+        return switch (code) {
+            case 1001, 1008, 1011 -> HttpStatus.CONFLICT;
+            case 1002 -> HttpStatus.UNAUTHORIZED;
+            case 1005, 1010 -> HttpStatus.NOT_FOUND;
+            case 1003, 1004, 1006, 1007, 1009 -> HttpStatus.BAD_REQUEST;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+    }
+
     public static <T> Result<T> error(Integer code, String message) {
         return new Result<>(
                 ResultBody.<T>builder()
@@ -75,7 +89,7 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
                         .message(message)
                         .timestamp(System.currentTimeMillis())
                         .build(),
-                HttpStatus.INTERNAL_SERVER_ERROR);
+                errorStatus(code));
     }
 
     public static <T> Result<T> error(ResultCode code) {
@@ -85,7 +99,7 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
                         .message(code.getMessage())
                         .timestamp(System.currentTimeMillis())
                         .build(),
-                HttpStatus.INTERNAL_SERVER_ERROR);
+                errorStatus(code.getCode()));
     }
 
     public static <T> Result<T> error(ResultCode code, String message) {
@@ -95,7 +109,7 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
                         .message(message)
                         .timestamp(System.currentTimeMillis())
                         .build(),
-                HttpStatus.INTERNAL_SERVER_ERROR);
+                errorStatus(code.getCode()));
     }
 
     /**
@@ -107,22 +121,14 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
      * @param cacheMaxAge 缓存时间（秒）
      * @return 文件响应结果
      */
-    public static Result<InputStreamResource> file(InputStreamResource inputStream, String contentType, String fileName,
+    public static ResponseEntity<InputStreamResource> file(InputStreamResource inputStream, String contentType, String fileName,
             long cacheMaxAge) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(contentType));
-        headers.setContentDispositionFormData("inline", "\"" + fileName + "\"");
+        headers.setContentDisposition(ContentDisposition.inline().filename(fileName, StandardCharsets.UTF_8).build());
         headers.setCacheControl("max-age=" + cacheMaxAge);
 
-        return new Result<>(
-                ResultBody.<InputStreamResource>builder()
-                        .code(ResultCode.SUCCESS.getCode())
-                        .message(ResultCode.SUCCESS.getMessage())
-                        .data(inputStream)
-                        .timestamp(System.currentTimeMillis())
-                        .build(),
-                headers,
-                HttpStatus.OK);
+        return new ResponseEntity<>(inputStream, headers, HttpStatus.OK);
     }
 
     /**
@@ -133,7 +139,7 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
      * @param fileName    文件名
      * @return 文件响应结果
      */
-    public static Result<InputStreamResource> file(InputStreamResource inputStream, String contentType,
+    public static ResponseEntity<InputStreamResource> file(InputStreamResource inputStream, String contentType,
             String fileName) {
         return file(inputStream, contentType, fileName, 31536000L);
     }

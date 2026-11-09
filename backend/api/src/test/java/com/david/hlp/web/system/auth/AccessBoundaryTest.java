@@ -46,13 +46,13 @@ class AccessBoundaryTest {
         }
         @Bean ConsoleAccess access(RouterMapper mapper) { return new ConsoleAccess(mapper); }
         @Bean AuthenticationProvider provider() { return mock(AuthenticationProvider.class); }
-        @Bean JwtAuthenticationFilter jwt() {
+        @Bean JwtAuthenticationFilter jwt(ConsoleAccess access) {
             UserDetailsService users = token -> {
                 if (token.equals("invalid")) throw new org.springframework.security.core.userdetails.UsernameNotFoundException("invalid");
                 return User.withUsername("synthetic").password("unused")
                     .authorities(token.equals("allowed") ? new String[]{"existing.users", "existing.dashboard", "existing.roles", "existing.menus"} : new String[]{"ROLE_USER"}).build();
             };
-            return new JwtAuthenticationFilter(users);
+            return new JwtAuthenticationFilter(users, access, new com.fasterxml.jackson.databind.ObjectMapper());
         }
         @Bean Endpoints endpoints() { return new Endpoints(); }
     }

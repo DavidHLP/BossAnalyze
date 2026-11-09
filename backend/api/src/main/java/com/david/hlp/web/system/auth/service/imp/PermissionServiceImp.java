@@ -39,7 +39,8 @@ public class PermissionServiceImp implements PermissionService {
 
         try {
             Long roleId = userMapper.getByUserIdToUser(userId).getRoleId();
-            return permissionMapper.listPermissionNamesByRoleId(roleId);
+            return userMapper.listAuthoritiesByRoleId(roleId).stream()
+                    .filter(grant -> !grant.startsWith("ROLE_")).toList();
         } catch (NullPointerException e) {
             log.error("获取用户权限失败: 用户ID={}不存在或没有关联角色", userId);
             throw e;

@@ -1,6 +1,7 @@
 package com.david.hlp.web.minio.service;
 
 import com.david.hlp.web.minio.config.MinioConfig;
+import com.david.hlp.web.common.exception.BusinessException;
 import io.minio.*;
 import io.minio.http.Method;
 import lombok.RequiredArgsConstructor;
@@ -153,9 +154,12 @@ public class MinioService {
      * 
      * @param fileName 文件名
      */
-    public void deleteFile(String fileName) {
-        if (!StringUtils.hasText(fileName)) {
-            throw new IllegalArgumentException("文件名不能为空");
+    public void deleteFile(String fileName, Long userId) {
+        if (userId == null || !StringUtils.hasText(fileName) || !fileName.startsWith(userId + "_")
+                || fileName.length() == (userId + "_").length()
+                || fileName.contains("/") || fileName.contains("\\")
+                || fileName.chars().anyMatch(Character::isISOControl)) {
+            throw new BusinessException(403, "不能删除该图片");
         }
 
         try {

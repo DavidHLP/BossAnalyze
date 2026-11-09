@@ -1,6 +1,7 @@
 package com.david.hlp.web.minio.controller;
 
 import com.david.hlp.web.common.enums.ResultCode;
+import com.david.hlp.web.common.exception.BusinessException;
 import com.david.hlp.web.common.controller.BaseController;
 import com.david.hlp.web.common.entity.Result;
 import com.david.hlp.web.minio.model.ImageResponse;
@@ -11,6 +12,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.util.Locale;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.ResponseEntity;
 
 import lombok.RequiredArgsConstructor;
 
@@ -85,16 +91,25 @@ public class ImageController extends BaseController {
      * @return 图片资源
      */
     @GetMapping("/view/{fileName}")
-    public Result<InputStreamResource> viewImage(@PathVariable("fileName") String fileName) {
+    public ResponseEntity<?> viewImage(@PathVariable("fileName") String fileName) {
         try {
             InputStream inputStream = minioService.getObject(fileName);
             String contentType = getContentTypeByFileName(fileName);
 
-            return Result.file(
+            ResponseEntity<InputStreamResource> result = Result.file(
                     new InputStreamResource(inputStream),
                     contentType,
                     fileName,
                     3600);
+            HttpHeaders headers = new HttpHeaders();
+            headers.putAll(result.getHeaders());
+            headers.set("X-Content-Type-Options", "nosniff");
+            headers.set("Content-Security-Policy", "sandbox; default-src 'none'");
+            if (fileName.toLowerCase(Locale.ROOT).endsWith(".svg")) {
+                headers.setContentDisposition(ContentDisposition.attachment()
+                        .filename(fileName).build());
+            }
+            return new ResponseEntity<>(result.getBody(), headers, HttpStatus.OK);
         } catch (Exception e) {
             log.error("获取图片失败 - 文件名: {}, 错误: {}", fileName, e.getMessage());
             return Result.error(ResultCode.ERROR, "获取图片失败: " + e.getMessage());
@@ -110,7 +125,7 @@ public class ImageController extends BaseController {
     @DeleteMapping("/delete")
     public Result<ImageResponse> deleteImage(@RequestParam("fileName") String fileName) {
         try {
-            minioService.deleteFile(fileName);
+            minioService.deleteFile(fileName, getCurrentUserId());
 
             ImageResponse response = ImageResponse.builder()
                     .success(true)
@@ -119,6 +134,8 @@ public class ImageController extends BaseController {
                     .build();
 
             return Result.success(response);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("删除图片失败 - 文件名: {}, 错误: {}", fileName, e.getMessage());
             return Result.error(ResultCode.ERROR, "删除图片失败: " + e.getMessage());
@@ -169,7 +186,7 @@ public class ImageController extends BaseController {
             case "webp":
                 return "image/webp";
             case "svg":
-                return "image/svg+xml";
+                return "application/octet-stream";
             default:
                 return "application/octet-stream";
         }

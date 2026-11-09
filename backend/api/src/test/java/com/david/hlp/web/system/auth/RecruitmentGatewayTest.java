@@ -38,4 +38,23 @@ class RecruitmentGatewayTest {
         assertEquals("[\"sample\"]", gateway.read(request).getBody());
         server.verify();
     }
+    @Test void stripsUpstreamFramingAndConnectionNominatedHeaders() {
+        var client = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(client).build();
+        var headers = new org.springframework.http.HttpHeaders();
+        headers.add("Connection", "keep-alive, X-Internal");
+        headers.add("Transfer-Encoding", "chunked");
+        headers.add("Keep-Alive", "timeout=60");
+        headers.add("X-Internal", "private");
+        server.expect(requestTo("http://analytics.invalid/api/v1/boss/basic/city-name-list"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON).headers(headers));
+        var gateway = new RecruitmentGatewayController(client);
+        ReflectionTestUtils.setField(gateway, "sparkServiceUrl", "http://analytics.invalid");
+        var response = gateway.read(new MockHttpServletRequest("GET", "/api/v1/boss/basic/city-name-list"));
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("[]", response.getBody());
+        assertEquals(java.util.Set.of("Content-Type"), response.getHeaders().keySet());
+        assertEquals(MediaType.APPLICATION_JSON, response.getHeaders().getContentType());
+        server.verify();
+    }
 }

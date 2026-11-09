@@ -45,13 +45,13 @@ class RoleSemanticsTest {
         RoleMapper mapper = mock(RoleMapper.class);
         var service = new RoleServiceImp(mapper, mock(PermissionMapper.class), mock(RouterMapper.class));
         when(mapper.countByName("taken", null)).thenReturn(1);
-        assertThrows(IllegalArgumentException.class, () -> service.addRole(Role.builder().id(2L).roleName(" taken ").build()));
+        assertThrows(com.david.hlp.web.common.exception.BusinessException.class, () -> service.addRole(Role.builder().id(2L).roleName(" taken ").build()));
         when(mapper.getRoleById(2L)).thenReturn(Role.builder().id(2L).roleName("custom").build());
         when(mapper.countByName("taken", 2L)).thenReturn(1);
-        assertThrows(IllegalArgumentException.class, () -> service.editRole(Role.builder().id(2L).roleName("taken").build()));
+        assertThrows(com.david.hlp.web.common.exception.BusinessException.class, () -> service.editRole(Role.builder().id(2L).roleName("taken").build()));
         when(mapper.getRoleById(1L)).thenReturn(Role.builder().id(1L).roleName("USER").build());
-        assertThrows(IllegalArgumentException.class, () -> service.editRole(Role.builder().id(1L).roleName("other").build()));
-        assertThrows(IllegalArgumentException.class, () -> service.deleteRole(1L));
+        assertThrows(com.david.hlp.web.common.exception.BusinessException.class, () -> service.editRole(Role.builder().id(1L).roleName("other").build()));
+        assertThrows(com.david.hlp.web.common.exception.BusinessException.class, () -> service.deleteRole(1L));
         verify(mapper, never()).insertRole(any()); verify(mapper, never()).updateRole(any());
     }
 }

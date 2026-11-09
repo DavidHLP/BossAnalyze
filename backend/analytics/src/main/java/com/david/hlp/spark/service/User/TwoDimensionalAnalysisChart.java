@@ -108,14 +108,14 @@ public class TwoDimensionalAnalysisChart implements Serializable {
      * 从MySQL数据库读取职位数据
      */
     private Dataset<Row> readJobDataFromDatabase(StructType jsonSchema) {
-        return sparkSession.read().format("jdbc")
+        return ListBasicSet.activeRows(sparkSession.read().format("jdbc")
                 .option("url", environment.getRequiredProperty("spring.datasource.url"))
                 .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
                 .option("user", environment.getRequiredProperty("spring.datasource.username"))
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
-                .option("dbtable", "t_job_detail")
+                .option("dbtable", ListBasicSet.ACTIVE_JOBS_TABLE)
                 .option("fetchsize", "10000")
-                .load()
+                .load())
                 .select("position_id", "position_name", "detail_data", "city_name", "html_url", "employee_benefits",
                         "job_requirements")
                 .withColumn("jsonData", from_json(col("detail_data"), jsonSchema))
@@ -274,8 +274,7 @@ public class TwoDimensionalAnalysisChart implements Serializable {
                             .positionName(row.getString(row.fieldIndex("position_name")))
                             .cityName(row.getString(row.fieldIndex("city_name")))
                             .salary(row.getString(row.fieldIndex("salary")))
-                            .salaryValue(row.isNullAt(row.fieldIndex("salary_value"))
-                                    ? null : row.getDouble(row.fieldIndex("salary_value")))
+                            .salaryValue(getDoubleValue(row, "salary_value"))
                             .degree(row.getString(row.fieldIndex("degree")))
                             .degreeValue(getIntValue(row, "degree_value"))
                             .experience(row.getString(row.fieldIndex("experience")))
@@ -298,5 +297,12 @@ public class TwoDimensionalAnalysisChart implements Serializable {
      */
     private Integer getIntValue(Row row, String fieldName) {
         return row.isNullAt(row.fieldIndex(fieldName)) ? null : row.getInt(row.fieldIndex(fieldName));
+    }
+
+    /**
+     * 安全获取Row中的小数值
+     */
+    private Double getDoubleValue(Row row, String fieldName) {
+        return row.isNullAt(row.fieldIndex(fieldName)) ? null : row.getDouble(row.fieldIndex(fieldName));
     }
 }

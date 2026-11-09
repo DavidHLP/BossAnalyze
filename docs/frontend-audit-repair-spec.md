@@ -60,4 +60,3 @@ A、B、C 可独立实现；D 汇总依赖 A+B+C；E 验证与双轴审查依赖
 - 完成 standards/spec 两轴代码审查，修复所有确认问题后标记 PR ready。
 - UI 验证使用隔离夹具，不写真实账户；环境不足如实列出。
 - 按 implement-spec 本次交付为 ready-for-review PR，不自动合并或部署。
-

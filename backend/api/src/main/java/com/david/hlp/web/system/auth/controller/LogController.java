@@ -42,17 +42,20 @@ public class LogController {
 
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
 
+            if (response.getStatusCode().value() == 204) {
+                return ResponseEntity.noContent().build();
+            }
+
             if (response.getBody() == null || response.getBody().isEmpty()) {
                 log.warn("Spark服务返回空数据");
-                return ResponseEntity.ok(getDefaultDashboardData());
+                return ResponseEntity.status(503).body(Map.of("error", "日志分析服务暂不可用"));
             }
 
             return ResponseEntity.ok(response.getBody());
 
         } catch (Exception e) {
             log.error("获取仪表板数据失败: {}", e.getMessage(), e);
-            // 返回默认数据而不是错误，确保前端能正常显示
-            return ResponseEntity.ok(getDefaultDashboardData());
+            return ResponseEntity.status(upstreamStatus(e)).body(Map.of("error", "日志分析服务暂不可用"));
         }
     }
 
@@ -68,7 +71,7 @@ public class LogController {
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
 
             if (response.getBody() == null) {
-                return ResponseEntity.ok(getDefaultStats());
+                return ResponseEntity.status(503).body(Map.of("error", "日志分析服务暂不可用"));
             }
 
             // 转换数据格式以兼容前端现有接口
@@ -77,7 +80,7 @@ public class LogController {
 
         } catch (Exception e) {
             log.error("获取访问日志统计失败: {}", e.getMessage(), e);
-            return ResponseEntity.ok(getDefaultStats());
+            return ResponseEntity.status(upstreamStatus(e)).body(Map.of("error", "日志分析服务暂不可用"));
         }
     }
 
@@ -92,7 +95,7 @@ public class LogController {
             return ResponseEntity.ok(response.getBody() != null ? response.getBody() : new HashMap<>());
         } catch (Exception e) {
             log.error("获取热力图数据失败: {}", e.getMessage(), e);
-            return ResponseEntity.ok(new HashMap<>());
+            return ResponseEntity.status(upstreamStatus(e)).body(Map.of("error", "日志分析服务暂不可用"));
         }
     }
 
@@ -107,7 +110,7 @@ public class LogController {
             return ResponseEntity.ok(response.getBody() != null ? response.getBody() : new HashMap<>());
         } catch (Exception e) {
             log.error("获取IP统计数据失败: {}", e.getMessage(), e);
-            return ResponseEntity.ok(new HashMap<>());
+            return ResponseEntity.status(upstreamStatus(e)).body(Map.of("error", "日志分析服务暂不可用"));
         }
     }
 
@@ -122,7 +125,7 @@ public class LogController {
             return ResponseEntity.ok(response.getBody() != null ? response.getBody() : new HashMap<>());
         } catch (Exception e) {
             log.error("获取HTTP方法统计失败: {}", e.getMessage(), e);
-            return ResponseEntity.ok(new HashMap<>());
+            return ResponseEntity.status(upstreamStatus(e)).body(Map.of("error", "日志分析服务暂不可用"));
         }
     }
 
@@ -137,7 +140,7 @@ public class LogController {
             return ResponseEntity.ok(response.getBody() != null ? response.getBody() : new HashMap<>());
         } catch (Exception e) {
             log.error("获取浏览器统计失败: {}", e.getMessage(), e);
-            return ResponseEntity.ok(new HashMap<>());
+            return ResponseEntity.status(upstreamStatus(e)).body(Map.of("error", "日志分析服务暂不可用"));
         }
     }
 
@@ -152,7 +155,7 @@ public class LogController {
             return ResponseEntity.ok(response.getBody() != null ? response.getBody() : "分析任务已触发");
         } catch (Exception e) {
             log.error("触发日志分析失败: {}", e.getMessage(), e);
-            return ResponseEntity.ok("触发分析任务失败: " + e.getMessage());
+            return ResponseEntity.status(upstreamStatus(e)).body("日志分析服务暂不可用");
         }
     }
 
@@ -170,15 +173,26 @@ public class LogController {
 
             health.put("status", "UP");
             health.put("sparkService", "UP");
+
             health.put("timestamp", System.currentTimeMillis());
 
         } catch (Exception e) {
             health.put("status", "DEGRADED");
             health.put("sparkService", "DOWN");
+
             health.put("timestamp", System.currentTimeMillis());
+            return ResponseEntity.status(upstreamStatus(e)).body(health);
         }
 
         return ResponseEntity.ok(health);
+    }
+
+    private int upstreamStatus(Exception error) {
+        if (error instanceof org.springframework.web.client.RestClientResponseException upstream) {
+            int status = upstream.getStatusCode().value();
+            if (status >= 400 && status <= 599) return status;
+        }
+        return 503;
     }
 
     /**
@@ -224,51 +238,4 @@ public class LogController {
         return stats;
     }
 
-    /**
-     * 获取默认仪表板数据
-     */
-    private Map<String, Object> getDefaultDashboardData() {
-        Map<String, Object> defaultData = new HashMap<>();
-
-        // 概览数据
-        Map<String, Object> overview = new HashMap<>();
-        overview.put("totalVisits", 0L);
-        overview.put("uniqueVisitors", 0L);
-        overview.put("avgSessionDuration", 0.0);
-        overview.put("bounceRate", 0.0);
-        overview.put("errorRate", 0.0);
-
-        // 实时统计
-        Map<String, Object> realTimeStats = new HashMap<>();
-        realTimeStats.put("onlineUsers", 0);
-        realTimeStats.put("recentVisits", 0);
-        realTimeStats.put("activePages", 0);
-
-        defaultData.put("overview", overview);
-        defaultData.put("realTimeStats", realTimeStats);
-        defaultData.put("generatedAt", System.currentTimeMillis());
-
-        return defaultData;
-    }
-
-    /**
-     * 获取默认统计数据
-     */
-    private Map<String, Object> getDefaultStats() {
-        Map<String, Object> defaultStats = new HashMap<>();
-
-        defaultStats.put("totalVisits", 0);
-        defaultStats.put("uniqueIps", 0);
-        defaultStats.put("avgResponseTime", 0.0);
-        defaultStats.put("errorRate", 0.0);
-
-        // 空的统计对象
-        defaultStats.put("heatmap", new HashMap<>());
-        defaultStats.put("ipStats", new HashMap<>());
-        defaultStats.put("httpMethods", new HashMap<>());
-        defaultStats.put("weekdayStats", new HashMap<>());
-        defaultStats.put("browserStats", new HashMap<>());
-
-        return defaultStats;
-    }
 }

@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import java.util.List;
+import java.util.Objects;
+import com.david.hlp.web.common.exception.BusinessException;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
@@ -61,14 +63,14 @@ public class RouterServiceImp {
     @Transactional(rollbackFor = Exception.class)
     public void editRouter(Router router) {
         Router oldRouter = routerMapper.getById(router.getId());
-        if (!oldRouter.getPermission().equals(router.getPermission())) {
-            log.warn("权限变更: 路由ID={}, 旧权限={}, 新权限={}", router.getId(), oldRouter.getPermission(), router.getPermission());
-            insertPermissionHasNotInDB(router.getPermission());
-            routerMapper.update(router);
-            permissionMapper.deleteByPermissionName(oldRouter.getPermission());
-        } else {
-            routerMapper.update(router);
+        if (oldRouter == null) {
+            throw new BusinessException(404, "菜单不存在");
         }
+        if (!Objects.equals(oldRouter.getPermission(), router.getPermission())
+                || !Objects.equals(oldRouter.getPid(), router.getPid())) {
+            throw new BusinessException(409, "已有权限标识和父菜单不可修改");
+        }
+        routerMapper.update(router);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -83,17 +85,19 @@ public class RouterServiceImp {
     }
     @Transactional(rollbackFor = Exception.class)
     public void deleteRouter(Router router) {
-        try {
-            log.warn("删除路由: ID={}, 名称={}, 子路由数量={}", router.getId(), router.getName(), router.getChildren().size());
-            routerMapper.deleteById(router.getId());
-            permissionMapper.deleteByPermissionName(router.getPermission());
-            for(Router r : router.getChildren()) {
-                routerMapper.deleteById(r.getId());
-                permissionMapper.deleteByPermissionName(r.getPermission());
-            }
-        } catch (Exception e) {
-            log.error("删除路由失败: ID={}", router.getId(), e);
-            throw e;
+        Router stored = routerMapper.lockById(router.getId());
+        if (stored == null) {
+            throw new BusinessException(404, "菜单不存在");
         }
+        String permission = stored.getPermission();
+        permissionMapper.lockByPermissionName(permission);
+        if (routerMapper.countChildren(stored.getId()) > 0
+                || permission == null || permission.isBlank()
+                || routerMapper.countOtherPermissionReferences(permission, stored.getId()) > 0
+                || permissionMapper.countRoleReferences(permission) > 0) {
+            throw new BusinessException(409, "菜单包含子项或权限仍被引用，不能删除");
+        }
+        routerMapper.deleteById(stored.getId());
+        permissionMapper.deleteByPermissionName(permission);
     }
 }

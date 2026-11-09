@@ -47,7 +47,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
      */
     @Override
     public UserDetails loadUserByUsername(String jwt) throws UsernameNotFoundException {
-        if (!tokenMapper.checkTokenValid(jwt)) {
+        if (!Boolean.TRUE.equals(tokenMapper.checkTokenValid(jwt))) {
             log.warn("token已失效或被撤销");
             throw new UsernameNotFoundException("token已失效或被撤销");
         }
@@ -68,10 +68,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         var role = roleMapper.getRoleById(user.getRoleId());
         if (!user.isEnabled() || role == null || !Integer.valueOf(1).equals(role.getStatus())) {
-            throw new UsernameNotFoundException("账户或角色已停用");
+            throw new UsernameNotFoundException("用户或角色已停用");
         }
-
-        // 每次请求读取权限，角色修改不依赖缓存过期。
         // 加载用户权限
         List<String> authorities = userMapper.listAuthoritiesByRoleId(user.getRoleId());
         if (authorities == null) {

@@ -1,1 +1,2 @@
 com.david.hlp.commons.config.RedisUtilsAutoConfiguration
+com.david.hlp.commons.security.DownstreamAuthAutoConfiguration

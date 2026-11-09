@@ -20,6 +20,12 @@ import org.apache.ibatis.annotations.Results;
 @Mapper
 public interface RoleMapper extends BaseMapper<Role> {
 
+    @Select("SELECT permission FROM router WHERE path = #{path} AND status = 1 AND permission IS NOT NULL")
+    List<String> permissionsForPath(String path);
+
+    @Select("SELECT id FROM role WHERE role_name = #{name}")
+    Long findIdByName(String name);
+
     @Select("SELECT COUNT(*) FROM role WHERE role_name = #{name} AND (#{id} IS NULL OR id != #{id})")
     int countByName(@Param("name") String name, @Param("id") Long id);
 

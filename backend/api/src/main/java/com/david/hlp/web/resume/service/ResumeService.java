@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.david.hlp.web.resume.entity.Resume;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 
 import java.util.Date;
 import java.util.List;
@@ -35,7 +36,11 @@ public class ResumeService {
         return mongoTemplate.findOne(query, Resume.class);
     }
 
-    public Resume createResume(Resume resume, Long userId) {
+    public Resume createResume(Resume request, Long userId) {
+        Resume resume = new Resume();
+        resume.setTitle(request.getTitle());
+        resume.setContent(request.getContent());
+        resume.setDocType("meta");
         resume.setUserId(userId);
         resume.setCreatedAt(new Date());
         resume.setUpdatedAt(new Date());
@@ -46,7 +51,7 @@ public class ResumeService {
             resume.setContent(initialContent);
 
         // 先保存一次以获取ID
-        mongoTemplate.save(resume);
+        mongoTemplate.insert(resume);
 
         // 创建初始提交
         String initialCommitId = versionControlService.createCommit(
@@ -72,11 +77,15 @@ public class ResumeService {
         if (existingResume == null) {
             return null; // or throw exception
         }
-        String newContent = resumeDetails.getContent();
+        String newContent = resumeDetails.getContent() != null ? resumeDetails.getContent() : existingResume.getContent();
         existingResume.setUpdatedAt(new Date());
 
         String message = "Updated via basic save";
         versionControlService.commit(id, userId, message, newContent);
+        if (resumeDetails.getTitle() != null) {
+            Query query = new Query(Criteria.where("id").is(id).and("userId").is(userId).and("docType").is("meta"));
+            mongoTemplate.updateFirst(query, new Update().set("title", resumeDetails.getTitle()), Resume.class);
+        }
 
         return getResumeById(id, userId);
     }
@@ -85,7 +94,7 @@ public class ResumeService {
         Resume existingResume = getResumeById(id, userId);
         if (existingResume != null) {
             // 同时删除所有关联的commit
-            Query commitsQuery = new Query(Criteria.where("resume_id").is(id).and("doc_type").is("commit"));
+            Query commitsQuery = new Query(Criteria.where("resume_id").is(id).and("user_id").is(userId).and("doc_type").is("commit"));
             mongoTemplate.remove(commitsQuery, Resume.class);
 
             // 删除简历元数据

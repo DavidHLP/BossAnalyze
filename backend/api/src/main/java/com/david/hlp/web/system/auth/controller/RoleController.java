@@ -1,5 +1,8 @@
 package com.david.hlp.web.system.auth.controller;
 
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.web.server.ResponseStatusException;
+import com.david.hlp.web.common.exception.BusinessException;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +41,8 @@ public class RoleController {
     public Result<List<Role>> getRoleList(@RequestParam(required = false)String roleName) {
         try {
             return Result.success(roleService.getRoleList(roleName));
+        } catch (BusinessException | ResponseStatusException | DuplicateKeyException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("获取角色列表异常: roleName={}, 错误={}", roleName, e.getMessage(), e);
             return Result.error(ResultCode.INTERNAL_ERROR, "获取角色列表失败: " + e.getMessage());

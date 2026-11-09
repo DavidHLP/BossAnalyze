@@ -28,6 +28,12 @@ public interface PermissionMapper extends BaseMapper<Permission> {
     @Select("SELECT p.id, p.permission, p.create_time, p.update_time FROM permission p WHERE p.id IN (SELECT permission_id FROM role_permission WHERE role_id = #{roleId})")
     List<Permission> listPermissionDetailsByRoleId(Long roleId);
 
+    @Select("SELECT id FROM permission WHERE permission = #{permission} FOR UPDATE")
+    Long lockByPermissionName(String permission);
+
+    @Select("SELECT COUNT(*) FROM role_permission rp JOIN permission p ON p.id = rp.permission_id WHERE p.permission = #{permission}")
+    long countRoleReferences(String permission);
+
     @Select("SELECT id FROM permission WHERE permission = #{permission}")
     Long getIdByPermissionName(String permission);
 }

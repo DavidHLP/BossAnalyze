@@ -108,8 +108,10 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO, To
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
         var role = roleMapper.getRoleById(user.getRoleId());
-        Assert.isTrue(role != null && Integer.valueOf(1).equals(role.getStatus()), "角色已停用");
-        user.setAuthorities(permissionMapper.listPermissionNamesByRoleId(user.getRoleId()));
+        if (role == null || !Integer.valueOf(1).equals(role.getStatus())) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+        user.setAuthorities(userMapper.listAuthoritiesByRoleId(user.getRoleId()));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             log.warn("登录失败: 用户ID{}密码错误", user.getUserId());
@@ -117,6 +119,10 @@ public class AuthServiceImp implements AuthService<LoginDTO, RegistrationDTO, To
         }
 
         String accessToken = jwtService.generateToken(user);
+        // The response/cache principal must not retain the authentication hash.
+        user = AuthUser.builder().userId(user.getUserId()).username(user.getUsername())
+                .email(user.getEmail()).status(user.getStatus()).roleId(user.getRoleId())
+                .authorities(user.getAuthorities().stream().map(a -> a.getAuthority()).toList()).build();
         Token token = Token.builder()
                 .authUser(user)
                 .userId(user.getUserId())

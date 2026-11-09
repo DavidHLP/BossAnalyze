@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -89,11 +90,57 @@ class TwoDimensionalAnalysisChartTest {
             assertTrue(options.positionNames(cities, "' OR true --").isEmpty());
             assertEquals(3, options.positionNames(cities, "all").size());
             assertEquals(3, options.positionNames(cities, null).size());
+            assertDefensiveFilterOnAlreadyDecodedRows(spark);
+        }
+    }
+
+    private void assertDefensiveFilterOnAlreadyDecodedRows(SparkSession spark) {
+        // This tests the defensive post-read filter only; raw JDBC flags require SQL filtering.
+        for (var type : Arrays.asList(DataTypes.BooleanType, DataTypes.IntegerType)) {
+            boolean bool = type.equals(DataTypes.BooleanType);
+            var schema = new StructType().add("city_name", DataTypes.StringType)
+                    .add("position_name", DataTypes.StringType).add("is_deleted", type, true);
+            Object active = bool ? Boolean.FALSE : Integer.valueOf(0);
+            Object deleted = bool ? Boolean.TRUE : Integer.valueOf(1);
+            var rows = new ArrayList<Row>();
+            rows.add(RowFactory.create("active-city", "active-job", active));
+            rows.add(RowFactory.create("deleted-city", "deleted-job", deleted));
+            rows.add(RowFactory.create("unknown-city", "unknown-job", null));
+            if (!bool) rows.add(RowFactory.create("other-city", "other-job", 2));
+            var filtered = ListBasicSet.activeRows(spark.createDataFrame(rows, schema));
+            assertEquals(1, filtered.count());
+            assertEquals("active-city", filtered.first().getString(0));
+            assertEquals(Arrays.asList("active-job"),
+                    new ListBasicSet(spark, null).positionNames(filtered, "all"));
         }
     }
 
     private Row sample(String id, String salary, String degree, String experience) {
         return RowFactory.create(id, "测试职位", "测试城市", salary, degree, experience,
                 "合成公司", null, null, null, null, null, null, null);
+    }
+    @Test
+    void salaryMidpointIsNotTruncatedAndUnknownFormatsStayUnknown() {
+        assertEquals(4.5, TwoDimensionalAnalysisChart.extractSalary("4-5K"));
+        assertEquals(22.5, TwoDimensionalAnalysisChart.extractSalary("20-25K"));
+        assertEquals(4.0, TwoDimensionalAnalysisChart.extractSalary("4K"));
+        assertNull(TwoDimensionalAnalysisChart.extractSalary(null));
+        assertNull(TwoDimensionalAnalysisChart.extractSalary(""));
+        assertNull(TwoDimensionalAnalysisChart.extractSalary("面议"));
+        assertNull(TwoDimensionalAnalysisChart.extractSalary("4.5-5K"));
+    }
+
+    @Test
+    void experienceAndDegreeMappingsPreserveExplicitZeroAndRejectUnknownValues() {
+        assertEquals(0, TwoDimensionalAnalysisChart.mapExperience("不限"));
+        assertEquals(0, TwoDimensionalAnalysisChart.mapExperience("应届"));
+        assertEquals(4, TwoDimensionalAnalysisChart.mapExperience("3-5年"));
+        assertNull(TwoDimensionalAnalysisChart.mapExperience("未填写"));
+        assertNull(TwoDimensionalAnalysisChart.mapExperience(null));
+
+        assertEquals(0, TwoDimensionalAnalysisChart.mapDegree("不限"));
+        assertNotNull(TwoDimensionalAnalysisChart.mapDegree("本科"));
+        assertNull(TwoDimensionalAnalysisChart.mapDegree("未知学历"));
+        assertNull(TwoDimensionalAnalysisChart.mapDegree(""));
     }
 }

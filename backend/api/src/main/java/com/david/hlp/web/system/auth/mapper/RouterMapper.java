@@ -41,6 +41,9 @@ public interface RouterMapper extends BaseMapper<Router> {
     @ResultMap("routerResultMap")
     Router getById(Long id);
 
+    @Select("SELECT id, pid, permission FROM router WHERE id = #{id} FOR UPDATE")
+    Router lockById(@Param("id") Long id);
+
     @Update("<script>UPDATE router SET " +
             "<if test='pid != null'>pid = #{pid},</if> " +
             "menu_order = #{menuOrder}, " +
@@ -135,6 +138,12 @@ public interface RouterMapper extends BaseMapper<Router> {
            "</foreach>" +
            "</script>")
     List<String> listPermissionsByRouterIds(@Param("routerIds") List<Long> routerIds);
+
+    @Select("SELECT COUNT(*) FROM router WHERE pid = #{id}")
+    long countChildren(@Param("id") Long id);
+
+    @Select("SELECT COUNT(*) FROM router WHERE permission = #{permission} AND id != #{id}")
+    long countOtherPermissionReferences(@Param("permission") String permission, @Param("id") Long id);
 
     @Select("SELECT permission FROM router WHERE id = #{id}")
     String getPermissionById(@Param("id") Long id);

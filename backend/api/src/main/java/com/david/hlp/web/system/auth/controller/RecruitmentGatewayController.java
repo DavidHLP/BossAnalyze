@@ -11,7 +11,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.ResourceAccessException;
 import java.net.URI;
 
-/** Authenticated read gateway; the analytics listener must stay on a trusted network. */
+/** Authenticated read gateway; analytics also verifies the forwarded bearer token. */
 @RestController
 @RequiredArgsConstructor
 public class RecruitmentGatewayController {
@@ -23,11 +23,17 @@ public class RecruitmentGatewayController {
     @GetMapping({"/api/v1/boss/basic/city-name-list", "/api/v1/boss/basic/position-name-list",
             "/api/v1/boss/user/salary-hot-job", "/api/v1/boss/user/two-dimensional-analysis-chart"})
     public ResponseEntity<String> read(HttpServletRequest request) {
-        // Preserve encoded query values; never forward credentials or accept a target URL.
+        // Preserve encoded query values; the configured template forwards bearer only to trusted analytics.
         String query = request.getQueryString();
         URI uri = URI.create(sparkServiceUrl + request.getRequestURI() + (query == null ? "" : "?" + query));
         try {
-            return restTemplate.getForEntity(uri, String.class);
+            ResponseEntity<String> upstream = restTemplate.getForEntity(uri, String.class);
+            var response = ResponseEntity.status(upstream.getStatusCode());
+            // These JSON endpoints must not forward upstream connection/framing headers.
+            if (upstream.getHeaders().getContentType() != null) {
+                response.contentType(upstream.getHeaders().getContentType());
+            }
+            return response.body(upstream.getBody());
         } catch (RestClientResponseException error) {
             return ResponseEntity.status(error.getStatusCode()).body(error.getResponseBodyAsString());
         } catch (ResourceAccessException error) {

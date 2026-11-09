@@ -186,10 +186,10 @@ public class JwtService {
               .parseClaimsJws(token)
               .getBody();
     } catch (ExpiredJwtException e) {
-      log.warn("解析过期的Token: {}", e.getMessage());
+      log.warn("解析过期的Token");
       throw e;
     } catch (UnsupportedJwtException | MalformedJwtException | SignatureException | IllegalArgumentException e) {
-      log.error("Token解析失败: {}", e.getMessage());
+      log.warn("Token解析失败: {}", e.getClass().getSimpleName());
       throw e;
     }
   }

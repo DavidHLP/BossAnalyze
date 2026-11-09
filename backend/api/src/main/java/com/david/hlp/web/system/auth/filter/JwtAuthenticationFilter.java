@@ -1,125 +1,97 @@
 package com.david.hlp.web.system.auth.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.david.hlp.web.common.entity.Result;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.lang.NonNull;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
-import org.springframework.util.Assert;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.filter.OncePerRequestFilter;
+import java.io.IOException;
+import java.util.Set;
 
-/**
- * JWT 认证过滤器。
- *
- * 该过滤器会在每次请求时运行一次，用于验证 JWT 并设置用户的认证信息到 Spring Security 的上下文中。
- */
 @Slf4j
 @Component
-@RequiredArgsConstructor // 自动生成包含所有必需依赖项的构造函数
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
-  // 用于加载用户详细信息
-  @Qualifier("userDetailsServiceImp")
   private final UserDetailsService userDetailsService;
+  private final ConsoleAccess consoleAccess;
+  private final ObjectMapper objectMapper;
+  @org.springframework.beans.factory.annotation.Value("${security.client-ip.trusted-proxies:}")
+  private String trustedIpProxies;
 
-  /**
-   * 核心过滤逻辑。
-   *
-   * @param request     HTTP 请求对象
-   * @param response    HTTP 响应对象
-   * @param filterChain 过滤器链，用于继续执行后续过滤器
-   * @throws ServletException 如果过滤过程中出现问题
-   * @throws IOException      如果发生 I/O 错误
-   */
+  static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/register",
+      "/api/auth/logout", "/api/auth/sendRegisterEmail", "/api/repeater/auth/login",
+      "/actuator/health", "/actuator/health/readiness", "/actuator/health/liveness");
+
   @Override
-  protected void doFilterInternal(
-      @NonNull HttpServletRequest request,
-      @NonNull HttpServletResponse response,
-      @NonNull FilterChain filterChain) throws ServletException, IOException {
-    // 记录请求信息：IP、路径和HTTP方法，使用键值对格式方便日志分析
-    String clientIP = request.getRemoteAddr();
-    String path = request.getServletPath();
-    String method = request.getMethod();
-    String userAgent = request.getHeader("User-Agent");
+  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+      FilterChain chain) throws ServletException, IOException {
     long timestamp = System.currentTimeMillis();
-    // 总是允许 OPTIONS 请求通过（CORS预检请求）
-    if (request.getMethod().equals("OPTIONS")) {
-      filterChain.doFilter(request, response);
+    String path = request.getServletPath();
+    if ("OPTIONS".equals(request.getMethod()) || PUBLIC_PATHS.contains(path)) {
+      chain.doFilter(request, response);
       return;
     }
-
-    // 1. 检查是否为公开路径
-    boolean isPublicPath = Arrays.asList(SecurityConfiguration.PUBLIC_PATHS).contains(path);
-
-    // 2. 检查Authorization头
-    final String authHeader = request.getHeader("Authorization");
-
-    // 3. 如果不是公开路径且没有有效token，直接返回401
-    if (!isPublicPath && (authHeader == null || !authHeader.startsWith("Bearer "))) {
-      log.warn("拒绝访问：路径 {} 需要授权但未提供有效token", path);
-      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-      response.getWriter().write(String.format("拒绝访问：路径 %s 需要授权但未提供有效token", path));
+    String header = request.getHeader("Authorization");
+    if (header == null || !header.startsWith("Bearer ") || header.substring(7).isBlank()) {
+      reject(response, 401);
       return;
     }
-
-    // 4. 如果是公开路径，允许通过
-    if (isPublicPath) {
-      filterChain.doFilter(request, response);
-      return;
-    }
-
     try {
-      // 5. 处理正常的带token请求
-      final String jwt = authHeader.substring(7);
-      Assert.hasText(jwt, "token不能为空");
-
-      // 验证用户并设置认证信息
-      if (SecurityContextHolder.getContext().getAuthentication() == null) {
-        // 从 UserDetailsService 加载用户信息
-        UserDetails userDetails;
-        try {
-          userDetails = this.userDetailsService.loadUserByUsername(jwt);
-        } catch (Exception e) {
-          log.error("加载用户信息失败: {}", e.getMessage());
-          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-          response.getWriter().write("Authentication required");
-          return;
-        }
-
-        // 直接从UserDetails获取权限
-        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-            userDetails,
-            null,
-            userDetails.getAuthorities());
-
-        // 设置认证请求的详细信息
-        authToken.setDetails(
-            new WebAuthenticationDetailsSource().buildDetails(request));
-
-        // 确保在认证成功后设置SecurityContext
-        SecurityContextHolder.getContext().setAuthentication(authToken);
+      // Always reload: role disablement and permission revocation apply to existing tokens.
+      var user = userDetailsService.loadUserByUsername(header.substring(7));
+      var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+      authentication.setDetails(new org.springframework.security.web.authentication.WebAuthenticationDetailsSource().buildDetails(request));
+      SecurityContextHolder.getContext().setAuthentication(authentication);
+      String[] pages = requiredPages(path);
+      if (pages != null && !consoleAccess.checkAny(authentication, pages).isGranted()) {
+        reject(response, 403);
+        return;
       }
+      if (path.equals("/api/v1/system/logs/analysis/trigger") && authentication.getAuthorities().stream()
+          .noneMatch(a -> a.getAuthority().equals("logs.analysis.trigger"))) {
+        reject(response, 403);
+        return;
+      }
+    } catch (AuthenticationException | io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+      log.warn("Authentication rejected: {}", e.getClass().getSimpleName());
+      reject(response, 401);
+      return;
     } catch (Exception e) {
-      log.error("UserDetails获取权限过程发生错误: {}", e.getMessage());
-      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-      response.getWriter().write("Authentication required");
+      log.error("Identity lookup unavailable: {}", e.getClass().getSimpleName());
+      reject(response, 503);
       return;
     }
-    // 使用键值对格式记录日志，便于后期数据分析
-    log.info("ACCESS|ts={}|ip={}|path={}|method={}|ua={}",
-        timestamp, clientIP, path, method, userAgent != null ? userAgent : "-");
-    filterChain.doFilter(request, response);
+    log.info("ACCESS|ts={}|ip={}|path={}|method={}|ua={}", timestamp, ClientIp.resolve(request, trustedIpProxies),
+        path, request.getMethod(), request.getHeader("User-Agent") != null ? request.getHeader("User-Agent") : "-");
+    chain.doFilter(request, response);
+  }
+
+  private static String[] requiredPages(String path) {
+    if (path.startsWith("/api/user/")) return new String[]{"users"};
+    if (path.startsWith("/api/role/")) return new String[]{"roles", "users"};
+    if (path.equals("/api/auth/getRoleList")) return new String[]{"roles", "menus"};
+    if (Set.of("/api/auth/addRole", "/api/auth/editRole", "/api/auth/deleteRole",
+        "/api/auth/updateRoleRouters").contains(path)) return new String[]{"roles"};
+    if (Set.of("/api/auth/editRouter", "/api/auth/addRouter", "/api/auth/deleteRouter").contains(path)) return new String[]{"menus"};
+    if (path.equals("/api/v1/system/logs/health")) return null;
+    if (path.equals("/api/v1/system/logs") || path.startsWith("/api/v1/system/logs/")) return new String[]{"dashboard"};
+    return null;
+  }
+
+  private void reject(HttpServletResponse response, int status) throws IOException {
+    SecurityContextHolder.clearContext();
+    response.setStatus(status);
+    response.setContentType("application/json;charset=UTF-8");
+    objectMapper.writeValue(response.getWriter(), Result.error(status,
+        status == 503 ? "身份服务暂不可用" : status == 403 ? "禁止访问" : "未授权访问").getBody());
   }
 }

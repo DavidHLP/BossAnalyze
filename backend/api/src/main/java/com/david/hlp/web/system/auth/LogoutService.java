@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import com.david.hlp.web.system.auth.mapper.TokenMapper;
 
-import java.util.List;
 /**
  * 注销服务类。
  *
@@ -45,14 +44,7 @@ public class LogoutService implements LogoutHandler {
 
     jwt = authHeader.substring(7);
 
-    var storedToken = tokenMapper.getByToken(jwt);
-
-    if (storedToken != null) {
-      storedToken.setExpired(true);
-      storedToken.setRevoked(true);
-      tokenMapper.updateBatch(List.of(storedToken));
-
-      SecurityContextHolder.clearContext();
-    }
+    tokenMapper.revoke(jwt);
+    SecurityContextHolder.clearContext();
   }
 }

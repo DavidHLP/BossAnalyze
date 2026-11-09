@@ -7,6 +7,7 @@ import {
   loginFailure,
   menuTree,
   menuShortcuts,
+  sessionFailure,
   validSession,
 } from '../app/lib/session.ts'
 
@@ -31,6 +32,16 @@ test('login failures only classify explicit statuses and keep ambiguous failures
   }
   for (const error of [{ code: 500 }, new Error('Missing token'), null]) {
     assert.equal(loginFailure(error), '登录失败，请检查邮箱、密码及服务连接后重试。')
+  }
+})
+
+test('only an explicit 401 expires the stored session; transient failures keep it', () => {
+  assert.equal(sessionFailure({ code: 401 }), 'expired')
+  const transientErrors = [
+    { code: 500 }, { code: 502 }, { code: 503 }, { code: 504 }, new Error('timeout'), null,
+  ]
+  for (const error of transientErrors) {
+    assert.equal(sessionFailure(error), 'unavailable')
   }
 })
 
@@ -173,7 +184,7 @@ async function sessionFixture() {
   await router.push('/console/users')
   const storage = new Map([['token', 'synthetic'], ['token_timestamp', String(Date.now())]])
   const states = new Map()
-  const api = { failure: null }
+  const api = { failure: null, logoutCalls: 0, logoutFailure: false }
   const { useSession } = await scriptRuntime('composables/useSession.ts', {
     ...sessionLib,
     useState: (key, init) => { if (!states.has(key)) states.set(key, vue.ref(init())); return states.get(key) },
@@ -184,6 +195,7 @@ async function sessionFixture() {
     getUserPrivateInformation: async () => { if (api.pending) return api.pending; if (api.failure) throw api.failure; return [] },
     getUserRoutes: async () => [node('/console/users')],
     login: async () => ({ token: 'synthetic-login' }),
+    logout: async () => { api.logoutCalls++; if (api.logoutPending) return api.logoutPending; if (api.logoutFailure) throw { code: 503 } },
   }, ['useSession'])
   return { vue, router, storage, api, session: useSession(), useSession }
 }
@@ -231,12 +243,14 @@ test('all production editor guards preserve session and draft on cancel, then co
     assert.equal(panel.discardOpen.value, true)
     panel.cancelDiscard()
     assert.equal(storage.get('token'), 'synthetic', file)
+    assert.equal(fixture.api.logoutCalls, 0, file)
     assert.equal(panel.draft[draftName], 'unsaved fixture')
     assert.equal(session.state.value.ready, true)
     assert.equal(await session.signOut(), false)
     await panel.discard()
     assert.equal(router.currentRoute.value.path, '/login', file)
     assert.equal(storage.has('token'), false, file)
+    assert.equal(fixture.api.logoutCalls, 1, file)
     remove()
   }
 })
@@ -319,4 +333,28 @@ test('menu icons accept only installed names and retain path/default fallbacks',
   assert.equal(menuIcon('/console/users', 'ShieldUserIcon'), ShieldUserIcon)
   assert.equal(menuIcon('/console/users', '<script>'), UserGroupIcon)
   assert.equal(menuIcon('/console/unknown', '__proto__'), File01Icon)
+})
+
+test('failed server logout is explicitly unconfirmed and forced expiry skips revocation', async () => {
+  const { session, storage, router, api } = await sessionFixture()
+  api.logoutFailure = true
+  assert.equal(await session.signOut(), true)
+  assert.equal(api.logoutCalls, 1)
+  assert.equal(storage.has('token'), false)
+  assert.equal(router.currentRoute.value.query.logout, 'unconfirmed')
+  await session.signOut(true)
+  assert.equal(api.logoutCalls, 1)
+})
+
+test('a completed old logout cannot clear a newly signed-in session', async () => {
+  const { session, storage, api } = await sessionFixture()
+  const pending = Promise.withResolvers()
+  api.logoutPending = pending.promise
+  const signingOut = session.signOut()
+  while (!api.logoutCalls) await new Promise(resolve => setImmediate(resolve))
+  await session.signIn('fixture@example.invalid', 'synthetic')
+  pending.resolve()
+  await signingOut
+  assert.equal(storage.get('token'), 'synthetic-login')
+  assert.equal(session.state.value.ready, true)
 })

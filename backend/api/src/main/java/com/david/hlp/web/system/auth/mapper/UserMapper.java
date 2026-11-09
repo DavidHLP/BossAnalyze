@@ -19,13 +19,16 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface UserMapper extends BaseMapper<User> {
 
+    @Select("SELECT COUNT(*) > 0 FROM role WHERE id = #{roleId} AND status = 1")
+    boolean isRoleEnabled(Long roleId);
+
     @Select("SELECT CONCAT('ROLE_', r.`role_name`) AS `authority` " +
-            "FROM `role` r WHERE r.`id` = #{roleId} " +
+            "FROM `role` r WHERE r.`id` = #{roleId} AND r.status = 1 " +
             "UNION ALL " +
             "SELECT p.`permission` AS `authority` " +
             "FROM `permission` p " +
             "JOIN `role_permission` rp ON p.`id` = rp.`permission_id` " +
-            "WHERE rp.`role_id` = #{roleId} AND p.`status` = 1")
+            "WHERE rp.`role_id` = #{roleId} AND p.status = 1")
     List<String> listAuthoritiesByRoleId(Long roleId);
 
     @Select("SELECT `id`, `name`, `email`, `password`, `status`, `role_id` as roleId " +
@@ -97,7 +100,6 @@ public interface UserMapper extends BaseMapper<User> {
             "<set> " +
             "<if test='user.name != null'>`name` = #{user.name}, </if> " +
             "<if test='user.email != null'>`email` = #{user.email}, </if> " +
-            "<if test='user.password != null'>`password` = #{user.password}, </if> " +
             "<if test='user.status != null'>`status` = #{user.status}, </if> " +
             "<if test='user.roleId != null'>`role_id` = #{user.roleId}, </if> " +
             "<if test='user.address != null'>`address` = #{user.address}, </if> " +

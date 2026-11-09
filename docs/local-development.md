@@ -96,13 +96,25 @@ SMTP, object storage, and external resume export/statistics services require
 their own configuration. Existing dashboard performance/security metrics contain
 sample values; a successful HTTP response does not verify those calculations.
 
+## Offline geolocation and object storage
+
+Analytics uses an optional external read-only DB-IP Lite City MMDB, configured by
+`GEOLOCATION_MMDB_PATH` (or `geolocation.mmdb-path`). No online geolocation key is
+required; absent or invalid libraries leave locations unknown without blocking startup.
+See the [offline geolocation guide](operations/offline-geolocation.md) for attribution,
+trusted proxy configuration and validation.
+
+The [RustFS migration guide](operations/rustfs-migration.md) covers the isolated target,
+S3 checks, backup gates, reconciliation and rollback. Keep the existing application
+`minio.*` configuration until the real source and backup are verified and migration
+is accepted; an unreachable source does not establish that it contains no data.
+
 ## External API credentials
 
 
 The OpenRouter crawler service requires `OPENROUTER_API_KEY` (or the Spring
 property `openrouter.api.key`) when instantiated. It is initialized lazily so
-the default Ollama workflow does not require an OpenRouter credential. The Spark IP geolocation service requires
-`IPGEOLOCATION_API_KEY` (or `ipgeolocation.api.key`). Both services reject
+the default Ollama workflow does not require an OpenRouter credential. OpenRouter rejects
 missing or blank keys during initialization, before sending any API request.
 Supply credentials through environment variables or an ignored local profile;
 never place real values in tracked files.
@@ -111,7 +123,7 @@ The Spring and Spark default profiles read `BOSSANALYZE_REDIS_PASSWORD`
 without a tracked password literal. This is configuration externalization, not
 Redis fail-fast validation: Spring Boot binding can retain an unresolved
 placeholder when the variable is missing, and accepts explicit empty or
-whitespace values. The Java API credentials above and the JWT signing key have initialization
+whitespace values. The OpenRouter credential above and the JWT signing key have initialization
 validation; SMTP credentials are checked before sending, not at startup.
 
 The existing tracked `local-dev` profiles retain

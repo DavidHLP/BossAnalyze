@@ -1,4 +1,4 @@
-import { getUserBaseInfo, getUserPrivateInformation, login } from '@/api/auth/auth'
+import { getUserBaseInfo, getUserPrivateInformation, login, logout } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
 import { loginLocation, menuTree, validSession } from '@/lib/session'
 import type { MenuItem } from '@/lib/session'
@@ -79,11 +79,23 @@ export function useSession() {
 
   const router = useRouter()
   async function signOut(force = false, destination: unknown = null, reason?: string) {
+    const token = localStorage.getItem('token')
     if (force) clear()
     const target = destination ? loginLocation(destination, reason) : '/login'
     const failure = await router.replace(target)
     if (failure || router.currentRoute.value.path !== '/login') return false
-    clear()
+    if (!force && token && localStorage.getItem('token') === token) {
+      try {
+        await logout()
+      } catch {
+        if (localStorage.getItem('token') === token) {
+          clear()
+          await router.replace({ path: '/login', query: { logout: 'unconfirmed' } })
+        }
+        return true
+      }
+    }
+    if (force || localStorage.getItem('token') === token) clear()
     return true
   }
 

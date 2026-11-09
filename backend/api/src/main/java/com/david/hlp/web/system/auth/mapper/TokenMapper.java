@@ -15,7 +15,10 @@ import com.david.hlp.web.system.auth.token.Token;
 @Mapper
 public interface TokenMapper extends BaseMapper<Token> {
 
-    @Select("SELECT id, user_id, token, token_type, expired, revoked, created_at FROM token WHERE token = #{token}")
+    @Update("UPDATE token SET expired = TRUE, revoked = TRUE WHERE token = #{token}")
+    void revoke(String token);
+
+    @Select("SELECT id, user_id, token, token_type, expired, revoked, create_time FROM token WHERE token = #{token}")
     Token getByToken(String token);
 
     @Select("SELECT expired = FALSE AND revoked = FALSE FROM token WHERE token = #{token}")
@@ -26,11 +29,11 @@ public interface TokenMapper extends BaseMapper<Token> {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int save(Token token);
 
-    @Select("SELECT id, user_id, token, token_type, expired, revoked, created_at FROM token WHERE user_id = #{userId} AND expired = false AND revoked = false")
+    @Select("SELECT id, user_id, token, token_type, expired, revoked, create_time FROM token WHERE user_id = #{userId} AND expired = false AND revoked = false")
     List<Token> listValidTokensByUser(Long userId);
 
     @Update({"<script>",
-        "UPDATE token SET expired = #{expired}, revoked = #{revoked}",
+        "UPDATE token SET expired = TRUE, revoked = TRUE",
         "WHERE token IN",
         "<foreach item='item' collection='list' open='(' separator=',' close=')'>",
         "#{item.token}",
