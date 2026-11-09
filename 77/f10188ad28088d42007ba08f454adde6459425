@@ -1,0 +1,19 @@
+docs/operations/final-crawler-python-build-20261109.md
+  s_ef496bb39d66fe::t_7f2c463d525a48 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "77f10188ad28088d42007ba08f454adde6459425",
+  "prompts": {},
+  "sessions": {
+    "s_ef496bb39d66fe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bfa4-802e-7ba1-afd6-51ab1788cdb8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
