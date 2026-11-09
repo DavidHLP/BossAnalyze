@@ -1,0 +1,18 @@
+{
+  "code": 0,
+  "zpData": {
+    "jobInfo": {
+      "encryptId": "synthetic_001",
+      "jobName": "合成 Java 工程师",
+      "salaryDesc": "20-30K",
+      "locationName": "北京",
+      "experienceName": "3-5年",
+      "degreeName": "本科",
+      "postDescription": "合成岗位（不是线上数据）。\n职责：Java 17；Unicode 😀。\n要求：保留原文与换行。",
+      "skills": ["Java", "NOT_WELFARE"],
+      "encryptUserId": "RECRUITER_SECRET_NEVER_EXPORT"
+    },
+    "brandComInfo": {"brandName": "合成公司", "unrelatedToken": "BRAND_SECRET_NEVER_EXPORT"},
+    "bossInfo": {"name": "RECRUITER_NAME_NEVER_EXPORT", "securityId": "TOKEN_NEVER_EXPORT"}
+  }
+}

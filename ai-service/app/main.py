@@ -62,6 +62,8 @@ def create_app(settings=None, transport=None):
                 return error("internal_unauthorized", 401, rid)
             if not cfg.ready:
                 return error("not_configured", 503, rid)
+            if not cfg.zdr:
+                return error("zdr_required", 503, rid)
             body = bytearray()
             try:
                 async with asyncio.timeout(cfg.deadline_ms / 1000):
@@ -103,6 +105,8 @@ def create_app(settings=None, transport=None):
     async def ready(request: Request):
         if not cfg.ready:
             return error("not_configured", 503, request.state.request_id)
+        if not cfg.zdr:
+            return error("zdr_required", 503, request.state.request_id)
         return {"status": "ready", "model": cfg.model, "policyVersion": "jev-policy-1",
                 "qualityGate": {"calibrated": cfg.quality_approved, "automaticWritebackAllowed": cfg.quality_approved,
                                 "acceptThreshold": cfg.accept, "rejectThreshold": cfg.reject,

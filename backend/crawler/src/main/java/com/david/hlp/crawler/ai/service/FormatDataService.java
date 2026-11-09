@@ -33,6 +33,7 @@ public class FormatDataService {
 
             // 设置职位ID
             jobAnalysisData.setPositionId(String.valueOf(miniJobDetail.getId()));
+            jobAnalysisData.setJobUrl(miniJobDetail.getUrl());
 
             // 解析基本信息
             if (rootNode.has("basicInfo")) {
@@ -60,7 +61,7 @@ public class FormatDataService {
                     jobAnalysisData.setExperienceValue(extractExperienceValue(experience));
                 }
                 if (basicInfo.has("address")) {
-                    jobAnalysisData.setAddress(basicInfo.get("address").asText());
+                    jobAnalysisData.setAddress(basicInfo.get("address").asText(null));
                 }
             }
 

@@ -12,7 +12,7 @@ from app.jev import Budget, Jev, ServiceError, validate_answers
 from app.main import create_app
 from app.pipeline import IMPORTANCE, MATCH_LEVELS, legacy_score
 
-CFG = Settings(api_key="synthetic-provider", service_token="synthetic-internal", model="typesafe/jev-1.14.0")
+CFG = Settings(zdr=True, api_key="synthetic-provider", service_token="synthetic-internal", model="typesafe/jev-1.14.0")
 @pytest.fixture(autouse=True)
 def isolated_budget(tmp_path, monkeypatch):
     original = Budget.__init__
@@ -378,3 +378,30 @@ async def test_retry_unknown_charge_does_not_claim_total_usage():
         r = await client.post("/internal/v1/job-analysis", headers=AUTH, json={"jobId": "42", "detailData": DETAIL})
         assert r.status_code == 200
         assert r.json()["usage"] == {"inputTokens": None, "outputTokens": None}
+
+
+async def test_non_zdr_rejected_before_body_provider_or_budget(tmp_path):
+    calls = []
+    cfg = replace(CFG, zdr=False)
+    app, client = await api(cfg, lambda request: calls.append(request))
+    async with client:
+        assert (await client.get("/health/ready")).json()["error"]["code"] == "zdr_required"
+        for path, body in (("job-analysis", {"jobId": "s", "detailData": DETAIL}),
+                           ("match-batch", {"resume": "合成简历", "jobs": []})):
+            response = await client.post("/internal/v1/" + path, headers=AUTH, json=body)
+            assert response.status_code == 503
+            assert response.json()["error"]["code"] == "zdr_required"
+        assert (await client.post("/internal/v1/match-batch", headers=AUTH,
+                                  json={"synthetic": True})).status_code == 503
+    with pytest.raises(ServiceError, match="zdr_required"):
+        await app.state.jev.ask("synthetic", {"q": {"type": "noul"}}, monotonic() + 1,
+                                {"input_tokens": [], "output_tokens": []})
+    assert calls == [] and not (tmp_path / "budget.sqlite3").exists()
+    await app.state.jev.close()
+
+
+def test_zdr_requires_explicit_operator_configuration(monkeypatch):
+    monkeypatch.delenv("CMD_ZDR", raising=False)
+    assert Settings.from_env().zdr is False
+    monkeypatch.setenv("CMD_ZDR", "1")
+    assert Settings.from_env().zdr is True
