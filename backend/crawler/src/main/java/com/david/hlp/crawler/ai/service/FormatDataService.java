@@ -1,8 +1,5 @@
 package com.david.hlp.crawler.ai.service;
 
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.util.StringUtils;
+import com.david.hlp.commons.recruitment.JobArrays;
 
 @Service
 @RequiredArgsConstructor
@@ -86,26 +83,8 @@ public class FormatDataService {
                 jobAnalysisData.setCompanyUrl(rootNode.get("companyUrl").asText());
             }
 
-            // 解析福利和要求
-            if (StringUtils.hasText(miniJobDetail.getEmployeeBenefits())) {
-                String benefitsJson = miniJobDetail.getEmployeeBenefits();
-                // 移除开头和结尾的方括号及多余空格
-                benefitsJson = benefitsJson.trim().replaceAll("^\\[|\\]$", "");
-                List<String> benefits = Arrays.stream(benefitsJson.split(",\\s*"))
-                        .map(benefit -> benefit.trim().replaceAll("^\"|\"$", ""))
-                        .collect(Collectors.toList());
-                jobAnalysisData.setEmployeeBenefits(benefits);
-            }
-
-            if (StringUtils.hasText(miniJobDetail.getJobRequirements())) {
-                String requirementsJson = miniJobDetail.getJobRequirements();
-                // 移除开头和结尾的方括号及多余空格
-                requirementsJson = requirementsJson.trim().replaceAll("^\\[|\\]$", "");
-                List<String> requirements = Arrays.stream(requirementsJson.split(",\\s*"))
-                        .map(requirement -> requirement.trim().replaceAll("^\"|\"$", ""))
-                        .collect(Collectors.toList());
-                jobAnalysisData.setJobRequirements(requirements);
-            }
+            jobAnalysisData.setEmployeeBenefits(JobArrays.read(miniJobDetail.getEmployeeBenefits()));
+            jobAnalysisData.setJobRequirements(JobArrays.read(miniJobDetail.getJobRequirements()));
 
             jobAnalysisData.setPositionName(miniJobDetail.getPositionName());
             jobAnalysisData.setCityName(miniJobDetail.getCityName());

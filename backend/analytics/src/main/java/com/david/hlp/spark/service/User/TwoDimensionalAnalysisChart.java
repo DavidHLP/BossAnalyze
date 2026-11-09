@@ -5,7 +5,10 @@ import static org.apache.spark.sql.functions.*;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.Arrays;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import com.david.hlp.commons.recruitment.JobArrays;
+import com.david.hlp.commons.recruitment.JobAnalysisReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.Serializable;
@@ -113,14 +116,17 @@ public class TwoDimensionalAnalysisChart implements Serializable {
                 .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
                 .option("user", environment.getRequiredProperty("spring.datasource.username"))
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
-                .option("dbtable", ListBasicSet.ACTIVE_JOBS_TABLE)
+                .option("dbtable", recruitmentTable())
                 .option("fetchsize", "10000")
                 .load())
                 .select("position_id", "position_name", "detail_data", "city_name", "html_url", "employee_benefits",
-                        "job_requirements")
+                        "job_requirements", "analysis_state", "analysis_source", "analysis_result", "analysis_model", "analysis_version")
                 .withColumn("jsonData", from_json(col("detail_data"), jsonSchema))
                 .select(
                         col("position_id"),
+                        col("detail_data"),
+                        col("analysis_state"), col("analysis_source"), col("analysis_result"),
+                        col("analysis_model"), col("analysis_version"),
                         col("position_name"),
                         col("city_name"),
                         col("position_name"),
@@ -134,11 +140,8 @@ public class TwoDimensionalAnalysisChart implements Serializable {
                         col("jsonData.companyInfo.financingStage").alias("financingStage"),
                         col("jsonData.basicInfo.address").alias("address"),
                         col("jsonData.companyUrl").alias("companyUrl"),
-                        // 处理数组格式的字符串：移除方括号并压缩空格
-                        regexp_replace(regexp_replace(col("employee_benefits"), "\\[|\\]", ""), "\\s+", "")
-                                .alias("employeeBenefits"),
-                        regexp_replace(regexp_replace(col("job_requirements"), "\\[|\\]", ""), "\\s+", "")
-                                .alias("jobRequirements"));
+                        col("employee_benefits").alias("employeeBenefits"),
+                        col("job_requirements").alias("jobRequirements"));
     }
 
     /**
@@ -241,26 +244,15 @@ public class TwoDimensionalAnalysisChart implements Serializable {
         return processedDf.orderBy(col(xAxis), col(yAxis));
     }
 
-    /**
-     * 解析逗号分隔的字符串为List
-     */
-    private List<String> parseStringList(String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return Arrays.asList("职位福利目前未解析");
+    private String recruitmentTable() {
+        try (var connection = DriverManager.getConnection(
+                environment.getRequiredProperty("spring.datasource.url"),
+                environment.getRequiredProperty("spring.datasource.username"),
+                environment.getRequiredProperty("spring.datasource.password"))) {
+            return JobAnalysisReader.table(connection);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Cannot read recruitment analysis schema", e);
         }
-        List<String> result = Arrays.asList(input.split(","));
-        return result.isEmpty() ? Arrays.asList("职位福利目前未解析") : result;
-    }
-
-    /**
-     * 解析工作需求字符串为List
-     */
-    private List<String> parseJobRequirements(String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return Arrays.asList("工作需求目前未解析");
-        }
-        List<String> result = Arrays.asList(input.split(","));
-        return result.isEmpty() ? Arrays.asList("工作需求目前未解析") : result;
     }
 
     /**
@@ -285,8 +277,14 @@ public class TwoDimensionalAnalysisChart implements Serializable {
                             .companyUrl(row.getString(row.fieldIndex("companyUrl")))
                             .JobUrl(row.getString(row.fieldIndex("jobUrl")))
                             .address(row.getString(row.fieldIndex("address")))
-                            .employeeBenefits(parseStringList(row.getString(row.fieldIndex("employeeBenefits"))))
-                            .jobRequirements(parseJobRequirements(row.getString(row.fieldIndex("jobRequirements"))))
+                            .employeeBenefits(JobArrays.read(row.getString(row.fieldIndex("employeeBenefits"))))
+                            .jobRequirements(JobArrays.read(row.getString(row.fieldIndex("jobRequirements"))))
+                            .analysisStatus(JobAnalysisReader.status(row.getAs("detail_data"),
+                                    row.getAs("analysis_source"), row.getAs("analysis_state"),
+                                    row.getAs("analysis_result"), row.getAs("jobRequirements"),
+                                    row.getAs("employeeBenefits")))
+                            .analysisModel(row.getAs("analysis_model"))
+                            .analysisVersion(row.getAs("analysis_version"))
                             .build();
                 },
                 Encoders.bean(JobAnalysisData.class)).collectAsList();

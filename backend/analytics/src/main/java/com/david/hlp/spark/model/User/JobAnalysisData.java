@@ -30,6 +30,9 @@ public class JobAnalysisData {
     private String companyUrl;
     private String JobUrl;
     private String address;
+    private String analysisStatus;
+    private String analysisModel;
+    private String analysisVersion;
     private List<String> employeeBenefits;
     private List<String> jobRequirements;
 }
