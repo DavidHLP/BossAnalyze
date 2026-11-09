@@ -82,6 +82,10 @@ public class RedisCacheUtil {
         if (StrUtil.isBlank(jsonStr)) {
             return null;
         }
+        // Hutool stores String values verbatim, including verification codes.
+        if (clazz == String.class) {
+            return clazz.cast(jsonStr);
+        }
         try {
             return JSONUtil.toBean(jsonStr, clazz);
         } catch (Exception e) {

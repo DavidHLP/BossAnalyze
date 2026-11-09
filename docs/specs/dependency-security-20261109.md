@@ -10,7 +10,7 @@
 
 - A / Maven：backend/pom.xml、backend/{api,commons,analytics,crawler}/pom.xml、tools/credential-contract-tests/pom.xml、deploy/rustfs/pom.xml；必要 Redis codec 配置及其现有聚焦测试，Java 因升级确实不兼容的最小修复。负责 Hutool、Redisson、Jackson core/databind、JSoup、MinIO SDK、Spark 及其告警在所有声明处的一致性。报告 `/tmp/boss-dependency-java-handoff.md`。
 - B / Python：ai-service/pyproject.toml、uv.lock，必要且最小 Python/test 兼容修复；Starlette/FastAPI、pytest。报告 `/tmp/boss-dependency-python-handoff.md`。
-- C / frontend：frontend/package.json、pnpm-lock.yaml、必要本地 package patch/已有测试；minimatch、glob、decode-uri-component、Zod、deepmerge。报告 `/tmp/boss-dependency-frontend-handoff.md`。
+- C / frontend：frontend/package.json、pnpm-lock.yaml、pnpm-workspace.yaml（pnpm11正式patch/override配置）、必要本地 package patch/已有测试；minimatch、glob、decode-uri-component、Zod、deepmerge。报告 `/tmp/boss-dependency-frontend-handoff.md`。
 - Root：任务追踪、精确合并、统一验证、独立审查、最终 PR 和运行部署/回退。三个实现前沿互不依赖，集成依赖 A/B/C。
 
 ## 验收与禁止
@@ -33,3 +33,7 @@
 - deepmerge4.2–4.3.1：本次官方 alert 暂无 patched version；不得谎称简单版本更新已关闭。
 
 告警是具体潜在风险而非已发生攻击；不得声称现网已可利用或已经被入侵。外部 ZDR/人工 gold/真实模型质量/外部SMTP仍独立未验收，不通过依赖升级假装完成。
+
+## 运行基线补充：字符串缓存契约
+
+父任务在当前本机 API 上补验验证码邮件注册，邮件已送达，但立即提交错误验证码返回 `HTTP400/1004`（过期），不是 `1003`。离线最小反例确认 RedisCacheUtil 把 Hutool 原样保存的字符串按 JSON 对象解析而返回 null。父任务独占 `RedisCacheUtil.java` 与 `RedisCacheUtilTest.java`，修复 String.class 的无损读取，保留对象/缺失条目行为和已有缓存格式。该变更是本次 Redis/Hutool 升级必须保留的实际业务兼容门槛；A 不修改这两文件。原运行反例及离线失败日志保留，最终需实际验证码→注册→登录/注销与精确夹具清理验收。
