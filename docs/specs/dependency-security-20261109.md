@@ -37,3 +37,9 @@
 ## 运行基线补充：字符串缓存契约
 
 父任务在当前本机 API 上补验验证码邮件注册，邮件已送达，但立即提交错误验证码返回 `HTTP400/1004`（过期），不是 `1003`。离线最小反例确认 RedisCacheUtil 把 Hutool 原样保存的字符串按 JSON 对象解析而返回 null。父任务独占 `RedisCacheUtil.java` 与 `RedisCacheUtilTest.java`，修复 String.class 的无损读取，保留对象/缺失条目行为和已有缓存格式。该变更是本次 Redis/Hutool 升级必须保留的实际业务兼容门槛；A 不修改这两文件。原运行反例及离线失败日志保留，最终需实际验证码→注册→登录/注销与精确夹具清理验收。
+
+## 剩余 Zod 兼容修复路径
+
+C 已保留直接升级 Zod4 导致 shadcn MCP schema 约束消失的失败反例。父任务授权比较两种完整修复：优先可追溯上游安全修复、能完整关闭原漏洞的 Zod3 最小 backport（pnpm 正式补丁与检测原版的回归）；若不能证明完整修复，再做必要的 shadcn/Zod4 调用迁移。两者都必须保留 MCP/registry/CLI 能力和 schema 约束，不得用放宽校验、移除功能或盲目 override 换取告警数字。局部补丁仍不是官方已发布安全版本，不能宣称 GitHub 告警已关闭。
+
+统一 patch 文件必须保留上游上下文和许可。`frontend/.gitattributes` 仅对 `patches/*.patch` 关闭 Git 的文本空白诊断，因为上下文行的 diff 前缀会把原有 tab/空行误认成新增空白；所有其他源码继续 `git diff --check`，实际补丁应用、冻结安装、回归和构建门槛不变。不改变全局 Git 配置。
