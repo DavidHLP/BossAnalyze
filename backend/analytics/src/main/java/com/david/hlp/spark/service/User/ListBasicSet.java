@@ -14,19 +14,21 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class ListBasicSet {
+    // Filter raw MySQL numbers before JDBC can map TINYINT(1) to Boolean.
+    static final String ACTIVE_JOBS_TABLE = "(SELECT * FROM t_job_detail WHERE is_deleted = 0) active_jobs";
+
     private final SparkSession sparkSession;
     private final Environment environment;
 
     public List<String> getCityNameList() {
-        return sparkSession.read().format("jdbc")
+        return activeRows(sparkSession.read().format("jdbc")
                 .option("url", environment.getRequiredProperty("spring.datasource.url"))
                 .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
                 .option("user", environment.getRequiredProperty("spring.datasource.username"))
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
-                .option("dbtable", "t_job_detail")
+                .option("dbtable", ACTIVE_JOBS_TABLE)
                 .option("fetchsize", "10000")
-                .load()
-                .filter(functions.col("is_deleted").equalTo(0))
+                .load())
                 .select("city_name")
                 .groupBy("city_name")
                 .agg(functions.count("*").alias("count"))
@@ -40,17 +42,21 @@ public class ListBasicSet {
     }
 
     public List<String> getPositionNameList(String cityName) {
-        Dataset<Row> query = sparkSession.read().format("jdbc")
+        Dataset<Row> query = activeRows(sparkSession.read().format("jdbc")
                 .option("url", environment.getRequiredProperty("spring.datasource.url"))
                 .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
                 .option("user", environment.getRequiredProperty("spring.datasource.username"))
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
-                .option("dbtable", "t_job_detail")
+                .option("dbtable", ACTIVE_JOBS_TABLE)
                 .option("fetchsize", "10000")
-                .load()
-                .filter(functions.col("is_deleted").equalTo(0));
+                .load());
 
         return positionNames(query, cityName);
+    }
+
+    static Dataset<Row> activeRows(Dataset<Row> rows) {
+        // MySQL JDBC may expose TINYINT(1) as Boolean rather than an integer.
+        return rows.filter(functions.col("is_deleted").cast("int").equalTo(0));
     }
 
     List<String> positionNames(Dataset<Row> query, String cityName) {

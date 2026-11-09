@@ -1,0 +1,21 @@
+services:
+  rustfs:
+    # Official 1.0.4, resolved 2026-11-08; never reuse a MinIO data directory.
+    image: rustfs/rustfs:1.0.4@sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2
+    container_name: bossanalyze-store-20261108
+    ports:
+      - "127.0.0.1:19000:9000"
+      - "127.0.0.1:19001:9001"
+    env_file:
+      - ${RUSTFS_PRIVATE_ENV:?Set absolute path to private credentials file}
+    environment:
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_OBS_LOGGER_LEVEL: "error"
+    command: ["/data"]
+    volumes:
+      - data:/data
+volumes:
+  data:
+    name: bossanalyze-rustfs-20261108-data

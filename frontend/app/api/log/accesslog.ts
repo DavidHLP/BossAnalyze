@@ -4,11 +4,19 @@ import type { AccessLogStats, DashboardStats } from './accesslog.d';
 /**
  * 获取仪表板统计数据（新接口）
  */
-export async function getDashboardStats(): Promise<DashboardStats> {
-  return request<DashboardStats, DashboardStats>({
-    url: '/api/v1/system/logs/dashboard/stats',
-    method: 'get'
-  });
+export async function getDashboardStats(): Promise<DashboardStats | null> {
+  try {
+    const snapshot = await request<DashboardStats, DashboardStats>({
+      url: '/api/v1/system/logs/dashboard/stats',
+      method: 'get'
+    });
+    if (snapshot == null) throw new Error('Invalid dashboard response');
+    return snapshot;
+  } catch (error) {
+    // The shared client rejects non-200 responses; only 204 means no snapshot.
+    if (error && typeof error === 'object' && 'code' in error && error.code === 204) return null;
+    throw error;
+  }
 }
 
 /**

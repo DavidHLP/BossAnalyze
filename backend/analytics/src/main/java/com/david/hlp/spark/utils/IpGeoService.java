@@ -1,146 +1,120 @@
 package com.david.hlp.spark.utils;
 
-import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.hc.core5.http.ClassicHttpResponse;
-import org.json.JSONObject;
-import org.springframework.stereotype.Service;
+import com.maxmind.db.Reader;
+import jakarta.annotation.PreDestroy;
+import org.apache.hc.core5.net.InetAddressUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import jakarta.annotation.PostConstruct;
+import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
-import org.apache.hc.core5.http.ParseException;
 
-/**
- * IP地理信息服务
- */
+/** Optional, read-only DB-IP Lite City enrichment. Never performs network I/O. */
 @Service
-public class IpGeoService {
-    @Value("${ipgeolocation.api.key:${IPGEOLOCATION_API_KEY:}}")
-    private String apiKey;
-    private static final String API_URL = "https://api.ipgeolocation.io/ipgeo";
+public class IpGeoService implements AutoCloseable {
+    private static final Logger log = LoggerFactory.getLogger(IpGeoService.class);
+    private Reader reader;
+    private String status = "unconfigured";
 
-    @PostConstruct
-    void validateApiKey() {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("IP geolocation API key is required; configure IPGEOLOCATION_API_KEY or ipgeolocation.api.key");
+    public IpGeoService(@Value("${geolocation.mmdb-path:}") String path) {
+        if (path == null || path.isBlank()) {
+            log.warn("Offline geolocation unconfigured; locations will be unknown");
+            return;
+        }
+        try {
+            reader = new Reader(new File(path), Reader.FileMode.MEMORY);
+            status = "ready";
+            log.info("Offline geolocation ready (DB-IP Lite City)");
+        } catch (IOException | RuntimeException e) {
+            status = "unavailable";
+            log.warn("Offline geolocation database unavailable ({}); locations will be unknown", e.getClass().getSimpleName());
         }
     }
 
-    // IP地址相关的正则表达式
-    private static final Pattern IPV4_PATTERN = Pattern.compile(
-            "^(127\\.0\\.0\\.1|10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|" +
-                    "172\\.(1[6-9]|2[0-9]|3[0-1])\\.\\d{1,3}\\.\\d{1,3}|" +
-                    "192\\.168\\.\\d{1,3}\\.\\d{1,3}|" +
-                    "169\\.254\\.\\d{1,3}\\.\\d{1,3}|" +
-                    "0\\.0\\.0\\.0|255\\.255\\.255\\.255)$");
+    public synchronized String getStatus() { return status; }
 
-    /**
-     * 获取IP地址的地理信息
-     *
-     * @param ip IP地址
-     * @return 包含国家名称和城市的地图，如果查询失败则返回空值
-     */
-    public Map<String, String> getIpGeoInfo(String ip) {
-        if (ip == null || ip.isEmpty()) {
-            return createEmptyGeoInfo();
-        }
-
-        if (isLocalIp(ip)) {
-            Map<String, String> result = new HashMap<>();
-            result.put("country_name", "本地网络");
-            result.put("city", getLocalIpType(ip));
-            return result;
-        }
-
-        String url = String.format("%s?ip=%s&apiKey=%s", API_URL, ip, apiKey);
-
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpGet request = new HttpGet(url);
-            request.setHeader("Accept", "application/json");
-
-            try (ClassicHttpResponse response = httpClient.executeOpen(null, request, null)) {
-                if (response.getCode() != 200) {
-                    return createEmptyGeoInfo();
-                }
-
-                String jsonResponse = EntityUtils.toString(response.getEntity(), "UTF-8");
-                JSONObject json = new JSONObject(jsonResponse);
-
-                Map<String, String> result = new HashMap<>();
-                result.put("country_name", json.optString("country_name", ""));
-                result.put("city", json.optString("city", ""));
-                return result;
-            } catch (ParseException e) {
-                return createEmptyGeoInfo();
-            }
-        } catch (IOException e) {
-            return createEmptyGeoInfo();
-        }
-    }
-
-    /**
-     * 创建空的IP地理信息
-     */
-    private Map<String, String> createEmptyGeoInfo() {
+    public synchronized Map<String, String> getIpGeoInfo(String ip) {
         Map<String, String> result = new HashMap<>();
         result.put("country_name", "");
         result.put("city", "");
+        InetAddress address = literal(ip);
+        if (reader == null || address == null || !isPublic(address)) return result;
+        try {
+            Map<?, ?> record = reader.get(address, Map.class);
+            if (record == null) return result;
+            result.put("country_name", name(record.get("country")));
+            result.put("city", name(record.get("city")));
+            if (record.get("subdivisions") instanceof List<?> regions && !regions.isEmpty()) {
+                result.put("region", name(regions.get(0)));
+            }
+            if (record.get("location") instanceof Map<?, ?> location) {
+                Object lat = location.get("latitude"), lon = location.get("longitude");
+                if (lat instanceof Number a && lon instanceof Number b
+                        && Double.isFinite(a.doubleValue()) && Math.abs(a.doubleValue()) <= 90
+                        && Double.isFinite(b.doubleValue()) && Math.abs(b.doubleValue()) <= 180) {
+                    result.put("latitude", a.toString());
+                    result.put("longitude", b.toString());
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            status = "lookup-failed";
+            log.warn("Offline geolocation lookup failed ({}); locations will be unknown", e.getClass().getSimpleName());
+            try { close(); } catch (IOException ignored) { /* reader already disabled */ }
+            result.clear();
+            result.put("country_name", "");
+            result.put("city", "");
+        }
         return result;
     }
 
-    /**
-     * 判断IP是否为本地地址
-     * 
-     * @param ip 要检查的IP地址
-     * @return 如果是本地地址返回true，否则返回false
-     */
-    public boolean isLocalIp(String ip) {
-        if (ip == null || ip.isEmpty()) {
-            return false;
-        }
-
-        // IPv6回环地址
-        if ("0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip)) {
-            return true;
-        }
-
-        // IPv4地址检查
-        return IPV4_PATTERN.matcher(ip).matches();
+    private static String name(Object value) {
+        if (value instanceof Map<?, ?> item && item.get("names") instanceof Map<?, ?> names
+                && names.get("en") instanceof String text) return text;
+        return "";
     }
 
-    /**
-     * 获取本地IP的类型描述
-     */
-    private String getLocalIpType(String ip) {
-        if (ip.startsWith("127.")) {
-            return "本地回环地址";
-        } else if (ip.startsWith("10.")) {
-            return "A类私有地址";
-        } else if (ip.startsWith("172.16.") || ip.startsWith("172.17.") ||
-                ip.startsWith("172.18.") || ip.startsWith("172.19.") ||
-                ip.startsWith("172.20.") || ip.startsWith("172.21.") ||
-                ip.startsWith("172.22.") || ip.startsWith("172.23.") ||
-                ip.startsWith("172.24.") || ip.startsWith("172.25.") ||
-                ip.startsWith("172.26.") || ip.startsWith("172.27.") ||
-                ip.startsWith("172.28.") || ip.startsWith("172.29.") ||
-                ip.startsWith("172.30.") || ip.startsWith("172.31.")) {
-            return "B类私有地址";
-        } else if (ip.startsWith("192.168.")) {
-            return "C类私有地址";
-        } else if (ip.startsWith("169.254.")) {
-            return "链路本地地址";
-        } else if (ip.equals("0.0.0.0")) {
-            return "本机地址";
-        } else if (ip.equals("255.255.255.255")) {
-            return "广播地址";
-        } else {
-            return "本地网络";
+    static InetAddress literal(String ip) {
+        if (ip == null || ip.contains("%") || !(InetAddressUtils.isIPv4Address(ip)
+                || InetAddressUtils.isIPv6Address(ip))) return null;
+        try { return InetAddress.getByName(ip); } // validated literal: no DNS
+        catch (UnknownHostException e) { return null; }
+    }
+
+    public boolean isLocalIp(String ip) {
+        InetAddress address = literal(ip);
+        return address != null && !isPublic(address);
+    }
+
+    private static boolean isPublic(InetAddress address) {
+        byte[] bytes = address.getAddress();
+        int a = bytes[0] & 255, b = bytes[1] & 255;
+        if (bytes.length == 16) {
+            // Global unicast only; exclude special-purpose and documentation prefixes.
+            return (a & 224) == 32 && !(a == 32 && b == 1 && (bytes[2] & 254) == 0)
+                    && !(a == 32 && b == 1 && (bytes[2] & 255) == 13 && (bytes[3] & 255) == 184)
+                    && !(a == 63 && b == 255 && (bytes[2] & 240) == 0);
         }
+        int c = bytes[2] & 255;
+        return a != 0 && a != 10 && a != 127 && a < 224
+                && !(a == 100 && b >= 64 && b <= 127)
+                && !(a == 169 && b == 254) && !(a == 172 && b >= 16 && b <= 31)
+                && !(a == 192 && (b == 168 || (b == 0 && (c == 0 || c == 2)) || (b == 88 && c == 99)))
+                && !(a == 198 && (b == 18 || b == 19 || (b == 51 && c == 100)))
+                && !(a == 203 && b == 0 && c == 113);
+    }
+
+    @PreDestroy
+    public synchronized void close() throws IOException {
+        Reader previous = reader;
+        reader = null;
+        if (!"lookup-failed".equals(status)) status = "closed";
+        if (previous != null) previous.close();
     }
 }

@@ -8,6 +8,10 @@ import io.minio.MinioClient;
 import io.minio.RemoveObjectArgs;
 import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.MediaType;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -49,5 +53,32 @@ class ImageIntegrityTest {
         assertTrue(svg.getHeaders().getFirst("Content-Security-Policy").contains("sandbox"));
         assertTrue(svg.getHeaders().getContentDisposition().isAttachment());
         assertEquals("image/png", controller.viewImage("1_photo.png").getHeaders().getContentType().toString());
+    }
+
+    @Test
+    void imageHttpResponseStreamsBytesAndKeepsErrorsAsJson() throws Exception {
+        MinioService service = mock(MinioService.class);
+        byte[] png = new byte[]{(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+        byte[] svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        when(service.getObject("1_photo.png")).thenReturn(new ByteArrayInputStream(png));
+        when(service.getObject("1_legacy.svg")).thenReturn(new ByteArrayInputStream(svg));
+        when(service.getObject("1_missing.png")).thenThrow(new IllegalStateException("synthetic failure"));
+        var mvc = MockMvcBuilders.standaloneSetup(new ImageController(service)).build();
+
+        mvc.perform(get("/api/image/view/1_photo.png"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes(png))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+        var response = mvc.perform(get("/api/image/view/1_legacy.svg"))
+                .andExpect(status().isOk())
+                .andExpect(content().bytes(svg))
+                .andExpect(header().string("Content-Security-Policy", "sandbox; default-src 'none'"))
+                .andReturn().getResponse();
+        assertTrue(response.getHeader("Content-Disposition").startsWith("attachment;"));
+        mvc.perform(get("/api/image/view/1_missing.png"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value(500));
     }
 }

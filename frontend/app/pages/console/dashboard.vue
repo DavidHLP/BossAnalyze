@@ -189,4 +189,5 @@ onMounted(load)
       </p>
     </template>
   </section>
+  <p class="text-xs text-muted-foreground"><a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a></p>
 </template>

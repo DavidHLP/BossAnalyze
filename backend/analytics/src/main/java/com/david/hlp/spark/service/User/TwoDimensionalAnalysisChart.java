@@ -108,15 +108,14 @@ public class TwoDimensionalAnalysisChart implements Serializable {
      * 从MySQL数据库读取职位数据
      */
     private Dataset<Row> readJobDataFromDatabase(StructType jsonSchema) {
-        return sparkSession.read().format("jdbc")
+        return ListBasicSet.activeRows(sparkSession.read().format("jdbc")
                 .option("url", environment.getRequiredProperty("spring.datasource.url"))
                 .option("driver", environment.getRequiredProperty("spring.datasource.driver-class-name"))
                 .option("user", environment.getRequiredProperty("spring.datasource.username"))
                 .option("password", environment.getRequiredProperty("spring.datasource.password"))
-                .option("dbtable", "t_job_detail")
+                .option("dbtable", ListBasicSet.ACTIVE_JOBS_TABLE)
                 .option("fetchsize", "10000")
-                .load()
-                .filter(col("is_deleted").equalTo(0))
+                .load())
                 .select("position_id", "position_name", "detail_data", "city_name", "html_url", "employee_benefits",
                         "job_requirements")
                 .withColumn("jsonData", from_json(col("detail_data"), jsonSchema))

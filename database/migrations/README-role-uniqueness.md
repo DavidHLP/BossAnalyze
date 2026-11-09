@@ -1,24 +1,12 @@
 # Safe role constraint deployment
 
-Application startup never migrates data. Do not import system.sql into an existing database; it drops tables.
+Application startup never migrates data. Never import `system.sql` into an existing database: it drops tables.
 
-Before deploying role writes, back up and inspect using the actual database collation:
+Follow [the role uniqueness runbook](../../docs/operations/database-role-uniqueness.md) for backup, isolated restore, data/index/lock audits, concurrency checks, explicit migration, and rollback boundaries.
 
-~~~sql
-SELECT role_name, COUNT(*) FROM role GROUP BY role_name HAVING COUNT(*) > 1;
-SELECT id, role_name, status FROM role WHERE role_name = 'USER';
-SHOW INDEX FROM role;
-~~~
+Run `20261108-role-name-unique.sql` with MySQL 8 batch mode **without `--force`**, against the explicitly selected schema. It rejects dirty/default-role ambiguity and wrong same-name index definitions, skips an existing full single-column visible unique index regardless of name, and otherwise adds only `uk_role_name(role_name)` with `ALGORITHM=INPLACE, LOCK=NONE`. No stored routine privileges are required. Do not bypass a failed preflight with a manual ALTER.
 
-Require zero duplicates and exactly one enabled canonical USER. Stop on ambiguity: registration rejects missing, duplicate or disabled USER rather than choosing LIMIT 1. Resolve existing data only under a separately approved plan, never automatically rename/merge/delete roles. New names are trimmed; case/accent equivalence follows database collation.
-
-An operator may explicitly apply once if absent:
-
-~~~sql
-ALTER TABLE role ADD CONSTRAINT uk_role_name UNIQUE (role_name);
-~~~
-
-The unique constraint is required before concurrent role writes: application validation cannot replace it. MySQL DDL can lock and implicitly commit; schedule separately. Rollback only the constraint via ALTER TABLE role DROP INDEX uk_role_name if required; no automatic data changes.
+Token environments already using `create_time` skip `20261108-token-time.sql`. That optional legacy script is not part of this role migration; do not add token uniqueness or change sessions.
 
 # Gateway and permission deployment
 

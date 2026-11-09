@@ -42,6 +42,10 @@ public class LogController {
 
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
 
+            if (response.getStatusCode().value() == 204) {
+                return ResponseEntity.noContent().build();
+            }
+
             if (response.getBody() == null || response.getBody().isEmpty()) {
                 log.warn("Spark服务返回空数据");
                 return ResponseEntity.status(503).body(Map.of("error", "日志分析服务暂不可用"));

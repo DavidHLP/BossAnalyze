@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ContentDisposition;
+import java.nio.charset.StandardCharsets;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -119,22 +121,14 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
      * @param cacheMaxAge 缓存时间（秒）
      * @return 文件响应结果
      */
-    public static Result<InputStreamResource> file(InputStreamResource inputStream, String contentType, String fileName,
+    public static ResponseEntity<InputStreamResource> file(InputStreamResource inputStream, String contentType, String fileName,
             long cacheMaxAge) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(contentType));
-        headers.setContentDispositionFormData("inline", "\"" + fileName + "\"");
+        headers.setContentDisposition(ContentDisposition.inline().filename(fileName, StandardCharsets.UTF_8).build());
         headers.setCacheControl("max-age=" + cacheMaxAge);
 
-        return new Result<>(
-                ResultBody.<InputStreamResource>builder()
-                        .code(ResultCode.SUCCESS.getCode())
-                        .message(ResultCode.SUCCESS.getMessage())
-                        .data(inputStream)
-                        .timestamp(System.currentTimeMillis())
-                        .build(),
-                headers,
-                HttpStatus.OK);
+        return new ResponseEntity<>(inputStream, headers, HttpStatus.OK);
     }
 
     /**
@@ -145,7 +139,7 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
      * @param fileName    文件名
      * @return 文件响应结果
      */
-    public static Result<InputStreamResource> file(InputStreamResource inputStream, String contentType,
+    public static ResponseEntity<InputStreamResource> file(InputStreamResource inputStream, String contentType,
             String fileName) {
         return file(inputStream, contentType, fileName, 31536000L);
     }

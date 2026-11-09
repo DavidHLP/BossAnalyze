@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -89,6 +90,28 @@ class TwoDimensionalAnalysisChartTest {
             assertTrue(options.positionNames(cities, "' OR true --").isEmpty());
             assertEquals(3, options.positionNames(cities, "all").size());
             assertEquals(3, options.positionNames(cities, null).size());
+            assertDefensiveFilterOnAlreadyDecodedRows(spark);
+        }
+    }
+
+    private void assertDefensiveFilterOnAlreadyDecodedRows(SparkSession spark) {
+        // This tests the defensive post-read filter only; raw JDBC flags require SQL filtering.
+        for (var type : Arrays.asList(DataTypes.BooleanType, DataTypes.IntegerType)) {
+            boolean bool = type.equals(DataTypes.BooleanType);
+            var schema = new StructType().add("city_name", DataTypes.StringType)
+                    .add("position_name", DataTypes.StringType).add("is_deleted", type, true);
+            Object active = bool ? Boolean.FALSE : Integer.valueOf(0);
+            Object deleted = bool ? Boolean.TRUE : Integer.valueOf(1);
+            var rows = new ArrayList<Row>();
+            rows.add(RowFactory.create("active-city", "active-job", active));
+            rows.add(RowFactory.create("deleted-city", "deleted-job", deleted));
+            rows.add(RowFactory.create("unknown-city", "unknown-job", null));
+            if (!bool) rows.add(RowFactory.create("other-city", "other-job", 2));
+            var filtered = ListBasicSet.activeRows(spark.createDataFrame(rows, schema));
+            assertEquals(1, filtered.count());
+            assertEquals("active-city", filtered.first().getString(0));
+            assertEquals(Arrays.asList("active-job"),
+                    new ListBasicSet(spark, null).positionNames(filtered, "all"));
         }
     }
 
