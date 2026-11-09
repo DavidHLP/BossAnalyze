@@ -1,0 +1,20 @@
+docs/operations/local-stack-deployment-20261108.md
+  s_9788c9a327fd87::t_669d70becab4df 83
+  s_9788c9a327fd87::t_ae6e7db5391bc0 1-82,84-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8291b8a7a67736881397e8b3e1e9c07c46abc0b4",
+  "prompts": {},
+  "sessions": {
+    "s_9788c9a327fd87": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bf06-df3e-76a3-822d-d96c0cf78073",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
