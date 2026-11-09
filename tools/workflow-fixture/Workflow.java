@@ -166,6 +166,8 @@ public class Workflow {
             check(response.statusCode()==200, "real MyBatis/FormatDataService/JobAnalysisReader DTO served over HTTP");
             Files.writeString(out.resolve("frontend-dto.json"), response.body());
             var dto=json.readTree(response.body());
+            check(dto.at("/items/0/job/address").isNull(), "missing address remains JSON null over HTTP");
+            check(dto.at("/items/0/job/jobUrl").asText().equals(dto.at("/items/0/sampling/sourceUrl").asText()), "stored source URL reaches HTTP job DTO");
             check(dto.at("/rankedMatch/0/jobId").asText().equals("1") && dto.at("/rankedMatch/1/jobId").asText().equals("2"), "HTTP ranked scored results descending");
             check(dto.at("/items/0/analysisStatus").asText().equals("complete") && dto.at("/items/2/analysisStatus").asText().equals("pending"), "HTTP reader exposes complete and failed retry-pending provenance states");
         } finally { server.stop(0); }

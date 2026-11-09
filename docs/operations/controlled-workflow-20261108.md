@@ -46,6 +46,6 @@ Provider 回应形状复用 `ai-service/tests/test_contract.py` 的 `fixture`：
 
 Envelope：`schema`、`synthetic=true`、`items[]`、`match`、`rankedMatch[]`。每个 item 的 `job` 是真实 `FormatDataService` 的 `JobAnalysisData` DTO；`analysisStatus` 来自真实 reader；`model`/`pipelineVersion` 来自 sidecar；`sampling` 是实际采集记录，带 `sourceUrl`、`sourceJobId`、`identity`、`revision`、`fetchedAt`、`samplingSource`、`detailData`。`match` 保留真实 Java AI 客户端返回值，`rankedMatch` 是 fixture 按 score 降序的展示视图。该 envelope 需要前端显式适配，不能冒称现有生产 API route/DTO 已替换。
 
-已观察到归属外的 DTO 转换问题：源 address 为 JSON null 时，当前 `FormatDataService` 输出字符串 `"null"`；`jobUrl` 未填充，尽管 mapper 有 URL。保留实际输出并交接给 root，未修改生产代码。
+联调发现的 DTO 转换问题已修复：缺失地址保持 JSON null，mapper 读取的职位 URL 由共享转换器填入 `jobUrl`；入口通过真实 HTTP 响应断言这两项。
 
 本次不验真实 BOSS、模型语义质量/付费服务、主 API 用户鉴权、frontend UI 或生产写回；没有运行全量测试。新增逻辑以本入口内的真实整合断言验收，不将跳过的测试算作通过。
