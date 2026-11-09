@@ -47,7 +47,10 @@ test('Nitro request hook sanitizes headers before the routeRules proxy', async (
 test('v2 AI proxy retains crawler destination and existing request sanitization', async () => {
   const { readFile } = await import('node:fs/promises')
   const config = await readFile(new URL('../nuxt.config.ts', import.meta.url), 'utf8')
-  assert.match(config, /'\/api\/v2\/ai\/\*\*': \{ proxy: 'http:\/\/127\.0\.0\.1:8081\/api\/v2\/ai\/\*\*' \}/)
+  assert.match(
+    config,
+    /'\/api\/v2\/ai\/\*\*': \{ proxy: 'http:\/\/127\.0\.0\.1:8081\/api\/v2\/ai\/\*\*' \}/,
+  )
   assert.match(config, /'\/api\/v1\/ai\/\*\*':/)
   const matches = await readFile(new URL('../app/api/ai/matches.ts', import.meta.url), 'utf8')
   assert.match(matches, /request\.post\('\/api\/v2\/ai\/matches', input, \{ timeout: 40000 \}\)/)

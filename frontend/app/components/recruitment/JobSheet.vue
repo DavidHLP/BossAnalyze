@@ -54,7 +54,10 @@ const fields = computed(() =>
           <p class="break-words text-muted-foreground">
             分析来源：{{ job.analysisModel || '未知' }} · {{ job.analysisVersion || '版本未知' }}
           </p>
-          <p v-if="!['complete', 'no_evidence', 'unparsed'].includes(job.analysisStatus)" class="text-muted-foreground">
+          <p
+            v-if="!['complete', 'no_evidence', 'unparsed'].includes(job.analysisStatus)"
+            class="text-muted-foreground"
+          >
             以下保留已有内容，未经当前来源的成功分析确认。
           </p>
         </section>

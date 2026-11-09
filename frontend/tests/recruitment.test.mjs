@@ -117,12 +117,29 @@ test('decimal salaries survive projection and unknown dimensions are excluded on
 
 test('analysis provenance stays explicit and array punctuation survives normalization', () => {
   const requirements = ['Java, Python', ' [A] and (B) ', 'say "hi"', '  ', '']
-  const [job] = jobSamples([{ jobRequirements: requirements, analysisStatus: 'failed', analysisModel: 'typesafe/jev-1.14.0', analysisVersion: 'jev-1' }])
+  const [job] = jobSamples([
+    {
+      jobRequirements: requirements,
+      analysisStatus: 'failed',
+      analysisModel: 'typesafe/jev-1.14.0',
+      analysisVersion: 'jev-1',
+    },
+  ])
   assert.deepEqual(job.jobRequirements, requirements)
   assert.equal(job.analysisStatus, 'failed')
   assert.equal(job.analysisModel, 'typesafe/jev-1.14.0')
   assert.equal(jobSamples([{}])[0].analysisStatus, 'unknown')
   assert.equal(jobSamples([{ analysisStatus: 'future_status' }])[0].analysisStatus, 'unknown')
-  for (const analysisStatus of ['unparsed', 'legacy_unverified', 'pending', 'running', 'complete', 'no_evidence', 'needs_review', 'failed', 'stale'])
+  for (const analysisStatus of [
+    'unparsed',
+    'legacy_unverified',
+    'pending',
+    'running',
+    'complete',
+    'no_evidence',
+    'needs_review',
+    'failed',
+    'stale',
+  ])
     assert.equal(jobSamples([{ analysisStatus }])[0].analysisStatus, analysisStatus)
 })
