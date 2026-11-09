@@ -1,6 +1,10 @@
 # RustFS 本机部署与保留数据迁移
 
-适用 issue #37 / 规范 `docs/specs/offline-infrastructure-20261108.md`。服务端替换保留应用的 MinIO Java SDK 8.5.7、`minio.*` 属性和图片 HTTP 接口；无需修改 MinioConfig。AI、数据库与现有应用进程不属于本操作范围。
+适用 issue #37 / 规范 `docs/specs/offline-infrastructure-20261108.md`。服务端替换保留应用的 MinIO Java SDK 8.5.7、`minio.*` 属性和图片 HTTP 接口；无需修改 MinioConfig。AI、数据库不属于本操作范围；本机 API 启用窗口见下方最新状态。
+
+## 最新状态：无旧数据的新业务启用
+
+用户于2026-11-08明确确认“MinIO 的实际数据不存在”。因此旧对象复制与旧源备份恢复不适用，18988不可达不再阻塞此次新业务存储启用；不能解释成实测源为空或旧对象迁移通过。已完成独立应用身份、正常业务桶、API追加配置切换及真实验收，见[启用报告](rustfs-activation-20261108.md)。以下源盘点/复制门禁保留，适用于实际存在旧数据的迁移；末节记录的是启用前的历史状态。新写入存在后仍须导出对账才能回切，不能删除目标卷。
 
 ## 固定版本与兼容边界
 
@@ -78,6 +82,6 @@ deploy/rustfs/run-check.sh verify /absolute/private/source.properties /absolute/
 
 回退时先冻结目标写入，核对切换后新增/覆盖/删除与版本历史，反向 S3 复制和逐字节对账再切回；不能只改旧 endpoint，否则丢失新数据。任何未支持特性、差异或备份不完整继续阻止切换。
 
-## 2026-11-08 本机验收界限
+## 2026-11-08 启用前历史验收界限（已被后续范围澄清更新）
 
 本轮源默认 `http://127.0.0.1:18988` / `default-bucket` 连接拒绝；当前应用私有配置未覆盖 MinIO，Docker 无 MinIO 容器，未发现带 MinIO 名的卷。这不是源为空的证据，源历史目录、备份、版本及对象数量仍未知。未迁移真实对象、未切换 endpoint、未重启应用。真实新目标合成验证和 mock 授权回归分别记在 `/tmp/boss-infra-store-handoff.md`，不要将其等同于真实数据迁移完成。
