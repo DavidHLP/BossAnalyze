@@ -60,3 +60,26 @@ jobs:
         run: pnpm test
       - name: Build production server
         run: pnpm build
+
+  python:
+    name: Python Jev offline contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ai-service
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.13'
+      - name: Install pinned lock tool
+        run: python -m pip install uv==0.9.9
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Run synthetic HTTP contracts
+        run: uv run --frozen python -m pytest -q
+      - name: Compile Python sources
+        run: uv run --frozen python -m compileall -q app
