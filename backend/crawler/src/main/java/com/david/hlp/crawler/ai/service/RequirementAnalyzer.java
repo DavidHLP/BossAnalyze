@@ -17,8 +17,9 @@ public class RequirementAnalyzer {
     private final FormatDataService format;
     private final ObjectMapper json;
     public ObjectNode matches(String resume,List<String> cities,String position) {
-        if(resume==null || resume.isBlank() || resume.length()>32000 || cities==null || cities.isEmpty() || cities.size()>10
+        if(resume==null || resume.isBlank() || resume.codePointCount(0,resume.length())>12000 || cities==null || cities.isEmpty() || cities.size()>10
                 || cities.stream().anyMatch(c->c==null||c.isBlank()||c.length()>100) || position==null || position.isBlank() || position.length()>200) throw AIExtractionOfJobRequirements.error(422,"AI_INVALID_INPUT");
+        if(!ai.fitsMatchBatch(resume,List.of()))throw AIExtractionOfJobRequirements.error(422,"AI_INPUT_LIMIT");
         // Fetch one extra row to report range incompleteness without an unbounded scan.
         Map<Long,MiniJobDetail> unique=new TreeMap<>();
         for(String city:new LinkedHashSet<>(cities)) for(var job:jobs.selectMiniJobDetail(city,position,0L,101)) unique.put(job.getId(),job);
@@ -26,18 +27,26 @@ public class RequirementAnalyzer {
         List<MiniJobDetail> selected=unique.values().stream().limit(100).toList();
         List<JsonNode> scored=new ArrayList<>(), unrankable=new ArrayList<>();
         long deadline=System.nanoTime()+30_000_000_000L;
-        for(int i=0;i<selected.size();i+=10){
+        for(int i=0;i<selected.size();){
             List<ObjectNode> batch=new ArrayList<>();
-            for(var job:selected.subList(i,Math.min(i+10,selected.size()))){var n=json.createObjectNode().put("jobId",job.getId().toString());n.set("detailData",ai.detail(job.getDetailData()));batch.add(n);}
+            while(i<selected.size() && batch.size()<10) {
+                var job=selected.get(i);var n=json.createObjectNode().put("jobId",job.getId().toString());
+                n.set("detailData",ai.detail(job.getDetailData()));batch.add(n);
+                if(!ai.fitsMatchBatch(resume,batch)) {
+                    batch.remove(batch.size()-1);
+                    if(!batch.isEmpty())break;
+                    unrankable.add(failedMatch(job.getId().toString()));i++;continue;
+                }
+                i++;
+            }
+            if(batch.isEmpty())continue;
             JsonNode response;
             try {
                 response=ai.match(resume,batch,(int)Math.max(0,(deadline-System.nanoTime())/1_000_000));
             } catch (org.springframework.web.server.ResponseStatusException e) {
                 if(!Set.of(429,502,503,504).contains(e.getStatusCode().value()))throw e;
-                for(var job:selected.subList(i,selected.size())) {
-                    var failed=json.createObjectNode().put("jobId",job.getId().toString()).put("status","failed").putNull("score");
-                    failed.putArray("dimensions");unrankable.add(failed);
-                }
+                for(var job:batch)unrankable.add(failedMatch(job.path("jobId").asText()));
+                for(var job:selected.subList(i,selected.size()))unrankable.add(failedMatch(job.getId().toString()));
                 break;
             }
             for(JsonNode item:response.path("items")) {
@@ -54,6 +63,10 @@ public class RequirementAnalyzer {
         out.put("model",ai.model());out.put("policyVersion","jev-policy-1");
         var scope=out.putObject("scope");scope.set("cities",json.valueToTree(cities));scope.put("position",position);scope.put("limit",100);scope.put("truncated",!bounded);
         return out;
+    }
+    private ObjectNode failedMatch(String id) {
+        var failed=json.createObjectNode().put("jobId",id).put("status","failed").putNull("score");
+        failed.putArray("dimensions");return failed;
     }
     public List<UserSimilarity> getUserSimilarity(String resume,List<String> cities,String position) {
         JsonNode out=matches(resume,cities,position);

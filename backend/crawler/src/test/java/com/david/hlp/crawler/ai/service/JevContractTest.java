@@ -95,6 +95,17 @@ class JevContractTest {
         for(int timeout:List.of(0,1,2))assertEquals(504,assertThrows(ResponseStatusException.class,()->ai.match("synthetic",List.of(),timeout)).getStatusCode().value());
         server.verify();
     }
+    @Test void configuredInputByteLimitRejectsBeforeHttpAndJobLimitBoundsBatches() {
+        var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
+        ReflectionTestUtils.setField(ai,"maxInputBytes",100);
+        assertFalse(ai.fitsMatchBatch("汉".repeat(40),List.of()));
+        assertEquals(422,assertThrows(ResponseStatusException.class,()->ai.analyze("42",json.createObjectNode().put("jobDescription","汉".repeat(40)).toString())).getStatusCode().value());
+        server.verify();
+        ReflectionTestUtils.setField(ai,"maxInputBytes",48000);ReflectionTestUtils.setField(ai,"maxJobs",1);
+        var job=json.createObjectNode().put("jobId","42");job.putObject("detailData");
+        assertTrue(ai.fitsMatchBatch("synthetic",List.of(job)));
+        assertFalse(ai.fitsMatchBatch("synthetic",List.of(job,job)));
+    }
     @Test void deletedChangedAndExpiredLeasesNeverProject()throws Exception{
         for(int mode=0;mode<3;mode++){
             JdbcTemplate db=mock(JdbcTemplate.class);PlatformTransactionManager manager=mock(PlatformTransactionManager.class);

@@ -20,6 +20,10 @@ public class AIExtractionOfJobRequirements {
     private final String model;
     @Value("${AI_MAX_CANDIDATES:192}")
     private int maxCandidates = 192;
+    @Value("${AI_MAX_INPUT_BYTES:48000}")
+    private int maxInputBytes = 48000;
+    @Value("${AI_MAX_JOBS:10}")
+    private int maxJobs = 10;
     @org.springframework.beans.factory.annotation.Autowired
     public AIExtractionOfJobRequirements(ObjectMapper json,
             @Value("${crawler.ai.service-url:http://127.0.0.1:8090}") String url,
@@ -45,7 +49,7 @@ public class AIExtractionOfJobRequirements {
         int inference=Math.min(30000,read-Math.min(1000,Math.max(1,read/2)));
         if(inference<1)throw error(504,"AI_DEADLINE");
         body.put("timeoutMs", inference);
-        if (body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 262144)
+        if (body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > maxInputBytes)
             throw error(422, "AI_INPUT_LIMIT");
         var headers = new HttpHeaders(); headers.setBearerAuth(token); headers.setContentType(MediaType.APPLICATION_JSON);
         RestTemplate transport=http;
@@ -122,7 +126,7 @@ public class AIExtractionOfJobRequirements {
         if (!matches) throw error(502,"AI_BAD_EVIDENCE");
     }
     public JsonNode match(String resume, List<ObjectNode> jobs, int timeoutMs) {
-        var body = json.createObjectNode().put("resume", resume); body.set("jobs", json.valueToTree(jobs));
+        var body = matchBody(resume,jobs);
         JsonNode result = post("/internal/v1/match-batch", body, timeoutMs);
         if (!result.path("items").isArray() || !result.path("complete").isBoolean() || result.path("items").size() != jobs.size()) throw error(502,"AI_BAD_OUTPUT");
         Map<String,JsonNode> inputs = new HashMap<>(); for (var job:jobs) inputs.put(job.path("jobId").asText(),job.path("detailData"));
@@ -176,6 +180,13 @@ public class AIExtractionOfJobRequirements {
         }
         if(result.path("complete").asBoolean()!=complete)throw error(502,"AI_BAD_OUTPUT");
         return result;
+    }
+    private ObjectNode matchBody(String resume,List<ObjectNode> jobs) {
+        var body=json.createObjectNode().put("resume",resume);body.set("jobs",json.valueToTree(jobs));return body;
+    }
+    public boolean fitsMatchBatch(String resume,List<ObjectNode> jobs) {
+        return jobs.size()<=maxJobs && matchBody(resume,jobs).put("timeoutMs",30000)
+                .toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length<=maxInputBytes;
     }
     public List<String> texts(JsonNode result, String field) {
         List<String> out=new ArrayList<>(); result.path(field).forEach(n->out.add(n.path("text").asText())); return out;

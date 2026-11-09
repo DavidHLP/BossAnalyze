@@ -30,6 +30,8 @@ uv run --frozen uvicorn app.main:app --host 127.0.0.1 --port 8090 --workers 1 --
 
 可选上限：`AI_DEADLINE_MS=30000`、`AI_CONCURRENCY=4`、`AI_DAILY_TOKENS=1000000`、`AI_MAX_INPUT_BYTES=48000`、`AI_MAX_CANDIDATES=192`、`AI_MAX_JOBS=10`、`AI_RETRIES=1`（只接受 0 或 1）。无配置 `/health/live` 200、`/health/ready` 503；探针不调用供应商。认证失败 401，供应商 key 失效是 503，不能映射为用户登出。
 
+Java crawler 与 Python 须使用相同的 `AI_MAX_INPUT_BYTES`、`AI_MAX_JOBS` 上限。Java 匹配按实际 UTF-8 JSON 大小拆批，包含简历及 deadline 字段；单条职位仍超限时，仅将该条标为 failed/unrankable，不截断原文。简历上限为 12000 个 Unicode 码点。
+
 只允许官方 host/path，禁用重定向及环境代理继承，禁止请求方覆盖 model、endpoint、key 或 headers。需要网络代理时应由部署网络提供受控出口；不要通过改代码放开任意 URL。
 
 ## 冻结接口与候选

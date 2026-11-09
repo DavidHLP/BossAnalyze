@@ -18,6 +18,7 @@ class MatchBoundaryTest {
         var mapper=mock(TJobDetailMapper.class);var ai=mock(AIExtractionOfJobRequirements.class);var format=mock(FormatDataService.class);
         List<MiniJobDetail> jobs=new ArrayList<>();for(long i=1;i<=101;i++)jobs.add(MiniJobDetail.builder().id(i).detailData("{}").build());
         when(mapper.selectMiniJobDetail("杭州","Java",0L,101)).thenReturn(jobs);
+        when(ai.fitsMatchBatch(anyString(),anyList())).thenReturn(true);
         when(ai.detail(anyString())).thenReturn(json.createObjectNode());when(ai.model()).thenReturn("test");
         when(ai.match(anyString(),anyList(),anyInt())).thenAnswer(call->{var r=json.createObjectNode();var items=r.putArray("items");
             for(ObjectNode job:call.<List<ObjectNode>>getArgument(1))items.addObject().put("jobId",job.path("jobId").asText()).put("status","insufficient_evidence").putNull("score");return r;});
@@ -29,6 +30,7 @@ class MatchBoundaryTest {
     @Test void decimalRankingPrecedesLegacyHalfUpRounding() {
         var mapper=mock(TJobDetailMapper.class);var ai=mock(AIExtractionOfJobRequirements.class);var format=mock(FormatDataService.class);
         when(mapper.selectMiniJobDetail(anyString(),anyString(),anyLong(),anyInt())).thenReturn(List.of(MiniJobDetail.builder().id(1L).detailData("{}").build(),MiniJobDetail.builder().id(2L).detailData("{}").build()));
+        when(ai.fitsMatchBatch(anyString(),anyList())).thenReturn(true);
         when(ai.detail(anyString())).thenReturn(json.createObjectNode());when(ai.model()).thenReturn("test");when(format.convertToJobAnalysisData(any())).thenAnswer(c->new JobAnalysisData());
         when(ai.match(anyString(),anyList(),anyInt())).thenAnswer(c->{var r=json.createObjectNode();r.putArray("items").addObject().put("jobId","1").put("status","scored").put("score",4.5);((ArrayNode)r.path("items")).addObject().put("jobId","2").put("status","scored").put("score",4.51);return r;});
         var result=new RequirementAnalyzer(mapper,ai,format,json).getUserSimilarity("Java",List.of("杭州"),"Java");
@@ -40,6 +42,7 @@ class MatchBoundaryTest {
             var jobs=new ArrayList<MiniJobDetail>();
             for(long id=1;id<=21;id++)jobs.add(MiniJobDetail.builder().id(id).detailData("{}").build());
             when(mapper.selectMiniJobDetail(anyString(),anyString(),anyLong(),anyInt())).thenReturn(jobs);
+            when(ai.fitsMatchBatch(anyString(),anyList())).thenReturn(true);
             when(ai.detail(anyString())).thenReturn(json.createObjectNode());when(ai.model()).thenReturn("test");
             when(ai.match(anyString(),anyList(),anyInt())).thenAnswer(c->{
                 List<ObjectNode> batch=c.getArgument(1);
@@ -57,6 +60,39 @@ class MatchBoundaryTest {
             for(JsonNode failed:result.path("unrankable")){assertEquals("failed",failed.path("status").asText());assertTrue(failed.path("score").isNull());}
             verify(ai,times(2)).match(anyString(),anyList(),anyInt());
             assertEquals(503,assertThrows(ResponseStatusException.class,()->analyzer.getUserSimilarity("Java",List.of("杭州"),"Java")).getStatusCode().value());
+        }
+    }
+    @Test void byteBoundedBatchesPreserveJobsAndIsolateAnOversizedRecord() {
+        for(boolean oversized:List.of(false,true)) {
+            var mapper=mock(TJobDetailMapper.class);
+            var ai=spy(new AIExtractionOfJobRequirements(json,"http://synthetic.test","synthetic","typesafe/jev-1.14.0"));
+            String resume="合成简历".repeat(300);
+            var jobs=new ArrayList<MiniJobDetail>();
+            for(long id=1;id<=10;id++) {
+                var detail=json.createObjectNode();
+                detail.putObject("jobDescription").put("requirements","汉".repeat(oversized&&id==5?17000:1750)+"\"\\😀");
+                jobs.add(MiniJobDetail.builder().id(id).detailData(detail.toString()).build());
+            }
+            when(mapper.selectMiniJobDetail(anyString(),anyString(),anyLong(),anyInt())).thenReturn(jobs);
+            var seen=new ArrayList<String>();var sizes=new ArrayList<Integer>();
+            doAnswer(call->{
+                List<ObjectNode> batch=call.getArgument(1);
+                var body=json.createObjectNode().put("resume",resume).put("timeoutMs",call.<Integer>getArgument(2));
+                body.set("jobs",json.valueToTree(batch));
+                assertTrue(json.writeValueAsBytes(body).length<=48000);
+                assertFalse(batch.isEmpty());sizes.add(batch.size());
+                var response=json.createObjectNode();var items=response.putArray("items");
+                for(var job:batch){String id=job.path("jobId").asText();seen.add(id);items.addObject().put("jobId",id).put("status","scored").put("score",8.75);}
+                return response;
+            }).when(ai).match(anyString(),anyList(),anyInt());
+            var analyzer=new RequirementAnalyzer(mapper,ai,new FormatDataService(json),json);
+            JsonNode result=analyzer.matches(resume,List.of("杭州"),"Java");
+            var expected=jobs.stream().filter(job->!oversized||job.getId()!=5).map(job->job.getId().toString()).toList();
+            assertEquals(expected,seen);assertTrue(sizes.size()>1);
+            assertEquals(expected.size(),result.path("items").size());assertEquals(!oversized,result.path("complete").asBoolean());
+            assertEquals(oversized?1:0,result.path("unrankable").size());
+            if(oversized)assertEquals("5",result.at("/unrankable/0/jobId").asText());
+            assertEquals(422,assertThrows(ResponseStatusException.class,()->analyzer.matches("x".repeat(12001),List.of("杭州"),"Java")).getStatusCode().value());
         }
     }
     @Test void identityIsNotSelfAssertedAndTextIsMinimized(){
