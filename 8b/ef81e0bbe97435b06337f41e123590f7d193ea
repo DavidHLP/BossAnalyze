@@ -1,0 +1,25 @@
+ai-service/app/pipeline.py
+  s_f2f5a10de5dca9::t_ac46b9a11587c5 165
+  s_f2f5a10de5dca9::t_b78b14e284a51a 150-159
+ai-service/tests/test_contract.py
+  s_f2f5a10de5dca9::t_ac46b9a11587c5 349-365
+  s_f2f5a10de5dca9::t_b78b14e284a51a 298-348
+ai-service/app/main.py
+  s_f2f5a10de5dca9::t_b78b14e284a51a 83-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8bef81e0bbe97435b06337f41e123590f7d193ea",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
