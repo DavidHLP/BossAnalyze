@@ -1,6 +1,7 @@
 package com.david.hlp.commons.utils;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.stubbing.Answer;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import java.util.HashMap;
@@ -15,9 +16,15 @@ class RedisCacheUtilTest {
     @Test
     void stringCacheRoundTripsVerificationCodesAndLiteralJson() {
         RedisCacheUtil cache = fixture();
-        for (String value : List.of("012345", "Unicode 简历", "{\"code\":\"012345\"}", "\"quoted\"")) {
-            cache.setCacheObject("fixture", value, String.class, 1L, TimeUnit.MINUTES);
-            assertEquals(value, cache.getCacheObject("fixture", String.class));
+        for (boolean ttl : List.of(false, true)) {
+            for (String value : List.of("", " \t\n", "\u3000", "012345", "Unicode 简历", "{\"code\":\"012345\"}", "\"quoted\"")) {
+                if (ttl) {
+                    cache.setCacheObject("fixture", value, String.class, 1L, TimeUnit.MINUTES);
+                } else {
+                    cache.setCacheObject("fixture", value, String.class);
+                }
+                assertEquals(value, cache.getCacheObject("fixture", String.class));
+            }
         }
     }
 
@@ -35,10 +42,12 @@ class RedisCacheUtilTest {
         ValueOperations<String, Object> values = mock(ValueOperations.class);
         Map<String, Object> stored = new HashMap<>();
         when(template.opsForValue()).thenReturn(values);
-        doAnswer(call -> {
+        Answer<Void> save = call -> {
             stored.put(call.getArgument(0), call.getArgument(1));
             return null;
-        }).when(values).set(anyString(), any(), anyLong(), any(TimeUnit.class));
+        };
+        doAnswer(save).when(values).set(anyString(), any());
+        doAnswer(save).when(values).set(anyString(), any(), anyLong(), any(TimeUnit.class));
         when(values.get(anyString())).thenAnswer(call -> stored.get(call.getArgument(0)));
         return new RedisCacheUtil(template);
     }
