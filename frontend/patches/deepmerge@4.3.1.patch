@@ -1,0 +1,90 @@
+diff --git a/dist/cjs.js b/dist/cjs.js
+index 7c36cbdd06cc22c92d590be3f87a08a91ca06b40..6f4e158b4ec69c38a6f904a88682b7acd115e47d 100644
+--- a/dist/cjs.js
++++ b/dist/cjs.js
+@@ -76,15 +76,24 @@ function propertyIsUnsafe(target, key) {
+ 			&& Object.propertyIsEnumerable.call(target, key)) // and also unsafe if they're nonenumerable.
+ }
+ 
++// GHSA-gcqx-w48m-w2h4: both copy paths must reject the prototype setter.
++// https://github.com/TehShrike/deepmerge/issues/273 (MIT; see license.txt).
++function keyIsUnsafe(key) {
++	return key === '__proto__'
++}
++
+ function mergeObject(target, source, options) {
+ 	var destination = {};
+ 	if (options.isMergeableObject(target)) {
+ 		getKeys(target).forEach(function(key) {
++			if (keyIsUnsafe(key)) {
++				return
++			}
+ 			destination[key] = cloneUnlessOtherwiseSpecified(target[key], options);
+ 		});
+ 	}
+ 	getKeys(source).forEach(function(key) {
+-		if (propertyIsUnsafe(target, key)) {
++		if (keyIsUnsafe(key) || propertyIsUnsafe(target, key)) {
+ 			return
+ 		}
+ 
+diff --git a/dist/umd.js b/dist/umd.js
+index 4071e7c56ec8e5273fe166f6e723ac460fab8b72..ad5672d763f62a94530b183bf68b9ac3cfd974b7 100644
+--- a/dist/umd.js
++++ b/dist/umd.js
+@@ -80,15 +80,24 @@
+ 				&& Object.propertyIsEnumerable.call(target, key)) // and also unsafe if they're nonenumerable.
+ 	}
+ 
++	// GHSA-gcqx-w48m-w2h4: both copy paths must reject the prototype setter.
++	// https://github.com/TehShrike/deepmerge/issues/273 (MIT; see license.txt).
++	function keyIsUnsafe(key) {
++		return key === '__proto__'
++	}
++
+ 	function mergeObject(target, source, options) {
+ 		var destination = {};
+ 		if (options.isMergeableObject(target)) {
+ 			getKeys(target).forEach(function(key) {
++				if (keyIsUnsafe(key)) {
++					return
++				}
+ 				destination[key] = cloneUnlessOtherwiseSpecified(target[key], options);
+ 			});
+ 		}
+ 		getKeys(source).forEach(function(key) {
+-			if (propertyIsUnsafe(target, key)) {
++			if (keyIsUnsafe(key) || propertyIsUnsafe(target, key)) {
+ 				return
+ 			}
+ 
+diff --git a/index.js b/index.js
+index 77968aed5d456cccc294f60912ef381fa1e52a7b..b061f472eb97ea846d822b097ba144d45891f15f 100644
+--- a/index.js
++++ b/index.js
+@@ -51,15 +51,24 @@ function propertyIsUnsafe(target, key) {
+ 			&& Object.propertyIsEnumerable.call(target, key)) // and also unsafe if they're nonenumerable.
+ }
+ 
++// GHSA-gcqx-w48m-w2h4: both copy paths must reject the prototype setter.
++// https://github.com/TehShrike/deepmerge/issues/273 (MIT; see license.txt).
++function keyIsUnsafe(key) {
++	return key === '__proto__'
++}
++
+ function mergeObject(target, source, options) {
+ 	var destination = {}
+ 	if (options.isMergeableObject(target)) {
+ 		getKeys(target).forEach(function(key) {
++			if (keyIsUnsafe(key)) {
++				return
++			}
+ 			destination[key] = cloneUnlessOtherwiseSpecified(target[key], options)
+ 		})
+ 	}
+ 	getKeys(source).forEach(function(key) {
+-		if (propertyIsUnsafe(target, key)) {
++		if (keyIsUnsafe(key) || propertyIsUnsafe(target, key)) {
+ 			return
+ 		}
+ 

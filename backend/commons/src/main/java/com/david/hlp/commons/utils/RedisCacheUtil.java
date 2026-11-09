@@ -79,6 +79,10 @@ public class RedisCacheUtil {
      */
     public <T> T getCacheObject(final String key, Class<T> clazz) {
         String jsonStr = (String) redisTemplate.opsForValue().get(key);
+        // Hutool stores String values verbatim, including verification codes.
+        if (clazz == String.class) {
+            return clazz.cast(jsonStr);
+        }
         if (StrUtil.isBlank(jsonStr)) {
             return null;
         }
