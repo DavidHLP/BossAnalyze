@@ -138,8 +138,31 @@ public class AIExtractionOfJobRequirements {
                 JsonNode probs = d.path("probabilities");
                 if (!probs.isNull()) {
                     if (!probs.isObject() || probs.size()!=5) throw error(502,"AI_BAD_OUTPUT");
-                    double sum=0; for(int i=0;i<5;i++){JsonNode p=probs.path(String.valueOf(i));optionalNumber(p,1);if(!p.isNumber())throw error(502,"AI_BAD_OUTPUT");sum+=p.asDouble();}
-                    if(Math.abs(sum-1)>0.01)throw error(502,"AI_BAD_OUTPUT");
+                    // shortcut: allow independent two-decimal wire rounding, tighten with provider precision guarantees.
+                    BigDecimal half=new BigDecimal("0.005"), lowerSum=BigDecimal.ZERO, upperSum=BigDecimal.ZERO;
+                    BigDecimal[] lower=new BigDecimal[5], upper=new BigDecimal[5];
+                    for(int i=0;i<5;i++) {
+                        JsonNode p=probs.path(String.valueOf(i)); optionalNumber(p,1);
+                        if(!p.isNumber())throw error(502,"AI_BAD_OUTPUT");
+                        lower[i]=p.decimalValue().subtract(half).max(BigDecimal.ZERO);
+                        upper[i]=p.decimalValue().add(half).min(BigDecimal.ONE);
+                        lowerSum=lowerSum.add(lower[i]); upperSum=upperSum.add(upper[i]);
+                    }
+                    if(lowerSum.compareTo(BigDecimal.ONE)>0 || upperSum.compareTo(BigDecimal.ONE)<0)throw error(502,"AI_BAD_OUTPUT");
+                    if(d.path("rawScore").isNumber()) {
+                        for(int direction:new int[]{1,-1}) {
+                            BigDecimal remaining=BigDecimal.ONE.subtract(lowerSum), expectation=BigDecimal.ZERO;
+                            for(int i=0;i<5;i++)expectation=expectation.add(lower[i].multiply(BigDecimal.valueOf(i)));
+                            for(int step=0;step<5;step++) {
+                                int i=direction==1?step:4-step;
+                                BigDecimal mass=remaining.min(upper[i].subtract(lower[i]));
+                                expectation=expectation.add(mass.multiply(BigDecimal.valueOf(i))); remaining=remaining.subtract(mass);
+                            }
+                            BigDecimal reported=d.path("rawScore").decimalValue();
+                            if(direction==1 && reported.add(half).compareTo(expectation)<0
+                                    || direction==-1 && reported.subtract(half).compareTo(expectation)>0)throw error(502,"AI_BAD_OUTPUT");
+                        }
+                    }
                 }
                 JsonNode ev = d.path("evidence"); if (!ev.isArray()) throw error(502,"AI_BAD_EVIDENCE");
                 if (!ev.isEmpty()) { var src=json.createObjectNode().put("resume",resume);src.set("job",inputs.get(id)); evidence(ev,src,null); }

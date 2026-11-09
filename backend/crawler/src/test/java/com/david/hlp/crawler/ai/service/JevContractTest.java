@@ -89,7 +89,7 @@ class JevContractTest {
         }
     }
     @Test void pythonFiveLevelAndNullableDimensionShapeIsAcceptedWithoutDroppingValidation() throws Exception {
-        for(String mode:List.of("valid","unknown","bad-distribution","missing-nullable")) {
+        for(String mode:List.of("valid","unknown","bad-distribution","missing-nullable","rounded","lower-bound","upper-bound","outside-lower","outside-upper","unnormalizable")) {
             var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
             var out=json.createObjectNode().put("complete",!mode.equals("unknown")).put("model","typesafe/jev-1.14.0").put("policyVersion","jev-policy-1").put("requestId","test");
             out.putObject("usage").putNull("inputTokens").put("outputTokens",30);
@@ -107,11 +107,22 @@ class JevContractTest {
                     for(String path:List.of("/job/jobTags/0","/resume"))ev.addObject().put("sourcePath",path).put("start",0).put("end",5).put("text","😀Java");
                 }
             }
+            if(Set.of("rounded","lower-bound","upper-bound","outside-lower","outside-upper","unnormalizable").contains(mode)) {
+                // [.335,.335,.325,0,0] leaves .005 mass: feasible expectation is [.985,1.005].
+                double raw=switch(mode){case "lower-bound" -> .98; case "upper-bound" -> 1.01;
+                    case "outside-lower" -> .979999; case "outside-upper" -> 1.010001; default -> 1;};
+                item.put("score",raw*2.5);
+                for(var d:dims)if(d.path("status").asText().equals("scored")) {
+                    var dimension=(com.fasterxml.jackson.databind.node.ObjectNode)d;
+                    dimension.put("rawScore",raw);
+                    dimension.putObject("probabilities").put("0",mode.equals("unnormalizable")?.36:.34).put("1",.34).put("2",.33).put("3",0).put("4",0);
+                }
+            }
             if(mode.equals("bad-distribution"))((com.fasterxml.jackson.databind.node.ObjectNode)dims.get(0).path("probabilities")).put("4",0.1);
             if(mode.equals("missing-nullable"))((com.fasterxml.jackson.databind.node.ObjectNode)dims.get(3)).remove("probabilities");
             server.expect(requestTo("http://synthetic.test/internal/v1/match-batch")).andRespond(withSuccess(out.toString(),MediaType.APPLICATION_JSON));
             var job=json.createObjectNode().put("jobId","42");job.putObject("detailData").putArray("jobTags").add("😀Java");
-            if(mode.equals("valid")||mode.equals("unknown"))assertEquals(out,ai.match("😀Java",List.of(job),30000));
+            if(Set.of("valid","unknown","rounded","lower-bound","upper-bound").contains(mode))assertEquals(out,ai.match("😀Java",List.of(job),30000));
             else assertEquals(502,assertThrows(ResponseStatusException.class,()->ai.match("😀Java",List.of(job),30000)).getStatusCode().value());
             server.verify();
         }
