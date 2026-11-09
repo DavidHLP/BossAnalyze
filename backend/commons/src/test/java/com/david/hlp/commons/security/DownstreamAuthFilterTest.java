@@ -156,6 +156,20 @@ class DownstreamAuthFilterTest {
         server.verify();
     }
 
+    @Test
+    void bothAiVersionsRequireLiveIdentityAndSetVerifiedAttribute() throws Exception {
+        for (String path : List.of("/api/v1/ai/get-user-similarity", "/api/v2/ai/matches")) {
+            assertEquals(401, run("POST", path, null).getStatus());
+            server.expect(requestTo(VERIFY_URL)).andRespond(withSuccess(GRANTS, MediaType.APPLICATION_JSON));
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
+            request.addHeader("Authorization", "Bearer live-token");
+            filter.doFilter(request, new MockHttpServletResponse(), (r, response) ->
+                    assertEquals(Boolean.TRUE, r.getAttribute("boss.verified")));
+            server.verify();
+            server.reset();
+        }
+    }
+
     private MockHttpServletResponse run(String method, String path, String authorization) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(method, path);
         if (authorization != null) {
