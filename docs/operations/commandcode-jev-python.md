@@ -61,3 +61,9 @@ uv run --frozen uvicorn app.main:app --host 127.0.0.1 --port 8090 --workers 1 --
 父任务先整合 Java 客户端及 reader/增量表，再以调度关闭状态联调。Java 只允许 complete/no_evidence 且来源/身份/fence 有效的结果原子投影，needs_review 不覆盖原值。本服务不自动迁移表、不自动回填、不持久化简历/模型输出。回退关闭调度并使 lease 失效，保留新表和 JSON 结果，不启用旧模型。
 
 参考公开协议：[CommandCode Provider](https://commandcode.ai/docs/provider)、[Noul](https://docs.typesafe.ai/primitives/noul)、[Choice](https://docs.typesafe.ai/primitives/choice)、[Score](https://docs.typesafe.ai/primitives/score)。锁文件安装与离线测试独立于真实模型验收。
+
+## 供应商数值精度
+
+合成运行捕获到 Score 和各级概率独立保留两位小数：例如 score=3.70，显示概率的加权和却为3.72。校验按每个显示值±0.005构造区间，并要求区间内存在总和为1的分布及相容的期望分数；不再使用浮点差值固定0.01的判据。原始score、概率与confidence原样保留，不重新分配概率或修改模型分数。缺失等级、非有限数、越界、无法归一的分布和超出舍入可行范围的分数仍被拒绝。
+
+这是对已观察到的 CommandCode 精度的有界兼容，并非供应商发布的精度保证；若精度契约变化须重新验证。原运行失败报告保留为历史，5份已捕获的拒绝响应可在无网络回放中通过；这不替代修复后真实模型、排序或质量门槛验收。

@@ -4,6 +4,7 @@ import math
 import os
 import sqlite3
 from datetime import datetime, timezone
+from decimal import Decimal
 from time import monotonic
 
 import httpx
@@ -31,6 +32,26 @@ def unique_object(pairs):
     return obj
 
 
+def rounded_distribution_bounds(values):
+    # shortcut: accommodate observed two-decimal wire rounding, tighten with a provider precision contract.
+    half = Decimal("0.005")
+    values = [Decimal(str(value)) for value in values]
+    lower = [max(Decimal(0), value - half) for value in values]
+    upper = [min(Decimal(1), value + half) for value in values]
+    if not sum(lower) <= 1 <= sum(upper):
+        raise ServiceError("invalid_provider_output", 502)
+    bounds = []
+    for indices in (range(len(values)), reversed(range(len(values)))):
+        remaining = Decimal(1) - sum(lower)
+        expectation = sum(i * value for i, value in enumerate(lower))
+        for i in indices:
+            mass = min(remaining, upper[i] - lower[i])
+            expectation += i * mass
+            remaining -= mass
+        bounds.append(expectation)
+    return bounds
+
+
 def validate_answers(data, questions, model):
     if not isinstance(data, dict) or data.get("model") != model:
         raise ServiceError("invalid_provider_output", 502)
@@ -51,13 +72,14 @@ def validate_answers(data, questions, model):
             raise ServiceError("invalid_provider_output", 502)
         for value in probs.values():
             number(value)
-        if abs(sum(probs.values()) - 1) > 0.001:
-            raise ServiceError("invalid_provider_output", 502)
+        values = [probs[str(i)] for i in range(len(keys))] if q["type"] == "score" else probs.values()
+        minimum, maximum = rounded_distribution_bounds(values)
         if q["type"] == "score":
             number(a.get("score"), 0, len(keys) - 1)
             if a.get("legend") != {str(i): v for i, v in enumerate(q["criteria"])}:
                 raise ServiceError("invalid_provider_output", 502)
-            if abs(a["score"] - sum(int(k) * v for k, v in probs.items())) > 0.01:
+            reported = Decimal(str(a["score"]))
+            if reported + Decimal("0.005") < minimum or reported - Decimal("0.005") > maximum:
                 raise ServiceError("invalid_provider_output", 502)
         elif a.get("choice") not in keys or probs[a["choice"]] != max(probs.values()):
             raise ServiceError("invalid_provider_output", 502)

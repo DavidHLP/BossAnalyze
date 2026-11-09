@@ -161,6 +161,27 @@ def test_invalid_score_distribution(mutation):
         validate_answers(d, qs, CFG.model)
 
 
+@pytest.mark.parametrize("score,probabilities,valid", [
+    (0.05, [0.99, 0, 0, 0, 0.01], True),
+    (3.70, [0.01, 0, 0.06, 0.12, 0.81], True),
+    (3.94, [0, 0, 0.01, 0.02, 0.97], True),
+    (0.99, [0.34, 0.34, 0.33, 0, 0], True),
+    (3.68, [0.01, 0, 0.06, 0.12, 0.81], False),
+    (1.0, [0.36, 0.35, 0.34, 0, 0], False),
+])
+def test_independent_wire_rounding_has_bounded_normalized_score(score, probabilities, valid):
+    qs = {"q": {"type": "score", "instructions": "q", "criteria": MATCH_LEVELS}}
+    data = fixture({"model": CFG.model, "questions": qs})
+    answer = data["answers"]["q"]
+    answer.update(score=score, probabilities={str(i): value for i, value in enumerate(probabilities)})
+    if valid:
+        assert validate_answers(data, qs, CFG.model)["q"] is answer
+        assert answer["score"] == score
+    else:
+        with pytest.raises(ServiceError):
+            validate_answers(data, qs, CFG.model)
+
+
 @pytest.mark.parametrize("status,expected,calls", [(403, 503, 1), (401, 503, 1), (429, 503, 2), (500, 503, 2), (422, 503, 1), (302, 503, 1)])
 async def test_http_failures_safe_bounded_and_zdr_closed(status, expected, calls):
     seen = []
