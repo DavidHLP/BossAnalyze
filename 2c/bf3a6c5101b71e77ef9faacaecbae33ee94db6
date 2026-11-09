@@ -1,0 +1,19 @@
+docs/operations/controlled-frontend-acceptance-20261108.md
+  s_8bb14ad17f8b3c::t_101890469b4ca2 1-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2cbf3a6c5101b71e77ef9faacaecbae33ee94db6",
+  "prompts": {},
+  "sessions": {
+    "s_8bb14ad17f8b3c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bf13-d0c8-7381-b6e0-3fbe7481b51b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
