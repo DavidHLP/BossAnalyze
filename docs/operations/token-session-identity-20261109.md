@@ -2,6 +2,8 @@
 
 Issue: <https://github.com/DavidHLP/BossAnalyze/issues/56> (part of #54). Implementation delivery is separate from database rehearsal, migration, deployment and acceptance. This document does not claim an existing database has been repaired.
 
+本机现库迁移及运行验收另见[会话身份与简历版本验收](token-session-acceptance-20261109.md)；以下实现阶段的测试限制保留为历史边界。
+
 ## Behavior and capacity
 
 All three JwtService issuance paths share one builder. A fresh random UUID v4 jti is assigned after caller claims, so caller jti cannot override it. Ordinary access tokens retain the existing fixed 24-hour lifetime; the extra-claims overload retains `jwtExpiration`, refresh retains `refreshExpiration`, and every path retains HS256 and the configured signing key. Issued-at and expiry use one time sample. Other extra claims remain available. Verification does not require jti, so historical no-jti JWTs remain compatible; their expiry and persisted revoked/expired flags still apply.
