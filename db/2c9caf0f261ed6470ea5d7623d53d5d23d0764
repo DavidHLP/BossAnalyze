@@ -1,0 +1,32 @@
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/DetailParser.java
+  s_7c1c968d8d76cb::t_3328f974b67012 51-79,82,89,101
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/BossResponseCapture.java
+  s_7c1c968d8d76cb::t_8a1388827a3bee 16,22,29-30,32
+backend/crawler/src/test/java/com/david/hlp/crawler/sample/RecruitmentSamplerTest.java
+  s_7c1c968d8d76cb::t_d444704d484ab7 200-201,354-376
+  s_7c1c968d8d76cb::t_8a1388827a3bee 192-199,202-353,377-378
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/RecruitmentSampler.java
+  s_7c1c968d8d76cb::t_3328f974b67012 50-51,57-61,64,73,84,96-97,124-126,131,138,146-147,151,174-175,178-179,182-183,185,187-188,191,198-199,211-212,244,256-264,272,274
+  s_7c1c968d8d76cb::t_8a1388827a3bee 216-217,255
+  s_7c1c968d8d76cb::t_27c58d2971f2c7 176,184,237,240-241
+backend/crawler/src/test/resources/sample/boss-detail.html
+  s_7c1c968d8d76cb::t_b4c4914b7cc6ac 1-2
+docs/recruitment-sampling.md
+  s_7c1c968d8d76cb::t_02c9576198a86e 15,49-50,53,77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db2c9caf0f261ed6470ea5d7623d53d5d23d0764",
+  "prompts": {},
+  "sessions": {
+    "s_7c1c968d8d76cb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1beb6-fe4f-7b03-9e33-516cf02c91d1",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
