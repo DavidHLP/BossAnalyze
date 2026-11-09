@@ -29,7 +29,17 @@ public class RequirementAnalyzer {
         for(int i=0;i<selected.size();i+=10){
             List<ObjectNode> batch=new ArrayList<>();
             for(var job:selected.subList(i,Math.min(i+10,selected.size()))){var n=json.createObjectNode().put("jobId",job.getId().toString());n.set("detailData",ai.detail(job.getDetailData()));batch.add(n);}
-            JsonNode response=ai.match(resume,batch,(int)Math.max(0,(deadline-System.nanoTime())/1_000_000));
+            JsonNode response;
+            try {
+                response=ai.match(resume,batch,(int)Math.max(0,(deadline-System.nanoTime())/1_000_000));
+            } catch (org.springframework.web.server.ResponseStatusException e) {
+                if(!Set.of(429,502,503,504).contains(e.getStatusCode().value()))throw e;
+                for(var job:selected.subList(i,selected.size())) {
+                    var failed=json.createObjectNode().put("jobId",job.getId().toString()).put("status","failed").putNull("score");
+                    failed.putArray("dimensions");unrankable.add(failed);
+                }
+                break;
+            }
             for(JsonNode item:response.path("items")) {
                 if(item.path("status").asText().equals("scored"))scored.add(item);else unrankable.add(item);
             }

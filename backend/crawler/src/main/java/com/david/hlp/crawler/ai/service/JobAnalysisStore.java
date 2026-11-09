@@ -29,7 +29,7 @@ public class JobAnalysisStore {
             String snapshot=current.get(0);
             String digest=JobAnalysisFacts.digest(ai.detail(snapshot));
             db.update("INSERT INTO job_ai_analysis(job_id,input_digest,pipeline_version,model_id,policy_version,state,source_json) VALUES (?,?,'jev-1',?,'jev-policy-1','pending',?) ON DUPLICATE KEY UPDATE id=id",jobId,digest,ai.model(),snapshot);
-            var cachedRows=db.query("SELECT result_json FROM job_ai_analysis WHERE job_id=? AND input_digest=? AND pipeline_version='jev-1' AND model_id=? AND policy_version='jev-policy-1' AND (state='superseded' OR (state='running' AND lease_until<=NOW(6))) FOR UPDATE",(r,i)->r.getString(1),jobId,digest,ai.model());
+            var cachedRows=db.query("SELECT result_json FROM job_ai_analysis cached WHERE job_id=? AND input_digest=? AND pipeline_version='jev-1' AND model_id=? AND policy_version='jev-policy-1' AND (state='superseded' OR (state='running' AND lease_until<=NOW(6)) OR (state='completed' AND EXISTS (SELECT 1 FROM job_ai_analysis newer WHERE newer.job_id=cached.job_id AND (newer.updated_at>cached.updated_at OR (newer.updated_at=cached.updated_at AND newer.id>cached.id))))) FOR UPDATE",(r,i)->r.getString(1),jobId,digest,ai.model());
             JsonNode cached=null;
             if(!cachedRows.isEmpty() && cachedRows.get(0)!=null){
                 try{
@@ -39,7 +39,7 @@ public class JobAnalysisStore {
                 }catch(java.io.IOException | org.springframework.web.server.ResponseStatusException ignored){ }
             }
             // Cache replay spends no inference attempt, but always obtains a fresh fence and lease.
-            int claimed=db.update("UPDATE job_ai_analysis SET state='running',attempt_count=attempt_count+?,fence=fence+1,source_json=?,lease_until=DATE_ADD(NOW(6),INTERVAL 60 SECOND),next_retry_at=NULL,error_code=NULL WHERE job_id=? AND input_digest=? AND pipeline_version='jev-1' AND model_id=? AND policy_version='jev-policy-1' AND (attempt_count<3 OR ?) AND (state IN ('pending','superseded') OR (state='retry_wait' AND next_retry_at<=NOW(6)) OR (state='running' AND lease_until<=NOW(6)))",cached==null?1:0,snapshot,jobId,digest,ai.model(),cached!=null);
+            int claimed=db.update("UPDATE job_ai_analysis SET state='running',attempt_count=attempt_count+?,fence=fence+1,source_json=?,lease_until=DATE_ADD(NOW(6),INTERVAL 60 SECOND),next_retry_at=NULL,error_code=NULL WHERE job_id=? AND input_digest=? AND pipeline_version='jev-1' AND model_id=? AND policy_version='jev-policy-1' AND (attempt_count<3 OR ?) AND (state IN ('pending','superseded') OR (state='completed' AND ?) OR (state='retry_wait' AND next_retry_at<=NOW(6)) OR (state='running' AND lease_until<=NOW(6)))",cached==null?1:0,snapshot,jobId,digest,ai.model(),cached!=null,cached!=null);
             if(claimed!=1){
                 db.update("UPDATE job_ai_analysis SET state='failed',error_code='attempts_exhausted',lease_until=NULL WHERE job_id=? AND input_digest=? AND pipeline_version='jev-1' AND model_id=? AND policy_version='jev-policy-1' AND state='running' AND lease_until<=NOW(6) AND attempt_count>=3",jobId,digest,ai.model());
                 return null;

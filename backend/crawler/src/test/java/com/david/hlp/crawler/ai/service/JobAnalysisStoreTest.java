@@ -15,10 +15,11 @@ import static org.mockito.ArgumentMatchers.*;
 class JobAnalysisStoreTest {
     final ObjectMapper json=new ObjectMapper();
     static class Row {
-        long id,job,fence; int attempts; boolean live;
+        long id,job,fence,updated; int attempts; boolean live;
         String state="pending",result,source,error;
     }
     class Fixture {
+        long clock;
         final TreeMap<Long,String> jobs=new TreeMap<>();
         final Map<String,Row> rows=new HashMap<>();
         final Map<Long,String> projection=new HashMap<>();
@@ -39,7 +40,7 @@ class JobAnalysisStoreTest {
                     if(jobs.containsKey((Long)a[2]))out.add(mapper.mapRow(rs(jobs.get((Long)a[2])),0));
                 } else if(sql.startsWith("SELECT result_json")) {
                     Row r=rows.get(a[2]+":"+a[3]);
-                    if(r!=null && (r.state.equals("superseded") || r.state.equals("running")&&!r.live))out.add(mapper.mapRow(rs(r.result),0));
+                    if(r!=null && (r.state.equals("superseded") || r.state.equals("completed")&&rows.values().stream().anyMatch(n->n.job==r.job && (n.updated>r.updated || n.updated==r.updated&&n.id>r.id)) || r.state.equals("running")&&!r.live))out.add(mapper.mapRow(rs(r.result),0));
                 } else throw new AssertionError(sql);
                 return out;
             }).when(db).query(anyString(),any(RowMapper.class),any(Object[].class));
@@ -48,12 +49,12 @@ class JobAnalysisStoreTest {
             doAnswer(call->{
                 Object[] a=call.getArguments();String sql=(String)a[0];
                 if(sql.startsWith("INSERT")) {
-                    rows.computeIfAbsent(a[1]+":"+a[2],k->{Row r=new Row();r.id=rows.size()+1;r.job=(Long)a[1];r.source=(String)a[4];return r;});return 1;
+                    rows.computeIfAbsent(a[1]+":"+a[2],k->{Row r=new Row();r.id=rows.size()+1;r.updated=++clock;r.job=(Long)a[1];r.source=(String)a[4];return r;});return 1;
                 }
                 if(sql.contains("attempt_count=attempt_count+?")) {
                     Row r=rows.get(a[3]+":"+a[4]);
-                    if((r.attempts>=3 && !(Boolean)a[6]) || !(Set.of("pending","superseded","retry_wait").contains(r.state)||r.state.equals("running")&&!r.live))return 0;
-                    r.attempts+=(Integer)a[1];r.source=(String)a[2];r.fence++;r.live=true;r.state="running";return 1;
+                    if((r.attempts>=3 && !(Boolean)a[6]) || !(Set.of("pending","superseded","retry_wait").contains(r.state)||r.state.equals("completed")&&(Boolean)a[7]||r.state.equals("running")&&!r.live))return 0;
+                    r.attempts+=(Integer)a[1];r.source=(String)a[2];r.fence++;r.updated=++clock;r.live=true;r.state="running";return 1;
                 }
                 if(sql.startsWith("UPDATE t_job_detail")){projection.put((Long)a[3],(String)a[1]);return 1;}
                 if(sql.contains("updated_at=updated_at")) {
@@ -64,7 +65,7 @@ class JobAnalysisStoreTest {
                 long id=(Long)a[finish?5:failure?4:1],fence=(Long)a[finish?6:failure?5:2];
                 Row r=rows.values().stream().filter(v->v.id==id).findFirst().orElseThrow();
                 if(r.fence!=fence || !r.live || !r.state.equals("running"))return 0;
-                r.live=false;
+                r.live=false;r.updated=++clock;
                 if(finish){r.state=(String)a[1];r.result=(String)a[2];}
                 else if(failure){r.state=r.attempts>=3||!(Boolean)a[1]?"failed":"retry_wait";r.error=(String)a[3];}
                 else r.state="superseded";
@@ -97,6 +98,22 @@ class JobAnalysisStoreTest {
         assertEquals(3,old.attempts);assertTrue(old.fence>previousFence);assertEquals(restored,old.source);
         assertFalse(f.store.finish(new JobAnalysisStore.Lease(old.id,42,previousFence,a),output("42",a)));
         verify(f.ai,times(2)).analyze(anyString(),anyString());
+    }
+    @Test void completedIdentityRestoresAfterUnsuccessfulInterveningAttempt() throws Exception {
+        for(String state:List.of("failed","needs_review","retry_wait","running")) {
+            var f=new Fixture();String a=source("A"),b=source("B");f.jobs.put(42L,a);
+            assertEquals(1,f.store.process(0,50));Row old=f.row(a);old.attempts=3;
+            f.jobs.put(42L,b);var intervening=f.store.claim(42,b);
+            if(state.equals("failed")||state.equals("retry_wait"))f.store.fail(intervening,"synthetic",state.equals("retry_wait"));
+            if(state.equals("needs_review"))f.store.finish(intervening,json.readTree(new JevContractTest().analysis("needs_review","[]")));
+            assertEquals("completed",old.state);
+            f.jobs.put(42L,a);assertEquals(1,f.store.process(0,50));
+            assertEquals("completed",old.state);assertEquals(3,old.attempts);
+            assertEquals("[\"A\"]",f.projection.get(42L));
+            assertNull(f.store.claim(42,a));
+            if(state.equals("running"))assertFalse(f.store.finish(intervening,output("42",b)));
+            verify(f.ai,times(1)).analyze(anyString(),anyString());
+        }
     }
     @Test void expiredCacheReplayAtExhaustedBudgetCanBeReclaimedWithoutPaying() throws Exception {
         var f=new Fixture();String a=source("A");f.jobs.put(42L,a);assertEquals(1,f.store.process(0,50));

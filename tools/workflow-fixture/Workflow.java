@@ -114,6 +114,26 @@ public class Workflow {
             check(result.path("requirements").toString().contains("Python, SQL (test) 😀") && result.path("benefits").toString().contains("五险一金、带薪年假。"), "Unicode and punctuation survive model validation and projection "+i);
             save("analysis-"+i+".json", result);
         }
+        for(String state:List.of("failed","needs_review")) {
+            JsonNode original=samples.get(0).path("detailData");
+            var intervening=(com.fasterxml.jackson.databind.node.ObjectNode)original.deepCopy();
+            intervening.putArray("jobTags").add("synthetic intervening "+state);
+            db.update("UPDATE t_job_detail SET detail_data=? WHERE id=1",intervening.toString());
+            var lease=store.claim(1,intervening.toString());
+            check(lease!=null, "intervening source obtains lease: "+state);
+            if(state.equals("failed"))store.fail(lease,"synthetic_terminal",false);
+            else {
+                var review=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(Files.readString(out.resolve("analysis-1.json")));
+                review.put("status","needs_review");store.finish(lease,review);
+            }
+            db.update("UPDATE t_job_detail SET detail_data=? WHERE id=1",original.toString());
+            long calls;try(var lines=Files.lines(out.resolve("provider-requests.jsonl"))){calls=lines.count();}
+            check(store.process(0,1)==1, "completed source restored after intervening "+state);
+            try(var lines=Files.lines(out.resolve("provider-requests.jsonl"))){check(lines.count()==calls, "restoration uses validated cache without provider call: "+state);}
+            String readTable=JobAnalysisReader.table(true);
+            check(db.queryForObject("SELECT analysis_state FROM "+readTable+" WHERE id=1",String.class).equals("completed"), "reader selects restored completion: "+state);
+            check(store.process(0,1)==0, "restored completion is not claimed again: "+state);
+        }
         Files.createFile(out.resolve("fail-provider"));
         try { check(store.process(2,3)==0, "upstream HTTP 503 yields zero completed writebacks"); }
         finally { Files.delete(out.resolve("fail-provider")); }

@@ -34,6 +34,31 @@ class MatchBoundaryTest {
         var result=new RequirementAnalyzer(mapper,ai,format,json).getUserSimilarity("Java",List.of("杭州"),"Java");
         assertEquals(2L,result.get(0).getId());assertEquals(5,result.get(1).getSimilarity());
     }
+    @Test void laterBatchFailurePreservesScoresAndMarksRemainingJobsFailed() {
+        for(int status:List.of(502,503,504)) {
+            var mapper=mock(TJobDetailMapper.class);var ai=mock(AIExtractionOfJobRequirements.class);
+            var jobs=new ArrayList<MiniJobDetail>();
+            for(long id=1;id<=21;id++)jobs.add(MiniJobDetail.builder().id(id).detailData("{}").build());
+            when(mapper.selectMiniJobDetail(anyString(),anyString(),anyLong(),anyInt())).thenReturn(jobs);
+            when(ai.detail(anyString())).thenReturn(json.createObjectNode());when(ai.model()).thenReturn("test");
+            when(ai.match(anyString(),anyList(),anyInt())).thenAnswer(c->{
+                List<ObjectNode> batch=c.getArgument(1);
+                if(!batch.get(0).path("jobId").asText().equals("1"))throw AIExtractionOfJobRequirements.error(status,"synthetic");
+                var response=json.createObjectNode();var items=response.putArray("items");
+                for(var job:batch)items.addObject().put("jobId",job.path("jobId").asText()).put("status","scored").put("score",8.75);
+                return response;
+            });
+            var analyzer=new RequirementAnalyzer(mapper,ai,new FormatDataService(json),json);
+            JsonNode result=analyzer.matches("Java",List.of("杭州"),"Java");
+            assertEquals(10,result.path("items").size());assertEquals(11,result.path("unrankable").size());
+            assertEquals(21,result.path("consideredCount").asInt());assertFalse(result.path("complete").asBoolean());
+            assertEquals("11",result.at("/unrankable/0/jobId").asText());
+            assertEquals("21",result.at("/unrankable/10/jobId").asText());
+            for(JsonNode failed:result.path("unrankable")){assertEquals("failed",failed.path("status").asText());assertTrue(failed.path("score").isNull());}
+            verify(ai,times(2)).match(anyString(),anyList(),anyInt());
+            assertEquals(503,assertThrows(ResponseStatusException.class,()->analyzer.getUserSimilarity("Java",List.of("杭州"),"Java")).getStatusCode().value());
+        }
+    }
     @Test void identityIsNotSelfAssertedAndTextIsMinimized(){
         var resolver=new AuthorizedResume("http://synthetic.test");var request=new MockHttpServletRequest();var input=new SimilarityRequest();input.setResume("姓名：张三\n邮箱：test@example.test\nJava开发");
         assertEquals(401,assertThrows(ResponseStatusException.class,()->resolver.resolve(input,request)).getStatusCode().value());
