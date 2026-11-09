@@ -42,6 +42,14 @@ Provider 回应形状复用 `ai-service/tests/test_contract.py` 的 `fixture`：
 
 ## 后续 frontend 消费
 
+本机 Nuxt 已运行于 5020 时，可把入口输出的 DTO 路径传入持久化展示验证：
+
+```sh
+node tools/workflow-fixture/frontend.cjs /tmp/boss-workflow-20261108-<本轮目录>/frontend-dto.json
+```
+
+该脚本使用本机已缓存的 Playwright 和系统 Chromium 外部窗口，不安装依赖。它仅在独立浏览器 context 中适配同一 DTO 的招聘 API 与合成会话；页面和静态资源来自实际 Nuxt，其余网络拒绝。私有输出目录含截图、原 DTO、适配映射及 DOM 断言结果，浏览器结束即关闭。它验列表、详情、Unicode 数组、分析来源和空态，不代表主 API 身份链、真实模型质量或不存在的匹配页面已验收。
+
 `reader-route.txt` 记录本轮真实 GET `http://127.0.0.1:<随机空闲端口>/fixture/v1/jobs`。该路由在本轮查询结束即关闭；保留的 `frontend-dto.json` 是其实际 HTTP 响应体。后续 frontend 可以将该私有文件作为合成展示输入，或重新运行入口生成新文件；不能把已关闭路由当常驻服务。入口没有常驻模式、没有孤儿服务。
 
 Envelope：`schema`、`synthetic=true`、`items[]`、`match`、`rankedMatch[]`。每个 item 的 `job` 是真实 `FormatDataService` 的 `JobAnalysisData` DTO；`analysisStatus` 来自真实 reader；`model`/`pipelineVersion` 来自 sidecar；`sampling` 是实际采集记录，带 `sourceUrl`、`sourceJobId`、`identity`、`revision`、`fetchedAt`、`samplingSource`、`detailData`。`match` 保留真实 Java AI 客户端返回值，`rankedMatch` 是 fixture 按 score 降序的展示视图。该 envelope 需要前端显式适配，不能冒称现有生产 API route/DTO 已替换。
