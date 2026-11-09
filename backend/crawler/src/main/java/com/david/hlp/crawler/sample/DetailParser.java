@@ -63,7 +63,8 @@ public final class DetailParser {
         if (!document.select("input[type=password]").isEmpty())
             return failed(result, "auth_required");
         var titles = document.select("h1");
-        var descriptions = document.select(".job-sec-text");
+        // Company introductions reuse job-sec-text outside the job description section.
+        var descriptions = document.select(".job-detail-section .job-sec-text");
         if (titles.size() != 1 || descriptions.size() != 1) return failed(result, "missing_detail");
         String title = titles.first().wholeText();
         String jd = descriptions.first().wholeText();

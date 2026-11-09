@@ -299,12 +299,13 @@ class RecruitmentSamplerTest {
             assertTrue(sample.path("facts").path(field).isNull());
         assertTrue(sample.path("detailData").path("jobTags").isNull());
         assertFalse(sample.toString().contains("NOT_WELFARE"));
+        assertFalse(sample.toString().contains("COMPANY_DESCRIPTION_NOT_JD"));
         assertTrue(Files.readString(options.output().resolve("labels.jsonl")).contains("pending"));
     }
 
     @Test void ssrRejectsEmptyJdWrongOriginIdentityAndLoginVerificationShells() throws Exception {
         var source = SourceUrl.parse(URL);
-        assertEquals("missing_detail", DetailParser.parseSsr(source, URL, "<h1>Title</h1><div class='job-sec-text'> </div>", "now").get("status"));
+        assertEquals("missing_detail", DetailParser.parseSsr(source, URL, "<h1>Title</h1><div class='job-detail-section'><div class='job-sec-text'> </div></div>", "now").get("status"));
         assertEquals("identity_mismatch", DetailParser.parseSsr(source, URL.replace("synthetic_001", "other"), ssr(), "now").get("status"));
         assertEquals("redirect_rejected", DetailParser.parseSsr(source, URL.replace("www.zhipin.com", "evil.test"), ssr(), "now").get("status"));
         assertEquals("auth_required", DetailParser.parseSsr(source, URL, ssr() + "<input type='password'>", "now").get("status"));
@@ -358,7 +359,7 @@ class RecruitmentSamplerTest {
             String current = boundary.equals("wrong") ? URL.replace("synthetic_001", "other")
                     : boundary.equals("foreign") ? URL.replace("www.zhipin.com", "evil.test") : URL;
             Page page = page(current);
-            when(page.content()).thenReturn(boundary.equals("empty") ? "<h1>Title</h1><div class='job-sec-text'> </div>" : ssr());
+            when(page.content()).thenReturn(boundary.equals("empty") ? "<h1>Title</h1><div class='job-detail-section'><div class='job-sec-text'> </div></div>" : ssr());
             if (boundary.equals("login")) when(page.locator("input[type=password]:visible").count()).thenReturn(1);
             if (boundary.equals("verify")) when(page.locator("#captcha, .captcha, iframe[src*='captcha']").count()).thenReturn(1);
             doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
