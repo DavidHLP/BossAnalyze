@@ -26,6 +26,11 @@ public class AuthorizedResume {
                 JsonNode r=http.exchange(api+"/api/resume/"+input.getResumeId(),HttpMethod.GET,new HttpEntity<>(headers),JsonNode.class).getBody();
                 if(r==null || r.path("code").asInt()!=200 || !r.path("data").path("id").asText().equals(input.getResumeId()))throw AIExtractionOfJobRequirements.error(403,"RESUME_NOT_OWNED");
                 text=r.path("data").path("content").textValue();
+            }catch(RestClientResponseException e){
+                int status=e.getStatusCode().value();
+                if(status==403||status==404)throw AIExtractionOfJobRequirements.error(403,"RESUME_NOT_OWNED");
+                if(status==401)throw AIExtractionOfJobRequirements.error(401,"AUTH_REQUIRED");
+                throw AIExtractionOfJobRequirements.error(503,"IDENTITY_UNAVAILABLE");
             }catch(RestClientException e){throw AIExtractionOfJobRequirements.error(503,"IDENTITY_UNAVAILABLE");}
         }
         if(text==null||text.isBlank()||text.length()>32000)throw AIExtractionOfJobRequirements.error(422,"INVALID_RESUME");

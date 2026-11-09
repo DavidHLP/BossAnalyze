@@ -54,6 +54,16 @@ class MatchBoundaryTest {
         server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("http://synthetic.test/api/resume/owned"))
             .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess("{\"code\":404,\"data\":null}",org.springframework.http.MediaType.APPLICATION_JSON));
         assertEquals(403,assertThrows(ResponseStatusException.class,()->resolver.resolve(input,request)).getStatusCode().value());server.verify();
+        server.reset();
+        for(int status:new int[]{401,403,404,500,503}){
+            server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("http://synthetic.test/api/resume/owned"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withStatus(org.springframework.http.HttpStatus.valueOf(status))
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON).body("{\"error\":\"PRIVATE_UPSTREAM_DETAIL\"}"));
+            var error=assertThrows(ResponseStatusException.class,()->resolver.resolve(input,request));
+            assertEquals(status==401?401:status==403||status==404?403:503,error.getStatusCode().value());
+            assertFalse(error.getReason().contains("PRIVATE_UPSTREAM_DETAIL"));
+            server.verify();server.reset();
+        }
     }
 
 }
