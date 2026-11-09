@@ -130,6 +130,8 @@ class Jev:
 
     async def _batch(self, state, questions, deadline, usage):
         cfg = self.settings
+        if not cfg.zdr:
+            raise ServiceError("zdr_required", 503)
         payload = {"model": cfg.model, "state": state, "questions": questions}
         # shortcut: UTF-8 byte count is a conservative token bound, upgrade with a verified Jev tokenizer.
         size = len(json.dumps(payload, ensure_ascii=False).encode())
