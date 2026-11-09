@@ -1,0 +1,21 @@
+docs/operations/final-crawler-python-deployment-20261109.md
+  s_f2f5a10de5dca9::t_84ba32fe102e74 1-80
+docs/operations/final-crawler-python-controller-20261109.md
+  s_f2f5a10de5dca9::t_84ba32fe102e74 67-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f70565aa82f88ea1a9cfb418a76f2d82ab197945",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
