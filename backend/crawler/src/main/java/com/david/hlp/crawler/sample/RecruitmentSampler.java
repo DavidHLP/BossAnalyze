@@ -47,17 +47,21 @@ public final class RecruitmentSampler {
     }
 
     static int run(Options options) throws Exception {
-        // Validate private cookies before any browser is opened; never log or save their values.
-        var cookies = options.cookies == null ? List.<com.microsoft.playwright.options.Cookie>of() : BossCookies.read(options.cookies);
-        try (PrivateOutput output = new PrivateOutput(options.output);
-             Playwright playwright = Playwright.create(new Playwright.CreateOptions().setEnv(Map.of("DEBUG", "", "PWDEBUG", "0", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")))) {
+        try (PrivateOutput output = new PrivateOutput(options.output)) {
+            Playwright playwright = null;
             boolean attached = options.cdp != null;
             Browser browser = null;
             Page page = null;
             BossResponseCapture capture = new BossResponseCapture();
             try {
+                check(null, options, Long.MAX_VALUE, false);
+                var cookies = options.cookies == null ? List.<com.microsoft.playwright.options.Cookie>of() : BossCookies.read(options.cookies);
+                check(null, options, Long.MAX_VALUE, false);
+                playwright = Playwright.create(new Playwright.CreateOptions().setEnv(Map.of("DEBUG", "", "PWDEBUG", "0", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")));
+                check(null, options, Long.MAX_VALUE, false);
                 browser = attached ? playwright.chromium().connectOverCDP(options.cdp, new BrowserType.ConnectOverCDPOptions().setTimeout(15000))
                         : playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(false).setTimeout(15000));
+                check(null, options, Long.MAX_VALUE, false);
                 BrowserContext context;
                 if (attached) {
                     if (browser.contexts().isEmpty()) throw new IllegalStateException();
@@ -66,6 +70,7 @@ public final class RecruitmentSampler {
                     context = browser.newContext();
                     if (!cookies.isEmpty()) context.addCookies(cookies);
                 }
+                check(null, options, Long.MAX_VALUE, false);
                 page = context.newPage(); // Only this tool-owned tab may be navigated or closed.
                 page.setDefaultTimeout(3000);
                 page.setDefaultNavigationTimeout(15000);
@@ -76,7 +81,7 @@ public final class RecruitmentSampler {
                     Response response = request.response();
                     if (response != null) capture.received(response);
                 });
-                if (!attached && cookies.isEmpty()) manualLogin(page, options);
+                if (!attached && cookies.isEmpty()) manualLogin(page, capture, options);
                 return collect(page, capture, options, output);
             } catch (Stop stop) {
                 output.write(DetailParser.failed(DetailParser.base(options.source, Instant.now().toString()), stop.status));
@@ -88,7 +93,8 @@ public final class RecruitmentSampler {
                 System.out.println("BOSS sampler stopped: " + status);
                 return 2;
             } finally {
-                closeOwned(page, browser, attached);
+                try { closeOwned(page, browser, attached); }
+                finally { if (playwright != null) playwright.close(); }
                 // Playwright.close disconnects CDP; attached browsers and their other tabs are never closed.
             }
         }
@@ -115,18 +121,21 @@ public final class RecruitmentSampler {
         page.onPopup(popup -> popup.close()); // Card reading must stay in the owned tab.
     }
 
-    private static void manualLogin(Page page, Options options) throws Exception {
+    static void manualLogin(Page page, BossResponseCapture capture, Options options) throws Exception {
+        ensureNoGate(capture);
+        check(page, options, Long.MAX_VALUE, false);
         page.navigate("https://www.zhipin.com/", new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
         System.out.println("Temporary BOSS window: complete manual login, then press Enter here within 120 seconds. Authentication will not be saved.");
         long deadline = System.nanoTime() + 120_000_000_000L;
         while (System.in.available() == 0) {
+            ensureNoGate(capture);
             check(page, options, deadline, false);
             page.waitForTimeout(100);
         }
         while (System.in.available() > 0 && System.in.read() != '\n') { }
     }
 
-    private static int collect(Page page, BossResponseCapture capture, Options options, PrivateOutput output) {
+    static int collect(Page page, BossResponseCapture capture, Options options, PrivateOutput output) {
         long deadline = System.nanoTime() + 120_000_000_000L;
         var seen = new HashSet<String>();
         int attempts = 0;
@@ -134,10 +143,12 @@ public final class RecruitmentSampler {
         int scrolls = 0;
         int unchanged = 0;
         String discoveryStop = "no_new_cards";
+        ensureNoGate(capture);
+        check(page, options, deadline, false);
         if (options.source.jobId() != null) {
             capture.begin(options.source);
             page.navigate(options.source.uri().toString(), new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
-            Map<String, Object> sample = await(page, capture, options, deadline);
+            Map<String, Object> sample = await(page, capture, options, deadline, true);
             outputUnchecked(output, sample);
             return "ok".equals(sample.get("status")) ? 0 : 2;
         }
@@ -160,22 +171,32 @@ public final class RecruitmentSampler {
                 // The default first selection may not issue a request: read another card then return.
                 if (index == 0 && count > 1) {
                     capture.begin(null);
-                    readCard(page.locator(CARDS).nth(1));
+                    ensureNoGate(capture);
+                    check(page, options, deadline, true);
+                    readCard(page.locator(CARDS).nth(1), page, capture, options, deadline);
                     page.waitForTimeout(500);
+                    ensureNoGate(capture);
+                    check(page, options, deadline, true);
                     capture.begin(target);
                 }
-                readCard(page.locator(CARDS).nth(index));
-                Map<String, Object> sample = await(page, capture, options, deadline);
+                ensureNoGate(capture);
+                check(page, options, deadline, true);
+                readCard(page.locator(CARDS).nth(index), page, capture, options, deadline);
+                Map<String, Object> sample = await(page, capture, options, deadline, false);
                 if (index == 0 && "detail_response_timeout".equals(sample.get("status"))) {
+                    ensureNoGate(capture);
+                    check(page, options, deadline, true);
                     capture.begin(target);
                     page.navigate(target.uri().toString(), new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
-                    sample = await(page, capture, options, deadline);
+                    sample = await(page, capture, options, deadline, true);
                 }
                 sample.put("samplingListUrl", options.source.uri().toString());
                 outputUnchecked(output, sample);
                 attempts++;
                 if ("ok".equals(sample.get("status"))) successes++;
                 if (!page.url().equals(options.source.uri().toString())) {
+                    ensureNoGate(capture);
+                    check(page, options, deadline, true);
                     page.navigate(options.source.uri().toString(), new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
                     page.waitForTimeout(500);
                     break;
@@ -187,9 +208,13 @@ public final class RecruitmentSampler {
             if (scrolls >= 5) { discoveryStop = "scroll_limit"; break; }
             if (unchanged >= 2) break;
             scrolls++;
+            ensureNoGate(capture);
+            check(page, options, deadline, true);
             page.mouse().wheel(0, 900);
             page.waitForTimeout(1000);
         }
+        ensureNoGate(capture);
+        check(page, options, deadline, true);
         String status = attempts == 0 ? "unsupported_layout" : attempts < options.limit ? discoveryStop : "limit_reached";
         var summary = DetailParser.failed(DetailParser.base(options.source, Instant.now().toString()), status);
         summary.put("recordType", "run_status");
@@ -209,12 +234,14 @@ public final class RecruitmentSampler {
         }
         return null;
     }
-    private static void readCard(Locator card) {
+    private static void readCard(Locator card, Page page, BossResponseCapture capture, Options options, long deadline) {
         Locator body = card.locator(".job-card-body");
         if (body.count() != 1) throw new Stop("unsupported_layout");
+        ensureNoGate(capture);
+        check(page, options, deadline, true);
         body.click(); // Read area only; no button, recruiter or communication selector.
     }
-    private static Map<String, Object> await(Page page, BossResponseCapture capture, Options options, long deadline) {
+    private static Map<String, Object> await(Page page, BossResponseCapture capture, Options options, long deadline, boolean detailNavigation) {
         long waitUntil = Math.min(deadline, System.nanoTime() + 8_000_000_000L);
         while (capture.result == null && System.nanoTime() < waitUntil) {
             ensureNoGate(capture);
@@ -225,6 +252,16 @@ public final class RecruitmentSampler {
         ensureNoGate(capture);
         check(page, options, deadline, true);
         if (capture.result != null) return capture.result;
+        if (detailNavigation && !capture.detailRequested && "detail_response_timeout".equals(capture.failure)) {
+            String currentUrl = page.url();
+            String html = page.content();
+            ensureNoGate(capture);
+            check(page, options, deadline, true);
+            if (!currentUrl.equals(page.url())) throw new Stop("redirect_rejected");
+            var sample = DetailParser.parseSsr(capture.target(), currentUrl, html, Instant.now().toString());
+            if (List.of("auth_required", "verification_required").contains(sample.get("status"))) throw new Stop((String) sample.get("status"));
+            return sample;
+        }
         return DetailParser.failed(DetailParser.base(capture.target(), Instant.now().toString()), capture.failure);
     }
     private static void ensureNoGate(BossResponseCapture capture) {
@@ -232,9 +269,9 @@ public final class RecruitmentSampler {
     }
     static void check(Page page, Options options, long deadline, boolean detectGate) {
         if (Thread.currentThread().isInterrupted() || options.cancel != null && Files.exists(options.cancel)) throw new Stop("cancelled");
-        if (page.isClosed()) throw new Stop("window_closed");
+        if (page != null && page.isClosed()) throw new Stop("window_closed");
         if (System.nanoTime() >= deadline) throw new Stop("time_limit");
-        if (!detectGate) return;
+        if (!detectGate || page == null) return;
         var uri = SourceUrl.uri(page.url());
         if (!SourceUrl.trusted(uri)) throw new Stop("redirect_rejected");
         String path = uri.getPath();

@@ -189,4 +189,191 @@ class RecruitmentSamplerTest {
                 "--output", "out", "--limit", "21"}));
     }
 
+    private RecruitmentSampler.Options options(String url, String name, Path cancel) {
+        return RecruitmentSampler.Options.parse(new String[]{"--url", url, "--output", temp.resolve(name).toString(),
+                "--cancel-file", cancel.toString(), "--limit", "1"});
+    }
+
+    private Page page(String url) {
+        Page page = mock(Page.class);
+        when(page.url()).thenReturn(url);
+        var locators = new java.util.HashMap<String, Locator>();
+        when(page.locator(anyString())).thenAnswer(call -> locators.computeIfAbsent(call.getArgument(0), key -> mock(Locator.class)));
+        return page;
+    }
+
+    private String ssr() throws Exception {
+        try (var input = getClass().getResourceAsStream("/sample/boss-detail.html")) {
+            assertNotNull(input);
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    @Test void preCancelledRunNeverCreatesPlaywrightAndWritesCancelled() throws Exception {
+        Path cancel = temp.resolve("cancel");
+        Files.createFile(cancel);
+        try (var playwright = mockStatic(Playwright.class)) {
+            var options = options(URL, "cancel-run", cancel);
+            assertEquals(2, RecruitmentSampler.run(options));
+            playwright.verifyNoInteractions();
+            assertTrue(Files.readString(options.output().resolve("samples.jsonl")).contains("cancelled"));
+            Files.delete(cancel);
+            Thread.currentThread().interrupt();
+            try {
+                assertEquals(2, RecruitmentSampler.run(options(URL, "interrupt-run", cancel)));
+                playwright.verifyNoInteractions();
+            } finally { Thread.interrupted(); }
+        }
+    }
+
+    @Test void cancelledCollectAndManualLoginNeverNavigate() throws Exception {
+        Path cancel = temp.resolve("cancel");
+        Files.createFile(cancel);
+        for (String url : List.of(URL, "https://www.zhipin.com/web/geek/jobs")) {
+            Page page = mock(Page.class);
+            var options = options(url, "cancel-collect", cancel);
+            try (var output = new RecruitmentSampler.PrivateOutput(temp.resolve("out-" + (url.equals(URL) ? "detail" : "list")))) {
+                assertEquals("cancelled", assertThrows(RecruitmentSampler.Stop.class,
+                        () -> RecruitmentSampler.collect(page, new BossResponseCapture(), options, output)).status);
+                assertEquals("cancelled", assertThrows(RecruitmentSampler.Stop.class,
+                        () -> RecruitmentSampler.manualLogin(page, new BossResponseCapture(), options)).status);
+                verifyNoInteractions(page);
+            }
+        }
+    }
+
+    @Test void switchWaitStopsBeforeTargetClickForGateCancelAndClosure() throws Exception {
+        String list = "https://www.zhipin.com/web/geek/jobs";
+        for (String stop : List.of("verification_required", "cancelled", "window_closed")) {
+            Path cancel = temp.resolve("cancel-" + stop);
+            Page page = page(list);
+            var capture = new BossResponseCapture();
+            Locator cards = mock(Locator.class), first = mock(Locator.class), second = mock(Locator.class);
+            Locator links = mock(Locator.class), link = mock(Locator.class), body = mock(Locator.class);
+            when(page.locator("li.job-card-box, li.job-card-wrapper")).thenReturn(cards);
+            when(cards.count()).thenReturn(2);
+            when(cards.nth(0)).thenReturn(first);
+            when(cards.nth(1)).thenReturn(second);
+            when(first.locator("a[href*='/job_detail/']")).thenReturn(links);
+            when(links.count()).thenReturn(1);
+            when(links.nth(0)).thenReturn(link);
+            when(link.getAttribute("href")).thenReturn("/job_detail/synthetic_001.html");
+            when(second.locator(".job-card-body")).thenReturn(body);
+            when(body.count()).thenReturn(1);
+            doAnswer(call -> {
+                if (stop.equals("cancelled")) Files.createFile(cancel);
+                else if (stop.equals("window_closed")) when(page.isClosed()).thenReturn(true);
+                else {
+                    Response response = mock(Response.class); Request request = mock(Request.class);
+                    when(response.url()).thenReturn(API); when(response.request()).thenReturn(request);
+                    when(request.method()).thenReturn("GET"); when(response.status()).thenReturn(429);
+                    capture.observeGate(response);
+                }
+                return null;
+            }).when(page).waitForTimeout(500);
+            try (var output = new RecruitmentSampler.PrivateOutput(temp.resolve("switch-" + stop))) {
+                assertEquals(stop, assertThrows(RecruitmentSampler.Stop.class,
+                        () -> RecruitmentSampler.collect(page, capture, options(list, "unused", cancel), output)).status);
+            }
+            verify(body).click();
+            verify(first, never()).locator(".job-card-body");
+            verify(page, times(1)).navigate(eq(list), any(Page.NavigateOptions.class));
+            verify(page, never()).mouse();
+            assertNull(capture.target()); // No begin(target) after the switch wait.
+        }
+    }
+
+    @Test void explicitNavigationReadsNoJsonSsrAndPreservesUnicodeAndMissingFields() throws Exception {
+        Page page = page(URL);
+        when(page.content()).thenReturn(ssr());
+        doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
+        var options = options(URL, "ssr", temp.resolve("cancel"));
+        try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
+            assertEquals(0, RecruitmentSampler.collect(page, new BossResponseCapture(), options, output));
+        }
+        var sample = DetailParser.JSON.readTree(Files.readString(options.output().resolve("samples.jsonl")));
+        assertEquals("boss_browser_detail_ssr", sample.path("samplingSource").asText());
+        assertEquals("开发者 🧪", sample.path("facts").path("title").asText());
+        assertEquals("第一行 Java 17\n第二行 Unicode 🧪\n第三行", sample.path("facts").path("rawJd").asText());
+        for (String field : List.of("company", "city", "salary", "experience", "education", "rawBenefits"))
+            assertTrue(sample.path("facts").path(field).isNull());
+        assertTrue(sample.path("detailData").path("jobTags").isNull());
+        assertFalse(sample.toString().contains("NOT_WELFARE"));
+        assertTrue(Files.readString(options.output().resolve("labels.jsonl")).contains("pending"));
+    }
+
+    @Test void ssrRejectsEmptyJdWrongOriginIdentityAndLoginVerificationShells() throws Exception {
+        var source = SourceUrl.parse(URL);
+        assertEquals("missing_detail", DetailParser.parseSsr(source, URL, "<h1>Title</h1><div class='job-sec-text'> </div>", "now").get("status"));
+        assertEquals("identity_mismatch", DetailParser.parseSsr(source, URL.replace("synthetic_001", "other"), ssr(), "now").get("status"));
+        assertEquals("redirect_rejected", DetailParser.parseSsr(source, URL.replace("www.zhipin.com", "evil.test"), ssr(), "now").get("status"));
+        assertEquals("auth_required", DetailParser.parseSsr(source, URL, ssr() + "<input type='password'>", "now").get("status"));
+        assertEquals("verification_required", DetailParser.parseSsr(source, URL, ssr() + "<div id='captcha'></div>", "now").get("status"));
+    }
+
+    @Test void firstCardNavigationFallbackReadsSsrOnlyAfterNoJson() throws Exception {
+        String list = "https://www.zhipin.com/web/geek/jobs";
+        Page page = page(list);
+        Locator cards = mock(Locator.class), card = mock(Locator.class), links = mock(Locator.class), body = mock(Locator.class);
+        when(page.locator("li.job-card-box, li.job-card-wrapper")).thenReturn(cards);
+        when(cards.count()).thenReturn(1); when(cards.nth(0)).thenReturn(card);
+        when(card.locator("a[href*='/job_detail/']")).thenReturn(links);
+        when(links.count()).thenReturn(1); when(links.nth(0)).thenReturn(links);
+        when(links.getAttribute("href")).thenReturn("/job_detail/synthetic_001.html");
+        when(card.locator(".job-card-body")).thenReturn(body); when(body.count()).thenReturn(1);
+        doAnswer(call -> { when(page.url()).thenReturn(call.getArgument(0)); return null; })
+                .when(page).navigate(anyString(), any(Page.NavigateOptions.class));
+        doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
+        when(page.content()).thenReturn(ssr());
+        var options = options(list, "fallback", temp.resolve("cancel"));
+        try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
+            assertEquals(0, RecruitmentSampler.collect(page, new BossResponseCapture(), options, output));
+        }
+        verify(body).click();
+        verify(page).navigate(eq(URL), any(Page.NavigateOptions.class));
+        verify(page, times(1)).content();
+        String exported = Files.readString(options.output().resolve("samples.jsonl"));
+        assertTrue(exported.contains("boss_browser_detail_ssr"));
+        assertTrue(exported.contains("samplingListUrl"));
+    }
+
+    @Test void rejectedJsonIsNeverRescuedByReadableSsr() throws Exception {
+        Page page = page(URL);
+        var capture = new BossResponseCapture();
+        doAnswer(call -> {
+            capture.accept(1, fixture().replace("synthetic_001", "wrong"));
+            return null;
+        }).when(page).navigate(eq(URL), any(Page.NavigateOptions.class));
+        doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
+        var options = options(URL, "bad-json", temp.resolve("cancel"));
+        try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
+            assertEquals(2, RecruitmentSampler.collect(page, capture, options, output));
+        }
+        verify(page, never()).content();
+        assertTrue(Files.readString(options.output().resolve("samples.jsonl")).contains("identity_mismatch"));
+    }
+
+    @Test void noJsonNavigationCannotExportEmptyWrongIdentityForeignOrGatedSsr() throws Exception {
+        for (String boundary : List.of("empty", "wrong", "foreign", "login", "verify")) {
+            String current = boundary.equals("wrong") ? URL.replace("synthetic_001", "other")
+                    : boundary.equals("foreign") ? URL.replace("www.zhipin.com", "evil.test") : URL;
+            Page page = page(current);
+            when(page.content()).thenReturn(boundary.equals("empty") ? "<h1>Title</h1><div class='job-sec-text'> </div>" : ssr());
+            if (boundary.equals("login")) when(page.locator("input[type=password]:visible").count()).thenReturn(1);
+            if (boundary.equals("verify")) when(page.locator("#captcha, .captcha, iframe[src*='captcha']").count()).thenReturn(1);
+            doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
+            var options = options(URL, "boundary-" + boundary, temp.resolve("cancel"));
+            try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
+                if (List.of("foreign", "login", "verify").contains(boundary)) {
+                    String status = boundary.equals("foreign") ? "redirect_rejected" : boundary.equals("login") ? "auth_required" : "verification_required";
+                    assertEquals(status, assertThrows(RecruitmentSampler.Stop.class,
+                            () -> RecruitmentSampler.collect(page, new BossResponseCapture(), options, output)).status);
+                    verify(page, never()).content();
+                } else assertEquals(2, RecruitmentSampler.collect(page, new BossResponseCapture(), options, output));
+            }
+            assertFalse(Files.readString(options.output().resolve("samples.jsonl")).contains("\"status\":\"ok\""));
+            assertEquals("", Files.readString(options.output().resolve("labels.jsonl")));
+        }
+    }
+
 }

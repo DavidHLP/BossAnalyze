@@ -13,19 +13,23 @@ final class BossResponseCapture {
     private SourceUrl target;
     Map<String, Object> result;
     String gate;
+    boolean detailRequested;
     String failure = "detail_response_timeout";
 
     long begin(SourceUrl target) {
         this.target = target;
         result = null;
+        detailRequested = false;
         failure = "detail_response_timeout";
         requests.clear();
         return ++generation;
     }
     SourceUrl target() { return target; }
     void started(Request request) {
-        if (target != null && endpoint(request.url()) && "GET".equals(request.method()))
+        if (target != null && endpoint(request.url()) && "GET".equals(request.method())) {
+            detailRequested = true;
             requests.put(request, generation);
+        }
     }
     void observeGate(Response response) {
         try {

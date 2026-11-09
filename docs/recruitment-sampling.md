@@ -12,7 +12,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 /home/david/.local/share/mise/installs/maven/3.9.16/apache-maven-3.9.16/bin/mvn -f backend/pom.xml -pl crawler -am verify
 ```
 
-仅运行定向离线测试：同一 Maven 命令改为 `test -Dtest=RecruitmentSamplerTest -Dsurefire.failIfNoSpecifiedTests=false`。fixture `backend/crawler/src/test/resources/sample/boss-detail.json` 是自写合成响应，含用于验证白名单的虚构敏感节点，不是真实招聘或登录数据。测试不启动任何浏览器、不访问平台、业务库或 AI。
+仅运行定向离线测试：同一 Maven 命令改为 `test -Dtest=RecruitmentSamplerTest -Dsurefire.failIfNoSpecifiedTests=false`。fixture `backend/crawler/src/test/resources/sample/boss-detail.json` 与 `boss-detail.html` 是自写合成响应/SSR，含用于验证白名单的虚构敏感节点，不是真实招聘或登录数据。测试不启动任何浏览器、不访问平台、业务库或 AI。
 
 ## 父任务人工运行方式
 
@@ -46,9 +46,11 @@ CDP 只接受 `http://127.0.0.1:端口` 或 `http://[::1]:端口`（可带尾部
 
 只接受精确 HTTPS host `www.zhipin.com`、路径 `/wapi/zpgeek/job/detail.json`、GET、HTTP 200、`application/json`，并拒绝来自其他来源/路径/方法的重定向链；响应 `code` 必须为整数 0，`zpData.jobInfo.encryptId` 必须等于目标卡片/详情身份。只读取已完成请求的正文，防止未完成响应阻塞等待循环。错误身份的正文不会输出，即使标题看起来相同。后台旧响应不作为“首条成功”。
 
+明确详情导航（直接详情 URL 或首卡的一次导航回退）等待 JSON 后，仅在该轮没有详情 JSON 请求且没有 JSON 错误时，允许从 `page.content()` 读取 SSR。读取前后检查停止状态，并要求真实 currentURL 未变化、与目标严格同源/同详情路径/同 jobId；外域、异 ID、登录/验证状态、空标题或空 JD 均不成功。只读取唯一 `h1` 与唯一 `.job-sec-text`，使用 Jsoup `wholeText()` 保留 Unicode、文本节点换行和 `<br>` 换行，来源标为 `boss_browser_detail_ssr`。卡片摘要和 job-tags 不参与正文/福利填充；SSR 的公司、城市、薪资、经验、学历与福利均为 null。JSON 主路径来源仍为 `boss_browser_detail_response`，错误或未完成 JSON 不允许用 SSR 掩盖。
+
 默认限 5 个不同岗位，`--limit` 可为 1–20，尝试失败也计入额度。最多滚动 5 次，连续两轮无新身份停止；每轮至多检查 100 张卡片。点击超时 3 秒，导航 15 秒，详情响应等待 8 秒，收集总时限 120 秒（手工登录另计 120 秒）。通常岗位间隔 1 秒，首次切换等待 500ms；没有无限重试或持续任务。
 
-创建 `--cancel-file` 指定文件、关闭工具标签页/窗口、线程中断，或遇到明确登录/验证/401/403/429，均停止。取消在等待循环/动作之间检查，单次导航最长可能等待 15 秒。恢复需手工解决前提后另开新输出目录，不自动绕过或反复登录。检测未覆盖所有平台验证页：未识别的验证/登录壳会以 timeout/unsupported_layout 等失败，不能据此推断已登录。
+创建 `--cancel-file` 指定文件、关闭工具标签页/窗口、线程中断，或遇到明确登录/验证/401/403/429，均停止。启动前已有取消文件或线程中断时，在创建 Playwright、连接/创建浏览器之前写出 cancelled；取消在等待循环和每次导航/点击/滚动之前检查，首卡切换等待结束后先检查停止状态再切回目标，单次导航最长可能等待 15 秒。恢复需手工解决前提后另开新输出目录，不自动绕过或反复登录。检测未覆盖所有平台验证页：未识别的验证/登录壳会以 timeout/unsupported_layout 等失败，不能据此推断已登录。
 
 典型状态：`ok`、`unsupported_layout`、`identity_mismatch`、`missing_detail`、`invalid_detail_json`、`api_error`、`invalid_detail_response`、`redirect_rejected`、`detail_response_timeout`、`detail_read_failed`、`detail_too_large`、`auth_required`、`verification_required`、`cancelled`、`window_closed`、`time_limit`、`browser_unavailable`。非零 API code 保守返回 api_error，不猜测未确认 code 的登录含义。控制台只打印固定状态和数量，不输出异常对象、响应正文、请求 query、Cookie、响应头或 recruiter 信息。
 
@@ -72,4 +74,4 @@ labels.jsonl 只对应成功样本，status=pending，requirements/benefits/evid
 - [Boss.java 1188–1229：详情监听与身份字段](https://github.com/loks666/get_jobs/blob/36bf5f986fad93374d77b99205c7684f8450874a/src/main/java/com/getjobs/worker/boss/Boss.java#L1188-L1229)
 - [PlaywrightManager.java：参考会话管理](https://github.com/loks666/get_jobs/blob/36bf5f986fad93374d77b99205c7684f8450874a/src/main/java/com/getjobs/worker/manager/PlaywrightManager.java)
 
-本实现未启动/连接真实浏览器、读取本机用户资料、真实 Cookie 或私有首条样本，也未真实采集。用户已授权使用现有登录态，但父任务当前可连接浏览器跳登录页；缺有效 CDP/Cookie 入口仍是运行阻塞，不能把授权或合成 fixture 成功等同有效登录。卡片结构、公司字段及真实详情响应需父任务在有效会话下验收；页面漂移可能明确 unsupported_layout。其他招聘平台不属于当前版本。
+本实现未启动/连接真实浏览器、读取本机用户资料、真实 Cookie 或私有首条样本，也未真实采集。用户已授权使用现有登录态，但父任务当前可连接浏览器跳登录页；缺有效 CDP/Cookie 入口仍是运行阻塞，不能把授权或合成 fixture 成功等同有效登录。本轮 Spec 修复仅使用内存 mock 和合成 SSR/JSON 验证；父任务此前公开页观察不算本轮在线证明，父任务后续遇安全检查已停止，本轮没有重访。卡片结构、公司字段、SSR 和真实详情响应需父任务另行验收；页面漂移可能明确 unsupported_layout。其他招聘平台不属于当前版本。

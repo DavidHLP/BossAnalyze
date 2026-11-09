@@ -48,16 +48,45 @@ public final class DetailParser {
         facts.put("education", scalar(job.get("degreeName")));
         facts.put("rawJd", jd);
         facts.put("rawBenefits", null); // No verified benefits field; skills are not welfare.
+        return complete(result, facts, "boss_browser_detail_response");
+    }
+
+    static Map<String, Object> parseSsr(SourceUrl source, String currentUrl, String html, String fetchedAt) {
+        var result = base(source, fetchedAt);
+        try {
+            if (source.jobId() == null || !source.equals(SourceUrl.parse(currentUrl)))
+                return failed(result, "identity_mismatch");
+        } catch (IllegalArgumentException exception) { return failed(result, "redirect_rejected"); }
+        var document = org.jsoup.Jsoup.parse(html);
+        if (!document.select("#captcha, .captcha, iframe[src*=captcha]").isEmpty())
+            return failed(result, "verification_required");
+        if (!document.select("input[type=password]").isEmpty())
+            return failed(result, "auth_required");
+        var titles = document.select("h1");
+        var descriptions = document.select(".job-sec-text");
+        if (titles.size() != 1 || descriptions.size() != 1) return failed(result, "missing_detail");
+        String title = titles.first().wholeText();
+        String jd = descriptions.first().wholeText();
+        if (title.isBlank() || jd.isBlank()) return failed(result, "missing_detail");
+        Map<String, Object> facts = new LinkedHashMap<>();
+        facts.put("title", title);
+        for (String field : List.of("company", "city", "salary", "experience", "education")) facts.put(field, null);
+        facts.put("rawJd", jd);
+        facts.put("rawBenefits", null);
+        return complete(result, facts, "boss_browser_detail_ssr");
+    }
+
+    private static Map<String, Object> complete(Map<String, Object> result, Map<String, Object> facts, String samplingSource) {
         result.put("facts", facts);
         Map<String, Object> basic = new LinkedHashMap<>();
-        basic.put("positionName", title);
+        basic.put("positionName", facts.get("title"));
         basic.put("salary", facts.get("salary"));
         basic.put("city", facts.get("city"));
         basic.put("experience", facts.get("experience"));
         basic.put("degree", facts.get("education"));
         basic.put("address", null);
         Map<String, Object> description = new LinkedHashMap<>();
-        description.put("fullDescription", jd);
+        description.put("fullDescription", facts.get("rawJd"));
         description.put("requirements", null);
         description.put("responsibilities", null);
         description.put("keywords", null);
@@ -69,7 +98,7 @@ public final class DetailParser {
         result.put("revision", hash(toJson(facts)));
         result.put("splitGroup", result.get("identity"));
         result.put("split", "blind_holdout");
-        result.put("samplingSource", "boss_browser_detail_response");
+        result.put("samplingSource", samplingSource);
         result.put("detailComplete", true);
         result.put("status", "ok");
         return result;
