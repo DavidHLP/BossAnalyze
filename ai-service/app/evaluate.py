@@ -3,11 +3,12 @@ import argparse
 import json
 import re
 import unicodedata
+from decimal import Decimal, localcontext
 from difflib import SequenceMatcher
 from itertools import combinations
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError, field_validator
 
 from .jev import unique_object
 from .schemas import Evidence
@@ -29,6 +30,7 @@ class Gold(Record):
     subgroup: str
     requirements: list[Evidence]
     benefits: list[Evidence]
+    coreRequirements: list[Evidence] | None = None
     unknown: dict[str, StrictBool]
     ranking: list[str]
 
@@ -40,8 +42,25 @@ class Prediction(BaseModel):
     candidates: list[Evidence]
     requirements: list[Evidence]
     benefits: list[Evidence]
+    coreRequirements: list[Evidence] | None = None
     unknown: dict[str, StrictBool]
     ranking: list[str]
+    latencyMs: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    costUsd: str | None = None
+
+    @field_validator("latencyMs", mode="before")
+    @classmethod
+    def observed_latency(cls, value):
+        if value is not None and type(value) not in (int, float):
+            raise ValueError("latency must be numeric milliseconds")
+        return value
+
+    @field_validator("costUsd")
+    @classmethod
+    def observed_cost(cls, value):
+        if value is not None and not re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", value):
+            raise ValueError("cost must be a nonnegative USD decimal string")
+        return value
 
 
 def load(path, schema):
@@ -92,8 +111,15 @@ def metrics(gold, predictions):
     counts = {k: 0 for k in ("samples", "evidence", "validEvidence", "candidateGold", "candidateHit",
                             "unknown", "unknownTotal", "unknownCorrect", "rankingPairs", "rankingCorrect")}
     classes = {k: dict(tp=0, predicted=0, gold=0) for k in ("requirements", "benefits")}
+    core = dict(tp=0, predicted=0, gold=0)
+    core_complete = True
+    costs, latencies = [], []
     for g in gold:
         p = predictions[g.id]
+        if p.costUsd is not None:
+            costs.append(Decimal(p.costUsd))
+        if p.latencyMs is not None:
+            latencies.append(p.latencyMs)
         counts["samples"] += 1
         if p.model != "typesafe/jev-1.14.0" or p.unknown.keys() != g.unknown.keys():
             raise ValueError("incompatible predictions")
@@ -115,6 +141,23 @@ def metrics(gold, predictions):
             classes[name]["tp"] += len(expected & actual)
             classes[name]["predicted"] += len(actual)
             classes[name]["gold"] += len(expected)
+        selected = []
+        for row in (g, p):
+            entries = row.coreRequirements
+            core_complete &= entries is not None
+            chosen, valid = spans(entries or [], g.source)
+            requirements, _ = spans(row.requirements, g.source)
+            if not chosen <= requirements:
+                raise ValueError("core evidence outside requirements")
+            if row is g and valid != len(chosen):
+                raise ValueError("invalid gold core evidence")
+            if row is p:
+                counts["evidence"] += len(chosen)
+                counts["validEvidence"] += valid
+            selected.append(chosen)
+        core["tp"] += len(selected[0] & selected[1])
+        core["gold"] += len(selected[0])
+        core["predicted"] += len(selected[1])
         counts["unknown"] += sum(p.unknown.values())
         counts["unknownTotal"] += len(g.unknown)
         counts["unknownCorrect"] += sum(v == p.unknown[k] for k, v in g.unknown.items())
@@ -126,7 +169,21 @@ def metrics(gold, predictions):
         for a, b in combinations(g.ranking, 2):
             counts["rankingPairs"] += 1
             counts["rankingCorrect"] += a in positions and b in positions and positions[a] < positions[b]
+    total_cost = None
+    if gold and len(costs) == len(gold):
+        # Align every coefficient plus carry digits; default Decimal precision loses paid fractions.
+        with localcontext() as context:
+            context.prec = max(len(c.as_tuple().digits) + c.as_tuple().exponent for c in costs) - min(
+                c.as_tuple().exponent for c in costs) + len(str(len(costs))) + 1
+            total_cost = format(sum(costs, Decimal(0)), "f")
     return dict(counts=counts,
+                coreSelection=dict(core, precision=ratio(core["tp"], core["predicted"]) if core_complete else None,
+                                   recall=ratio(core["tp"], core["gold"]) if core_complete else None),
+                cost=dict(totalUsd=total_cost, knownSamples=len(costs), coverage=ratio(len(costs), len(gold))),
+                latency=dict(p95Ms=sorted(latencies)[(95 * len(gold) + 99) // 100 - 1]
+                             if gold and len(latencies) == len(gold) else None,
+                             knownSamples=len(latencies), coverage=ratio(len(latencies), len(gold)),
+                             percentileMethod="nearest-rank"),
                 classes={k: dict(v, precision=ratio(v["tp"], v["predicted"]), recall=ratio(v["tp"], v["gold"]))
                          for k, v in classes.items()},
                 candidateRecall=ratio(counts["candidateHit"], counts["candidateGold"]),
@@ -166,7 +223,17 @@ def evaluate(gold, predicted, development, min_samples, min_ranking):
         values = [(report["candidateRecall"], .98), (report["evidenceConsistency"], 1.0),
                   (report["unknownAgreement"], 1.0), (report["rankingAgreement"], min_ranking)]
         values += [(v["precision"], .95) for v in report["classes"].values()]
+        values += [(report["coreSelection"]["precision"], .95)]
+        checks.extend([report["coreSelection"]["recall"] is not None or None,
+                       report["cost"]["totalUsd"] is not None or None,
+                       report["latency"]["p95Ms"] is not None or None])
         checks.extend(None if v is None else v >= threshold for v, threshold in values)
+    # Missing labels must not hide a measured selection failure in the comparable population.
+    for population in [gold, *[[g for g in gold if g.subgroup == name] for name in groups]]:
+        comparable = [g for g in population if g.coreRequirements is not None
+                      and predictions[g.id].coreRequirements is not None]
+        precision = metrics(comparable, predictions)["coreSelection"]["precision"]
+        checks.append(None if precision is None else precision >= .95)
     eligible = (len(gold) >= min_samples and all(g.dataOrigin != "synthetic" for g in gold)
                 and all(r["counts"]["samples"] >= min_samples for r in groups.values()))
     status = "fail" if False in checks else "unverifiable" if None in checks or not eligible else "pass"
@@ -187,7 +254,8 @@ def main():
         result = evaluate(load(args.gold, Gold), load(args.predictions, Prediction),
                           load(args.development, Record), args.min_samples, args.min_ranking_agreement)
     except (OSError, ValueError, TypeError, KeyError, ValidationError):
-        result = dict(status="unverifiable", samples=0, reason="invalid, unreviewed, incomplete or leaking input")
+        result = dict(status="unverifiable", samples=0, qualityApproval="unverifiable",
+                      reason="invalid, unreviewed, incomplete or leaking input")
     print(json.dumps(result, ensure_ascii=False, allow_nan=False))
     return {"pass": 0, "fail": 1, "unverifiable": 2}[result["status"]]
 
