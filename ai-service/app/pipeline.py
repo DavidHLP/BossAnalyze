@@ -147,14 +147,22 @@ class Pipeline:
 
         tasks = [asyncio.create_task(guarded(job)) for job in req.jobs]
         try:
-            async with asyncio.timeout(max(0, deadline - monotonic())):
-                items = await asyncio.gather(*tasks)
+            _, pending = await asyncio.wait(tasks, timeout=max(0, deadline - monotonic()))
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            if pending:
+                for values in usage.values():
+                    values.append(None)
+                failures.extend(ServiceError("deadline_exhausted", 504) for _ in pending)
+            items = [dict(jobId=job.jobId, status="failed", score=None, dimensions=[])
+                     if task in pending else task.result() for job, task in zip(req.jobs, tasks)]
         except BaseException:
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
-        if failures and len(failures) == len(items):
+        if failures and all(item["status"] == "failed" for item in items):
             raise failures[0]
         return dict(items=items, complete=all(x["status"] == "scored" for x in items), model=self.cfg.model,
                     policyVersion=POLICY, usage=usage_output(usage))

@@ -80,7 +80,9 @@ def create_app(settings=None, transport=None):
                 return error("invalid_input", 400, rid)
             request._body = bytes(body)
         try:
-            async with asyncio.timeout(cfg.deadline_ms / 1000):
+            # Match owns its inference deadline; allow bounded cancellation/response cleanup afterward.
+            cleanup = 1 if request.url.path == "/internal/v1/match-batch" else 0
+            async with asyncio.timeout(cfg.deadline_ms / 1000 + cleanup):
                 response = await call_next(request)
             response.headers["X-Request-ID"] = rid
             return response

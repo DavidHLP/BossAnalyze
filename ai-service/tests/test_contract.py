@@ -295,6 +295,74 @@ async def test_partial_match_failure_keeps_exact_job_ids():
         assert not r.json()["complete"]
 
 
+@pytest.mark.parametrize("cfg_ms,request_ms", [(1000, 50), (50, 1000)])
+async def test_partial_match_deadline_keeps_completed_job_and_cancels_unfinished(cfg_ms, request_ms):
+    cancelled = asyncio.Event()
+
+    async def handler(request):
+        payload = json.loads(request.content)
+        if json.loads(payload["state"])["jobId"] == "slow":
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+        return httpx.Response(200, json=fixture(payload))
+
+    app, client = await api(replace(CFG, deadline_ms=cfg_ms), handler)
+    async with client:
+        response = await client.post("/internal/v1/match-batch", headers=AUTH, json={
+            "resume": "合成 Python 经历", "timeoutMs": request_ms,
+            "jobs": [{"jobId": job_id, "detailData": DETAIL} for job_id in ("ok", "slow")]})
+        assert response.status_code == 200, response.text
+        result = response.json()
+        completed, failed = result["items"]
+        assert completed["jobId"] == "ok" and completed["score"] == pytest.approx(8.75)
+        assert failed == dict(jobId="slow", status="failed", score=None, dimensions=[])
+        assert not result["complete"] and cancelled.is_set()
+        assert result["usage"] == dict(inputTokens=None, outputTokens=None)
+
+
+async def test_match_external_cancellation_cleans_tasks_and_propagates():
+    from app.main import MatchRequest
+    from app.pipeline import Pipeline
+
+    started, cancelled = asyncio.Event(), asyncio.Event()
+
+    async def handler(request):
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    app, client = await api(handler=handler)
+    async with client:
+        task = asyncio.create_task(Pipeline(app.state.jev).match(MatchRequest(
+            resume="合成经历", jobs=[{"jobId": "slow", "detailData": DETAIL}])))
+        await asyncio.wait_for(started.wait(), timeout=1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert cancelled.is_set()
+
+
+async def test_match_deadline_without_completed_jobs_remains_504():
+    cancelled = asyncio.Event()
+
+    async def handler(request):
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    app, client = await api(handler=handler)
+    async with client:
+        response = await client.post("/internal/v1/match-batch", headers=AUTH, json={
+            "resume": "合成经历", "timeoutMs": 50,
+            "jobs": [{"jobId": "slow", "detailData": DETAIL}]})
+        assert response.status_code == 504 and cancelled.is_set()
+
+
 async def test_not_applicable_reweights_and_missing_links_prevents_scoring():
     def handler(request):
         p = json.loads(request.content)
