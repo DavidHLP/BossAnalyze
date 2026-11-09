@@ -258,6 +258,13 @@ public final class RecruitmentSampler {
             ensureNoGate(capture);
             check(page, options, deadline, true);
             if (!currentUrl.equals(page.url())) throw new Stop("redirect_rejected");
+            // Browser reads can dispatch detail events after the initial SSR eligibility check.
+            ensureNoGate(capture);
+            check(page, options, deadline, false);
+            if (capture.result != null) return capture.result;
+            if ("api_error".equals(capture.failure)) throw new Stop(capture.failure);
+            if (capture.detailRequested || !"detail_response_timeout".equals(capture.failure))
+                return DetailParser.failed(DetailParser.base(capture.target(), Instant.now().toString()), capture.failure);
             var sample = DetailParser.parseSsr(capture.target(), currentUrl, html, Instant.now().toString());
             if (List.of("auth_required", "verification_required").contains(sample.get("status"))) throw new Stop((String) sample.get("status"));
             return sample;

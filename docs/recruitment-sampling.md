@@ -46,7 +46,7 @@ CDP 只接受 `http://127.0.0.1:端口` 或 `http://[::1]:端口`（可带尾部
 
 只接受精确 HTTPS host `www.zhipin.com`、路径 `/wapi/zpgeek/job/detail.json`、GET、HTTP 200、`application/json`，并拒绝来自其他来源/路径/方法的重定向链；响应 `code` 必须为整数 0，`zpData.jobInfo.encryptId` 必须等于目标卡片/详情身份。只读取已完成请求的正文，防止未完成响应阻塞等待循环。错误身份的正文不会输出，即使标题看起来相同。后台旧响应不作为“首条成功”。
 
-明确详情导航（直接详情 URL 或首卡的一次导航回退）等待 JSON 后，仅在该轮没有详情 JSON 请求且没有 JSON 错误时，允许从 `page.content()` 读取 SSR。读取前后检查停止状态，并要求真实 currentURL 未变化、与目标严格同源/同详情路径/同 jobId；外域、异 ID、登录/验证状态、空标题或空 JD 均不成功。只读取唯一 `h1` 与职位区内唯一 `.job-detail-section .job-sec-text`（公司介绍也使用 `.job-sec-text`，不作为 JD），使用 Jsoup `wholeText()` 保留 Unicode、文本节点换行和 `<br>` 换行，来源标为 `boss_browser_detail_ssr`。卡片摘要和 job-tags 不参与正文/福利填充；SSR 的公司、城市、薪资、经验、学历与福利均为 null。JSON 主路径来源仍为 `boss_browser_detail_response`，错误或未完成 JSON 不允许用 SSR 掩盖。
+明确详情导航（直接详情 URL 或首卡的一次导航回退）等待 JSON 后，仅在该轮没有详情 JSON 请求且没有 JSON 错误时，允许从 `page.content()` 读取 SSR。读取前后检查停止状态，并要求真实 currentURL 未变化、与目标严格同源/同详情路径/同 jobId；外域、异 ID、登录/验证状态、空标题或空 JD 均不成功。只读取唯一 `h1` 与职位区内唯一 `.job-detail-section .job-sec-text`（公司介绍也使用 `.job-sec-text`，不作为 JD），使用 Jsoup `wholeText()` 保留 Unicode、文本节点换行和 `<br>` 换行，来源标为 `boss_browser_detail_ssr`。卡片摘要和 job-tags 不参与正文/福利填充；SSR 的公司、城市、薪资、经验、学历与福利均为 null。JSON 主路径来源仍为 `boss_browser_detail_response`，错误或未完成 JSON 不允许用 SSR 掩盖。正文读取及最后一次页面检查之后会重新检查请求、结果和错误状态；期间到达的合法 JSON 优先，未完成请求或失败不得转成 SSR 成功。
 
 默认限 5 个不同岗位，`--limit` 可为 1–20，尝试失败也计入额度。最多滚动 5 次，连续两轮无新身份停止；每轮至多检查 100 张卡片。点击超时 3 秒，导航 15 秒，详情响应等待 8 秒，收集总时限 120 秒（手工登录另计 120 秒）。通常岗位间隔 1 秒，首次切换等待 500ms；没有无限重试或持续任务。
 

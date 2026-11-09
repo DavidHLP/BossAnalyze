@@ -354,6 +354,52 @@ class RecruitmentSamplerTest {
         assertTrue(Files.readString(options.output().resolve("samples.jsonl")).contains("identity_mismatch"));
     }
 
+    @Test void jsonArrivingDuringSsrReadCannotBeMaskedByDom() throws Exception {
+        for (String mode : List.of("pending", "mismatch", "api_error", "valid")) {
+            Page page = page(URL);
+            var capture = new BossResponseCapture();
+            doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
+            when(page.content()).thenAnswer(call -> {
+                Request request = mock(Request.class);
+                when(request.url()).thenReturn(API);
+                when(request.method()).thenReturn("GET");
+                capture.started(request);
+                if (!mode.equals("pending")) {
+                    Response response = mock(Response.class);
+                    when(response.request()).thenReturn(request);
+                    when(response.url()).thenReturn(API);
+                    when(response.status()).thenReturn(200);
+                    when(response.headerValue("content-type")).thenReturn("application/json");
+                    String json = fixture();
+                    if (mode.equals("mismatch")) json = json.replace("synthetic_001", "wrong");
+                    if (mode.equals("api_error")) json = json.replace("\"code\": 0", "\"code\": 7");
+                    when(response.text()).thenReturn(json);
+                    capture.received(response);
+                }
+                return ssr();
+            });
+            var options = options(URL, "late-json-" + mode, temp.resolve("cancel"));
+            try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
+                if (mode.equals("api_error")) {
+                    assertEquals("api_error", assertThrows(RecruitmentSampler.Stop.class,
+                            () -> RecruitmentSampler.collect(page, capture, options, output)).status);
+                } else {
+                    assertEquals(mode.equals("valid") ? 0 : 2,
+                            RecruitmentSampler.collect(page, capture, options, output));
+                }
+            }
+            verify(page).content();
+            String exported = Files.readString(options.output().resolve("samples.jsonl"));
+            assertFalse(exported.contains("boss_browser_detail_ssr"));
+            if (mode.equals("valid")) {
+                assertTrue(exported.contains("boss_browser_detail_response"));
+            } else {
+                assertFalse(exported.contains("\"status\":\"ok\""));
+                assertEquals("", Files.readString(options.output().resolve("labels.jsonl")));
+            }
+        }
+    }
+
     @Test void noJsonNavigationCannotExportEmptyWrongIdentityForeignOrGatedSsr() throws Exception {
         for (String boundary : List.of("empty", "wrong", "foreign", "login", "verify")) {
             String current = boundary.equals("wrong") ? URL.replace("synthetic_001", "other")
