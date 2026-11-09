@@ -55,7 +55,6 @@
                 <dependency>
                         <groupId>org.redisson</groupId>
                         <artifactId>redisson</artifactId>
-                        <version>3.17.6</version>
                 </dependency>
                 <!-- commons-pool2 for redis connection pooling -->
                 <dependency>

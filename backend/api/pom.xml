@@ -48,7 +48,6 @@
 		<dependency>
 			<groupId>org.redisson</groupId>
 			<artifactId>redisson</artifactId>
-			<version>3.17.6</version>
 		</dependency>
 		<!-- 明确指定使用logback -->
 		<dependency>
@@ -223,6 +222,10 @@
 			<artifactId>jackson-databind</artifactId>
 		</dependency>
 		<!-- Storage -->
+		<dependency>
+			<groupId>com.squareup.okhttp3</groupId>
+			<artifactId>okhttp-jvm</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>io.minio</groupId>
 			<artifactId>minio</artifactId>

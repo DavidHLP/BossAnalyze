@@ -3,6 +3,7 @@ package com.david.hlp.commons.config;
 import org.redisson.api.RedissonClient;
 import org.redisson.Redisson;
 import org.redisson.config.Config;
+import org.redisson.client.codec.StringCodec;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
@@ -38,6 +39,8 @@ public class RedisUtilsAutoConfiguration {
     @ConditionalOnMissingBean(RedissonClient.class)
     public RedissonClient redissonClient(RedisProperties properties) {
         Config config = new Config();
+        // Redisson is used only for locks; cache values use the separate RedisTemplate.
+        config.setCodec(StringCodec.INSTANCE);
         config.useSingleServer()
                 .setAddress((properties.getSsl().isEnabled() ? "rediss://" : "redis://")
                         + properties.getHost() + ":" + properties.getPort())
