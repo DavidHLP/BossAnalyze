@@ -1,0 +1,32 @@
+ai-service/tests/test_evaluate.py
+  s_e54e1ea98d5f47::t_6a330d02c77992 95-116
+  s_e54e1ea98d5f47::t_b9f0b53e1713f0 1-94
+  s_e54e1ea98d5f47::t_3d3b9e5cb2ad99 117-125
+ai-service/tests/test_contract.py
+  s_e54e1ea98d5f47::t_b232022fc8061b 15,381-407
+ai-service/app/evaluate.py
+  s_e54e1ea98d5f47::t_6af3cb817fa959 1-85,89-180
+  s_e54e1ea98d5f47::t_3c39f9e3b96529 86-88
+ai-service/app/jev.py
+  s_e54e1ea98d5f47::t_b232022fc8061b 133-134
+ai-service/QUALITY-PRIVACY.md
+  s_e54e1ea98d5f47::t_3c39f9e3b96529 1-50
+ai-service/app/main.py
+  s_e54e1ea98d5f47::t_b232022fc8061b 65-66,108-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "32b6fdad009433c52107025f772e228d424e9c54",
+  "prompts": {},
+  "sessions": {
+    "s_e54e1ea98d5f47": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bed6-0e81-7cb1-b2e4-9a114cb0a66b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
