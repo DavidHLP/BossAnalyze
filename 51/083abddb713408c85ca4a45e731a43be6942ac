@@ -1,0 +1,50 @@
+backend/analytics/src/main/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChart.java
+  s_8b8e182e6bbd49::t_7cfce93f5c4770 8-11,119,123,127-129,143-144,247-254,280-281
+  s_8b8e182e6bbd49::t_b50fd280c6eb13 282-287
+backend/analytics/src/main/java/com/david/hlp/spark/model/User/JobAnalysisData.java
+  s_8b8e182e6bbd49::t_7cfce93f5c4770 33-35
+frontend/app/api/ai/matches.ts
+  s_8b8e182e6bbd49::t_039ee65d17749a 1-33
+frontend/app/components/recruitment/JobSheet.vue
+  s_8b8e182e6bbd49::t_039ee65d17749a 3,52-60
+backend/commons/src/main/java/com/david/hlp/commons/recruitment/JobArrays.java
+  s_8b8e182e6bbd49::t_7cfce93f5c4770 1-39
+backend/crawler/src/main/java/com/david/hlp/crawler/ai/service/FormatDataService.java
+  s_8b8e182e6bbd49::t_7cfce93f5c4770 14,86-87
+frontend/app/api/boss/user/user.d.ts
+  s_8b8e182e6bbd49::t_039ee65d17749a 29-31
+frontend/app/lib/recruitment.ts
+  s_8b8e182e6bbd49::t_6fe2f3acdfec64 110-114
+  s_8b8e182e6bbd49::t_039ee65d17749a 1-17,46-48,141-143
+backend/commons/src/main/java/com/david/hlp/commons/recruitment/JobAnalysisReader.java
+  s_8b8e182e6bbd49::t_7cfce93f5c4770 1-65
+frontend/tests/client-ip.test.mjs
+  s_8b8e182e6bbd49::t_039ee65d17749a 46-52
+frontend/tests/recruitment.test.mjs
+  s_8b8e182e6bbd49::t_6fe2f3acdfec64 119
+  s_8b8e182e6bbd49::t_039ee65d17749a 117-118,120-128
+frontend/nuxt.config.ts
+  s_8b8e182e6bbd49::t_039ee65d17749a 12
+backend/commons/src/test/java/com/david/hlp/commons/recruitment/JobAnalysisReaderTest.java
+  s_8b8e182e6bbd49::t_039ee65d17749a 1-70
+backend/analytics/src/test/java/com/david/hlp/spark/service/User/TwoDimensionalAnalysisChartTest.java
+  s_8b8e182e6bbd49::t_45a254b35e468e 52-53,76-79,125-128
+docs/operations/commandcode-jev-readers.md
+  s_8b8e182e6bbd49::t_68c19e2316fe56 1-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "51083abddb713408c85ca4a45e731a43be6942ac",
+  "prompts": {},
+  "sessions": {
+    "s_8b8e182e6bbd49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1be44-a4b3-78f1-920c-2b1e1b38a739",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
