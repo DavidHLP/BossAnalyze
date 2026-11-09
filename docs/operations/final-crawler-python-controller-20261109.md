@@ -36,3 +36,17 @@ Python使用专属run cwd与显式PYTHONPATH指向版本ai-service；crawler专�
 实际运行 `PYTHONDONTWRITEBYTECODE=1 python N/controller/offline_checks.py`：11项通过，失败0、错误0、跳过0；覆盖PID复用拒绝发信号、非法组件/端口、有界SIGTERM不强杀、pending先于health、失败清理、Python先恢复、切换中断恢复、manifest初始冲突及第一文件更新后冲突不覆盖、保留无关字段与真实重启身份、合成配置配对反例。control.py、offline_checks.py、probe.py内存语法编译通过。
 
 未执行 inventory、构建gate、Java编译/探针、真实canary/冷启动、切换、回退、accept或业务库操作。离线检查多数替换进程/端口/时钟，不证明真实启动和HTTP可用；root必须独立审核和真实验收。外部配置覆盖和不协作元数据写入仍是明确风险。控制器不自动检测provider或预算变化，root负责外部验收；accept不是自动质量批准，AI质量和写回始终关闭。
+
+## 独立审查后修正（尚未运行部署）
+
+原私有控制器经独立审查确认 F1–F7 七项 P2，已完成修正：保护端口使用 8080/8082/5020/19000/19001/11025/18025 并要求存在；每个 LISTEN inode 都须归属且扫描稳定；停止超时或身份/监听不明进入 SafetyHalt，不自动再次停止或恢复；启动后先记录最小 pending，完整身份读取失败仍保留真实 PID/starttime；整对清理期间忽略终端信号；旧版恢复验收保持目标 success=false；新 Python 正式端口健康后，先执行 `probe.py run --port 8090 --python-only` 的无模型 Java/HTTP 契约，成功后才启动 crawler。切换前 root 必须已执行 probe compile。
+
+修正后实际运行 18 项合成离线检查，全部通过；日志为私有 `controller/postreview-offline-checks.log`。开发期间曾将 OSError 与 SafetyHalt 合并处理，导致已有 InterruptedError 恢复测试失败；已修正异常分类并保留该回归断言，最终 18 项通过。此结果不代表真实进程、契约或部署验收。原 11 项记录仅代表修正前版本。
+
+当前私有文件 SHA256：
+
+- control.py：`f417ab4dd34a1e8b98734e7eeb58e5580bb6e4751b8b17fe7421a41e488945ba`
+- controller/probe.py：`57926215593c00283b4fdbeb2947a9f50c1c4fbee18eff0528505c3bfbf5776e`
+- controller/offline_checks.py：`565a49c3a2da21dfcb999d51700273b49e7cd3a5bd1874cff0532675879f43a6`
+
+未运行 inventory、gate、真实 probe、canary、switch、rollback 或 accept；现行服务未因本轮修正改变。完整修正指针为 `/tmp/boss-final-deploy-controller-fixes-handoff.md`；必须完成修正后复核及 root 的现场配置、预算和身份检查再执行。
