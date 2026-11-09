@@ -1,0 +1,46 @@
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/BossResponseCapture.java
+  s_70b410efe9d7a7::t_6adf7401a665c9 1-14,16-29,36,42-72
+  s_70b410efe9d7a7::t_3f9541bd84c688 30,39-41
+  s_70b410efe9d7a7::t_8e875bd377f5ce 15,31-35,37-38
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/SourceUrl.java
+  s_70b410efe9d7a7::t_4a0379fc9da193 4-6,8-9,11-16,18-28,30,40-48,50-63,65
+  s_70b410efe9d7a7::t_1e272171b30092 1-3,7,10,17,29,31-32,39,49,64,66
+  s_70b410efe9d7a7::t_f5a2462786b810 33-38
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/RecruitmentSampler.java
+  s_70b410efe9d7a7::t_72657234031502 57,72,86-88,101,107,110-111
+  s_70b410efe9d7a7::t_efe7ab254b02fb 225-226
+  s_70b410efe9d7a7::t_3f9541bd84c688 74-78,91,97-100,154,178,194-196,233
+  s_70b410efe9d7a7::t_1e272171b30092 1-2,5-15,17,19-20,68,112,143,184,192,199-200,253,255-267,270-281
+  s_70b410efe9d7a7::t_6adf7401a665c9 3-4,16,18,21-52,54-56,58,61-67,69-71,73,79-85,89-90,92-96,102-106,108,113-135,137-142,144-146,148-152,155-177,179-183,185-186,190-191,197-198,201-205,207,209-219,221-224,227,232,234-252
+  s_70b410efe9d7a7::t_186a137fd065b9 53,59-60,109,136,147,153,187-189,193,206,208,220,228-231,254,268-269
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/BossCookies.java
+  s_70b410efe9d7a7::t_4a0379fc9da193 1-38
+backend/crawler/src/main/java/com/david/hlp/crawler/sample/DetailParser.java
+  s_70b410efe9d7a7::t_4a0379fc9da193 12,17,20-21,23,25-33,35-41,44-48,50,52-68,70-72
+  s_70b410efe9d7a7::t_1e272171b30092 1-11,13-16,18-19,22,24,42-43,49,51,69,73-104
+  s_70b410efe9d7a7::t_44cbde1f50f073 34
+backend/crawler/pom.xml
+  s_70b410efe9d7a7::t_2a9a17af75e6d5 115
+backend/crawler/src/test/java/com/david/hlp/crawler/sample/RecruitmentSamplerTest.java
+  s_70b410efe9d7a7::t_e19f8ffba57f5c 1-192
+backend/crawler/src/test/resources/sample/boss-detail.json
+  s_70b410efe9d7a7::t_382d09ac58d347 1-18
+docs/recruitment-sampling.md
+  s_70b410efe9d7a7::t_bc89e337a204cc 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6c9369d4ab1e17a76929a0e6a98da8553f2eada8",
+  "prompts": {},
+  "sessions": {
+    "s_70b410efe9d7a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1be8e-f5ea-7703-b5e9-2e479c414eec",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
