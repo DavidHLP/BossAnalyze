@@ -68,3 +68,7 @@ Python使用专属run cwd与显式PYTHONPATH指向版本ai-service；crawler专�
 ## 现场适配及最终记录
 
 现场发现并修正：Python专用预算/并发/重试不与Java无效默认值强行配对；Docker基础设施用固定容器API元数据及监听inode保护，直接服务保留严格PID/owner；受控crawler CLI参数改为替换，避免Spring重复端口解析失败；bind预检使用SO_REUSEADDR。最终25项合成检查通过。新/旧canary、正式切换和无模型HTTP曾通过，随后整栈在本次继续前已停止。当前摘要、事实和回退前置条件以[运行报告](final-crawler-python-deployment-20261109.md)为准；前述摘要/状态属于各历史版本。
+
+## 最终手动回退守卫
+
+最终两轴审查指出旧版rollback只在发布阶段核验保护基线；现已新增动作前入口 `rollback()`，按phase、baseline、metadata CAS核验后才调用restore。基线漂移或并发冲突不会先停止/启动组件。26项离线检查通过，当前摘要与授权整栈恢复验收见[运行报告最新一节](final-crawler-python-deployment-20261109.md)。保留先前失败证据；不要将历史旧版的安全保证应用到旧哈希文件。
