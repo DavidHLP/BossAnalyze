@@ -9,6 +9,7 @@ export default defineNuxtConfig({
     '/recruitment': { ssr: false },
     '/console': { ssr: false },
     '/console/**': { ssr: false },
+    '/api/v2/ai/**': { proxy: 'http://127.0.0.1:8081/api/v2/ai/**' },
     '/api/v1/ai/**': { proxy: 'http://127.0.0.1:8081/api/v1/ai/**' },
     '/api/**': { proxy: 'http://127.0.0.1:8080/api/**' },
   },

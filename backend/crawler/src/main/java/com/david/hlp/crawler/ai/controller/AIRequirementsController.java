@@ -1,27 +1,24 @@
 package com.david.hlp.crawler.ai.controller;
 
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import com.david.hlp.crawler.ai.service.RequirementAnalyzer;
-import com.david.hlp.crawler.ai.entity.SimilarityRequest;
-import com.david.hlp.crawler.ai.entity.UserSimilarity;
-import org.springframework.web.bind.annotation.RequestBody;
-import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.david.hlp.crawler.ai.service.*;
+import com.david.hlp.crawler.ai.entity.*;
 
-@Slf4j
 @RestController
-@RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor
 public class AIRequirementsController {
-    private final RequirementAnalyzer requirementAnalyzer;
-
-    @PostMapping("/get-user-similarity")
-    public List<UserSimilarity> getUserSimilarity(@RequestBody SimilarityRequest resumeRequest) {
-        List<UserSimilarity> userSimilarityList = requirementAnalyzer.getUserSimilarity(resumeRequest.getResume(), resumeRequest.getCity(), resumeRequest.getPosition());
-        return userSimilarityList;
+    private final RequirementAnalyzer analyzer;
+    private final AuthorizedResume resumes;
+    @PostMapping("/api/v1/ai/get-user-similarity")
+    public List<UserSimilarity> legacy(@RequestBody SimilarityRequest input,HttpServletRequest request){
+        return analyzer.getUserSimilarity(resumes.resolve(input,request),input.getCity(),input.getPosition());
+    }
+    @PostMapping("/api/v2/ai/matches")
+    public ObjectNode matches(@RequestBody SimilarityRequest input,HttpServletRequest request){
+        return analyzer.matches(resumes.resolve(input,request),input.getCity(),input.getPosition());
     }
 }
-

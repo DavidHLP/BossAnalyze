@@ -49,7 +49,8 @@ class TwoDimensionalAnalysisChartTest {
             StructType schema = new StructType();
             for (String field : new String[] { "position_id", "position_name", "city_name", "salary", "degree",
                     "experience", "companyName", "companySize", "financingStage", "companyUrl", "jobUrl",
-                    "address", "employeeBenefits", "jobRequirements" }) {
+                    "address", "employeeBenefits", "jobRequirements", "detail_data", "analysis_source",
+                    "analysis_state", "analysis_result", "analysis_model", "analysis_version" }) {
                 schema = schema.add(field, DataTypes.StringType, true);
             }
             var source = spark.createDataFrame(Arrays.asList(
@@ -72,6 +73,10 @@ class TwoDimensionalAnalysisChartTest {
             assertNull(salaryExperience.get(1).getDegreeValue());
             var json = new ObjectMapper().valueToTree(salaryDegree.get(0));
             assertEquals(4.5, json.get("salaryValue").doubleValue());
+            assertEquals("complete", json.get("analysisStatus").textValue());
+            assertEquals("typesafe/jev-1.14.0", json.get("analysisModel").textValue());
+            assertEquals("Java, Python [advanced] and \"quotes\"", json.get("jobRequirements").get(0).textValue());
+            assertEquals(" health care ", json.get("employeeBenefits").get(0).textValue());
             var degreeExperience = service.buildResultDataList(service.applyFilters(
                     processed, "all", "all", "degree_value", "experience_value"));
             assertEquals(2, degreeExperience.size());
@@ -117,7 +122,10 @@ class TwoDimensionalAnalysisChartTest {
 
     private Row sample(String id, String salary, String degree, String experience) {
         return RowFactory.create(id, "测试职位", "测试城市", salary, degree, experience,
-                "合成公司", null, null, null, null, null, null, null);
+                "合成公司", null, null, null, null, null,
+                "[\" health care \"]", "[\"Java, Python [advanced] and \\\"quotes\\\"\"]",
+                "{\"text\":\"source\"}", "{\"text\":\"source\"}", "completed",
+                "{\"status\":\"complete\"}", "typesafe/jev-1.14.0", "jev-1");
     }
     @Test
     void salaryMidpointIsNotTruncatedAndUnknownFormatsStayUnknown() {

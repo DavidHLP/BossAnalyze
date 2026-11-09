@@ -1,4 +1,4 @@
-# Enable AI scheduling after configuring Ollama and populating recruitment data.
+# AI scheduling stays disabled until Jev quality and migration acceptance.
 server:
   address: 127.0.0.1
 spring:

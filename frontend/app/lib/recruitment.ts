@@ -1,3 +1,20 @@
+export const analysisStatusLabels = {
+  unparsed: '未分析',
+  legacy_unverified: '历史结果（来源未验证）',
+  pending: '等待分析',
+  running: '分析中',
+  complete: '已完成（当前来源）',
+  no_evidence: '已分析，原文未说明',
+  needs_review: '待复核',
+  failed: '分析失败',
+  stale: '来源已变更',
+  unknown: '分析状态未知',
+} as const
+export type AnalysisStatus = keyof typeof analysisStatusLabels
+function analysisStatus(value: unknown): AnalysisStatus {
+  return typeof value === 'string' && Object.hasOwn(analysisStatusLabels, value)
+    ? value as AnalysisStatus : 'unknown'
+}
 export const analysisAxes = [
   { value: 'salary_value', key: 'salaryValue', label: '薪资（K）' },
   { value: 'degree_value', key: 'degreeValue', label: '学历等级' },
@@ -26,6 +43,9 @@ export interface JobSample {
   address: string | null
   companyUrl: string | null
   jobUrl: string | null
+  analysisStatus: AnalysisStatus
+  analysisModel: string | null
+  analysisVersion: string | null
   employeeBenefits: string[]
   jobRequirements: string[]
 }
@@ -87,11 +107,11 @@ export function analysisQuery(filter: AnalysisFilter, cities: string[], position
 function strings(value: unknown) {
   if (value == null) return []
   return list(value)
-    .map(text)
-    .filter(
-      (item): item is string =>
-        Boolean(item) && item !== '职位福利目前未解析' && item !== '工作需求目前未解析',
-    )
+    .map((item) => {
+      if (typeof item !== 'string') throw new Error('Invalid recruitment array item')
+      return item
+    })
+    .filter((item) => item !== '职位福利目前未解析' && item !== '工作需求目前未解析')
 }
 export function jobSamples(value: unknown): JobSample[] {
   return list(value).map((item, index) => {
@@ -118,6 +138,9 @@ export function jobSamples(value: unknown): JobSample[] {
       salaryValue: numeric(data.salaryValue),
       degreeValue: numeric(data.degreeValue),
       experienceValue: numeric(data.experienceValue),
+      analysisStatus: analysisStatus(data.analysisStatus),
+      analysisModel: text(data.analysisModel),
+      analysisVersion: text(data.analysisVersion),
       employeeBenefits: strings(data.employeeBenefits),
       jobRequirements: strings(data.jobRequirements),
     } as JobSample

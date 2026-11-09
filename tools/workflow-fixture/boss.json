@@ -1,0 +1,36 @@
+{
+  "fixture1": {
+    "code": 0,
+    "zpData": {
+      "jobInfo": {
+        "encryptId": "fixture1",
+        "jobName": "合成数据工程师1",
+        "postDescription": "必须熟练 Python, SQL (test) 😀；需要三年项目经验；要求本科学历；提供五险一金、带薪年假。",
+        "locationName": "合成城",
+        "salaryDesc": "10-15K·13薪",
+        "experienceName": "3-5年",
+        "degreeName": "本科"
+      },
+      "brandComInfo": {
+        "brandName": "合成公司（非真实招聘）"
+      }
+    }
+  },
+  "fixture2": {
+    "code": 0,
+    "zpData": {
+      "jobInfo": {
+        "encryptId": "fixture2",
+        "jobName": "合成数据工程师2",
+        "postDescription": "必须熟练 Python, SQL (test) 😀；需要三年项目经验；要求本科学历；提供五险一金、带薪年假。",
+        "locationName": "合成城",
+        "salaryDesc": "10-15K·13薪",
+        "experienceName": "3-5年",
+        "degreeName": "本科"
+      },
+      "brandComInfo": {
+        "brandName": "合成公司（非真实招聘）"
+      }
+    }
+  }
+}

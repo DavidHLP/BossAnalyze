@@ -16,13 +16,6 @@ spring:
       host: 127.0.0.1
       port: 6379
       password: your_redis_password
-  ai:
-    ollama:
-      base-url: http://localhost:11434 # Ollama 服务地址
-      chat:
-        options:
-          model: qwen3:4b # 指定使用 qwen3:4b 模型
-          format: json # 建议模型返回 JSON 格式
 server:
   port: 8081
 
@@ -48,3 +41,10 @@ webdriver:
   chrome:
     driver: /path/to/chromedriver
     headless: true
+# Enable only after the isolated migration, readers and quality gate are accepted.
+crawler:
+  ai:
+    service-url: ${AI_SERVICE_URL:http://127.0.0.1:8090}
+    scheduling:
+      enabled: false
+    writeback-enabled: false

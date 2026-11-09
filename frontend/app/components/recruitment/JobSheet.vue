@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useMediaQuery } from '@vueuse/core'
-import { safeSourceUrl } from '@/lib/recruitment'
+import { analysisStatusLabels, safeSourceUrl } from '@/lib/recruitment'
 import type { JobSample } from '@/lib/recruitment'
 const props = defineProps<{ job: JobSample | null }>()
 const emit = defineEmits<{ close: [] }>()
@@ -49,6 +49,18 @@ const fields = computed(() =>
             <dd class="mt-1.5 whitespace-pre-wrap break-words">{{ job.address || '—' }}</dd>
           </div>
         </dl>
+        <section class="space-y-2 text-sm" aria-label="分析来源">
+          <UiBadge variant="secondary">{{ analysisStatusLabels[job.analysisStatus] }}</UiBadge>
+          <p class="break-words text-muted-foreground">
+            分析来源：{{ job.analysisModel || '未知' }} · {{ job.analysisVersion || '版本未知' }}
+          </p>
+          <p
+            v-if="!['complete', 'no_evidence', 'unparsed'].includes(job.analysisStatus)"
+            class="text-muted-foreground"
+          >
+            以下保留已有内容，未经当前来源的成功分析确认。
+          </p>
+        </section>
         <section class="space-y-3">
           <h3 class="text-sm font-medium">职位福利</h3>
           <div v-if="job.employeeBenefits.length" class="flex flex-wrap gap-2">

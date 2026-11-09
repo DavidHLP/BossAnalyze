@@ -26,6 +26,9 @@ export interface JobData {
   companyUrl: string;
   jobUrl: string;
   address: string;
+  analysisStatus: string | null;
+  analysisModel: string | null;
+  analysisVersion: string | null;
   employeeBenefits: string[];
   jobRequirements: string[];
   [key: string]: string | number | string[] | number[] | null; // 添加索引签名以允许使用字符串索引

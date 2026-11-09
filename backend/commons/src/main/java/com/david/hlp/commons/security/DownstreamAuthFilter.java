@@ -103,6 +103,7 @@ public class DownstreamAuthFilter implements Filter {
             return;
         }
 
+        request.setAttribute("boss.verified", Boolean.TRUE);
         chain.doFilter(request, response);
     }
 

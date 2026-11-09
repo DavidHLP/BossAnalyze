@@ -1,6 +1,6 @@
 package com.david.hlp.contracts;
 
-import com.david.hlp.crawler.ai.service.AIExtractionOfJobRequirementsAPI;
+import com.david.hlp.crawler.ai.service.AIExtractionOfJobRequirements;
 import com.david.hlp.spark.utils.IpGeoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -53,8 +53,8 @@ class ExternalCredentialsContractTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @Import(AIExtractionOfJobRequirementsAPI.class)
-    static class OpenRouterConfig {
+    @Import(AIExtractionOfJobRequirements.class)
+    static class JevConfig {
         @Bean RestTemplate restTemplate() { return new RestTemplate(); }
         @Bean ObjectMapper objectMapper() { return new ObjectMapper(); }
         @Bean MockRestServiceServer mockServer(RestTemplate template) {
@@ -68,69 +68,13 @@ class ExternalCredentialsContractTest {
     static class IpGeoConfig { }
 
     @Test
-    void contextAllowsUnusedOpenRouterWithoutCredential() {
-        runner(Map.of(), OpenRouterConfig.class).run(context -> {
+    void jevStartsWithoutTokenAndFailsClosedBeforeNetwork() {
+        runner(Map.of(), JevConfig.class).run(context -> {
             assertThat(context).hasNotFailed();
-            assertThat(context.getBeanFactory().containsSingleton(
-                    AIExtractionOfJobRequirementsAPI.class.getName())).isFalse();
-            context.getBean(MockRestServiceServer.class).verify();
+            assertThatThrownBy(() -> context.getBean(AIExtractionOfJobRequirements.class).analyze("42", "{}"))
+                    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                    .hasMessageContaining("503").hasMessageContaining("AI_UNCONFIGURED");
         });
-    }
-
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {" ", "\t\n"})
-    void openRouterRejectsMissingOrBlankEnvironmentValueBeforeUse(String value) {
-        runner(optional("OPENROUTER_API_KEY", value), OpenRouterConfig.class).run(context -> {
-            assertThat(context).hasNotFailed();
-            assertThatThrownBy(() -> context.getBean(AIExtractionOfJobRequirementsAPI.class))
-                    .isInstanceOf(BeanCreationException.class)
-                    .hasRootCauseInstanceOf(IllegalStateException.class)
-                    .hasRootCauseMessage("OpenRouter API key is required; configure OPENROUTER_API_KEY or openrouter.api.key");
-            context.getBean(MockRestServiceServer.class).verify();
-        });
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"", " "})
-    void explicitBlankOpenRouterPropertyDoesNotFallBackToEnvironment(String value) {
-        runner(Map.of("openrouter.api.key", value, "OPENROUTER_API_KEY", SYNTHETIC),
-                OpenRouterConfig.class).run(context -> {
-            assertThatThrownBy(() -> context.getBean(AIExtractionOfJobRequirementsAPI.class))
-                    .hasRootCauseInstanceOf(IllegalStateException.class);
-            context.getBean(MockRestServiceServer.class).verify();
-        });
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"OPENROUTER_API_KEY", "openrouter.api.key"})
-    void configuredOpenRouterUsesSyntheticHeaderAndParsesStubResponse(String property) {
-        runner(Map.of(property, SYNTHETIC, "openrouter.api.url", "https://contract.invalid/chat"),
-                OpenRouterConfig.class).run(context -> {
-            var server = context.getBean(MockRestServiceServer.class);
-            server.expect(requestTo("https://contract.invalid/chat"))
-                    .andExpect(header("Authorization", "Bearer " + SYNTHETIC))
-                    .andRespond(withSuccess("{\"choices\":[{\"message\":{\"content\":\"[\\\"Java\\\"]\"}}]}",
-                            MediaType.APPLICATION_JSON));
-            assertThat(context.getBean(AIExtractionOfJobRequirementsAPI.class)
-                    .extractJobRequirements("{}")).containsExactly("Java");
-            server.verify();
-        });
-    }
-
-    @Test
-    void explicitOpenRouterPropertyWinsOverEnvironment() {
-        runner(Map.of("openrouter.api.key", SYNTHETIC, "OPENROUTER_API_KEY", "unused-synthetic",
-                        "openrouter.api.url", "https://contract.invalid/chat"), OpenRouterConfig.class)
-                .run(context -> {
-                    var server = context.getBean(MockRestServiceServer.class);
-                    server.expect(requestTo("https://contract.invalid/chat"))
-                            .andExpect(header("Authorization", "Bearer " + SYNTHETIC))
-                            .andRespond(withSuccess("{\"choices\":[{\"message\":{\"content\":\"[]\"}}]}",
-                                    MediaType.APPLICATION_JSON));
-                    context.getBean(AIExtractionOfJobRequirementsAPI.class).extractJobRequirements("{}");
-                    server.verify();
-                });
     }
 
     @ParameterizedTest
