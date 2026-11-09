@@ -26,7 +26,8 @@ class IdentityPersistenceTest {
         var matcher = Pattern.compile("CREATE TABLE `" + name + "` \\((.*?)\\) ENGINE=", Pattern.DOTALL).matcher(schema);
         assertTrue(matcher.find());
         // H2 uses the production columns/indexes; omit only the unrelated user FK.
-        String body = matcher.group(1).replaceAll(",\\s*CONSTRAINT `token_ibfk_1`[^\\n]*", "");
+        // H2 cannot model MySQL ASCII/collation; real MySQL migration rehearsal is separate.
+        String body = matcher.group(1).replace(" CHARACTER SET ascii COLLATE ascii_bin", "").replaceAll(",\\s*CONSTRAINT `token_ibfk_1`[^\\n]*", "");
         connection.createStatement().execute("CREATE TABLE `" + name + "` (" + body + ")");
     }
 
@@ -39,20 +40,61 @@ class IdentityPersistenceTest {
         config.addMapper(TokenMapper.class);
         try (var session = new SqlSessionFactoryBuilder().build(config).openSession(true)) {
             var mapper = session.getMapper(TokenMapper.class);
-            var token = Token.builder().userId(1L).token("synthetic-token").tokenType(TokenType.ACCESS).build();
+            var jwt = JwtIdentityTest.service();
+            var user = org.springframework.security.core.userdetails.User.withUsername("synthetic@example.test")
+                    .password("unused").authorities("read").build();
+            var token = Token.builder().userId(1L).token(jwt.generateToken(user)).tokenType(TokenType.ACCESS).build();
             mapper.save(token);
             assertTrue(mapper.checkTokenValid(token.getToken()));
             assertNotNull(mapper.getByToken(token.getToken()).getCreateTime());
             assertEquals(1,mapper.listValidTokensByUser(1L).size());
-            mapper.revoke(token.getToken()); mapper.revoke(token.getToken()); mapper.revoke("unknown");
-            assertFalse(mapper.checkTokenValid(token.getToken()));
-            assertTrue(mapper.listValidTokensByUser(1L).isEmpty());
-            assertNotNull(mapper.getByToken(token.getToken()).getCreateTime(),"revocation preserves record/time");
-            var another = Token.builder().userId(1L).token("second-synthetic-token").tokenType(TokenType.ACCESS).build();
+            var another = Token.builder().userId(1L).token(jwt.generateToken(user)).tokenType(TokenType.ACCESS).build();
             mapper.save(another);
+            assertEquals(2, mapper.listValidTokensByUser(1L).size());
+            var request = new org.springframework.mock.web.MockHttpServletRequest();
+            request.addHeader("Authorization", "Bearer " + token.getToken());
+            var logout = new LogoutService(mapper);
+            logout.logout(request, new org.springframework.mock.web.MockHttpServletResponse(), null);
+            logout.logout(request, new org.springframework.mock.web.MockHttpServletResponse(), null);
+            mapper.revoke("unknown");
+            assertFalse(mapper.checkTokenValid(token.getToken()));
+            assertTrue(mapper.checkTokenValid(another.getToken()), "logout must preserve the other session");
+            assertEquals(1, mapper.listValidTokensByUser(1L).size());
+            assertNotNull(mapper.getByToken(token.getToken()).getCreateTime(),"revocation preserves record/time");
             another.setExpired(true); another.setRevoked(true);
             mapper.updateBatch(List.of(another));
             assertFalse(mapper.checkTokenValid(another.getToken()));
+        }
+    }
+
+    @Test void maximumStoredIdentityFitsAndTokenUniquenessPreservesSeparateSessions() throws Exception {
+        String url = url();
+        var jwt = JwtIdentityTest.service();
+        try (var connection = DriverManager.getConnection(url)) {
+            table(connection, "token");
+            var insert = connection.prepareStatement("INSERT INTO token(user_id, token, token_type) VALUES(1, ?, 'ACCESS')");
+            // user.email is VARCHAR(255), with no DTO length/character validator.
+            for (String identity : List.of("a".repeat(242) + "@example.test", "😀".repeat(255), "\u0001".repeat(255))) {
+                var user = org.springframework.security.core.userdetails.User.withUsername(identity)
+                        .password("unused").authorities("read").build();
+                for (String token : List.of(jwt.generateToken(user), jwt.generateToken(java.util.Map.of(), user), jwt.generateRefreshToken(user))) {
+                    assertTrue(token.length() > 255);
+                    assertTrue(token.length() <= 2560, "token length: " + token.length());
+                    assertEquals(identity, jwt.extractUsername(token));
+                    assertTrue(token.chars().allMatch(c -> c < 128));
+                    insert.setString(1, token); insert.executeUpdate();
+                    var select = connection.prepareStatement("SELECT token FROM token WHERE token = ?");
+                    select.setString(1, token);
+                    try (var rows = select.executeQuery()) { assertTrue(rows.next()); assertEquals(token, rows.getString(1)); }
+                    assertEquals("23505", assertThrows(SQLException.class, insert::executeUpdate, "full token must be unique").getSQLState());
+                }
+            }
+            insert.setString(1, "CaseSensitive"); insert.executeUpdate();
+            insert.setString(1, "casesensitive"); insert.executeUpdate();
+            connection.createStatement().executeUpdate("UPDATE token SET revoked = TRUE WHERE token = 'CaseSensitive'");
+            try (var rows = connection.createStatement().executeQuery("SELECT revoked FROM token WHERE token = 'casesensitive'")) {
+                assertTrue(rows.next()); assertFalse(rows.getBoolean(1));
+            }
         }
     }
 
