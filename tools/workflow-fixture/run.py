@@ -12,7 +12,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 JAVA = Path(os.environ.get('WORKFLOW_JAVA_HOME', '/home/david/.local/share/mise/installs/java/zulu-17'))
 MAVEN = os.environ.get('WORKFLOW_MAVEN', '/home/david/.local/share/mise/installs/maven/3.9.16/apache-maven-3.9.16/bin/mvn')
-PYTHON = os.environ.get('WORKFLOW_PYTHON', '/tmp/boss-jev-rereview-evidence/venv/bin/python')
+PYTHON = os.environ.get('WORKFLOW_PYTHON', str(ROOT / 'ai-service/.venv/bin/python'))
 os.umask(0o077)
 out = Path(tempfile.mkdtemp(prefix='boss-workflow-20261108-'))
 print(json.dumps({'output': str(out)}), flush=True)

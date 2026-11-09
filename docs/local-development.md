@@ -9,6 +9,8 @@ backend mismatch and verification boundary before removing the existing UI.
 - Java 17 and Maven 3.9.6 or newer.
 - Node.js 22.12+, pnpm 11.24.0, and the checked-in `frontend/pnpm-lock.yaml`.
 - MySQL 8 with separate `blog_data` and `boss_data` databases, Redis, and MongoDB.
+- Python 3.12–3.14 and uv for `ai-service/`; the current local build was verified with Python 3.13.15 and uv 0.9.9.
+- RustFS for S3 object storage and either a real SMTP provider or the explicit local Mailpit capture profile.
 
 For a new, empty database only, import `database/system.sql` into `blog_data` and
 `database/boss.sql` into `boss_data`. These scripts drop tables; do not run them against
@@ -73,10 +75,11 @@ and stores logs and Spark events under the JVM temporary directory. It disables
 Consul and automatic AI/log-analysis scheduling. Existing cluster configuration
 and default scheduling behavior remain available outside this profile.
 
-Manual log analysis remains available. Enable `spark.logs.scheduling.enabled`
-after supplying access logs. Enable `crawler.ai.scheduling.enabled` only after
-configuring Ollama and recruitment data. The configured AI model is `qwen3:4b`;
-starting the crawler does not install it.
+Manual log analysis remains available. Enable `spark.logs.scheduling.enabled` only
+after supplying access logs and accepting its effects. AI runs through the Python
+service described below; Ollama and OpenRouter are no longer the application AI backend.
+Keep `crawler.ai.scheduling.enabled=false`, `crawler.ai.writeback-enabled=false` and
+`AI_QUALITY_APPROVED=0` until privacy and independent quality approval both pass.
 
 ## Check Connectivity
 
@@ -93,8 +96,8 @@ empty `boss_data` database. To check actual log processing, trigger analysis via
 An initial `204` means no analysis result has been cached yet.
 
 SMTP, object storage, and external resume export/statistics services require
-their own configuration. Existing dashboard performance/security metrics contain
-sample values; a successful HTTP response does not verify those calculations.
+their own configuration. Unavailable dashboard measurements remain unavailable rather than being filled
+with sample values. A successful HTTP response does not verify model quality or external delivery.
 
 ## Offline geolocation and object storage
 
@@ -105,33 +108,67 @@ See the [offline geolocation guide](operations/offline-geolocation.md) for attri
 trusted proxy configuration and validation.
 
 The [RustFS migration guide](operations/rustfs-migration.md) covers the isolated target,
-S3 checks, backup gates, reconciliation and rollback. Keep the existing application
-`minio.*` configuration until the real source and backup are verified and migration
-is accepted; an unreachable source does not establish that it contains no data.
+S3 checks, backup gates, reconciliation and rollback. For this local deployment, the
+user confirmed there was no old MinIO data; RustFS was explicitly activated and its
+HTTP image path verified. Existing installations with data must still perform backup
+and reconciliation before switching. The MinIO Java SDK and `minio.endpoint`,
+`minio.accessKey`, `minio.secretKey`, `minio.bucketName` configuration names are retained;
+point them at the RustFS endpoint with a restricted application identity. See the
+[activation record](operations/rustfs-activation-20261108.md).
 
-## External API credentials
+## Python AI service and privacy boundary
 
+Create the service environment from the committed lockfile:
 
-The OpenRouter crawler service requires `OPENROUTER_API_KEY` (or the Spring
-property `openrouter.api.key`) when instantiated. It is initialized lazily so
-the default Ollama workflow does not require an OpenRouter credential. OpenRouter rejects
-missing or blank keys during initialization, before sending any API request.
-Supply credentials through environment variables or an ignored local profile;
-never place real values in tracked files.
+```sh
+uv sync --frozen --project ai-service
+(cd ai-service && uv run --frozen pytest)
+```
 
-The Spring and Spark default profiles read `BOSSANALYZE_REDIS_PASSWORD`
-without a tracked password literal. This is configuration externalization, not
-Redis fail-fast validation: Spring Boot binding can retain an unresolved
-placeholder when the variable is missing, and accepts explicit empty or
-whitespace values. The OpenRouter credential above and the JWT signing key have initialization
-validation; SMTP credentials are checked before sending, not at startup.
+Supply `CMD_API_KEY`, `CMD_API_BASE`, `JEV_MODEL=typesafe/jev-1.14.0`,
+`AI_SERVICE_TOKEN`, `CMD_ZDR=1`, `AI_QUALITY_APPROVED=0`, `AI_DAILY_TOKENS`
+and an absolute private `AI_BUDGET_PATH` outside the source tree. Reuse existing
+approved values and budget files; do not generate a replacement token or reset a ledger
+on restart. The Java crawler needs the same internal token/model and shared
+`AI_MAX_INPUT_BYTES`, `AI_MAX_JOBS`, `AI_MAX_CANDIDATES` limits. Budget, concurrency
+and provider retry settings belong to Python. No private value belongs in `VITE_*`
+or frontend public configuration.
 
-The existing tracked `local-dev` profiles retain
-`${BOSSANALYZE_REDIS_PASSWORD:}` and therefore preserve passwordless local Redis
-when the variable is unset. Their behavior is unchanged. Supply appropriate
-credentials for a password-protected Redis instance and verify its connection
-separately; this change does not authenticate against Redis.
+```sh
+# After injecting private configuration into this terminal, without printing it:
+(cd ai-service && uv run --frozen uvicorn app.main:app --host 127.0.0.1 --port 8090)
+```
 
+The crawler uses `AI_SERVICE_URL=http://127.0.0.1:8090`. User Bearer tokens stay on
+the authenticated Java API chain; the dedicated internal token protects Python.
+`/health/ready` means configuration readiness, **not provider availability or model quality**.
+Empty-fact analysis and empty matching requests can be checked without inference.
+
+As checked on 2026-11-09, [CommandCode's Provider API documentation](https://commandcode.ai/docs/provider#zero-data-retention-zdr)
+explicitly says both `typesafe/jev` and `typesafe/jev-1.14.0` have no ZDR-capable
+upstream. `x-cmd-zdr: 1` therefore returns `422/cmd_zdr_no_providers`. The application
+fails closed and must not send real resumes by dropping that header. Do not interpret
+successful synthetic HTTP fixtures as evidence that this external restriction is fixed.
+The offline gold evaluator rejects missing/pending labels and detectable split leakage;
+AI-generated or synthetic annotations cannot establish independent human quality approval.
+
+Before using existing recruitment data for analysis, back up the database and rehearse
+`database/migrations/20261108_job_ai_analysis.sql` in a separate restored schema, then
+apply it explicitly to `boss_data`. It adds the analysis sidecar without replacing
+existing job rows. Startup never applies it automatically. The migration is repeatable,
+but a pre-existing table still needs a schema/index compatibility check. Role uniqueness
+and token timestamp changes have separate migration instructions; do not blindly run
+all files or import the destructive snapshots.
+
+See the [deployment/recovery evidence](operations/final-crawler-python-deployment-20261109.md)
+and the [controlled workflow](operations/controlled-workflow-20261108.md) for the exact
+local and synthetic acceptance boundaries. Normal application launch never creates demo
+users, jobs, model outputs or approved quality labels.
+
+The default/local Spring profiles continue to externalize the Redis password. The local
+profile supports an explicitly passwordless loopback Redis when no password is configured;
+this is separate from authenticating to a protected Redis instance. JWT signing requires
+a stable private Base64 key of at least 32 decoded bytes.
 
 ## Credential contract verification
 
