@@ -1,0 +1,21 @@
+backend/crawler/src/test/java/com/david/hlp/crawler/ai/service/JevContractTest.java
+  s_11f045800ece12::t_683fdd7fa4d572 92,110-120,125
+backend/crawler/src/main/java/com/david/hlp/crawler/ai/service/AIExtractionOfJobRequirements.java
+  s_11f045800ece12::t_683fdd7fa4d572 141-165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "41420e06666036e74386ead6b134c859c4f32d00",
+  "prompts": {},
+  "sessions": {
+    "s_11f045800ece12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1be6c-7e3f-73e3-b923-5519b349eb20",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
