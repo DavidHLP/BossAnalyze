@@ -1,0 +1,20 @@
+docs/operations/final-crawler-python-controller-20261109.md
+  s_88de7526916d3b::t_a0849db52af28e 32
+  s_88de7526916d3b::t_5716a321425202 1-31,33-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "179f3a85000dec2c4f73b67b417b1ec2be3b24b5",
+  "prompts": {},
+  "sessions": {
+    "s_88de7526916d3b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bfa4-7ee7-7052-814d-3a7b302bf5fd",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
