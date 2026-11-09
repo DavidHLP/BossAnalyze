@@ -1,0 +1,21 @@
+docs/specs/dependency-security-20261109.md
+  s_f2f5a10de5dca9::t_a511bbb363c049 40-45
+frontend/.gitattributes
+  s_f2f5a10de5dca9::t_c55096e373532d 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e1975959117a9441a826051e88f9fd576a245bff",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
