@@ -14,6 +14,14 @@ export PATH="$JAVA_HOME/bin:$PATH"
 
 仅运行定向离线测试：同一 Maven 命令改为 `test -Dtest=RecruitmentSamplerTest -Dsurefire.failIfNoSpecifiedTests=false`。fixture `backend/crawler/src/test/resources/sample/boss-detail.json` 与 `boss-detail.html` 是自写合成响应/SSR，含用于验证白名单的虚构敏感节点，不是真实招聘或登录数据。测试不启动任何浏览器、不访问平台、业务库或 AI。
 
+## 外部系统浏览器与页面响应超时
+
+使用已安装的系统 Chromium 时，在 Java 命令中加入 `-Dboss.browser.executable=/usr/bin/chromium`，无需内置浏览器或修改个人浏览器配置。未指定则保留 Playwright 原默认。独立窗口不使用个人 Profile；已有 CDP 模式仍仅连接用户明确提供的本机端口。
+
+无会话的列表模式先打开 BOSS 登录页，返回地址限定为已验证的目标列表；人工登录阶段不安装采集响应监听，避免正常未登录响应提前终止人工登录。人工确认后才开始采集。明确详情 URL 可先尝试匿名读取。用户选择暂不登录时，只能执行受控样例联调，不能据此宣称真实列表采集通过。
+
+页面登录/验证探测改用带 1 秒超时的只读查询；浏览器无法执行时输出 `page_unresponsive` 并停止，不把超时视为“没有验证”。已知 BOSS security 路径直接分类为需要验证。此保护不绕过验证码。
+
 ## 父任务人工运行方式
 
 以下命令会操作浏览器，只在授权环境运行；本轮实际结果见 `docs/operations/boss-sampling-acceptance-20261108.md`。不要用普通 `java -jar`，它仍是原 Spring 服务入口。

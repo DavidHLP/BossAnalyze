@@ -41,3 +41,11 @@
 - 受影响 Java17 commons/crawler verify 最终 exit 0，55 项测试（commons 15 + crawler 40，采样 18），失败/错误/跳过均 0，日志 `/tmp/boss-final-runtime-verify-final.log`。首次运行因新增测试传 null 给既有 helper 而失败，修正测试输入后重跑；首次失败日志 `/tmp/boss-final-runtime-verify.log` 保留。
 
 具体 argv、外层超时、权限和私有运行目录由本机交接 `/tmp/boss-final-boss-runtime-handoff.md` 指向。完整真实 JD/PII/会话未入 Git。本轮没有业务服务启停、数据库写入、模型调用、SMTP/ai-service 修改、push/PR/watch。没有真实有效会话与可读页面，线上采样、福利含义与独立标注评估仍未通过。
+
+## 外部浏览器与当前交付范围
+
+原真实 CLI 超时以线程栈定位到 Locator.count，不能再归因于浏览器启动：独立 about:blank 诊断中，有窗口和无窗口的驱动创建、页面创建与关闭均正常。因 count 查询没有该调用的超时选项，验证探测改为有明确超时的读取；不响应即失败关闭。
+
+系统 Chromium 明确详情 CLI 实际重测正常 exit2 / verification_required，无外层超时、无成功样本；私有证据 `/tmp/boss-external-cli-ux2wuap9/result.json`。外部人工登录窗口曾启动，未登录，随后 exit2 / redirect_rejected；它不是有效会话证明。用户最新要求先跑通整个流程，账号及后续细节自行处理，因此不再等待真实登录，正准备独立的受控端到端样例。
+
+受影响 Java verify 56 项通过，失败/错误/跳过均0，日志 `/tmp/boss-external-browser-verify.log`；随后登录返回地址与监听安装顺序细化，两个相关入口定向 verify 通过，日志 `/tmp/boss-external-login-return-focused.log`。这些是离线检查，不计为真实 BOSS 采样通过。

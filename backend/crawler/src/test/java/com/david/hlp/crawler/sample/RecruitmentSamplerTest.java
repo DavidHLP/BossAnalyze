@@ -197,6 +197,9 @@ class RecruitmentSamplerTest {
     private Page page(String url) {
         Page page = mock(Page.class);
         when(page.url()).thenReturn(url);
+        JSHandle signal = mock(JSHandle.class);
+        when(signal.jsonValue()).thenReturn(1);
+        when(page.waitForFunction(anyString(), isNull(), any(Page.WaitForFunctionOptions.class))).thenReturn(signal);
         var locators = new java.util.HashMap<String, Locator>();
         when(page.locator(anyString())).thenAnswer(call -> locators.computeIfAbsent(call.getArgument(0), key -> mock(Locator.class)));
         return page;
@@ -223,17 +226,44 @@ class RecruitmentSamplerTest {
             when(page.navigate(anyString(), any(Page.NavigateOptions.class)))
                     .thenThrow(new RecruitmentSampler.Stop("auth_required"));
             var options = options(url, url.equals(URL) ? "public-detail" : "manual-list", temp.resolve("unused-cancel"));
+            String previousExecutable = System.getProperty("boss.browser.executable");
+            System.setProperty("boss.browser.executable", "/synthetic/external-chromium");
             try (var factory = mockStatic(Playwright.class)) {
                 factory.when(() -> Playwright.create(any(Playwright.CreateOptions.class))).thenReturn(driver);
                 assertEquals(2, RecruitmentSampler.run(options));
+            } finally {
+                if (previousExecutable == null) System.clearProperty("boss.browser.executable");
+                else System.setProperty("boss.browser.executable", previousExecutable);
             }
-            verify(page).navigate(eq(url.equals(URL) ? URL : "https://www.zhipin.com/"), any(Page.NavigateOptions.class));
+            var launch = org.mockito.ArgumentCaptor.forClass(BrowserType.LaunchOptions.class);
+            verify(chromium).launch(launch.capture());
+            assertEquals(Path.of("/synthetic/external-chromium"), launch.getValue().executablePath);
+            verify(page).navigate(eq(url.equals(URL) ? URL : "https://www.zhipin.com/web/user/?fromUrl=https%3A%2F%2Fwww.zhipin.com%2Fweb%2Fgeek%2Fjobs"), any(Page.NavigateOptions.class));
+            verify(page, times(url.equals(URL) ? 1 : 0)).onResponse(any());
             verify(page).close();
             verify(browser).close();
             verify(driver).close();
             assertTrue(Files.readString(options.output().resolve("samples.jsonl")).contains("auth_required"));
             assertEquals("", Files.readString(options.output().resolve("labels.jsonl")));
         }
+    }
+
+    @Test void unresponsiveGateQueryStopsAndSecurityPathNeedsNoQuery() {
+        Page page = page(URL);
+        var options = options(URL, "unresponsive", temp.resolve("cancel"));
+        when(page.waitForFunction(anyString(), isNull(), any(Page.WaitForFunctionOptions.class)))
+                .thenThrow(new TimeoutError("synthetic unresponsive page"));
+        assertEquals("page_unresponsive", assertThrows(RecruitmentSampler.Stop.class,
+                () -> RecruitmentSampler.check(page, options, Long.MAX_VALUE, true)).status);
+        var timeout = org.mockito.ArgumentCaptor.forClass(Page.WaitForFunctionOptions.class);
+        verify(page).waitForFunction(anyString(), isNull(), timeout.capture());
+        assertEquals(1000.0, timeout.getValue().timeout);
+        verify(page, never()).locator(anyString());
+        clearInvocations(page);
+        when(page.url()).thenReturn("https://www.zhipin.com/web/passport/zp/security.html");
+        assertEquals("verification_required", assertThrows(RecruitmentSampler.Stop.class,
+                () -> RecruitmentSampler.check(page, options, Long.MAX_VALUE, true)).status);
+        verify(page, never()).waitForFunction(anyString(), isNull(), any(Page.WaitForFunctionOptions.class));
     }
 
     @Test void preCancelledRunNeverCreatesPlaywrightAndWritesCancelled() throws Exception {
@@ -433,8 +463,11 @@ class RecruitmentSamplerTest {
                     : boundary.equals("foreign") ? URL.replace("www.zhipin.com", "evil.test") : URL;
             Page page = page(current);
             when(page.content()).thenReturn(boundary.equals("empty") ? "<h1>Title</h1><div class='job-detail-section'><div class='job-sec-text'> </div></div>" : ssr());
-            if (boundary.equals("login")) when(page.locator("input[type=password]:visible").count()).thenReturn(1);
-            if (boundary.equals("verify")) when(page.locator("#captcha, .captcha, iframe[src*='captcha']").count()).thenReturn(1);
+            if (List.of("login", "verify").contains(boundary)) {
+                JSHandle signal = mock(JSHandle.class);
+                when(signal.jsonValue()).thenReturn(boundary.equals("login") ? 3 : 2);
+                when(page.waitForFunction(anyString(), isNull(), any(Page.WaitForFunctionOptions.class))).thenReturn(signal);
+            }
             doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
             var options = options(URL, "boundary-" + boundary, temp.resolve("cancel"));
             try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {

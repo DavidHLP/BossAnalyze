@@ -59,8 +59,11 @@ public final class RecruitmentSampler {
                 check(null, options, Long.MAX_VALUE, false);
                 playwright = Playwright.create(new Playwright.CreateOptions().setEnv(Map.of("DEBUG", "", "PWDEBUG", "0", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")));
                 check(null, options, Long.MAX_VALUE, false);
+                var launch = new BrowserType.LaunchOptions().setHeadless(false).setTimeout(15000);
+                String executable = System.getProperty("boss.browser.executable");
+                if (executable != null && !executable.isBlank()) launch.setExecutablePath(Path.of(executable));
                 browser = attached ? playwright.chromium().connectOverCDP(options.cdp, new BrowserType.ConnectOverCDPOptions().setTimeout(15000))
-                        : playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(false).setTimeout(15000));
+                        : playwright.chromium().launch(launch);
                 check(null, options, Long.MAX_VALUE, false);
                 BrowserContext context;
                 if (attached) {
@@ -75,13 +78,13 @@ public final class RecruitmentSampler {
                 page.setDefaultTimeout(3000);
                 page.setDefaultNavigationTimeout(15000);
                 installNavigationBoundary(page, capture);
+                if (!attached && cookies.isEmpty() && options.source.jobId() == null) manualLogin(page, capture, options);
                 page.onRequest(capture::started);
                 page.onResponse(capture::observeGate);
                 page.onRequestFinished(request -> {
                     Response response = request.response();
                     if (response != null) capture.received(response);
                 });
-                if (!attached && cookies.isEmpty() && options.source.jobId() == null) manualLogin(page, capture, options);
                 return collect(page, capture, options, output);
             } catch (Stop stop) {
                 output.write(DetailParser.failed(DetailParser.base(options.source, Instant.now().toString()), stop.status));
@@ -112,7 +115,7 @@ public final class RecruitmentSampler {
                     var uri = SourceUrl.uri(request.url());
                     if (!SourceUrl.trusted(uri) || !"GET".equals(request.method())) { capture.gate = "redirect_rejected"; route.abort(); return; }
                     String path = uri.getPath();
-                    if (!(path.equals("/") || path.startsWith("/web/user/") || (path.equals("/web/geek/job") || path.equals("/web/geek/jobs"))
+                    if (!(path.equals("/") || path.startsWith("/web/user/") || path.equals("/web/passport/zp/security.html") || (path.equals("/web/geek/job") || path.equals("/web/geek/jobs"))
                             || path.startsWith("/job_detail/"))) { capture.gate = "redirect_rejected"; route.abort(); return; }
                 } catch (Exception exception) { capture.gate = "redirect_rejected"; route.abort(); return; }
             }
@@ -124,7 +127,8 @@ public final class RecruitmentSampler {
     static void manualLogin(Page page, BossResponseCapture capture, Options options) throws Exception {
         ensureNoGate(capture);
         check(page, options, Long.MAX_VALUE, false);
-        page.navigate("https://www.zhipin.com/", new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+        String returnTo = java.net.URLEncoder.encode(options.source.uri().toString(), StandardCharsets.UTF_8);
+        page.navigate("https://www.zhipin.com/web/user/?fromUrl=" + returnTo, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
         System.out.println("Temporary BOSS window: complete manual login, then press Enter here within 120 seconds. Authentication will not be saved.");
         long deadline = System.nanoTime() + 120_000_000_000L;
         while (System.in.available() == 0) {
@@ -282,10 +286,20 @@ public final class RecruitmentSampler {
         var uri = SourceUrl.uri(page.url());
         if (!SourceUrl.trusted(uri)) throw new Stop("redirect_rejected");
         String path = uri.getPath();
-        if (path.contains("verify") || path.contains("captcha") || page.locator("#captcha, .captcha, iframe[src*='captcha']").count() > 0)
+        if (path.contains("verify") || path.contains("captcha") || path.startsWith("/web/passport/zp/security"))
             throw new Stop("verification_required");
-        if (path.contains("login") || path.startsWith("/web/user/") || page.locator("input[type=password]:visible").count() > 0)
+        if (path.contains("login") || path.startsWith("/web/user/"))
             throw new Stop("auth_required");
+        // count() has no query timeout and can hang on an unresponsive page.
+        try {
+            JSHandle signal = page.waitForFunction("() => document.querySelector('#captcha, .captcha, iframe[src*=\"captcha\"]') ? 2 : [...document.querySelectorAll('input[type=password]')].some(e => e.getClientRects().length) ? 3 : 1",
+                    null, new Page.WaitForFunctionOptions().setTimeout(1000));
+            int state;
+            try { state = ((Number) signal.jsonValue()).intValue(); }
+            finally { signal.dispose(); }
+            if (state == 2) throw new Stop("verification_required");
+            if (state == 3) throw new Stop("auth_required");
+        } catch (TimeoutError timeout) { throw new Stop("page_unresponsive"); }
     }
     private static void outputUnchecked(PrivateOutput output, Map<String, Object> sample) {
         try { output.write(sample); } catch (Exception exception) { throw new Stop("output_failed"); }
