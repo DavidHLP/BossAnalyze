@@ -1,0 +1,35 @@
+backend/api/src/main/java/com/david/hlp/web/system/auth/utils/JwtService.java
+  s_6786ea07ea1354::t_128d3c1b99ad3a 168,180-181
+  s_6786ea07ea1354::t_827b13b889bc6b 31,43-46,90,178
+  s_6786ea07ea1354::t_70c0fa9ea7b9fd 3-7,170-176
+backend/api/src/test/java/com/david/hlp/web/system/auth/IdentityPersistenceTest.java
+  s_6786ea07ea1354::t_a00011e028694c 29-30,43-46,51-59,61-62,70-81,84-88,90-97
+  s_6786ea07ea1354::t_148c73d386e931 82-83,89,98-100
+database/migrations/README-token-identity.md
+  s_6786ea07ea1354::t_7ccfed63563b88 1-13
+database/system.sql
+  s_6786ea07ea1354::t_827b13b889bc6b 127,134
+  s_6786ea07ea1354::t_128d3c1b99ad3a 137
+database/migrations/20261109-token-identity.sql
+  s_6786ea07ea1354::t_a00011e028694c 1-67
+docs/operations/token-session-identity-20261109.md
+  s_6786ea07ea1354::t_7ccfed63563b88 1-38
+backend/api/src/test/java/com/david/hlp/web/system/auth/JwtIdentityTest.java
+  s_6786ea07ea1354::t_a00011e028694c 1-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2c0a1991d1207e66acea01851a7ad590dccc9f54",
+  "prompts": {},
+  "sessions": {
+    "s_6786ea07ea1354": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c0dc-b8c2-73a3-8dde-b4c2a4732f13",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
