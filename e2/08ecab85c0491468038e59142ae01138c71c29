@@ -1,0 +1,29 @@
+frontend/patches/zod@3.25.76.patch
+  s_ce5f71d3f62869::t_2adf883cc3d958 1-201
+frontend/tests/request.test.mjs
+  s_ce5f71d3f62869::t_13a23b29928caa 232-291
+frontend/tests/fixtures/zod-collections.mjs
+  s_ce5f71d3f62869::t_0e350aaa3c0675 9-10,53
+  s_ce5f71d3f62869::t_13a23b29928caa 1-8,11-23,26-43,45-52,54-58,61-69
+  s_ce5f71d3f62869::t_f7a188f2598e97 24-25,44,59-60
+frontend/pnpm-workspace.yaml
+  s_ce5f71d3f62869::t_2adf883cc3d958 6
+frontend/pnpm-lock.yaml
+  s_ce5f71d3f62869::t_dfd6512a16c1e9 15,4848,4865-4866,8174,8210-8211,8973,8975,8977
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e208ecab85c0491468038e59142ae01138c71c29",
+  "prompts": {},
+  "sessions": {
+    "s_ce5f71d3f62869": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c110-a363-72e2-9d16-ceffcaac69b4",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
