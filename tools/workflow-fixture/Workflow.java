@@ -150,6 +150,15 @@ public class Workflow {
         check(match.path("complete").asBoolean(), "real match pipeline returns complete scored results");
         // Match item order is the production contract; ranked view is assembled explicitly below.
         check(Math.abs(match.path("items").get(0).path("score").asDouble()-8.75)<1e-9 && Math.abs(match.path("items").get(1).path("score").asDouble()-6.25)<1e-9, "actual weighted scored values 8.75 and 6.25");
+        Files.createFile(out.resolve("slow-match"));
+        try {
+            JsonNode partial=ai.match("纯合成简历：熟练 Python, SQL (test) 😀；具有三年项目经验，本科学历。",jobs,3000);
+            check(!partial.path("complete").asBoolean(), "real Java HTTP receives partial Python deadline response");
+            check(partial.at("/items/0/status").asText().equals("scored") && partial.at("/items/0/score").asDouble()==8.75, "completed score survives cross-language deadline");
+            check(partial.at("/items/1/status").asText().equals("failed") && partial.at("/items/1/score").isNull(), "only unfinished job fails at deadline");
+            check(Files.exists(out.resolve("slow-match-cancelled")), "unfinished provider task drained before response");
+            save("partial-deadline.json",partial);
+        } finally { Files.delete(out.resolve("slow-match")); }
         var config = new org.apache.ibatis.session.Configuration(new Environment("fixture",new JdbcTransactionFactory(),ds));
         config.setMapUnderscoreToCamelCase(true);
         try (var in=Workflow.class.getClassLoader().getResourceAsStream("mapper/ai/TJobDetailMapper.xml")) { new XMLMapperBuilder(in,config,"production",config.getSqlFragments()).parse(); }

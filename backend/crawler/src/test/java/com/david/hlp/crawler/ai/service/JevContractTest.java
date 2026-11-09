@@ -77,6 +77,24 @@ class JevContractTest {
         var ai=new AIExtractionOfJobRequirements(json,"http://synthetic.test","","model");
         assertEquals(503,assertThrows(ResponseStatusException.class,()->ai.analyze("42","{}")).getStatusCode().value());
     }
+    @Test void inferenceDeadlineLeavesReturnTimeInsideTheReadBudget() {
+        for(int timeout:List.of(3,100,3000,30000)) {
+            var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
+            int connect=Math.min(1000,Math.max(1,timeout/2)),read=timeout-connect;
+            server.expect(requestTo("http://synthetic.test/internal/v1/match-batch"))
+                .andExpect(request->{
+                    var body=json.readTree(((org.springframework.mock.http.client.MockClientHttpRequest)request).getBodyAsString());
+                    assertTrue(body.path("timeoutMs").asInt()>0);
+                    assertTrue(body.path("timeoutMs").asInt()<read);
+                    if(timeout==30000)assertEquals(28000,body.path("timeoutMs").asInt());
+                }).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+            assertEquals(503,assertThrows(ResponseStatusException.class,()->ai.match("synthetic",List.of(),timeout)).getStatusCode().value());
+            server.verify();
+        }
+        var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
+        for(int timeout:List.of(0,1,2))assertEquals(504,assertThrows(ResponseStatusException.class,()->ai.match("synthetic",List.of(),timeout)).getStatusCode().value());
+        server.verify();
+    }
     @Test void deletedChangedAndExpiredLeasesNeverProject()throws Exception{
         for(int mode=0;mode<3;mode++){
             JdbcTemplate db=mock(JdbcTemplate.class);PlatformTransactionManager manager=mock(PlatformTransactionManager.class);

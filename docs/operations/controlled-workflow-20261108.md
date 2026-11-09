@@ -40,6 +40,7 @@ Provider 回应形状复用 `ai-service/tests/test_contract.py` 的 `fixture`：
 - 实际 match `scored`、各维度数字与证据通过 Java 校验；加权分数为 8.75/6.25，排名降序。
 - 实际 loopback reader HTTP 返回完整 DTO，并验证 completed/pending 状态。
 - 真实 MySQL 验证 A 完成→B 失败/待复核→恢复 A：重新投影已校验缓存，provider 请求数不增加，reader 重新选择 A，随后不重复领取。
+- 实际 Java HTTP 客户端调用 Python 时留出返回预算；快职位完成、慢职位阻塞到共享 deadline 后，快职位分数保留，慢职位失败且其任务在响应前取消。
 
 ## 后续 frontend 消费
 

@@ -1,4 +1,5 @@
 """Fixture-only app: real HTTP/Jev pipeline, synthetic official-provider transport."""
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ from app.main import create_app
 out = Path(os.environ['WORKFLOW_OUTPUT'])
 calls = 0
 
-def provider(request):
+async def provider(request):
     global calls
     assert str(request.url) == 'https://api.commandcode.ai/provider/v1/systemone'
     assert request.headers['x-cmd-zdr'] == '1'
@@ -22,6 +23,11 @@ def provider(request):
     if (out / 'fail-provider').exists():
         return httpx.Response(503, json={'error': 'synthetic_upstream_failure'})
     payload = json.loads(request.content)
+    if (out / 'slow-match').exists() and '"jobId": "2"' in payload['state']:
+        try:
+            await asyncio.Event().wait()
+        finally:
+            (out / 'slow-match-cancelled').touch()
     with (out / 'provider-requests.jsonl').open('a') as log:
         log.write(json.dumps(payload, ensure_ascii=False) + '\n')
     value = 2.5 if '"jobId": "2"' in payload['state'] else 3.5

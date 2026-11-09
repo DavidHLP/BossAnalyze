@@ -39,15 +39,19 @@ public class AIExtractionOfJobRequirements {
     private JsonNode post(String path, ObjectNode body, int timeoutMs) {
         if (token == null || token.isBlank()) throw error(503, "AI_UNCONFIGURED");
         if (timeoutMs < 1) throw error(504, "AI_DEADLINE");
-        body.put("timeoutMs", Math.min(timeoutMs, 30000));
+        int connect=Math.min(1000,Math.max(1,timeoutMs/2));
+        int read=timeoutMs-connect;
+        // Leave cancellation, serialization and transport time inside the caller's budget.
+        int inference=Math.min(30000,read-Math.min(1000,Math.max(1,read/2)));
+        if(inference<1)throw error(504,"AI_DEADLINE");
+        body.put("timeoutMs", inference);
         if (body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 262144)
             throw error(422, "AI_INPUT_LIMIT");
         var headers = new HttpHeaders(); headers.setBearerAuth(token); headers.setContentType(MediaType.APPLICATION_JSON);
         RestTemplate transport=http;
         if (transport==null) {
             var factory=new org.springframework.http.client.SimpleClientHttpRequestFactory();
-            int connect=Math.min(1000,Math.max(1,timeoutMs/2));
-            factory.setConnectTimeout(connect);factory.setReadTimeout(Math.max(1,timeoutMs-connect));
+            factory.setConnectTimeout(connect);factory.setReadTimeout(read);
             transport=new RestTemplate(factory);
         }
         try {
