@@ -52,6 +52,8 @@ Java crawler 与 Python 须使用相同的 `AI_MAX_INPUT_BYTES`、`AI_MAX_JOBS` 
 
 没有可信 Jev tokenizer；UTF-8 字节数仅作保守 admission 上界，state + 单问题最多 30000 字节、整批最多 60000 字节，不宣称精确 token 计数。超限明确 422，不裁掉字段。长全文即使分问题批次仍可能因 state 过大被拒绝，父调用侧必须显示未完成，不能写成功投影。
 
+provider state 的每个候选只保留一份正文，省去相同 context 和证据中的重复正文；证据仍带来源路径与码点偏移。公开结果的证据原文从内部候选还原，不因传输去重丢失。Java 请求按同一份编码后的 JSON byte[] 计量并发送，避免 emoji 在二次编码时突破输入上限。
+
 `jev-policy-1` 权重草案 skills 0.5 / relevant_experience 0.3 / experience 0.1 / education 0.1；接受概率 0.9、拒绝概率 0.1。它们是待校准策略，不是最佳参数。修改这些参数、切分/问题语义或自动接受规则时需升级策略/管线版本，避免复用旧身份缓存。
 
 默认 `AI_QUALITY_APPROVED=0`，即使离线模拟全成功，提取结果仍为 needs_review，禁止 Java 自动投影。`/health/ready` 显式暴露 qualityGate、权重、阈值和目标（候选召回 >=98%、自动接受 precision >=95%、证据一致性 100%）。只有父任务完成按职位分组的人工标注/留出质量验收并记录各子组覆盖、排序、未知覆盖、成本及 p95 后才能设为 `1`。该开关是操作员证明的前置条件，不会自动测量或证明质量；匹配仍需 UI 清楚标注为推荐参考，不能用于自动录用/淘汰。

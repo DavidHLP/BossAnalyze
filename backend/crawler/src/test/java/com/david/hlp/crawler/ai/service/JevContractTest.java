@@ -106,6 +106,22 @@ class JevContractTest {
         assertTrue(ai.fitsMatchBatch("synthetic",List.of(job)));
         assertFalse(ai.fitsMatchBatch("synthetic",List.of(job,job)));
     }
+    @Test void supplementaryCharactersAreMeasuredAsTheExactHttpBytes() {
+        for(int count:List.of(3500,4100)) {
+            var ai=client();var server=MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(ai,"http")).build();
+            var job=json.createObjectNode().put("jobId","1");job.putObject("detailData").put("jobDescription","😀".repeat(count));
+            assertEquals(count==3500,ai.fitsMatchBatch("Java",List.of(job)));
+            if(count==3500)server.expect(requestTo("http://synthetic.test/internal/v1/match-batch"))
+                .andExpect(request->{
+                    byte[] actual=((org.springframework.mock.http.client.MockClientHttpRequest)request).getBodyAsBytes();
+                    assertTrue(actual.length<=48000);
+                    assertArrayEquals(json.writeValueAsBytes(json.readTree(actual)),actual);
+                    assertEquals("😀".repeat(count),json.readTree(actual).at("/jobs/0/detailData/jobDescription").asText());
+                }).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+            assertEquals(count==3500?503:422,assertThrows(ResponseStatusException.class,()->ai.match("Java",List.of(job),30000)).getStatusCode().value());
+            server.verify();
+        }
+    }
     @Test void deletedChangedAndExpiredLeasesNeverProject()throws Exception{
         for(int mode=0;mode<3;mode++){
             JdbcTemplate db=mock(JdbcTemplate.class);PlatformTransactionManager manager=mock(PlatformTransactionManager.class);

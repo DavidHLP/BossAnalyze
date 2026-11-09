@@ -63,14 +63,16 @@ class MatchBoundaryTest {
         }
     }
     @Test void byteBoundedBatchesPreserveJobsAndIsolateAnOversizedRecord() {
-        for(boolean oversized:List.of(false,true)) {
+        for(String mode:List.of("none","chinese","emoji")) {
+            boolean oversized=!mode.equals("none");
             var mapper=mock(TJobDetailMapper.class);
             var ai=spy(new AIExtractionOfJobRequirements(json,"http://synthetic.test","synthetic","typesafe/jev-1.14.0"));
             String resume="合成简历".repeat(300);
             var jobs=new ArrayList<MiniJobDetail>();
             for(long id=1;id<=10;id++) {
                 var detail=json.createObjectNode();
-                detail.putObject("jobDescription").put("requirements","汉".repeat(oversized&&id==5?17000:1750)+"\"\\😀");
+                String text=mode.equals("emoji")&&id==5?"😀".repeat(4100):"汉".repeat(oversized&&id==5?17000:1750)+"\"\\😀";
+                detail.putObject("jobDescription").put("requirements",text);
                 jobs.add(MiniJobDetail.builder().id(id).detailData(detail.toString()).build());
             }
             when(mapper.selectMiniJobDetail(anyString(),anyString(),anyLong(),anyInt())).thenReturn(jobs);

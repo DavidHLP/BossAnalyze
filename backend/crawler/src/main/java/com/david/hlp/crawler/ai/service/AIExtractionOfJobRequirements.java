@@ -49,7 +49,8 @@ public class AIExtractionOfJobRequirements {
         int inference=Math.min(30000,read-Math.min(1000,Math.max(1,read/2)));
         if(inference<1)throw error(504,"AI_DEADLINE");
         body.put("timeoutMs", inference);
-        if (body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > maxInputBytes)
+        byte[] payload=encodedBody(body);
+        if (payload.length > maxInputBytes)
             throw error(422, "AI_INPUT_LIMIT");
         var headers = new HttpHeaders(); headers.setBearerAuth(token); headers.setContentType(MediaType.APPLICATION_JSON);
         RestTemplate transport=http;
@@ -59,7 +60,7 @@ public class AIExtractionOfJobRequirements {
             transport=new RestTemplate(factory);
         }
         try {
-            JsonNode result = transport.postForObject(url + path, new HttpEntity<>(body, headers), JsonNode.class);
+            JsonNode result = transport.postForObject(url + path, new HttpEntity<>(payload, headers), JsonNode.class);
             validateEnvelope(result);
             return result;
         } catch (RestClientResponseException e) {
@@ -185,8 +186,11 @@ public class AIExtractionOfJobRequirements {
         var body=json.createObjectNode().put("resume",resume);body.set("jobs",json.valueToTree(jobs));return body;
     }
     public boolean fitsMatchBatch(String resume,List<ObjectNode> jobs) {
-        return jobs.size()<=maxJobs && matchBody(resume,jobs).put("timeoutMs",30000)
-                .toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length<=maxInputBytes;
+        return jobs.size()<=maxJobs && encodedBody(matchBody(resume,jobs).put("timeoutMs",30000)).length<=maxInputBytes;
+    }
+    private byte[] encodedBody(ObjectNode body) {
+        try { return json.writeValueAsBytes(body); }
+        catch(com.fasterxml.jackson.core.JsonProcessingException e) { throw error(422,"AI_INVALID_INPUT"); }
     }
     public List<String> texts(JsonNode result, String field) {
         List<String> out=new ArrayList<>(); result.path(field).forEach(n->out.add(n.path("text").asText())); return out;

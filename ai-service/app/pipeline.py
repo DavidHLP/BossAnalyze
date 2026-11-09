@@ -24,7 +24,14 @@ def score(instructions, levels):
 
 
 def state_for(items):
-    return [dict(candidateId=c.id, text=c.text, context=c.context, evidence=c.evidence) for c in items]
+    state = []
+    for c in items:
+        item = dict(candidateId=c.id, text=c.text,
+                    evidence=[{k: v for k, v in e.items() if k != "text"} for e in c.evidence])
+        if c.context != c.text:
+            item["context"] = c.context
+        state.append(item)
+    return state
 
 
 def usage_output(usage):

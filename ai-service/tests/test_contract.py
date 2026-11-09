@@ -130,6 +130,33 @@ async def test_match_independent_states_unknown_not_zero_and_precision():
         assert duplicate.status_code == 422
 
 
+async def test_long_resume_is_sent_once_with_exact_evidence_preserved():
+    resume = "简历事实" * 1000
+    calls = []
+
+    def handler(request):
+        payload = json.loads(request.content)
+        state = json.loads(payload["state"])
+        candidate = state["resume"][0]
+        assert candidate["text"] == resume and "context" not in candidate
+        assert candidate["evidence"] == [dict(sourcePath="/resume", start=0, end=len(resume))]
+        for question in payload["questions"].values():
+            assert len(json.dumps(dict(state=payload["state"], question=question), ensure_ascii=False).encode()) <= 30000
+        calls.append(payload)
+        return httpx.Response(200, json=fixture(payload))
+
+    app, client = await api(handler=handler)
+    async with client:
+        response = await client.post("/internal/v1/match-batch", headers=AUTH, json={
+            "resume": resume, "jobs": [{"jobId": "long", "detailData": {"jobTags": ["Java"]}}]})
+        assert response.status_code == 200, response.text
+        result = response.json()["items"][0]
+        assert result["status"] == "scored" and calls
+        for dimension in result["dimensions"]:
+            evidence = next(e for e in dimension["evidence"] if e["sourcePath"] == "/resume")
+            assert evidence["text"] == resume[evidence["start"]:evidence["end"]] == resume
+
+
 @pytest.mark.parametrize("mutation", [
     lambda d: d.update(answers={}),
     lambda d: d["answers"].update(extra={"type": "noul", "noul": 1}),
