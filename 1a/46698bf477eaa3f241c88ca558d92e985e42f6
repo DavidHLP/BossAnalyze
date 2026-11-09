@@ -1,0 +1,40 @@
+backend/commons/src/main/java/com/david/hlp/commons/recruitment/JobAnalysisReader.java
+  s_97a69f188d2fb7::t_1a18dbff8679ed 22
+backend/crawler/src/main/java/com/david/hlp/crawler/ai/service/AIExtractionOfJobRequirements.java
+  s_97a69f188d2fb7::t_1a18dbff8679ed 55,64-72,77-81
+backend/commons/src/main/java/com/david/hlp/commons/recruitment/JobAnalysisFacts.java
+  s_97a69f188d2fb7::t_1a18dbff8679ed 1-54
+backend/crawler/src/main/java/com/david/hlp/crawler/ai/service/JobAnalysisStore.java
+  s_97a69f188d2fb7::t_1a18dbff8679ed 5,22-23,27-31,33-48,54,69-70,74-91
+  s_97a69f188d2fb7::t_2c4a5aae06c489 32
+backend/commons/src/test/java/com/david/hlp/commons/recruitment/JobAnalysisReaderTest.java
+  s_97a69f188d2fb7::t_cd1a1a622b288b 28-29,44-60
+backend/crawler/src/test/java/com/david/hlp/crawler/ai/service/JevContractTest.java
+  s_97a69f188d2fb7::t_5743c1ed7f0487 26,31,85,87
+backend/crawler/src/test/java/com/david/hlp/crawler/ai/service/JobAnalysisStoreTest.java
+  s_97a69f188d2fb7::t_862d7f6ac2ea69 1-179
+docs/operations/commandcode-jev-java.md
+  s_97a69f188d2fb7::t_6979fe32a9068b 10,13,15,30-31
+docs/operations/commandcode-jev-readers.md
+  s_97a69f188d2fb7::t_4ee3d3cd295acb 17
+docs/specs/commandcode-jev-contract-20261108.md
+  s_97a69f188d2fb7::t_6ceabd004a810a 25-31,39
+docs/specs/commandcode-jev-migration-20261108.md
+  s_97a69f188d2fb7::t_6fc993d7c52de8 136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1a46698bf477eaa3f241c88ca558d92e985e42f6",
+  "prompts": {},
+  "sessions": {
+    "s_97a69f188d2fb7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1be62-07ee-7232-aabf-bdb612366196",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
