@@ -1,0 +1,27 @@
+frontend/pnpm-workspace.yaml
+  s_c318a493872380::t_43bf400ba4739f 3-11
+frontend/patches/deepmerge@4.3.1.patch
+  s_c318a493872380::t_43bf400ba4739f 1-90
+frontend/tests/request.test.mjs
+  s_c318a493872380::t_43bf400ba4739f 157-231
+frontend/patches/source-map-resolve@0.6.0.patch
+  s_c318a493872380::t_43bf400ba4739f 1-14
+frontend/pnpm-lock.yaml
+  s_c318a493872380::t_cc79b43ba834a0 7-15,517-519,1977-1979,2416-2417,2992-2993,3255-3256,4724,4800-4801,5446,5637,5715,5973,6344,6367,6375,6557,6827,6829,6831,7327,7329,7816,8179,8281,8284,8809
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1439d834418ccbf4a4a16e1eb79e601ec101db5b",
+  "prompts": {},
+  "sessions": {
+    "s_c318a493872380": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c0fd-5542-7c10-883f-781a03b03f7e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
