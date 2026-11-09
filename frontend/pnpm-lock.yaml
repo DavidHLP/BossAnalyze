@@ -12,6 +12,7 @@ overrides:
 patchedDependencies:
   deepmerge@4.3.1: 004ee309b32567688613186a912ec579b7151bcd4ed55b14bb54297ebb30f9bf
   source-map-resolve@0.6.0: 6a0796dcdffa817faf5fbf3cc5aabc27d9eeef3e8864c483c324edf8ce3b08c9
+  zod@3.25.76: 0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60
 
 importers:
 
@@ -4844,7 +4845,7 @@ snapshots:
       - encoding
       - supports-color
 
-  '@modelcontextprotocol/sdk@1.32.2(supports-color@10.2.2)(zod@3.25.76)':
+  '@modelcontextprotocol/sdk@1.32.2(supports-color@10.2.2)(zod@3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60))':
     dependencies:
       '@hono/node-server': 2.1.5(hono@4.13.14)
       ajv: 8.20.0
@@ -4861,8 +4862,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod: 3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60)
+      zod-to-json-schema: 3.25.2(zod@3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60))
     transitivePeerDependencies:
       - supports-color
 
@@ -8170,7 +8171,7 @@ snapshots:
   shadcn-vue@2.9.0(@volar/typescript@2.4.28(typescript@5.9.3))(@vue/language-core@3.3.13)(esbuild@0.28.2)(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))(magicast@0.5.5)(supports-color@10.2.2):
     dependencies:
       '@dotenvx/dotenvx': 2.38.2
-      '@modelcontextprotocol/sdk': 1.32.2(supports-color@10.2.2)(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.32.2(supports-color@10.2.2)(zod@3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60))
       '@vue/compiler-core': 3.5.44
       c12: 3.3.4(magicast@0.5.5)
       commander: 15.0.0
@@ -8206,8 +8207,8 @@ snapshots:
       vue: 3.5.44(typescript@5.9.3)
       vue-metamorph: 3.3.4(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)
       vue-sfc-transformer: 0.3.1(@volar/typescript@2.4.28(typescript@5.9.3))(@vue/compiler-core@3.5.44)(@vue/language-core@3.3.13)(esbuild@0.28.2)(rolldown@1.2.15)(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3))
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod: 3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60)
+      zod-to-json-schema: 3.25.2(zod@3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60))
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - '@volar/typescript'
@@ -8969,8 +8970,8 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.8.0
 
-  zod-to-json-schema@3.25.2(zod@3.25.76):
+  zod-to-json-schema@3.25.2(zod@3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60)):
     dependencies:
-      zod: 3.25.76
+      zod: 3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60)
 
-  zod@3.25.76: {}
+  zod@3.25.76(patch_hash=0e5dafa78f181e720960cbd5844a00906cb09e5c0c3089a10bec308ca1fb7f60): {}

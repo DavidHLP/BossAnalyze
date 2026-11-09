@@ -3,6 +3,7 @@ allowBuilds:
 patchedDependencies:
   deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
   source-map-resolve@0.6.0: patches/source-map-resolve@0.6.0.patch
+  zod@3.25.76: patches/zod@3.25.76.patch
 
 # Consumers use the named minimatch API and glob sync/promise APIs retained here.
 overrides:

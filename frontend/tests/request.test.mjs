@@ -229,3 +229,63 @@ test('updated glob and minimatch preserve archiving, tracing and source file sel
     await rm(dir, { recursive: true, force: true })
   }
 })
+
+test('Zod rejects oversized collections before walking or allocating across its installed exports', async () => {
+  const { createRequire } = await import('node:module')
+  const { pathToFileURL } = await import('node:url')
+  const { checkCollectionBounds } = await import('./fixtures/zod-collections.mjs')
+  const root = createRequire(import.meta.url)
+  const shadcn = createRequire(root.resolve('shadcn-vue'))
+  for (const entry of ['zod', 'zod/v3', 'zod/v4', 'zod/v4/mini', 'zod/v4-mini']) {
+    const path = shadcn.resolve(entry)
+    for (const z of [shadcn(entry), await import(pathToFileURL(path.replace(/\.cjs$/, '.js')).href)]) {
+      await checkCollectionBounds(z, entry === 'zod' || entry === 'zod/v3')
+    }
+  }
+})
+
+test('actual shadcn MCP tool schemas and exported registry parsers retain their contracts', async () => {
+  const { createRequire } = await import('node:module')
+  const { readFile, readdir } = await import('node:fs/promises')
+  const { dirname, join } = await import('node:path')
+  const { pathToFileURL } = await import('node:url')
+  const { runInNewContext } = await import('node:vm')
+  const root = createRequire(import.meta.url)
+  const entry = root.resolve('shadcn-vue')
+  const shadcn = createRequire(entry)
+  const dist = dirname(entry)
+  const files = (await readdir(dist)).filter(name => /^mcp-.*\.js$/.test(name))
+  assert.equal(files.length, 1)
+  const source = await readFile(join(dist, files[0]), 'utf8')
+  // Evaluate only the actual list-tools registration; no transport, CLI or registry network calls.
+  const start = source.indexOf('server.setRequestHandler(ListToolsRequestSchema,')
+  const end = source.indexOf('server.setRequestHandler(CallToolRequestSchema,', start)
+  assert.ok(start >= 0 && end > start)
+  let listTools
+  runInNewContext(source.slice(start, end), {
+    server: { setRequestHandler(_, handler) { listTools = handler } },
+    ListToolsRequestSchema: {}, z$1: shadcn('zod'),
+    zodToJsonSchema: shadcn('zod-to-json-schema').zodToJsonSchema,
+  }, { timeout: 1000 })
+  const { tools } = await listTools()
+  assert.equal(tools.length, 7)
+  for (const tool of tools) assert.equal(tool.inputSchema.type, 'object')
+  const search = tools.find(tool => tool.name === 'search_items_in_registries').inputSchema
+  assert.equal(search.properties.registries.type, 'array')
+  assert.equal(search.properties.registries.items.type, 'string')
+  assert.equal(search.properties.query.type, 'string')
+  assert.equal(search.properties.limit.type, 'number')
+  assert.deepEqual(Array.from(search.required), ['registries', 'query'])
+  for (const name of ['view_items_in_registries', 'get_add_command_for_items']) {
+    const schema = tools.find(tool => tool.name === name).inputSchema
+    assert.equal(schema.properties.items.items.type, 'string')
+    assert.deepEqual(Array.from(schema.required), ['items'])
+  }
+  const { registrySchema, registryConfigSchema } = await import(pathToFileURL(join(dist, 'schema/index.js')).href)
+  const fixture = { name: 'fixture', homepage: 'https://example.invalid', items: [{ name: 'button', type: 'registry:ui', files: [{ path: 'ui/button.vue', type: 'registry:ui', content: '<template />' }] }] }
+  assert.equal(registrySchema.parse(fixture).items[0].files[0].content, '<template />')
+  assert.equal(registrySchema.safeParse({ ...fixture, items: [{ name: 'button', type: 'invalid' }] }).success, false)
+  assert.equal(registryConfigSchema.safeParse({ '@fixture': { url: 'https://example.invalid/{name}.json', headers: { Accept: 'application/json' } } }).success, true)
+  assert.equal(registryConfigSchema.safeParse({ invalid: 'https://example.invalid/{name}.json' }).success, false)
+  assert.equal(registryConfigSchema.safeParse({ '@fixture': { url: 'https://example.invalid/{name}.json', headers: { Accept: 123 } } }).success, false)
+})
