@@ -19,7 +19,7 @@ public final class JobAnalysisReader {
         try {
             var current = detail == null ? null : JSON.readTree(detail);
             var snapshot = source == null ? null : JSON.readTree(source);
-            if (current == null || !current.isObject() || !current.equals(snapshot)) return "stale";
+            if (!JobAnalysisFacts.same(current, snapshot)) return "stale";
             switch (state) {
                 case "completed":
                     var output = result == null ? null : JSON.readTree(result);

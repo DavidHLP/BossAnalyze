@@ -133,7 +133,7 @@ Java 现有 `/api/v1/ai/get-user-similarity` 成功列表契约保留。设计�
 - 工作状态、attempt_count、next_retry_at、lease_until、递增 fence、时间；结果 JSON、受控错误类别、厂商返回的 usage。
 - 唯一约束限制同一分析身份的竞争；领取使用数据库原子条件更新。lease 过期后的旧 worker 不得提交结果。供应商超时可能已经计费，无法保证网络调用 exactly-once；只保证应用不重复提交已完成结果和不无限重试。
 
-正常状态：pending → running → completed / needs_review / retry_wait / failed；源改变标记 superseded，新身份重新分析。no_evidence 是已完成分析结果，不再依赖“字段 NULL”无限调度。
+正常状态：pending → running → completed / needs_review / retry_wait / failed；事实源改变标记 superseded，新事实身份重新分析。相同事实恢复可重新领取 superseded 并优先复用重验通过的完整结果；事实选择、空值、重试终态和恢复预算遵循[冻结契约](commandcode-jev-contract-20261108.md#java-分析结果存储)。no_evidence 是已完成分析结果，不再依赖“字段 NULL”无限调度。
 
 网络调用期间不持有数据库长事务。提交时短事务锁定/复核当前源、`is_deleted=0`、身份和 fence；结果表与旧数组投影同事务更新。失败或 needs_review 不覆盖现有内容，也不把旧结果冒充当前 Jev 结果。跨多个实例使用数据库领取，不只依赖 JVM 内存锁。
 

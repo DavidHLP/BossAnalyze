@@ -25,8 +25,8 @@ class JobAnalysisReaderTest {
 
     @Test
     void onlyCurrentSuccessfulJsonProjectionIsCompleted() {
-        String source = "{\"a\":1,\"b\":\"😀\"}";
-        assertEquals("complete", status(source, "{\"b\":\"😀\",\"a\":1}", "completed", "complete", "[\"Java, Python\"]"));
+        String source = "{\"jobDescription\":{\"a\":1,\"b\":\"😀\"}}";
+        assertEquals("complete", status(source, "{\"jobDescription\":{\"b\":\"😀\",\"a\":1}}", "completed", "complete", "[\"Java, Python\"]"));
         assertEquals("no_evidence", status(source, source, "completed", "no_evidence", "[]"));
         assertEquals("stale", status(source, "{}", "completed", "complete", "[]"));
         assertEquals("needs_review", status(source, source, "completed", "complete", "[legacy]"));
@@ -39,6 +39,23 @@ class JobAnalysisReaderTest {
         assertNull(status(source, source, "future_state", "complete", "[]"));
         assertEquals("unparsed", JobAnalysisReader.status(source, null, null, null, null, null));
         assertEquals("legacy_unverified", JobAnalysisReader.status(source, null, null, null, "[old]", null));
+    }
+
+    @Test
+    void factualIdentityAndFreshnessIgnoreOnlyMetadata() throws Exception {
+        var json = new ObjectMapper();
+        String a = "{\"jobTags\":[\"😀Java\",\"Python\"],\"jobDescription\":{\"b\":\"B\",\"a\":\"A\"}}";
+        String b = "{\"company\":\"different\",\"updateTime\":2,\"analysisReport\":{\"text\":\"ignore\"},\"jobDescription\":{\"a\":\"A\",\"b\":\"B\"},\"jobTags\":[\"😀Java\",\"Python\"]}";
+        assertEquals(JobAnalysisFacts.digest(json.readTree(a)), JobAnalysisFacts.digest(json.readTree(b)));
+        assertEquals("complete", status(b, a, "completed", "complete", "[]"));
+        for (String changed : List.of(a.replace("Python", "Rust"), a.replace("😀Java", "Java"),
+                a.replace("[\"😀Java\",\"Python\"]", "[\"Python\",\"😀Java\"]"))) {
+            assertNotEquals(JobAnalysisFacts.digest(json.readTree(a)), JobAnalysisFacts.digest(json.readTree(changed)));
+            assertEquals("stale", status(changed, a, "completed", "complete", "[]"));
+        }
+        assertEquals(JobAnalysisFacts.digest(json.readTree("{}")), JobAnalysisFacts.digest(json.readTree("{\"jobTags\":null}")));
+        assertNotEquals(JobAnalysisFacts.digest(json.readTree("{}")), JobAnalysisFacts.digest(json.readTree("{\"jobTags\":[]}")));
+        assertNotEquals(JobAnalysisFacts.digest(json.readTree("{\"jobTags\":[]}")), JobAnalysisFacts.digest(json.readTree("{\"jobTags\":[\"\"]}")));
     }
 
     private String status(String detail, String source, String state, String status, String requirements) {

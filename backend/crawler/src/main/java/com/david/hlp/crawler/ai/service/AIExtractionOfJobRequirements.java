@@ -52,13 +52,7 @@ public class AIExtractionOfJobRequirements {
         }
         try {
             JsonNode result = transport.postForObject(url + path, new HttpEntity<>(body, headers), JsonNode.class);
-            if (result == null || !result.isObject() || !result.path("model").asText().equals(model)
-                    || !result.path("policyVersion").asText().equals("jev-policy-1")
-                    || !result.path("requestId").isTextual() || !result.path("usage").isObject()) throw error(502, "AI_BAD_OUTPUT");
-            for (String field : List.of("inputTokens", "outputTokens")) {
-                JsonNode n = result.path("usage").path(field);
-                if (!(n.isNull() || n.isIntegralNumber() && n.canConvertToLong() && n.asLong() >= 0)) throw error(502, "AI_BAD_OUTPUT");
-            }
+            validateEnvelope(result);
             return result;
         } catch (RestClientResponseException e) {
             int status=e.getStatusCode().value();
@@ -67,10 +61,24 @@ public class AIExtractionOfJobRequirements {
         } catch (ResourceAccessException e) { throw error(504, "AI_DEADLINE"); }
         catch (RestClientException e) { throw error(502, "AI_BAD_OUTPUT"); }
     }
+    private void validateEnvelope(JsonNode result) {
+        if (result == null || !result.isObject() || !result.path("model").asText().equals(model)
+                || !result.path("policyVersion").asText().equals("jev-policy-1")
+                || !result.path("requestId").isTextual() || !result.path("usage").isObject()) throw error(502, "AI_BAD_OUTPUT");
+        for (String field : List.of("inputTokens", "outputTokens")) {
+            JsonNode n = result.path("usage").path(field);
+            if (!(n.isNull() || n.isIntegralNumber() && n.canConvertToLong() && n.asLong() >= 0)) throw error(502, "AI_BAD_OUTPUT");
+        }
+    }
     public JsonNode analyze(String id, String source) {
         JsonNode input = detail(source);
         var body = json.createObjectNode().put("jobId", id); body.set("detailData", input);
         JsonNode result = post("/internal/v1/job-analysis", body, 30000);
+        return validateAnalysis(id, input, result);
+    }
+    JsonNode validateAnalysis(String id, JsonNode input, JsonNode result) {
+        validateEnvelope(result);
+        input = com.david.hlp.commons.recruitment.JobAnalysisFacts.select(input);
         if (!result.path("jobId").isTextual() || !id.equals(result.path("jobId").asText()) || !result.path("pipelineVersion").asText().equals("jev-1")
                 || !Set.of("complete", "no_evidence", "needs_review").contains(result.path("status").asText())) throw error(502, "AI_BAD_OUTPUT");
         for (String field : List.of("requirements", "benefits", "coreRequirements")) {

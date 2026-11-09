@@ -23,12 +23,12 @@ class JevContractTest {
     String analysis(String status,String items){return "{\"jobId\":\"42\",\"status\":\""+status+"\",\"requirements\":"+items+",\"benefits\":[],\"coreRequirements\":[],\"model\":\"typesafe/jev-1.14.0\",\"pipelineVersion\":\"jev-1\",\"policyVersion\":\"jev-policy-1\",\"requestId\":\"test\",\"usage\":{\"inputTokens\":null,\"outputTokens\":null}}";}
     @Test void authenticatedBusinessRequestAndUnicodeEvidenceRoundTrip(){
         var ai=client();var http=(RestTemplate)ReflectionTestUtils.getField(ai,"http");var server=MockRestServiceServer.bindTo(http).build();
-        String item="[{\"candidateId\":\"r1\",\"text\":\"Java, (Spring Boot)\",\"probability\":0.99,\"importance\":null,\"evidence\":[{\"sourcePath\":\"/text\",\"start\":1,\"end\":20,\"text\":\"Java, (Spring Boot)\"}]}]";
+        String item="[{\"candidateId\":\"r1\",\"text\":\"Java, (Spring Boot)\",\"probability\":0.99,\"importance\":null,\"evidence\":[{\"sourcePath\":\"/jobTags/0\",\"start\":1,\"end\":20,\"text\":\"Java, (Spring Boot)\"}]}]";
         // The end is in code points: emoji occupies one, unlike a Java char index.
         server.expect(requestTo("http://synthetic.test/internal/v1/job-analysis")).andExpect(header("Authorization","Bearer synthetic-only"))
             .andRespond(withSuccess(analysis("complete",item),MediaType.APPLICATION_JSON));
         // 19 code points of text, following one emoji.
-        assertEquals(List.of("Java, (Spring Boot)"),ai.texts(ai.analyze("42","{\"text\":\"😀Java, (Spring Boot)\"}"),"requirements"));server.verify();
+        assertEquals(List.of("Java, (Spring Boot)"),ai.texts(ai.analyze("42","{\"jobTags\":[\"😀Java, (Spring Boot)\"]}"),"requirements"));server.verify();
     }
     @Test void extractionTotalSpansBatchesButKeepsCandidateAndEvidenceLimits() throws Exception {
         for (String mode : List.of("49", "192", "193", "duplicate", "bad-evidence", "numeric-id", "overflow")) {
@@ -82,15 +82,11 @@ class JevContractTest {
             JdbcTemplate db=mock(JdbcTemplate.class);PlatformTransactionManager manager=mock(PlatformTransactionManager.class);
             when(manager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
             when(db.query(anyString(),org.mockito.ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<String>>any(),any(Object[].class)))
-                .thenReturn(mode==0?List.of():List.of(mode==1?"{\"x\":2}":"{\"x\":1}"));
+                .thenReturn(mode==0?List.of():List.of(mode==1?"{\"jobTags\":[\"B\"]}":"{\"jobTags\":[\"A\"]}"));
             var store=new JobAnalysisStore(db,manager,json,client(),true);
-            assertFalse(store.finish(new JobAnalysisStore.Lease(1,42,7,"{\"x\":1}"),json.readTree(analysis("complete","[]"))));
+            assertFalse(store.finish(new JobAnalysisStore.Lease(1,42,7,"{\"jobTags\":[\"A\"]}"),json.readTree(analysis("complete","[]"))));
             verify(db,never()).update(startsWith("UPDATE t_job_detail"),any(Object[].class));
         }
-    }
-    @Test void canonicalSourceKeepsSnapshotAndHasStableKeyOrder()throws Exception{
-        var store=new JobAnalysisStore(mock(JdbcTemplate.class),mock(PlatformTransactionManager.class),json,client(),false);
-        assertEquals(store.canonical(json.readTree("{\"b\":[2,1],\"a\":\"😀\"}")),store.canonical(json.readTree("{\"a\":\"😀\",\"b\":[2,1]}")));
     }
     @Test void pythonFiveLevelAndNullableDimensionShapeIsAcceptedWithoutDroppingValidation() throws Exception {
         for(String mode:List.of("valid","unknown","bad-distribution","missing-nullable")) {

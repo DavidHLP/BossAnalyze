@@ -14,7 +14,7 @@
 - 真正 JSON string[] 保留元素内逗号、空白、引号、括号和 Unicode。空数组仍是空数组，不塞入“未解析”占位文本。
 - 历史 List.toString 格式无法可靠恢复边界，整段作为一个 string 元素原样保留；不猜测拆分、不重写数据库。没有 sidecar 的非空值为 `legacy_unverified`，无值为 `unparsed`，即使历史值碰巧是合法 JSON 也不认证为 Jev。
 - analytics 用原始 `d.is_deleted = 0` 在 JDBC 转布尔前筛选；保留后续防御筛选。
-- 读取同 job_id 按 updated_at、id 降序的最新 sidecar（不会回退选择旧成功记录）。按 JSON 结构比较 source_json 与本次 detail_data，只有相同来源、completed、result_json.status 为 complete/no_evidence 且两个投影均为 JSON string[] 才标完成。no_evidence 还要求投影均为空。
+- 读取同 job_id 按 updated_at、id 降序的最新 sidecar（不会回退选择旧成功记录）。通过 commons JobAnalysisFacts 比较 source_json 与本次 detail_data 的 jobDescription/jobTags/basicInfo 事实子树（顶层 missing=null，空容器/空字符串及嵌套结构不合并；递归键序稳定，数组顺序和 Unicode 保留；忽略其余元数据），只有相同来源、completed、result_json.status 为 complete/no_evidence 且两个投影均为 JSON string[] 才标完成。no_evidence 还要求投影均为空。
 - 不同来源为 stale；失败/待复核/运行/等待保留旧数组，显式显示状态。retry_wait 映射 pending，superseded 映射 stale；未来未知状态为 null，前端显示“分析状态未知”。model/version 表示最近分析尝试的来源，不表示旧显示值来自该模型。
 - 旧 schema：通过 JDBC metadata 检查当前 catalog 的 job_ai_analysis 表。确实不存在时使用带 NULL sidecar 列的查询，仍按历史值分类。数据库用户必须可见目标表 metadata；权限不足导致表不可见时不会认证为 Jev，但应按部署错误排查。
 - 表存在但字段不完整、SQL/连接/认证失败均传播为读取错误；绝不捕获 SQL 异常改成成功/空列表。metadata 检查与 Spark 查询是独立连接，迁移期间发生竞争可导致请求失败，完成迁移后重试。查询增加最新 sidecar 的关联成本，生产索引与规模尚需验收。
