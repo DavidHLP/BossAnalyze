@@ -1,0 +1,25 @@
+backend/analytics/pom.xml
+  s_fffc9b3ca7d64e::t_4a6de380658dbd 79
+tools/credential-contract-tests/pom.xml
+  s_fffc9b3ca7d64e::t_4a6de380658dbd 27
+docs/security/dependency-remediation-20261110.md
+  s_fffc9b3ca7d64e::t_6c45a7faa06fa3 26-30
+  s_fffc9b3ca7d64e::t_e1841def192576 24
+  s_fffc9b3ca7d64e::t_6c9a89542db156 1-23,25,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2ef096bf4168ccc7adeae965dd73647d60965647",
+  "prompts": {},
+  "sessions": {
+    "s_fffc9b3ca7d64e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c543-ac11-76c1-bc86-5b385e873de0",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
