@@ -126,7 +126,7 @@ uv sync --frozen --project ai-service
 ```
 
 Supply `CMD_API_KEY`, `CMD_API_BASE`, `JEV_MODEL=typesafe/jev-1.14.0`,
-`AI_SERVICE_TOKEN`, `CMD_ZDR=1`, `AI_QUALITY_APPROVED=0`, `AI_DAILY_TOKENS`
+`AI_SERVICE_TOKEN`, `CMD_ZDR=0`, `AI_QUALITY_APPROVED=0`, `AI_DAILY_TOKENS`
 and an absolute private `AI_BUDGET_PATH` outside the source tree. Reuse existing
 approved values and budget files; do not generate a replacement token or reset a ledger
 on restart. The Java crawler needs the same internal token/model and shared
@@ -194,3 +194,7 @@ application initialization, preserving startup without SMTP for local developmen
 Missing, blank, unresolved placeholders and `your_` example values fail with a
 fixed message before message creation/send. Other consumers such as SMTP health
 checks remain independent; this is not provider authentication or TLS validation.
+
+### Jev 数据保留策略更新（2026-11-10）
+
+用户已取消强制零数据保留要求。普通 Jev 请求使用 `CMD_ZDR=0`（也是代码默认值）；开启 `CMD_ZDR=1` 仍严格要求 ZDR 上游，不自动降级。普通路由按供应商实际保留条款处理，不是本机离线推理。此变更不解除简历匹配暂停、正式质量、调度/写回和预算限制。部署时同步更新当前服务与重启恢复清单，避免重启后恢复旧的强制 ZDR 配置。

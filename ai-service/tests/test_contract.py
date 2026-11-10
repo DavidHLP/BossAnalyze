@@ -640,28 +640,35 @@ async def test_retry_unknown_charge_does_not_claim_total_usage():
         assert r.json()["usage"] == {"inputTokens": None, "outputTokens": None}
 
 
-@pytest.mark.usefixtures("synthetic_matching_algorithm")
-async def test_non_zdr_rejected_before_body_provider_or_budget(tmp_path):
+async def test_non_zdr_analysis_and_direct_client_omit_zdr_header():
     calls = []
     cfg = replace(CFG, zdr=False)
-    app, client = await api(cfg, lambda request: calls.append(request))
+    def handler(request):
+        calls.append(request)
+        assert "x-cmd-zdr" not in request.headers
+        return httpx.Response(200, json=fixture(json.loads(request.content)))
+    app, client = await api(cfg, handler)
     async with client:
-        assert (await client.get("/health/ready")).json()["error"]["code"] == "zdr_required"
-        for path, body in (("job-analysis", {"jobId": "s", "detailData": DETAIL}),
-                           ("match-batch", {"resume": "合成简历", "jobs": []})):
-            response = await client.post("/internal/v1/" + path, headers=AUTH, json=body)
-            assert response.status_code == 503
-            assert response.json()["error"]["code"] == "zdr_required"
-        assert (await client.post("/internal/v1/match-batch", headers=AUTH,
-                                  json={"synthetic": True})).status_code == 503
-    with pytest.raises(ServiceError, match="zdr_required"):
-        await app.state.jev.ask("synthetic", {"q": {"type": "noul"}}, monotonic() + 1,
-                                {"input_tokens": [], "output_tokens": []})
-    assert calls == [] and not (tmp_path / "budget.sqlite3").exists()
+        ready = await client.get("/health/ready")
+        assert ready.status_code == 200
+        assert ready.json()["qualityGate"]["automaticWritebackAllowed"] is False
+        assert (await client.post("/internal/v1/job-analysis", json={})).status_code == 401
+        assert (await client.post("/internal/v1/job-analysis", headers=AUTH,
+                                  content=b"not-json")).status_code == 400
+        assert calls == []
+        response = await client.post("/internal/v1/job-analysis", headers=AUTH,
+                                     json={"jobId": "s", "detailData": DETAIL})
+        assert response.status_code == 200
+        assert response.json()["status"] == "needs_review"
+    usage = {"input_tokens": [], "output_tokens": []}
+    answers = await app.state.jev.ask("synthetic", {"q": {"type": "noul"}},
+                                     monotonic() + 1, usage)
+    assert answers["q"]["noul"] == 0.99 and calls
+    assert usage == {"input_tokens": [100], "output_tokens": [30]}
     await app.state.jev.close()
 
 
-def test_zdr_requires_explicit_operator_configuration(monkeypatch):
+def test_zdr_is_opt_in_configuration(monkeypatch):
     monkeypatch.delenv("CMD_ZDR", raising=False)
     assert Settings.from_env().zdr is False
     monkeypatch.setenv("CMD_ZDR", "1")
