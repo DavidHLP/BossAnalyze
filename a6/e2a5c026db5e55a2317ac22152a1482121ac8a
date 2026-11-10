@@ -1,0 +1,27 @@
+ai-service/tests/test_evaluate.py
+  s_488e69727ebafe::t_b56c4a8ff095aa 344-345
+  s_488e69727ebafe::t_95697f297694c4 70-71,338-343,346-369
+  s_488e69727ebafe::t_41ff902fa9d6f2 80-81
+ai-service/QUALITY-PRIVACY.md
+  s_488e69727ebafe::t_0898f5e743e11a 45,54-62
+ai-service/app/evaluate.py
+  s_488e69727ebafe::t_0898f5e743e11a 88-94,170-171
+docs/operations/ai-assisted-annotation-rubric-20261110.md
+  s_488e69727ebafe::t_41ff902fa9d6f2 1-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a6e2a5c026db5e55a2317ac22152a1482121ac8a",
+  "prompts": {},
+  "sessions": {
+    "s_488e69727ebafe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c543-aa98-71e3-b6df-021bf9451972",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
