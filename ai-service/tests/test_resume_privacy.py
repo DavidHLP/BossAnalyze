@@ -18,11 +18,12 @@ AUTH = {"Authorization": "Bearer synthetic-internal"}
                                    "**姓名**: 合成姓名\n地址 Synthetic street\n+1 202 555 0100",
                                    "合成😀" * 3000])
 @pytest.mark.parametrize("jobs", [[], [{"jobId": "1", "detailData": {"jobTags": ["Java"]}}]])
-async def test_direct_pipeline_rejects_before_any_provider_or_budget_use(tmp_path, resume, jobs):
+@pytest.mark.parametrize("zdr", [False, True])
+async def test_direct_pipeline_rejects_before_any_provider_or_budget_use(tmp_path, resume, jobs, zdr):
     path = tmp_path / "budget.sqlite3"
     def forbidden(request):
         pytest.fail("Resume reached provider transport")
-    jev = Jev(replace(CFG, budget_path=str(path)), httpx.MockTransport(forbidden))
+    jev = Jev(replace(CFG, zdr=zdr, budget_path=str(path)), httpx.MockTransport(forbidden))
     try:
         with pytest.raises(ServiceError) as caught:
             await Pipeline(jev).match(MatchRequest(resume=resume, jobs=jobs))
@@ -33,11 +34,12 @@ async def test_direct_pipeline_rejects_before_any_provider_or_budget_use(tmp_pat
 
 
 @pytest.mark.parametrize("suffix", ["", "/"])
-async def test_http_rejects_before_consuming_body_and_never_echoes_it(tmp_path, suffix, caplog):
+@pytest.mark.parametrize("zdr", [False, True])
+async def test_http_rejects_before_consuming_body_and_never_echoes_it(tmp_path, suffix, zdr, caplog):
     path = tmp_path / "budget.sqlite3"
     def forbidden(request):
         pytest.fail("Resume reached provider transport")
-    app = create_app(replace(CFG, budget_path=str(path), quality_approved=True), httpx.MockTransport(forbidden))
+    app = create_app(replace(CFG, zdr=zdr, budget_path=str(path), quality_approved=True), httpx.MockTransport(forbidden))
     async def unread_body():
         pytest.fail("Disabled endpoint consumed a resume body")
         yield b"synthetic"
