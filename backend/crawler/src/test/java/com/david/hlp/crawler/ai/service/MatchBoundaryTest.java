@@ -13,6 +13,15 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
 class MatchBoundaryTest {
+    // Offline contracts for retained matching logic; privacy boundary tests never mock this policy.
+    private org.mockito.MockedStatic<ResumePrivacy> syntheticMatchingPolicy;
+    @org.junit.jupiter.api.BeforeEach void syntheticMatchingAlgorithm() {
+        syntheticMatchingPolicy = org.mockito.Mockito.mockStatic(ResumePrivacy.class);
+    }
+    @org.junit.jupiter.api.AfterEach void restoreMatchingPolicy() {
+        syntheticMatchingPolicy.close();
+    }
+
     final ObjectMapper json=new ObjectMapper();
     @Test void boundedRangeAndUnknownNeverBecomeGlobalTopTen() {
         var mapper=mock(TJobDetailMapper.class);var ai=mock(AIExtractionOfJobRequirements.class);var format=mock(FormatDataService.class);

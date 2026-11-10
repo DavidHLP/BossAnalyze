@@ -14,6 +14,7 @@ from .config import Settings
 from .schemas import AnalysisResponse, MatchResponse
 from .jev import Jev, ServiceError, unique_object
 from .pipeline import Pipeline, WEIGHTS
+from .privacy import require_safe_matching
 
 
 class Job(BaseModel):
@@ -64,6 +65,11 @@ def create_app(settings=None, transport=None):
                 return error("not_configured", 503, rid)
             if not cfg.zdr:
                 return error("zdr_required", 503, rid)
+            if request.url.path.rstrip("/") == "/internal/v1/match-batch":
+                try:
+                    require_safe_matching()
+                except ServiceError as exc:
+                    return error(exc.code, exc.status, rid)
             body = bytearray()
             try:
                 async with asyncio.timeout(cfg.deadline_ms / 1000):
@@ -110,6 +116,7 @@ def create_app(settings=None, transport=None):
         if not cfg.zdr:
             return error("zdr_required", 503, request.state.request_id)
         return {"status": "ready", "model": cfg.model, "policyVersion": "jev-policy-1",
+                "resumeMatching": {"enabled": False, "reason": "resume_matching_disabled"},
                 "qualityGate": {"calibrated": cfg.quality_approved, "automaticWritebackAllowed": cfg.quality_approved,
                                 "acceptThreshold": cfg.accept, "rejectThreshold": cfg.reject,
                                 "matchWeights": WEIGHTS, "minimumCandidateRecall": 0.98, "minimumAcceptedPrecision": 0.95,

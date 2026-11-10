@@ -45,6 +45,7 @@
         <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
         <configuration><includes>
           <include>crawler/src/main/java/com/david/hlp/crawler/ai/service/AIExtractionOfJobRequirements.java</include>
+          <include>crawler/src/main/java/com/david/hlp/crawler/ai/service/ResumePrivacy.java</include>
           <include>commons/src/main/java/com/david/hlp/commons/recruitment/JobAnalysisFacts.java</include>
           <include>analytics/src/main/java/com/david/hlp/spark/utils/IpGeoService.java</include>
           <include>api/src/main/java/com/david/hlp/web/common/security/CredentialConfiguration.java</include>

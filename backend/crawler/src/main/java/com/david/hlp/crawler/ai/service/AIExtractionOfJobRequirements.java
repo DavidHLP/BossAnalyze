@@ -127,6 +127,7 @@ public class AIExtractionOfJobRequirements {
         if (!matches) throw error(502,"AI_BAD_EVIDENCE");
     }
     public JsonNode match(String resume, List<ObjectNode> jobs, int timeoutMs) {
+        ResumePrivacy.requireSafeMatching();
         var body = matchBody(resume,jobs);
         JsonNode result = post("/internal/v1/match-batch", body, timeoutMs);
         if (!result.path("items").isArray() || !result.path("complete").isBoolean() || result.path("items").size() != jobs.size()) throw error(502,"AI_BAD_OUTPUT");

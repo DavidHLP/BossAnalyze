@@ -18,6 +18,15 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class JevContractTest {
+    // Offline contracts for retained matching logic; privacy boundary tests never mock this policy.
+    private org.mockito.MockedStatic<ResumePrivacy> syntheticMatchingPolicy;
+    @org.junit.jupiter.api.BeforeEach void syntheticMatchingAlgorithm() {
+        syntheticMatchingPolicy = org.mockito.Mockito.mockStatic(ResumePrivacy.class);
+    }
+    @org.junit.jupiter.api.AfterEach void restoreMatchingPolicy() {
+        syntheticMatchingPolicy.close();
+    }
+
     final ObjectMapper json=new ObjectMapper();
     AIExtractionOfJobRequirements client(){return new AIExtractionOfJobRequirements(json,"http://synthetic.test","synthetic-only","typesafe/jev-1.14.0",new RestTemplate());}
     String analysis(String status,String items){return "{\"jobId\":\"42\",\"status\":\""+status+"\",\"requirements\":"+items+",\"benefits\":[],\"coreRequirements\":[],\"model\":\"typesafe/jev-1.14.0\",\"pipelineVersion\":\"jev-1\",\"policyVersion\":\"jev-policy-1\",\"requestId\":\"test\",\"usage\":{\"inputTokens\":null,\"outputTokens\":null}}";}
