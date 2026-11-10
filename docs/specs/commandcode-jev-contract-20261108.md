@@ -1,3 +1,5 @@
+> Current behavior: resume matching is disabled pending privacy validation. See [privacy hold](../operations/resume-matching-privacy-hold.md). The matching contract below is retained design history, not current availability.
+
 # Jev 实施共用契约
 
 对应 [完整规范](commandcode-jev-migration-20261108.md)。本文件固定并行实现的字段和责任边界；更改时先协调调用双方。

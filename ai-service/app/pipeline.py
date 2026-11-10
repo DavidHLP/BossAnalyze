@@ -5,6 +5,7 @@ from time import monotonic
 
 from .candidates import candidates, resume_candidates
 from .jev import ServiceError
+from .privacy import require_safe_matching
 
 PIPELINE = "jev-1"
 POLICY = "jev-policy-1"
@@ -101,6 +102,7 @@ class Pipeline:
                     model=self.cfg.model, pipelineVersion=PIPELINE, policyVersion=POLICY, usage=usage_output(usage))
 
     async def match(self, req):
+        require_safe_matching()
         deadline = monotonic() + min(req.timeoutMs, self.cfg.deadline_ms) / 1000
         usage = {"input_tokens": [], "output_tokens": []}
 

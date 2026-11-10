@@ -17,6 +17,7 @@ public class RequirementAnalyzer {
     private final FormatDataService format;
     private final ObjectMapper json;
     public ObjectNode matches(String resume,List<String> cities,String position) {
+        ResumePrivacy.requireSafeMatching();
         if(resume==null || resume.isBlank() || resume.codePointCount(0,resume.length())>12000 || cities==null || cities.isEmpty() || cities.size()>10
                 || cities.stream().anyMatch(c->c==null||c.isBlank()||c.length()>100) || position==null || position.isBlank() || position.length()>200) throw AIExtractionOfJobRequirements.error(422,"AI_INVALID_INPUT");
         if(!ai.fitsMatchBatch(resume,List.of()))throw AIExtractionOfJobRequirements.error(422,"AI_INPUT_LIMIT");

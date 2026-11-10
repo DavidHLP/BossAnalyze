@@ -19,6 +19,13 @@ def isolated_budget(tmp_path, monkeypatch):
     monkeypatch.setattr(Budget, "__init__", lambda self, limit, path: original(self, limit, str(tmp_path / "budget.sqlite3")))
 
 
+@pytest.fixture
+def synthetic_matching_algorithm(monkeypatch):
+    # Only these offline contracts exercise the retained algorithm. Production remains unconditionally blocked.
+    monkeypatch.setattr("app.pipeline.require_safe_matching", lambda: None)
+    monkeypatch.setattr("app.main.require_safe_matching", lambda: None)
+
+
 AUTH = {"Authorization": "Bearer synthetic-internal"}
 DETAIL = {"jobDescription": {"requirements": "需要 Python，含英文 (test) 😀；五险一金"}}
 
@@ -106,6 +113,7 @@ async def test_uncalibrated_never_complete_and_empty_not_no_evidence():
             assert r.status_code == 200 and r.json()["status"] == "needs_review"
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_match_independent_states_unknown_not_zero_and_precision():
     calls = []
     def handler(request):
@@ -130,6 +138,7 @@ async def test_match_independent_states_unknown_not_zero_and_precision():
         assert duplicate.status_code == 422
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_long_resume_is_sent_once_with_exact_evidence_preserved():
     resume = "简历事实" * 1000
     calls = []
@@ -305,6 +314,7 @@ async def test_bounds_and_duplicate_json_input():
             assert r.status_code == status, r.text
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_partial_match_failure_keeps_exact_job_ids():
     def handler(request):
         p = json.loads(request.content)
@@ -356,6 +366,7 @@ def expire_match_deadline(monkeypatch, deadline_clock):
 
 
 @pytest.mark.parametrize("cfg_ms,request_ms", [(1000, 50), (50, 1000)])
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_partial_match_deadline_keeps_completed_job_and_cancels_unfinished(
         cfg_ms, request_ms, deadline_clock, expire_match_deadline, monkeypatch):
     started, cancelled = asyncio.Event(), asyncio.Event()
@@ -401,6 +412,7 @@ async def test_partial_match_deadline_keeps_completed_job_and_cancels_unfinished
 
 
 @pytest.mark.parametrize("cfg_ms,request_ms", [(1000, 50), (50, 1000)])
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_partial_match_deadline_before_provider_start_keeps_completed_job(
         cfg_ms, request_ms, deadline_clock):
     calls = []
@@ -432,6 +444,7 @@ async def test_partial_match_deadline_before_provider_start_keeps_completed_job(
         await app.state.jev.close()
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_match_external_cancellation_cleans_tasks_and_propagates():
     from app.main import MatchRequest
     from app.pipeline import Pipeline
@@ -456,6 +469,7 @@ async def test_match_external_cancellation_cleans_tasks_and_propagates():
         assert cancelled.is_set()
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_match_deadline_without_completed_jobs_remains_504(
         expire_match_deadline, monkeypatch):
     started, cancelled = asyncio.Event(), asyncio.Event()
@@ -488,6 +502,7 @@ async def test_match_deadline_without_completed_jobs_remains_504(
         await app.state.jev.close()
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_match_deadline_joins_cancellation_before_return(expire_match_deadline, monkeypatch):
     from app.main import MatchRequest
     from app.pipeline import Pipeline
@@ -524,6 +539,7 @@ async def test_match_deadline_joins_cancellation_before_return(expire_match_dead
         await jev.close()
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_empty_match_batch_returns_empty_success_without_provider_call():
     def handler(request):
         raise AssertionError("Empty batches must not call the provider")
@@ -538,6 +554,7 @@ async def test_empty_match_batch_returns_empty_success_without_provider_call():
         assert result["usage"] == dict(inputTokens=None, outputTokens=None)
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_not_applicable_reweights_and_missing_links_prevents_scoring():
     def handler(request):
         p = json.loads(request.content)
@@ -623,6 +640,7 @@ async def test_retry_unknown_charge_does_not_claim_total_usage():
         assert r.json()["usage"] == {"inputTokens": None, "outputTokens": None}
 
 
+@pytest.mark.usefixtures("synthetic_matching_algorithm")
 async def test_non_zdr_rejected_before_body_provider_or_budget(tmp_path):
     calls = []
     cfg = replace(CFG, zdr=False)

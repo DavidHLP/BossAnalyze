@@ -17,6 +17,7 @@ public class AuthorizedResume {
     }
     public String resolve(SimilarityRequest input,HttpServletRequest request){
         if(!Boolean.TRUE.equals(request.getAttribute("boss.verified")))throw AIExtractionOfJobRequirements.error(401,"AUTH_REQUIRED");
+        ResumePrivacy.requireSafeMatching();
         if(input.getUserId()!=null&&!input.getUserId().isBlank())throw AIExtractionOfJobRequirements.error(422,"USER_ID_NOT_ACCEPTED");
         String text=input.getResume();
         if(input.getResumeId()!=null&&!input.getResumeId().isBlank()){
