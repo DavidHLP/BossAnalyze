@@ -4,6 +4,8 @@
 
 对应 [完整规范](commandcode-jev-migration-20261108.md)。本文件固定并行实现的字段和责任边界；更改时先协调调用双方。
 
+2026-11-10 数据保留策略更新：用户明确不要求零数据保留，`CMD_ZDR=0`（默认）允许普通 Jev 职位分析；`CMD_ZDR=1` 仍严格发送 ZDR header，拒绝时不降级。该决定不解除上述简历匹配暂停、独立质量批准、调度/写回或既定预算限制。当前规则见 [隐私与评估说明](../../ai-service/QUALITY-PRIVACY.md)。
+
 ## Python 内部业务协议
 
 仅接受 `Authorization: Bearer <AI_SERVICE_TOKEN>`，不接受用户 JWT。健康探针不调用模型；无配置时 readiness 503，存活探针不依赖外网。
