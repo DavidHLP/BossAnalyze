@@ -1,0 +1,21 @@
+docs/operations/reboot-recovery-20261110.md
+  s_f2f5a10de5dca9::t_5db9982586c3f7 1-32
+docs/specs/delivery-closeout-20261110.md
+  s_f2f5a10de5dca9::t_1494525630b2e4 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7f3b6f414173ecbd2b8425731b059c3b6d7e429e",
+  "prompts": {},
+  "sessions": {
+    "s_f2f5a10de5dca9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bb8c-ecc1-7db3-89f7-02879ff77c56",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "DavidHLP <lysf15520112973@163.com>"
+    }
+  }
+}
