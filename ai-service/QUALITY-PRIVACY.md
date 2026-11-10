@@ -42,7 +42,7 @@ uv run --frozen python -m app.evaluate \
 - requirements/benefits 均为完整 `Evidence` 列表：`{sourcePath,start,end,text}`，Unicode code point 半开跨度，必须精确原文切片。空列表须表示人工确认无阳性，不能表示 pending。预测沿用相同证据形状；将既有 extraction 的 evidence 展平、去重，保留原始 sourcePath 和跨度。gold 和预测必须事前约定同一跨度粒度；precision/recall 按精确跨度匹配，候选召回允许较大候选包含标注子跨度。
 - `coreRequirements` 是各自 requirements 的证据子集，沿用原始 sourcePath/start/end/text 身份、跨度、去重和原文核验。gold 由独立人工选择，预测来自冻结实际输出；null 表示缺标注/输出，`[]` 只表示已确认无核心阳性。输出 `coreSelection` 的 tp/predicted/gold/precision/recall；计数为已提供标签的观测数，任一侧缺失时完整 precision/recall 为 null。核心 precision 复用 >=0.95 门槛，缺失标签也不能掩盖可比较样本已观察到的 precision 失败。
 - unknown 为相同非空维度键集合 → bool（例如 `jobId:skills`），gold 人工判断是否证据不足，预测取实际 unknown，不能由分数猜。输出 unknownCoverage、unknownAgreement 与计数，缺预测项不能从样本中删除。
-- ranking 为同一请求中人工严格排序的可比较 jobId 列表，不支持平局；无可比较排序填 `[]`，该指标 unverifiable。预测列表必须来自冻结的实际分数降序，不能从 gold 抄写，不可评分的职位不补零/不填 ID。缺失预测职位对该 gold 相关 pair 计不一致；额外或重复 ID 拒绝。
+- ranking 为同一请求中人工严格排序的可比较 jobId 列表，不支持平局；ID 必须非空白。每条 gold 是评估请求记录，ranking ID 是该请求内职位 ID，不必等于 gold 记录 ID；一条记录可包含多个职位，禁止重复 groupId 不禁止这种组级排序。职位身份和同请求归属须由审核者对照冻结请求核验，当前 schema 不提供独立的请求职位注册表，runner 不声称自动证明这一点。无可比较排序填 `[]`，该指标 unverifiable。预测列表必须来自冻结的实际分数降序，不能从 gold 抄写，不可评分的职位不补零/不填 ID。缺失预测职位对该 gold 相关 pair 计不一致；额外或重复 ID 拒绝。
 - predictions：`id, model, candidates, requirements, benefits, unknown, ranking`；model 固定 `typesafe/jev-1.14.0`，candidates 为切分候选证据列表。必须覆盖全部 gold id，失败样本也不得静默丢弃；如果没有可用完整冻结预测，整次无法验证。
 - predictions 另有可空 `latencyMs` 和 `costUsd`（默认 null）。latencyMs 只接受有限非负数值毫秒，拒绝 bool、字符串、NaN/Infinity 和负数；costUsd 只接受非负 USD 定点十进制字符串（数字加可选小数部分），拒绝数值、bool、非有限值。真实 0 与未知 null 分开；不从 token 预留或公开单价推算实际费用。
 - 观测以每条 prediction 对应的完整操作为单位：延迟从操作开始到成功/失败终态，包含重试和等待；成本来自可审计实际计费记录，包含该操作失败尝试与重试费用。失败样本继续纳入同一总体；跨记录共享请求费用只能在有可靠归属、无重复计费时分配，否则保留 null。无法可靠获得完整观测时不补零，也不删除该样本。runner 不采样时钟、不请求账单、不生成这些观测。
@@ -51,3 +51,12 @@ uv run --frozen python -m app.evaluate \
 汇总包含 overall/subgroups 的样本及分母、两类 tp/predicted/gold/precision/recall、候选召回、原文证据一致性（含候选）、unknown 覆盖/一致性、排序 pair agreement，以及核心选择、成本与延迟。`cost` 包含 `totalUsd`（精确求和字符串或 null）、`knownSamples`、`coverage`；`latency` 包含 `p95Ms`（毫秒数或 null）、`knownSamples`、`coverage`、`percentileMethod="nearest-rank"`。仅整体/该子组 N>0 且全部样本均有相应观测时输出聚合，否则聚合为 null；coverage 为 knownSamples/N，空总体为 null。p95 是该总体延迟排序后第 ceil(0.95*N) 个值，不使用已知子集替代完整总体。不回显原文。零分母用 null；缺样本、合成集、无排序/阳性等不可判断情形为 unverifiable；已观察指标失败为 fail。无效/pending/泄漏输入拒绝，accepted samples=0，不报告虚构质量分数。
 
 退出码 pass=0、fail=1、unverifiable=2。`qualityApproval` 始终 unverifiable：离线指标 pass 也不是 `AI_QUALITY_APPROVED` 授权。历史 JSONL 无新增字段仍可加载，但缺新标注、完整成本/延迟观测或可比较核心阳性时不能产生 pass，而为 unverifiable；已知指标失败仍优先为 fail。生产身份/部署验收须分别完成。当前无真实人工 gold，本次仅合成单测；单测来源元数据、标签和遥测均为模拟，不能作为真实人工 gold、成本、延迟或领域质量通过率。
+
+
+### 职位来源路径与兼容边界（2026-11-10）
+
+新数据统一从原始请求保留 canonical JSON Pointer：单职位 `/job/jobDescription/...`，多职位 `/jobs/<jobId>/jobDescription/...`；纯抽取旧数据的 `/jobDescription/...` 继续有效，字符串根可省略尾部 `/...`。`<jobId>` 按 RFC 6901 转义，不能包含未转义的路径分隔符。只可在生成 manifest 时按事实结构约定路径，同时同步全部 evidence 引用；不得改写原文、偏移或把 AI 输出当源数据。
+
+已存在的 `/job/requirements`、`/jobs/<jobId>/text` 等可识别职位路径无需迁移即可参与职位级泄漏检测：同一职位根下字符串叶子合并比较，简历不参与该比较；包含 `jobDescription` 的历史路径保持原有分组。不同路径表示的同一职位文本也进行比较，阈值沿用 0.9。全记录比较仍保留。不要把多个职位压成一个未区分的文本池；若同一职位被拆成不同结构、额外元数据稀释了内容或任意路径不暴露职位身份，自动检测并不完备。
+
+任意其他合法历史 sourcePath 仍能加载及按原文验证，也仍参与全记录和 groupId 检查，但不能保证职位级检测；审核者必须核验原始来源、完整开发 manifest 和稳定 groupId，必要时离线转换为 canonical 路径后重评。路径识别不是语义去重或来源身份认证。零阳性、无可比较排序继续为 null/unverifiable，不新增召回阈值。辅助标注口径见 `docs/operations/ai-assisted-annotation-rubric-20261110.md`，不能作为人工 gold 或正式质量批准。

@@ -85,7 +85,13 @@ def job_descriptions(row):
         parts = path.split("/")
         if "jobDescription" in parts:
             group = tuple(parts[:parts.index("jobDescription")])
-            groups.setdefault(group, []).append(text)
+        elif len(parts) >= 2 and parts[1] == "job":
+            group = tuple(parts[:2])
+        elif len(parts) >= 3 and parts[1] == "jobs" and parts[2]:
+            group = tuple(parts[:3])
+        else:
+            continue
+        groups.setdefault(group, []).append(text)
     return [normalize_text(" ".join(sorted(texts))) for texts in groups.values()]
 
 
@@ -161,6 +167,8 @@ def metrics(gold, predictions):
         counts["unknown"] += sum(p.unknown.values())
         counts["unknownTotal"] += len(g.unknown)
         counts["unknownCorrect"] += sum(v == p.unknown[k] for k, v in g.unknown.items())
+        if any(not job_id.strip() for job_id in [*g.ranking, *p.ranking]):
+            raise ValueError("blank ranking ids")
         if len(set(g.ranking)) != len(g.ranking) or len(set(p.ranking)) != len(p.ranking):
             raise ValueError("duplicate ranking ids")
         if set(p.ranking) - set(g.ranking):

@@ -67,7 +67,8 @@ def test_split_group_exact_and_normalized_content_leakage_rejected(source, group
 
 
 @pytest.mark.parametrize("path", ["/jobDescription", "/job/jobDescription/requirements",
-                                  "/jobs/one/jobDescription/requirements"])
+                                  "/jobs/one/jobDescription/requirements",
+                                  "/job/requirements", "/jobs/one/text"])
 def test_same_job_with_different_resumes_cannot_cross_splits(path):
     g, p = sample()
     jd = g["source"].pop("/jobDescription")
@@ -76,7 +77,8 @@ def test_same_job_with_different_resumes_cannot_cross_splits(path):
         for field in ("requirements", "benefits", "candidates"):
             for evidence in record.get(field, []):
                 evidence["sourcePath"] = path
-    development = Record(id="dev", groupId="other", source={path: jd, "/resume": "乙" * 200})
+    development = Record(id="dev", groupId="other", source={"/jobs/dev/jobDescription": jd,
+                                                            "/resume": "乙" * 200})
     with pytest.raises(ValueError, match="test leakage"):
         run(g, p, [development])
 
@@ -333,3 +335,35 @@ def test_each_missing_observation_blocks_otherwise_passing_report(side, field):
     assert run(g, p)["status"] == "unverifiable"
     p["ranking"].reverse()
     assert run(g, p)["status"] == "fail"
+
+
+@pytest.mark.parametrize("side", ["gold", "prediction"])
+@pytest.mark.parametrize("identity", ["", "   "])
+def test_blank_ranking_job_identity_rejected(side, identity):
+    g, p = complete_sample()
+    g["ranking"] = [identity, "valid"]
+    p["ranking"] = [identity, "valid"] if side == "prediction" else ["valid"]
+    with pytest.raises(ValueError, match="ranking ids"):
+        run(g, p)
+
+
+def test_group_ranking_ids_are_request_jobs_not_gold_record_ids():
+    g, p = complete_sample()
+    # One request record can rank several jobs; these are not dataset row IDs.
+    g["source"] = {"/jobs/a/text": "Python；五险", "/jobs/b/text": "Java", "/jobs/c/text": "Go"}
+    for row in (g, p):
+        for field in ("requirements", "benefits", "coreRequirements", "candidates"):
+            for evidence in row.get(field, []):
+                evidence["sourcePath"] = "/jobs/a/text"
+    result = run(g, p)
+    assert result["metrics"]["counts"]["rankingPairs"] == 3
+    assert result["metrics"]["rankingAgreement"] == 1
+    assert result["qualityApproval"] == "unverifiable"
+
+
+def test_distinct_jobs_with_shared_resume_are_not_job_leakage():
+    g, p = sample()
+    g["source"]["/resume"] = "甲" * 10
+    development = Record(id="dev", groupId="other", source={"/job/requirements": "乙" * 200,
+                                                            "/resume": "甲" * 10})
+    assert run(g, p, [development])["status"] == "unverifiable"
