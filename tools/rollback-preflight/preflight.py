@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 
 
-BASELINE = "0dcb7b6fb0532e4c652a5d3050b5524d25bc7052"
+BASELINE = "6de0202e9cff9533dd307db6f660519710a588ad"
 PORTS = dict(python=8090, crawler=8081, api=8080, analytics=8082, frontend=5020)
 METADATA = ("current", "manifest", "session", "pair-state", "config")
 CONTAINERS = ("bossanalyze-local-mysql-restored", "bossanalyze-local-redis-restored",
@@ -320,6 +320,10 @@ def main(argv=None, *, system=None):
             check("targets-after", lambda: target_safe(state, args), "target evidence changed during inspection")
         check("state-after", lambda: require(read_file(args.state) == body, "state drift"),
               "release state changed during inspection")
+        if complete:
+            for name, port in PORTS.items():
+                check(name + "-identity-final", lambda n=name,p=port: identity(system, state["active"][n], p),
+                      name + " identity/listener changed during inspection")
     print(json.dumps(dict(status="refused" if reasons else "passed", reasons=reasons,
                           checked=checked, rollbackExecuted=False), ensure_ascii=False))
     return 1 if reasons else 0

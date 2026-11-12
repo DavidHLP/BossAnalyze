@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).with_name("preflight.py")
-BASELINE = "0dcb7b6fb0532e4c652a5d3050b5524d25bc7052"
+BASELINE = "6de0202e9cff9533dd307db6f660519710a588ad"
 PORTS = dict(python=8090, crawler=8081, api=8080, analytics=8082, frontend=5020)
 CONTAINERS = ("bossanalyze-local-mysql-restored", "bossanalyze-local-redis-restored",
               "bossanalyze-store-20261108", "bossanalyze-mailpit-issue39")
@@ -109,6 +109,49 @@ class PreflightTest(unittest.TestCase):
             self.assertFalse(report["rollbackExecuted"])
             after = {p.relative_to(folder):p.read_bytes() for p in Path(folder).rglob("*") if p.is_file()}
             self.assertEqual(before, after)
+
+    def test_target_without_pre_body_matching_guard_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            fixture = self.fixture(folder)
+            unsafe_source = "0dcb7b6fb0532e4c652a5d3050b5524d25bc7052"
+            for record in fixture.state["old"].values():
+                record["sourceSHA"] = unsafe_source
+            for proof in fixture.receipt["targets"].values():
+                proof["sourceSHA"] = unsafe_source
+            fixture.receipt["safetyBaseline"] = unsafe_source
+            self.save_state(fixture)
+            self.pin_receipt(fixture)
+            before = {p.relative_to(folder):p.read_bytes() for p in Path(folder).rglob("*") if p.is_file()}
+            code, report = self.invoke(fixture)
+            self.assertEqual((code, report["status"]), (1, "refused"), report)
+            self.assertIn("targets", [r["check"] for r in report["reasons"]])
+            self.assertFalse(report["rollbackExecuted"])
+            self.assertEqual(before, {p.relative_to(folder):p.read_bytes() for p in Path(folder).rglob("*") if p.is_file()})
+
+    def test_receipt_cannot_override_the_frozen_source_policy(self):
+        old_baseline = "0dcb7b6fb0532e4c652a5d3050b5524d25bc7052"
+        cases = (
+            ("outdated receipt", BASELINE, old_baseline),
+            ("old source with new receipt", old_baseline, BASELINE),
+            # This descendant contains C build-input changes, outside the frozen A review.
+            ("unreviewed build inputs", "932a44cd70aea28bb065133d0f40938cab5d00c4", BASELINE),
+        )
+        for name, source, receipt_baseline in cases:
+            with self.subTest(case=name), tempfile.TemporaryDirectory() as folder:
+                fixture = self.fixture(folder)
+                for record in fixture.state["old"].values():
+                    record["sourceSHA"] = source
+                for proof in fixture.receipt["targets"].values():
+                    proof["sourceSHA"] = source
+                fixture.receipt["safetyBaseline"] = receipt_baseline
+                self.save_state(fixture)
+                self.pin_receipt(fixture)
+                before = {p.relative_to(folder):p.read_bytes() for p in Path(folder).rglob("*") if p.is_file()}
+                code, report = self.invoke(fixture)
+                self.assertEqual((code, report["status"]), (1, "refused"), report)
+                self.assertIn("targets", [r["check"] for r in report["reasons"]])
+                self.assertFalse(report["rollbackExecuted"])
+                self.assertEqual(before, {p.relative_to(folder):p.read_bytes() for p in Path(folder).rglob("*") if p.is_file()})
 
     def test_default_linux_cli_uses_only_read_observations(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -261,6 +304,28 @@ class PreflightTest(unittest.TestCase):
                 code, report = self.invoke(fixture)
                 self.assertEqual(code, 1)
                 self.assertIn(gate, [r["check"] for r in report["reasons"]])
+
+    def test_late_health_probe_cannot_hide_component_identity_or_listener_change(self):
+        for component, target_port in PORTS.items():
+            for change in ("identity", "listener"):
+                with self.subTest(component=component, change=change), tempfile.TemporaryDirectory() as folder:
+                    fixture = self.fixture(folder)
+                    listeners = fixture.host.listeners
+                    def health(name, port):
+                        if name == "frontend":
+                            if change == "identity":
+                                live = fixture.host.process(fixture.state["active"][component]["pid"])
+                                live["starttime"] = "99999"
+                            else:
+                                fixture.host.listeners = lambda p: {9999} if p == target_port else listeners(p)
+                        return True
+                    fixture.host.health = health
+                    before = {p.relative_to(folder):p.read_bytes() for p in Path(folder).rglob("*") if p.is_file()}
+                    code, report = self.invoke(fixture)
+                    self.assertEqual((code, report["status"]), (1, "refused"), report)
+                    self.assertIn(component + "-identity-final", [r["check"] for r in report["reasons"]])
+                    self.assertFalse(report["rollbackExecuted"])
+                    self.assertEqual(before, {p.relative_to(folder):p.read_bytes() for p in Path(folder).rglob("*") if p.is_file()})
 
     def test_artifact_changed_during_inspection_is_refused(self):
         with tempfile.TemporaryDirectory() as folder:
