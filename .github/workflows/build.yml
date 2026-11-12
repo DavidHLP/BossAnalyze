@@ -72,6 +72,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.13'
@@ -83,3 +84,5 @@ jobs:
         run: uv run --frozen python -m pytest -q
       - name: Compile Python sources
         run: uv run --frozen python -m compileall -q app
+      - name: Test read-only rollback preflight
+        run: python -m unittest discover -s ../tools/rollback-preflight -p 'test_*.py' -v
