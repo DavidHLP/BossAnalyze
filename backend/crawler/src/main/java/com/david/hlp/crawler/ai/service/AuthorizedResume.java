@@ -15,9 +15,12 @@ public class AuthorizedResume {
     public AuthorizedResume(@Value("${BOSSANALYZE_API_URL:http://127.0.0.1:8080}")String api){
         this.api=api;var f=new org.springframework.http.client.SimpleClientHttpRequestFactory();f.setConnectTimeout(1000);f.setReadTimeout(2000);http=new RestTemplate(f);
     }
-    public String resolve(SimilarityRequest input,HttpServletRequest request){
+    public void requireSafeMatching(HttpServletRequest request){
         if(!Boolean.TRUE.equals(request.getAttribute("boss.verified")))throw AIExtractionOfJobRequirements.error(401,"AUTH_REQUIRED");
         ResumePrivacy.requireSafeMatching();
+    }
+    public String resolve(SimilarityRequest input,HttpServletRequest request){
+        requireSafeMatching(request);
         if(input.getUserId()!=null&&!input.getUserId().isBlank())throw AIExtractionOfJobRequirements.error(422,"USER_ID_NOT_ACCEPTED");
         String text=input.getResume();
         if(input.getResumeId()!=null&&!input.getResumeId().isBlank()){

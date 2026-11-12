@@ -13,6 +13,11 @@ import com.david.hlp.crawler.ai.entity.*;
 public class AIRequirementsController {
     private final RequirementAnalyzer analyzer;
     private final AuthorizedResume resumes;
+    @ModelAttribute
+    public void requireSafeMatching(HttpServletRequest request){
+        // MVC runs model initializers before resolving @RequestBody arguments.
+        resumes.requireSafeMatching(request);
+    }
     @PostMapping("/api/v1/ai/get-user-similarity")
     public List<UserSimilarity> legacy(@RequestBody SimilarityRequest input,HttpServletRequest request){
         return analyzer.getUserSimilarity(resumes.resolve(input,request),input.getCity(),input.getPosition());
