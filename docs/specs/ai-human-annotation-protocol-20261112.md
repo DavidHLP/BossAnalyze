@@ -30,7 +30,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | Gold/Prediction/Record | 非空唯一字符串 | 记录身份；预测必须覆盖全部 gold id | 冻结 |
 | `groupId` | Gold/Record | 非空字符串 | 同一 JD/近重复职位分组；跨开发/校准/测试一致 | 冻结 |
-| `source` | 三者 | `dict[str,str]` JSON Pointer → 原始字符串叶子 | canonical 路径见 §10.4；禁止放旧 AI 输出 | 冻结 |
+| `source` | Gold/Record | `dict[str,str]` JSON Pointer → 原始字符串叶子 | canonical 路径见 §10.4；禁止放旧 AI 输出 | 冻结 |
 | `split` | Gold | 正式留出必为 `test` | 划分见 §9 | 取值冻结；划分比例 PENDING |
 | `reviewStatus` | Gold | 正式 gold 必为 `reviewed` | 模板占位不得当作已复核 | 冻结 |
 | `reviewer` | Gold | 非空人类身份 | 只能由真人填写；可审计声明，runner 不验证身份 | PENDING（身份与留证方式） |
