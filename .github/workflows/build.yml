@@ -83,3 +83,5 @@ jobs:
         run: uv run --frozen python -m pytest -q
       - name: Compile Python sources
         run: uv run --frozen python -m compileall -q app
+      - name: Test read-only rollback preflight
+        run: python -m unittest discover -s ../tools/rollback-preflight -p 'test_*.py' -v
