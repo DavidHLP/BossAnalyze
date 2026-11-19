@@ -11,6 +11,8 @@ Use the `gh` CLI with `--repo DavidHLP/BossAnalyze`.
 - Comment: `gh issue comment <number> --repo DavidHLP/BossAnalyze --body-file <file>`
 - Label: `gh issue edit <number> --repo DavidHLP/BossAnalyze --add-label "..."` or `--remove-label "..."`
 - Close: `gh issue close <number> --repo DavidHLP/BossAnalyze --comment "..."`
+- Link a child issue with `gh issue edit <parent> --repo DavidHLP/BossAnalyze --add-sub-issue <child>`. If sub-issues are unavailable, add `Part of #<parent>` to the child issue body.
+- Record a blocker with `gh issue edit <child> --repo DavidHLP/BossAnalyze --add-blocked-by <blocker>`. If native dependencies are unavailable, add `Blocked by: #<blocker>` to the child issue body.
 
 Use temporary UTF-8 files for multiline bodies. Check for existing
 related issues before creating another.
@@ -31,12 +33,9 @@ Use one issue labelled `wayfinder:map` for Notes, Decisions-so-far, and Fog.
 Create child issues labelled `wayfinder:<type>` where type is `research`,
 `prototype`, `grilling`, or `task`.
 
-Link children as GitHub sub-issues. If unavailable, use a task list on
-the map and `Part of #<map>` in each child.
-
-Represent blockers with native issue dependencies, using numeric database
-IDs rather than issue numbers. If unavailable, write `Blocked by: #<n>`
-in the child. A ticket is available only when all blockers are closed.
+Use the child issue and blocker operations above. If sub-issues are
+unavailable, also add the children to a task list on the map. A ticket
+is available only when all blockers are closed.
 
 Select the first open, unassigned, unblocked child in map order. Claim
 it by assigning yourself before other ticket writes. Resolve it with an

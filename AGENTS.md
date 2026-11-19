@@ -45,3 +45,17 @@ History uses prefixes such as `fix(config):`, `build(deps):`, `refactor:`, and `
 ## Security & Configuration
 
 Keep secrets in environment variables or private external configuration. Preserve same-origin `/api` proxy paths. SQL snapshots drop tables: import only into new, empty databases. Never use public `VITE_*` configuration for private credentials.
+
+## Agent skills
+
+### Issue tracker
+
+Track issues in GitHub Issues for `DavidHLP/BossAnalyze`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Apply the five canonical labels when triaging issues. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the single-context glossary and ADRs when exploring domain behavior or proposing changes. See `docs/agents/domain.md`.
