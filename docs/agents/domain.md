@@ -2,29 +2,16 @@
 
 ## Layout
 
-Use a single-context layout:
-
-- `CONTEXT.md` at the repository root: domain vocabulary and context.
-- `docs/adr/`: architecture decision records.
+BossAnalyze uses a single context. The root `GLOSSARY.md` holds domain vocabulary. `docs/adr/` holds architecture decision records.
 
 ## Before exploring
 
-Read `CONTEXT.md` and ADRs relevant to the work.
-
-If these files do not exist, proceed silently. Do not propose creating
-them upfront. The domain-modeling skill creates them when domain terms
-or decisions are resolved.
-
-If a root `CONTEXT-MAP.md` is introduced later, follow its links to the
-contexts relevant to the task.
+Read `GLOSSARY.md` and the ADRs relevant to the work. If the files are absent, proceed. The domain-modeling skill creates them when it records the first agreed term or decision.
 
 ## Vocabulary
 
-Use the terms defined in `CONTEXT.md` in issue titles, proposals,
-hypotheses, and tests. Avoid synonyms the glossary explicitly rejects.
-Reconsider unfamiliar terminology or note genuine gaps for domain-modeling.
+Use glossary terms in issue titles, proposals, hypotheses, and tests. Reconsider unfamiliar terms and note genuine vocabulary gaps for domain modeling.
 
 ## Decision conflicts
 
-Explicitly identify any proposal that contradicts an ADR. Name the ADR
-and explain why the decision should be reconsidered.
+If a proposal conflicts with an ADR, name the ADR and explain why the decision should be reconsidered.
