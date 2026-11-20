@@ -14,9 +14,9 @@ const { toggleSidebar } = useSidebar()
   <button
     data-sidebar="rail"
     data-slot="sidebar-rail"
-    aria-label="Toggle Sidebar"
+    aria-label="切换侧栏"
     :tabindex="-1"
-    title="Toggle Sidebar"
+    title="切换侧栏"
     :class="cn(
       'hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-0.5 sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2',
       'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
