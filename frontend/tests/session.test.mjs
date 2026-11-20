@@ -170,7 +170,7 @@ async function scriptRuntime(file, bindings, exports) {
     .replaceAll('import.meta.client', 'true').replaceAll('import.meta.server', 'false')
     .replaceAll('export function', 'function').replace('export default ', 'const defaultExport = ')
   const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
-  return new Function('bindings', `with (bindings) { ${js}\nreturn { ${exports.join(',')} } }`)(bindings)
+  return new Function('bindings', `with (bindings) { ${js.replace(/^export \{\};$/m, '')}\nreturn { ${exports.join(',')} } }`)(bindings)
 }
 
 async function sessionFixture() {
@@ -179,25 +179,41 @@ async function sessionFixture() {
   const require = createRequire(import.meta.url)
   const nuxtRequire = createRequire(require.resolve('nuxt/package.json'))
   const { createRouter, createMemoryHistory } = await import(nuxtRequire.resolve('vue-router'))
-  const sessionLib = await import('../app/lib/session.ts')
   const router = createRouter({ history: createMemoryHistory(), routes: ['/console/users', '/console/roles', '/console/menus', '/login'].map(path => ({ path, component: {} })) })
   await router.push('/console/users')
   const storage = new Map([['token', 'synthetic'], ['token_timestamp', String(Date.now())]])
   const states = new Map()
   const api = { failure: null, logoutCalls: 0, logoutFailure: false }
+  const localStorage = {
+    getItem: key => storage.get(key) ?? null,
+    removeItem: key => storage.delete(key),
+    setItem: (key, value) => storage.set(key, value),
+  }
+  const sessionLib = await scriptRuntime('lib/session.ts', { localStorage }, [
+    'advanceSession', 'bindDocumentSession', 'loginLocation', 'menuTree', 'ownsSession', 'requestSessionOwner',
+    'sessionOwner', 'validSession', 'withSessionOwner',
+  ])
+  const { requireMutationSuccess } = await import('../app/lib/rbac-mutations.ts')
   const { useSession } = await scriptRuntime('composables/useSession.ts', {
     ...sessionLib,
+    requireMutationSuccess,
     useState: (key, init) => { if (!states.has(key)) states.set(key, vue.ref(init())); return states.get(key) },
     useRouter: () => router,
-    localStorage: { getItem: key => storage.get(key) ?? null, removeItem: key => storage.delete(key), setItem: (key, value) => storage.set(key, value) },
+    localStorage,
     sessionStorage: { removeItem() {} },
     getUserBaseInfo: async () => ({ email: 'fixture@example.invalid' }),
     getUserPrivateInformation: async () => { if (api.pending) return api.pending; if (api.failure) throw api.failure; return [] },
     getUserRoutes: async () => [node('/console/users')],
     login: async () => ({ token: 'synthetic-login' }),
-    logout: async () => { api.logoutCalls++; if (api.logoutPending) return api.logoutPending; if (api.logoutFailure) throw { code: 503 } },
+    logout: async () => {
+      api.logoutCalls++
+      api.logoutStarted?.()
+      if (api.logoutPending) return api.logoutPending
+      if (api.logoutFailure) throw { code: 503 }
+      return { code: 200 }
+    },
   }, ['useSession'])
-  return { vue, router, storage, api, session: useSession(), useSession }
+  return { vue, router, storage, localStorage, sessionLib, api, session: useSession(), useSession }
 }
 
 test('transient restore fails closed, retains token and retries; 401 invalidates it', async () => {
@@ -231,7 +247,7 @@ test('all production editor guards preserve session and draft on cancel, then co
     const helper = await import(`../app/lib/${library}.ts`)
     let guard
     const panel = await scriptRuntime(`components/${file}`, {
-      ...vue, ...helper, useSession, useMediaQuery: () => vue.ref(false),
+      ...vue, ...helper, ...fixture.sessionLib, useSession, useMediaQuery: () => vue.ref(false),
       defineProps: () => panelProps,
       defineEmits: () => (event, value) => { if (event === 'update:open') panelProps.open = value },
       onBeforeRouteLeave: callback => { guard = callback }, onMounted() {}, onUnmounted() {},
@@ -282,9 +298,9 @@ test('navigation-hidden nodes remain authorized while whole hidden nodes are rem
 
 
 test('both real route middlewares block transient restoration and retry without dropping credentials', async () => {
+  const sessionLib = await import('../app/lib/session.ts')
   for (const file of ['middleware/auth.ts', 'middleware/signed-in.ts']) {
     const { session, useSession, storage, api } = await sessionFixture()
-    const sessionLib = await import('../app/lib/session.ts')
     const { defaultExport: guard } = await scriptRuntime(file, {
       ...sessionLib, useSession, defineNuxtRouteMiddleware: fn => fn,
       navigateTo: target => target, createError: error => error,
@@ -303,10 +319,10 @@ test('both real route middlewares block transient restoration and retry without 
 })
 
 test('stale restoration failures and successes use the new session in both route guards', async () => {
+  const sessionLib = await import('../app/lib/session.ts')
   for (const file of ['middleware/auth.ts', 'middleware/signed-in.ts']) {
     for (const code of [401, 503, null]) {
       const { session, useSession, storage, api } = await sessionFixture()
-      const sessionLib = await import('../app/lib/session.ts')
       const { defaultExport: guard } = await scriptRuntime(file, {
         ...sessionLib, useSession, defineNuxtRouteMiddleware: fn => fn,
         navigateTo: target => target, createError: error => error,
@@ -348,13 +364,263 @@ test('failed server logout is explicitly unconfirmed and forced expiry skips rev
 
 test('a completed old logout cannot clear a newly signed-in session', async () => {
   const { session, storage, api } = await sessionFixture()
+  const started = Promise.withResolvers()
   const pending = Promise.withResolvers()
   api.logoutPending = pending.promise
+  api.logoutStarted = started.resolve
   const signingOut = session.signOut()
-  while (!api.logoutCalls) await new Promise(resolve => setImmediate(resolve))
+  await Promise.race([started.promise, signingOut.then(() => assert.fail('logout did not dispatch'))])
   await session.signIn('fixture@example.invalid', 'synthetic')
-  pending.resolve()
+  pending.resolve({ code: 200 })
   await signingOut
   assert.equal(storage.get('token'), 'synthetic-login')
   assert.equal(session.state.value.ready, true)
+})
+
+test('retry from the global error page reruns guards even at the current URL', async () => {
+  const { vue, router } = await sessionFixture()
+  const redirect = '/console/users?edit=1#form'
+  await router.replace(redirect)
+  const outage = { statusCode: 503, data: { sessionRestore: true, redirect } }
+  const denied = { statusCode: 403 }
+  const activeError = vue.ref(outage)
+  let guardCalls = 0
+  let failure = outage
+  router.onError(() => {})
+  router.beforeEach(() => {
+    guardCalls++
+    if (failure) throw failure
+  })
+
+  const { leaveError } = await scriptRuntime('error.vue', {
+    ...vue,
+    defineProps: () => ({ error: activeError.value }),
+    useRouter: () => router,
+    useNuxtApp: () => ({ runWithContext: fn => fn() }),
+    useError: () => activeError,
+    useHead: () => {},
+    isNuxtError: cause => Boolean(cause?.statusCode),
+    clearError: async (options) => {
+      if (options?.redirect) await router.replace(options.redirect)
+      activeError.value = undefined
+    },
+  }, ['leaveError'])
+
+  await leaveError(redirect)
+  assert.equal(guardCalls, 1)
+  assert.deepEqual(activeError.value, outage)
+
+  failure = denied
+  await leaveError(redirect)
+  assert.equal(guardCalls, 2)
+  assert.deepEqual(activeError.value, denied)
+
+  failure = null
+  await leaveError(redirect)
+  assert.equal(guardCalls, 3)
+  assert.equal(router.currentRoute.value.fullPath, redirect)
+  assert.equal(activeError.value, undefined)
+})
+
+test('forced logout only clears the initiating session even when navigation is delayed', async () => {
+  const { session, router, storage, api } = await sessionFixture()
+  await session.restore()
+  const oldOwner = session.capture()
+  const entered = Promise.withResolvers()
+  const leave = Promise.withResolvers()
+  router.beforeEach(() => {
+    entered.resolve()
+    return leave.promise
+  })
+  const signingOut = session.signOut(true, null, undefined, oldOwner)
+  await entered.promise
+  assert.equal(storage.has('token'), false)
+  assert.equal(session.state.value.invalidated, true)
+  await session.signIn('new@example.invalid', 'synthetic')
+  leave.resolve(true)
+  assert.equal(await signingOut, true)
+  assert.equal(storage.get('token'), 'synthetic-login')
+  assert.equal(session.state.value.ready, true)
+  assert.equal(await session.signOut(true, null, undefined, oldOwner), false)
+  assert.equal(storage.get('token'), 'synthetic-login')
+  assert.equal(api.logoutCalls, 0)
+})
+
+test('a storage change freezes the displayed draft and requests while reload is blocked', async () => {
+  const fixture = await sessionFixture()
+  const { session, sessionLib, vue, storage, localStorage, useSession, router } = fixture
+  await session.restore()
+  const owner = session.capture()
+  const events = new EventTarget()
+  let reloads = 0
+  const window = {
+    addEventListener: events.addEventListener.bind(events),
+    removeEventListener: events.removeEventListener.bind(events),
+    location: { reload: () => { reloads++ } },
+  }
+  const { defaultExport: install } = await scriptRuntime('plugins/session.client.ts', {
+    window, localStorage, useSession, useRouter: () => router, defineNuxtPlugin: callback => callback,
+  }, ['defaultExport'])
+  install({ vueApp: { onUnmount() {} } })
+  const users = await import('../app/lib/users.ts')
+  const draftProps = vue.reactive({ open: false, mode: 'create', rolesUnavailable: false })
+  let writes = 0
+  const panel = await scriptRuntime('components/users/UserEditor.vue', {
+    ...vue, ...users, ...sessionLib, useSession, defineProps: () => draftProps,
+    defineEmits: () => () => {}, useMediaQuery: () => vue.ref(false), onBeforeRouteLeave() {},
+    onMounted() {}, onUnmounted() {}, addUser: async () => { writes++ },
+  }, ['draft', 'save', 'sessionChanged'])
+  draftProps.open = true
+  await vue.nextTick()
+  Object.assign(panel.draft, {
+    name: 'Unsaved', email: 'draft@example.invalid', roleId: 1, password: 'synthetic-password',
+  })
+  storage.set('token', 'other-account')
+  assert.throws(() => sessionLib.requestSessionOwner(true), /Session changed/)
+  events.dispatchEvent(Object.assign(new Event('storage'), { key: 'token', storageArea: localStorage }))
+  assert.equal(reloads, 1)
+  assert.equal(session.state.value.invalidated, undefined)
+  assert.equal(panel.sessionChanged.value, true)
+  await panel.save()
+  assert.equal(writes, 0)
+  assert.equal(panel.draft.name, 'Unsaved')
+  storage.set('token', 'synthetic')
+  assert.equal(session.owns(owner), false, 'a token round trip still invalidates the old generation')
+  assert.throws(() => sessionLib.withSessionOwner(owner, () => {}), /Session changed/)
+})
+
+test('request classification separates network, timeout and absent write bodies from explicit rejection', async () => {
+  const { requestFailure } = await import('../app/utils/request/request.ts')
+  const { checkReadAccess, mutationResultUnknown, mutationError, requireMutationSuccess, roleDeleteError } =
+    await import('../app/lib/rbac-mutations.ts')
+  for (const failure of [
+    requestFailure(undefined, undefined, 'Network Error'),
+    requestFailure(undefined, undefined, 'timeout of 5000ms exceeded'),
+    requestFailure(200, ''), requestFailure(204, null), requestFailure(504, '<html>Gateway timeout</html>'),
+  ]) assert.equal(mutationResultUnknown(failure), true)
+  for (const [status, body] of [
+    [403, undefined], [404, null], [409, { code: 1011 }], [500, { code: 500 }],
+  ]) assert.equal(mutationResultUnknown(requestFailure(status, body)), false)
+  assert.throws(() => requireMutationSuccess(undefined), mutationResultUnknown)
+  assert.throws(() => requireMutationSuccess({ code: 403 }), error => !mutationResultUnknown(error))
+  assert.throws(() => checkReadAccess({ code: 403 }), { code: 403 })
+  assert.match(mutationError({ code: 400, data: { code: 404 } }, '删除'), /目标已不存在/)
+  assert.match(roleDeleteError({ code: 500 }), /关联用户/)
+})
+
+test('the synchronous Axios interceptor sends the owned bearer and ignores an older generation’s 401', async () => {
+  const { session, sessionLib, localStorage, storage } = await sessionFixture()
+  const axios = (await import('axios')).default
+  const expired = []
+  const window = { dispatchEvent: event => expired.push(event.type) }
+  const { defaultExport: request } = await scriptRuntime('utils/request/request.ts', {
+    ...sessionLib, axios, localStorage, window,
+  }, ['defaultExport'])
+  await session.restore()
+  const owner = session.capture()
+  const response = Promise.withResolvers()
+  let config
+  const original = sessionLib.withSessionOwner(owner, () => request({
+    url: '/api/auth/updateRoleRouters',
+    method: 'POST',
+    adapter: sent => { config = sent; return response.promise },
+  }))
+  assert.equal(config.headers.Authorization, 'Bearer synthetic')
+  session.changed()
+  const rejected = assert.rejects(original, { code: 401, resultUnknown: false })
+  response.reject({ config, response: { status: 401 } })
+  await rejected
+  assert.equal(storage.get('token'), 'synthetic')
+  assert.deepEqual(expired, [])
+  await assert.rejects(request({
+    url: '/api/auth/updateRoleRouters',
+    method: 'POST',
+    adapter: () => assert.fail('a stale authenticated write was dispatched'),
+  }), /Session changed/)
+  const current = session.capture()
+  await assert.rejects(sessionLib.withSessionOwner(current, () => request({
+    url: '/api/auth/updateRoleRouters',
+    method: 'POST',
+    adapter: async sent => { throw new axios.AxiosError('timeout', 'ECONNABORTED', sent) },
+  })), { resultUnknown: true })
+  await assert.rejects(sessionLib.withSessionOwner(current, () => request({
+    url: '/api/auth/updateRoleRouters',
+    method: 'POST',
+    adapter: async sent => ({ data: '', status: 200, headers: {}, config: sent }),
+  })), { resultUnknown: true })
+})
+
+async function panelRuntime(fixture, file, props, bindings, exports) {
+  const { vue, sessionLib, useSession } = fixture
+  const events = []
+  const panelProps = vue.reactive({ open: false, ...props })
+  const mutationLib = await import('../app/lib/rbac-mutations.ts')
+  const panel = await scriptRuntime(`components/${file}.vue`, {
+    ...vue, ...sessionLib, ...mutationLib, useSession,
+    defineProps: () => panelProps, useMediaQuery: () => vue.ref(false),
+    defineEmits: () => (...event) => {
+      events.push(event)
+      if (event[0] === 'unconfirmed') panelProps.awaitingRead = true
+    },
+    onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {},
+    ...bindings,
+  }, exports)
+  panelProps.open = true
+  await vue.nextTick()
+  return { panel, events }
+}
+
+test('an uncertain grant keeps its selection locked and forces reauthentication for the current role', async () => {
+  const roles = await import('../app/lib/roles.ts')
+  const tree = roles.permissionTree([{ id: 10, permission: 'fixture.write' }])
+  const role = { id: 1, roleName: 'Fixture', status: 1, remark: '', routerIds: [], permissions: [] }
+  for (const actorRoleId of [1, 2]) {
+    const fixture = await sessionFixture()
+    await fixture.session.restore()
+    let writes = 0
+    const { panel, events } = await panelRuntime(fixture, 'roles/RolePanel', {
+      mode: 'grant', actorRoleId, role, tree, awaitingRead: false, locked: false,
+    }, {
+      ...roles,
+      updateRoleRouters: async () => { writes++; throw { code: 500, resultUnknown: true } },
+      getRoleList: async () => assert.fail('unknown transport result needs an explicit reread'),
+    }, ['toggle', 'save', 'selected'])
+    panel.toggle(10, true)
+    await panel.save()
+    assert.deepEqual(events, [['unconfirmed']])
+    assert.deepEqual(panel.selected.value, [10])
+    assert.equal(fixture.storage.has('token'), actorRoleId !== 1)
+    assert.equal(fixture.router.currentRoute.value.path, actorRoleId === 1 ? '/login' : '/console/users')
+    assert.equal(fixture.api.logoutCalls, 0)
+    await panel.save()
+    assert.equal(writes, 1)
+  }
+})
+
+test('menu save only applies the unknown-result lock after dispatching the write', async () => {
+  const menus = await import('../app/lib/menus.ts')
+  const roles = await import('../app/lib/roles.ts')
+  const fixture = await sessionFixture()
+  await fixture.session.restore()
+  let dependencyFails = true
+  let writes = 0
+  const disconnected = { code: 500, resultUnknown: true }
+  const { panel, events } = await panelRuntime(fixture, 'menus/MenuPanel', {
+    mode: 'create', node: null, parent: null, tree: [], awaitingRead: false,
+  }, {
+    ...menus, ...roles,
+    getRoleList: async () => { if (dependencyFails) throw disconnected; return [] },
+    addRouter: async () => { writes++; throw disconnected },
+  }, ['draft', 'save', 'requestFailure'])
+  Object.assign(panel.draft, { name: 'fixture', title: 'Fixture', path: '/fixture', permission: 'fixture.write' })
+  await panel.save()
+  assert.ok(panel.requestFailure.value)
+  assert.equal(writes, 0)
+  assert.deepEqual(events, [])
+  dependencyFails = false
+  await panel.save()
+  assert.deepEqual(events, [['unconfirmed']])
+  assert.equal(panel.draft.name, 'fixture')
+  await panel.save()
+  assert.equal(writes, 1)
 })

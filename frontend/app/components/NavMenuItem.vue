@@ -9,15 +9,18 @@ import type { MenuItem } from '@/lib/session'
 const props = defineProps<{ item: MenuItem }>()
 const icon = computed(() => menuIcon(props.item.path, props.item.icon))
 const route = useRoute()
-const { state, setOpen, setOpenMobile } = useSidebar()
+const { state, isMobile, setOpen, setOpenMobile } = useSidebar()
+const collapsed = computed(() => state.value === 'collapsed' && !isMobile.value)
+const current = computed(() => props.item.path === route.path)
 const active = computed(() => Boolean(findMenu([props.item], route.path)))
+const title = computed(() => props.item.title.trim() || '未命名功能')
 const open = ref(active.value)
-watch(active, (value) => {
+watch([active, () => route.path], ([value]) => {
   if (value) open.value = true
 })
 
 async function revealGroup() {
-  if (state.value === 'collapsed') {
+  if (collapsed.value) {
     setOpen(true)
     await nextTick()
     open.value = true
@@ -28,17 +31,45 @@ async function revealGroup() {
 <template>
   <UiCollapsible v-if="item.children.length" v-model:open="open" as-child>
     <UiSidebarMenuItem>
-      <UiCollapsibleTrigger as-child>
-        <UiSidebarMenuButton :tooltip="item.title" :is-active="active" @click="revealGroup">
-          <HugeiconsIcon :icon="icon" aria-hidden="true" /><span>{{ item.title }}</span>
-          <HugeiconsIcon
-            :icon="ArrowRight01Icon"
-            class="ml-auto transition-transform"
-            :class="{ 'rotate-90': open }"
-            aria-hidden="true"
-          />
+      <div class="flex items-center gap-1">
+        <UiSidebarMenuButton
+          v-if="item.path"
+          as-child
+          :is-active="current"
+          class="h-9 min-w-0 text-sm group-data-[collapsible=icon]:hidden"
+        >
+          <NuxtLink
+            :to="item.path"
+            :aria-current="current ? 'page' : undefined"
+            @click="setOpenMobile(false)"
+          >
+            <HugeiconsIcon :icon="icon" aria-hidden="true" />
+            <span>{{ title }}</span>
+          </NuxtLink>
         </UiSidebarMenuButton>
-      </UiCollapsibleTrigger>
+        <UiCollapsibleTrigger as-child>
+          <UiSidebarMenuButton
+            type="button"
+            :tooltip="title"
+            :aria-label="item.path ? `${collapsed || !open ? '展开' : '折叠'}${title}子菜单` : undefined"
+            :is-active="active && (collapsed || !item.path)"
+            class="h-9 text-sm"
+            :class="item.path && 'w-8 shrink-0 justify-center'"
+            @click="revealGroup"
+          >
+            <template v-if="collapsed || !item.path">
+              <HugeiconsIcon :icon="icon" aria-hidden="true" />
+              <span class="min-w-0 truncate group-data-[collapsible=icon]:sr-only">{{ title }}</span>
+            </template>
+            <HugeiconsIcon
+              :icon="ArrowRight01Icon"
+              class="transition-transform group-data-[collapsible=icon]:hidden"
+              :class="{ 'ml-auto': !item.path, 'rotate-90': open }"
+              aria-hidden="true"
+            />
+          </UiSidebarMenuButton>
+        </UiCollapsibleTrigger>
+      </div>
       <UiCollapsibleContent>
         <UiSidebarMenuSub>
           <NavMenuItem
@@ -51,13 +82,14 @@ async function revealGroup() {
     </UiSidebarMenuItem>
   </UiCollapsible>
   <UiSidebarMenuItem v-else-if="item.path">
-    <UiSidebarMenuButton as-child :tooltip="item.title" :is-active="active">
+    <UiSidebarMenuButton as-child :tooltip="title" :is-active="current" class="h-9 text-sm">
       <NuxtLink
         :to="item.path"
-        :aria-current="active ? 'page' : undefined"
+        :aria-current="current ? 'page' : undefined"
         @click="setOpenMobile(false)"
       >
-        <HugeiconsIcon :icon="icon" aria-hidden="true" /><span>{{ item.title }}</span>
+        <HugeiconsIcon :icon="icon" aria-hidden="true" />
+        <span class="group-data-[collapsible=icon]:sr-only">{{ title }}</span>
       </NuxtLink>
     </UiSidebarMenuButton>
   </UiSidebarMenuItem>

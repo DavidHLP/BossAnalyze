@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useMediaQuery } from '@vueuse/core'
-import { analysisStatusLabels, safeSourceUrl } from '@/lib/recruitment'
+import { analysisStatusLabels, analysisStatusTones, safeSourceUrl } from '@/lib/recruitment'
 import type { JobSample } from '@/lib/recruitment'
 const props = defineProps<{ job: JobSample | null }>()
-const emit = defineEmits<{ close: [] }>()
-const mobile = useMediaQuery('(max-width: 639px)')
+const emit = defineEmits<{ close: []; closeAutoFocus: [event: Event] }>()
+const mobile = useMediaQuery('(width < 640px)')
+const companyUrl = computed(() => safeSourceUrl(props.job?.companyUrl ?? null))
+const jobUrl = computed(() => safeSourceUrl(props.job?.jobUrl ?? null))
 const fields = computed(() =>
   props.job
     ? [
@@ -13,7 +15,9 @@ const fields = computed(() =>
         { label: '原始薪资', value: props.job.salary },
         { label: '统计薪资值（K）', value: props.job.salaryValue },
         { label: '学历要求', value: props.job.degree },
+        { label: '学历等级', value: props.job.degreeValue },
         { label: '经验要求', value: props.job.experience },
+        { label: '经验折算值', value: props.job.experienceValue },
         { label: '公司规模', value: props.job.companySize },
         { label: '融资阶段', value: props.job.financingStage },
       ]
@@ -31,32 +35,36 @@ const fields = computed(() =>
     ><UiSheetContent
       :side="mobile ? 'bottom' : 'right'"
       class="w-full! sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
+      @close-auto-focus="emit('closeAutoFocus', $event)"
     >
-      <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-12"
+      <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-14"
         ><UiSheetTitle class="break-words">{{ job?.positionName || '职位详情' }}</UiSheetTitle
         ><UiSheetDescription class="break-words">{{
           job?.companyName || '未提供公司名称'
         }}</UiSheetDescription></UiSheetHeader
       >
-      <div v-if="job" class="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+      <div v-if="job" class="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-6">
         <dl class="grid grid-cols-2 gap-5 text-sm">
           <div v-for="field in fields" :key="field.label">
             <dt class="text-xs text-muted-foreground">{{ field.label }}</dt>
-            <dd class="mt-1.5 break-words">{{ field.value ?? '—' }}</dd>
+            <dd class="mt-1.5 break-all"
+              :class="{ 'font-mono tabular-nums': typeof field.value === 'number' }">{{ field.value ?? '—' }}</dd>
           </div>
           <div class="col-span-2">
             <dt class="text-xs text-muted-foreground">地址</dt>
-            <dd class="mt-1.5 whitespace-pre-wrap break-words">{{ job.address || '—' }}</dd>
+            <dd class="mt-1.5 whitespace-pre-wrap break-all">{{ job.address || '—' }}</dd>
           </div>
         </dl>
         <section class="space-y-2 text-sm" aria-label="分析来源">
-          <UiBadge variant="secondary">{{ analysisStatusLabels[job.analysisStatus] }}</UiBadge>
-          <p class="break-words text-muted-foreground">
-            分析来源：{{ job.analysisModel || '未知' }} · {{ job.analysisVersion || '版本未知' }}
+          <StatusBadge :tone="analysisStatusTones[job.analysisStatus]">
+            {{ analysisStatusLabels[job.analysisStatus] }}
+          </StatusBadge>
+          <p class="break-all text-muted-foreground">
+            模型 {{ job.analysisModel || '未知' }} · 版本 {{ job.analysisVersion || '未知' }}
           </p>
           <p
             v-if="!['complete', 'no_evidence', 'unparsed'].includes(job.analysisStatus)"
-            class="text-muted-foreground"
+            class="rounded-md border border-status-warning/40 bg-status-warning-surface px-3 py-2 text-status-warning-foreground"
           >
             以下保留已有内容，未经当前来源的成功分析确认。
           </p>
@@ -68,7 +76,7 @@ const fields = computed(() =>
               v-for="(item, index) in job.employeeBenefits"
               :key="index"
               variant="secondary"
-              class="max-w-full whitespace-normal break-words bg-muted text-muted-foreground"
+              class="max-w-full whitespace-normal break-all bg-muted text-muted-foreground"
               >{{ item }}</UiBadge
             >
           </div>
@@ -80,7 +88,7 @@ const fields = computed(() =>
             <li
               v-for="(item, index) in job.jobRequirements"
               :key="index"
-              class="whitespace-pre-wrap break-words"
+              class="whitespace-pre-wrap break-all"
             >
               {{ item }}
             </li>
@@ -90,15 +98,15 @@ const fields = computed(() =>
       </div>
       <UiSheetFooter class="shrink-0 flex-row flex-wrap justify-end border-t-[0.5px] border-border"
         ><UiButton variant="outline" @click="emit('close')">关闭</UiButton
-        ><UiButton v-if="safeSourceUrl(job?.companyUrl ?? null)" variant="outline" as-child
+        ><UiButton v-if="companyUrl" variant="outline" as-child
           ><a
-            :href="safeSourceUrl(job?.companyUrl ?? null)!"
+            :href="companyUrl"
             target="_blank"
             rel="noopener noreferrer"
             >公司来源</a
           ></UiButton
-        ><UiButton v-if="safeSourceUrl(job?.jobUrl ?? null)" as-child
-          ><a :href="safeSourceUrl(job?.jobUrl ?? null)!" target="_blank" rel="noopener noreferrer"
+        ><UiButton v-if="jobUrl" as-child
+          ><a :href="jobUrl" target="_blank" rel="noopener noreferrer"
             >职位来源</a
           ></UiButton
         ></UiSheetFooter

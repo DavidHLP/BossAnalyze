@@ -1,65 +1,56 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from '@hugeicons/vue'
-import { Briefcase01Icon, Home01Icon, ChartHistogramIcon } from '@hugeicons/core-free-icons'
-import { navigationMenus } from '@/lib/session'
 import type { SidebarProps } from '@/components/ui/sidebar'
 import { useSidebar } from '@/components/ui/sidebar'
+import { navigationMenus, type MenuItem } from '@/lib/session'
 
 const props = withDefaults(defineProps<SidebarProps>(), { collapsible: 'icon' })
 const { state: session } = useSession()
-const route = useRoute()
 const { setOpenMobile } = useSidebar()
+const workspace: MenuItem[] = [
+  { path: '/console', title: '工作台', children: [] },
+  { path: '/recruitment', title: '招聘数据分析', icon: 'ChartHistogramIcon', children: [] },
+]
+const menus = computed(() => {
+  const seen = new Set(workspace.map((item) => item.path))
+  function uniqueMenus(items: MenuItem[]): MenuItem[] {
+    return items.flatMap((item) => {
+      const duplicate = item.path !== null && seen.has(item.path)
+      if (item.path) seen.add(item.path)
+      const children = uniqueMenus(item.children)
+      if (duplicate) return children
+      return item.path || children.length ? [{ ...item, children }] : []
+    })
+  }
+  return uniqueMenus(navigationMenus(session.value.menus))
+})
 </script>
 
 <template>
   <UiSidebar v-bind="props">
-    <UiSidebarHeader>
+    <UiSidebarHeader class="h-14 justify-center border-b border-sidebar-border pr-14 md:pr-2">
       <UiSidebarMenu>
         <UiSidebarMenuItem>
-          <UiSidebarMenuButton as-child size="lg" tooltip="BossAnalyze">
+          <UiSidebarMenuButton as-child size="lg" class="h-10 text-sm" tooltip="BossAnalyze">
             <NuxtLink to="/console" @click="setOpenMobile(false)">
-              <span
-                class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
-              >
-                <HugeiconsIcon :icon="Briefcase01Icon" class="size-5" aria-hidden="true" />
-              </span>
-              <span class="grid text-left"
-                ><span class="font-semibold">BossAnalyze</span>
-                <span class="text-xs text-muted-foreground">招聘数据分析工作台</span>
-              </span>
+              <AppBrand />
             </NuxtLink>
           </UiSidebarMenuButton>
         </UiSidebarMenuItem>
       </UiSidebarMenu>
     </UiSidebarHeader>
-    <UiSidebarContent>
-      <UiSidebarGroup>
-        <UiSidebarMenu>
-          <UiSidebarMenuItem>
-            <UiSidebarMenuButton as-child tooltip="工作台" :is-active="route.path === '/console'">
-              <NuxtLink to="/console" @click="setOpenMobile(false)">
-                <HugeiconsIcon :icon="Home01Icon" aria-hidden="true" /><span>工作台</span>
-              </NuxtLink>
-            </UiSidebarMenuButton>
-          </UiSidebarMenuItem>
-          <UiSidebarMenuItem>
-            <UiSidebarMenuButton
-              as-child
-              tooltip="招聘数据分析"
-              :is-active="route.path === '/recruitment'"
-            >
-              <NuxtLink to="/recruitment" @click="setOpenMobile(false)">
-                <HugeiconsIcon :icon="ChartHistogramIcon" aria-hidden="true" /><span
-                  >招聘数据分析</span
-                >
-              </NuxtLink>
-            </UiSidebarMenuButton>
-          </UiSidebarMenuItem>
-        </UiSidebarMenu>
-      </UiSidebarGroup>
-      <NavMain :items="navigationMenus(session.menus)" />
+    <UiSidebarContent aria-label="控制台导航" class="py-2">
+      <NavMain label="工作空间" :items="workspace" />
+      <NavMain label="控制台功能" :items="menus" />
     </UiSidebarContent>
-    <UiSidebarFooter><NavUser v-if="session.user" :user="session.user" /></UiSidebarFooter>
+    <UiSidebarFooter class="border-t border-sidebar-border">
+      <p class="hidden items-center justify-between gap-2 px-2 text-xs text-muted-foreground md:flex group-data-[collapsible=icon]:hidden">
+        切换侧栏
+        <kbd title="侧栏快捷键：Mac 按 ⌘B，其他平台按 Ctrl+B" class="rounded-sm border border-sidebar-border px-1.5 py-0.5">
+          ⌘B / Ctrl+B
+        </kbd>
+      </p>
+      <NavUser v-if="session.user" :user="session.user" />
+    </UiSidebarFooter>
     <UiSidebarRail />
   </UiSidebar>
 </template>

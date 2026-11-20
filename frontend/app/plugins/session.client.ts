@@ -7,7 +7,11 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
   window.addEventListener('unauthorized', onUnauthorized)
   const onStorage = (event: StorageEvent) => {
-    if (event.key === 'token') window.location.reload()
+    if (event.storageArea !== localStorage) return
+    if (event.key === 'token' || event.key === 'token_timestamp' || event.key === null) {
+      session.changed()
+      if (event.key !== 'token_timestamp') window.location.reload()
+    }
   }
   window.addEventListener('storage', onStorage)
   nuxtApp.vueApp.onUnmount(() => {

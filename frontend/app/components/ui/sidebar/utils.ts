@@ -6,7 +6,6 @@ export const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 export const SIDEBAR_WIDTH = '16rem'
 export const SIDEBAR_WIDTH_MOBILE = '18rem'
 export const SIDEBAR_WIDTH_ICON = '3rem'
-export const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
 export const SIDEBAR_MOBILE_BREAKPOINT = 768
 
 export const [useSidebar, provideSidebarContext] = createContext<{
@@ -16,5 +15,6 @@ export const [useSidebar, provideSidebarContext] = createContext<{
   isMobile: Ref<boolean>
   openMobile: Ref<boolean>
   setOpenMobile: (value: boolean) => void
+  triggerId: string
   toggleSidebar: () => void
 }>('Sidebar')

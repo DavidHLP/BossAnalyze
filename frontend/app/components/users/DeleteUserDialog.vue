@@ -1,34 +1,47 @@
 <script setup lang="ts">
+import { withSessionOwner } from '@/lib/session'
+import { sessionChangedMessage } from '@/lib/rbac-mutations'
 import { deleteUser } from '@/api/user/user'
-import { userWriteSucceeded } from '@/lib/users'
+import { userDeleteError, userWriteSucceeded } from '@/lib/users'
 import type { ManagedUser } from '@/lib/users'
-const props = defineProps<{ user: ManagedUser | null }>()
-const emit = defineEmits<{ close: []; deleted: [] }>()
+const props = defineProps<{ user: ManagedUser | null; sessionChanged: boolean }>()
+const emit = defineEmits<{ close: []; deleted: []; pending: [boolean]; closeAutoFocus: [Event] }>()
+const session = useSession()
+const owner = session.capture()
 const password = ref('')
 const pending = ref(false)
-const failed = ref(false)
+const failure = ref('')
 watch(
   () => props.user,
   () => {
     password.value = ''
-    failed.value = false
+    failure.value = ''
   },
 )
 function close() {
   if (!pending.value) emit('close')
 }
 async function remove() {
-  if (pending.value || !props.user || !password.value) return
+  const user = props.user
+  if (!owner || !session.owns(owner) || props.sessionChanged || pending.value || !user ||
+      !password.value || user.email === session.state.value.user?.email) return
   pending.value = true
-  failed.value = false
+  emit('pending', true)
+  failure.value = ''
   try {
-    userWriteSucceeded(await deleteUser(props.user.id, password.value))
+    userWriteSucceeded(await withSessionOwner(owner, () => deleteUser(user.id, password.value)))
+    if (!session.owns(owner)) return
     password.value = ''
     emit('deleted')
-  } catch {
-    failed.value = true
+  } catch (error) {
+    if (session.owns(owner)) failure.value = userDeleteError(error)
   } finally {
     pending.value = false
+    emit('pending', false)
+  }
+  if (failure.value) {
+    await nextTick()
+    document.querySelector<HTMLElement>('#delete-user-password')?.focus()
   }
 }
 </script>
@@ -47,6 +60,7 @@ async function remove() {
       class="top-[38.2%]! sm:max-w-[400px]!"
       @pointer-down-outside.prevent
       @interact-outside.prevent
+      @close-auto-focus="emit('closeAutoFocus', $event)"
       @escape-key-down="
         (event) => {
           if (pending) event.preventDefault()
@@ -61,6 +75,12 @@ async function remove() {
           >将永久移除该用户账户，无法在此恢复。请输入你当前账号的密码确认。</UiDialogDescription
         >
       </UiDialogHeader>
+      <p class="break-all text-sm text-muted-foreground">
+        {{ user?.email || '未填写邮箱' }} · <span class="font-mono tabular-nums">ID {{ user?.id }}</span>
+      </p>
+      <UiAlert v-if="sessionChanged" variant="destructive" role="alert">
+        <UiAlertDescription>{{ sessionChangedMessage }}</UiAlertDescription>
+      </UiAlert>
       <form id="delete-user-form" :aria-busy="pending" @submit.prevent="remove">
         <UiField
           ><UiFieldLabel for="delete-user-password">当前账号密码</UiFieldLabel
@@ -71,11 +91,11 @@ async function remove() {
             autocomplete="current-password"
             :disabled="pending"
             required
-            :aria-describedby="failed ? 'delete-user-error' : undefined"
+            :aria-describedby="failure ? 'delete-user-error' : undefined"
         /></UiField>
-        <p v-if="failed" id="delete-user-error" role="alert" class="mt-3 text-sm text-destructive">
-          删除失败，请检查当前账号密码或服务连接后重试。
-        </p>
+        <UiAlert v-if="failure" id="delete-user-error" variant="destructive" role="alert" class="mt-3">
+          <UiAlertDescription>{{ failure }}</UiAlertDescription>
+        </UiAlert>
       </form>
       <UiDialogFooter
         ><UiButton variant="outline" :disabled="pending" @click="close">取消</UiButton
@@ -83,7 +103,7 @@ async function remove() {
           variant="destructive"
           form="delete-user-form"
           type="submit"
-          :disabled="pending || !password"
+          :aria-disabled="pending || sessionChanged || !password"
           >{{ pending ? '正在删除…' : '删除用户' }}</UiButton
         ></UiDialogFooter
       >

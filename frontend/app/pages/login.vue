@@ -1,39 +1,29 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from '@hugeicons/vue'
-import { Briefcase01Icon } from '@hugeicons/core-free-icons'
-
 useHead({ title: '登录 · BossAnalyze' })
 </script>
 
 <template>
   <div class="grid min-h-svh lg:grid-cols-2">
-    <div class="flex flex-col gap-4 p-6 md:p-10">
-      <NuxtLink to="/login" class="flex w-fit items-center gap-2 font-semibold">
-        <span
-          class="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"
-        >
-          <HugeiconsIcon :icon="Briefcase01Icon" class="size-5" aria-hidden="true" />
-        </span>
-        BossAnalyze
-      </NuxtLink>
-      <main class="flex flex-1 items-center justify-center py-12">
-        <div class="w-full max-w-xs"><LoginForm /></div>
-      </main>
-      <p class="text-xs text-muted-foreground">招聘数据分析工作台</p>
-    </div>
-    <div class="relative hidden overflow-hidden bg-muted lg:block">
-      <img
-        src="/images/login-cover.svg"
-        alt=""
-        class="absolute inset-0 h-full w-full object-cover"
-      />
-      <div class="absolute inset-x-0 bottom-0 p-10 text-white xl:p-16">
-        <p class="mb-3 text-sm tracking-widest text-white/70">BOSSANALYZE</p>
-        <h2 class="max-w-sm text-3xl font-medium leading-relaxed">让职业选择<br />更清晰一点。</h2>
-        <p class="mt-5 max-w-sm text-sm leading-7 text-white/75">
-          从招聘信息出发，理解机会，发现方向。
+    <aside
+      aria-hidden="true"
+      class="hidden bg-brand-surface text-brand-foreground lg:flex lg:flex-col lg:border-r lg:border-border lg:px-12 lg:py-10 xl:px-16"
+    >
+      <AppBrand class="self-start text-base" />
+      <div class="grid flex-1 place-items-center py-10">
+        <p class="w-full max-w-lg text-4xl font-semibold tracking-tight text-balance xl:text-5xl">
+          招聘数据洞察<br />与权限治理工作台
         </p>
       </div>
+    </aside>
+
+    <div class="flex min-w-0 flex-col bg-card px-6 sm:px-10">
+      <header class="flex h-16 shrink-0 items-center justify-between gap-4 lg:h-20 lg:justify-end">
+        <AppBrand class="text-base lg:hidden" />
+        <ThemeToggle />
+      </header>
+      <main class="grid flex-1 place-items-center py-10">
+        <LoginForm class="w-full max-w-sm" />
+      </main>
     </div>
   </div>
 </template>

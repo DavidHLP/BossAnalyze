@@ -10,40 +10,63 @@ import {
 import {
   analysisAxes,
   analysisQuery,
+  analysisStatusLabels,
+  analysisStatusTones,
+  defaultAnalysisFilter,
+  defaultSampleSize,
+  formatSampleSalary,
   jobSamples,
   jobSummary,
   optionNames,
+  readRecruitmentQuery,
+  recruitmentQueryCity,
   safeCity,
   salaryRanking,
+  samplePageSizes,
+  sameAnalysisFilter,
 } from '@/lib/recruitment'
 import type { JobSample, AnalysisFilter } from '@/lib/recruitment'
 import { settingsFailure } from '@/lib/settings'
 
 definePageMeta({ layout: 'console', middleware: 'signed-in' })
 type State = 'idle' | 'loading' | 'ready' | 'error' | 'forbidden'
-const draft = reactive<AnalysisFilter>({
-  city: 'all',
-  position: 'all',
-  x: 'salary_value',
-  y: 'degree_value',
-})
-const applied = shallowRef<AnalysisFilter | null>(null)
+const route = useRoute()
+const router = useRouter()
+const recruitmentPath = route.path
+const initialQuery = route.query
+const restoring = ref(['city', 'position', 'x', 'y', 'page', 'size'].some((key) => key in initialQuery))
+const draft = reactive<AnalysisFilter>({ ...defaultAnalysisFilter })
+type AnalysisRequest = { filter: AnalysisFilter; args: ReturnType<typeof analysisQuery> }
+const appliedRequest = shallowRef<AnalysisRequest | null>(null)
+const applied = computed(() => appliedRequest.value?.filter ?? null)
 const cities = shallowRef<string[]>([])
 const positions = shallowRef<string[]>([])
-const cityState = ref<State>('loading')
-const positionState = ref<State>('loading')
+const cityState = ref<State>('idle')
+const positionState = ref<State>('idle')
 const jobs = shallowRef<JobSample[]>([])
 const jobsState = ref<State>('idle')
 const ranking = shallowRef<ReturnType<typeof salaryRanking>>([])
-const rankingState = ref<State>('loading')
+const rankingState = ref<State>('idle')
 const sourcesUnavailable = computed(() =>
   [cityState.value, positionState.value, rankingState.value].every((state) => state === 'error'),
 )
 const rankingLimit = ref('10')
 const selected = shallowRef<JobSample | null>(null)
 const formError = ref('')
+const formFeedback = useTemplateRef<HTMLElement>('formFeedback')
+const cityFeedback = useTemplateRef<HTMLElement>('cityFeedback')
+const positionFeedback = useTemplateRef<HTMLElement>('positionFeedback')
+const analysisTitle = useTemplateRef<HTMLElement>('analysisTitle')
+const rankingTitle = useTemplateRef<HTMLElement>('rankingTitle')
+const queryPending = computed(() => jobsState.value === 'loading')
+const cityPending = computed(() => cityState.value === 'idle' || cityState.value === 'loading')
+const positionPending = computed(() => positionState.value === 'idle' || positionState.value === 'loading')
+const rankingPending = computed(() => rankingState.value === 'idle' || rankingState.value === 'loading')
+const draftPending = computed(() => queryPending.value || restoring.value || positionPending.value)
+const queryFailed = computed(() => jobsState.value === 'error' || jobsState.value === 'forbidden')
+let sheetTrigger: HTMLElement | null = null
 const page = ref(1)
-const size = ref('20')
+const size = ref<number>(defaultSampleSize)
 let positionRequest = 0
 const cityOptions = computed(() => [
   { value: 'all', label: '全部城市' },
@@ -54,19 +77,23 @@ const positionOptions = computed(() => [
   ...positions.value.map((value) => ({ value, label: value })),
 ])
 const visible = computed(() =>
-  jobs.value.slice((page.value - 1) * Number(size.value), page.value * Number(size.value)),
+  jobs.value.slice((page.value - 1) * size.value, page.value * size.value),
 )
 const summary = computed(() => (jobsState.value === 'ready' ? jobSummary(jobs.value) : null))
 const changed = computed(
-  () => applied.value && JSON.stringify(draft) !== JSON.stringify(applied.value),
+  () => applied.value !== null && !sameAnalysisFilter(draft, applied.value),
 )
 const number = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 })
-const scope = computed(() =>
-  applied.value
-    ? `${applied.value.city === 'all' ? '全部城市' : applied.value.city} / ${applied.value.position === 'all' ? '全部职位' : applied.value.position}`
-    : '尚未查询',
-)
+const scope = computed(() => {
+  const filter = applied.value
+  if (!filter) return ''
+  const city = filter.city === 'all' ? '全部城市' : filter.city
+  const position = filter.position === 'all' ? '全部职位' : filter.position
+  const axisLabel = (value: string) => analysisAxes.find((axis) => axis.value === value)?.label
+  return `${city} / ${position} · X ${axisLabel(filter.x)} / Y ${axisLabel(filter.y)}`
+})
 async function loadCities() {
+  if (cityState.value === 'loading') return
   cityState.value = 'loading'
   cities.value = []
   try {
@@ -76,6 +103,13 @@ async function loadCities() {
     cityState.value = settingsFailure(error)
   }
 }
+
+function retryCities() {
+  if (cityPending.value || restoring.value) return
+  cityFeedback.value?.focus()
+  void loadCities()
+}
+
 async function loadPositions() {
   const request = ++positionRequest,
     city = draft.city
@@ -92,20 +126,37 @@ async function loadPositions() {
     if (request === positionRequest) positionState.value = settingsFailure(error)
   }
 }
-watch(
-  () => draft.city,
-  () => {
-    draft.position = 'all'
-    void loadPositions()
-  },
-)
-watch(size, () => {
+function changeDraftCity(city: string) {
+  if (city === draft.city) return
+  draft.city = city
+  draft.position = defaultAnalysisFilter.position
+  void loadPositions()
+}
+
+function retryPositions() {
+  if (positionPending.value || restoring.value) return
+  positionFeedback.value?.focus()
+  void loadPositions()
+}
+
+function changeSize(value: unknown) {
+  const nextSize = samplePageSizes.find((option) => option === value)
+  if (nextSize === undefined || nextSize === size.value) return
+  size.value = nextSize
   page.value = 1
+}
+
+watch([applied, page, size], ([filter, currentPage, currentSize]) => {
+  const current = router.currentRoute.value
+  if (!filter || current.path !== recruitmentPath) return
+  const params = { ...filter, page: String(currentPage), size: String(currentSize) }
+  void router.replace({ query: { ...current.query, ...params }, hash: current.hash })
 })
 watch(rankingLimit, () => {
   void loadRanking()
 })
 async function loadRanking() {
+  if (rankingState.value === 'loading') return
   rankingState.value = 'loading'
   ranking.value = []
   try {
@@ -116,170 +167,271 @@ async function loadRanking() {
     rankingState.value = settingsFailure(error)
   }
 }
-async function analyze() {
-  if (jobsState.value === 'loading' || positionState.value === 'loading') return
-  formError.value = ''
+function retryRanking() {
+  if (rankingPending.value) return
+  rankingTitle.value?.focus()
+  void loadRanking()
+}
+
+function goToRanking() {
+  rankingTitle.value?.focus({ preventScroll: true })
+  rankingTitle.value?.scrollIntoView({ block: 'start' })
+}
+
+async function submitDraft(fromRecovery = false) {
+  if (draftPending.value) return
+  const filter = { ...draft }
   let args: ReturnType<typeof analysisQuery>
   try {
-    args = analysisQuery(draft, cities.value, positions.value)
+    args = analysisQuery(filter, cities.value, positions.value)
   } catch {
     formError.value = '请选择有效的城市、职位与不同的分析维度。'
+    await nextTick()
+    formFeedback.value?.focus()
     return
   }
+  if (fromRecovery) analysisTitle.value?.focus()
+  await runAnalysis({ filter, args })
+}
+
+async function runAnalysis(request: AnalysisRequest, initialPage = 1) {
+  if (queryPending.value) return
+  formError.value = ''
   jobsState.value = 'loading'
   jobs.value = []
-  page.value = 1
+  page.value = initialPage
   selected.value = null
-  applied.value = { ...draft }
+  appliedRequest.value = request
   try {
-    jobs.value = jobSamples(await getTwoDimensionalAnalysisChart(...args))
+    jobs.value = jobSamples(await getTwoDimensionalAnalysisChart(...request.args))
+    page.value = Math.min(page.value, Math.max(1, Math.ceil(jobs.value.length / size.value)))
     jobsState.value = 'ready'
   } catch (error) {
     jobsState.value = settingsFailure(error)
   }
 }
-function reset() {
-  Object.assign(draft, { city: 'all', position: 'all', x: 'salary_value', y: 'degree_value' })
+
+function retryAnalysis() {
+  if (queryPending.value || !appliedRequest.value) return
+  analysisTitle.value?.focus()
+  void runAnalysis(appliedRequest.value)
+}
+
+function showJob(job: JobSample, event: MouseEvent) {
+  sheetTrigger = event.currentTarget as HTMLElement
+  selected.value = job
+}
+
+function restoreSheetFocus(event: Event) {
+  if (sheetTrigger?.isConnected) {
+    event.preventDefault()
+    sheetTrigger.focus()
+  }
+  sheetTrigger = null
+}
+
+function resetDraft() {
+  if (queryPending.value || restoring.value) return
+  changeDraftCity(defaultAnalysisFilter.city)
+  Object.assign(draft, defaultAnalysisFilter)
   formError.value = ''
 }
-onMounted(() => {
-  void loadCities()
-  void loadPositions()
+
+function resetAndRun() {
+  if (draftPending.value) return
+  resetDraft()
+  analysisTitle.value?.focus()
+  const filter = { ...draft }
+  void runAnalysis({ filter, args: analysisQuery(filter, cities.value, positions.value) })
+}
+
+onMounted(async () => {
   void loadRanking()
+  const loadingCities = loadCities()
+  const { city, position } = initialQuery
+  const needsCity = typeof city === 'string' && city !== 'all' && safeCity(city)
+  const needsPosition = typeof position === 'string' && position !== 'all' && position.trim() !== ''
+  if (needsCity) {
+    await loadingCities
+    draft.city = recruitmentQueryCity(city, cities.value) ?? defaultAnalysisFilter.city
+  }
+  await loadPositions()
+  if (!restoring.value) return
+  restoring.value = false
+  if ((needsCity && cityState.value !== 'ready') || (needsPosition && positionState.value !== 'ready')) {
+    formError.value = '暂无法验证链接中的城市或职位。选项恢复后，可重新选择并开始分析。'
+    return
+  }
+  const saved = readRecruitmentQuery(initialQuery, cities.value, positions.value)
+  if (!saved) return
+  Object.assign(draft, saved.filter)
+  size.value = saved.size
+  const args = analysisQuery(saved.filter, cities.value, positions.value)
+  void runAnalysis({ filter: saved.filter, args }, saved.page)
 })
 </script>
 
 <template>
   <section class="flex min-w-0 flex-col gap-6" aria-labelledby="recruitment-title">
-    <header class="space-y-2">
-      <h1 id="recruitment-title" class="text-2xl font-semibold tracking-tight">招聘数据分析</h1>
-      <p class="text-sm text-muted-foreground">按城市与职位比较招聘样本，查看薪资和任职要求。</p>
+    <header class="flex flex-wrap items-end justify-between gap-3">
+      <div class="space-y-2">
+        <h1 id="recruitment-title" class="text-2xl font-semibold tracking-tight">招聘数据分析</h1>
+        <p class="text-sm text-muted-foreground">按城市与职位比较招聘样本，查看薪资和任职要求。</p>
+      </div>
+      <UiButton variant="outline" as-child>
+        <a href="#salary-ranking-title" @click.prevent="goToRanking">查看全局高薪职位排行</a>
+      </UiButton>
     </header>
-    <UiAlert v-if="sourcesUnavailable" role="status">
+    <UiAlert v-if="sourcesUnavailable" variant="destructive" role="alert">
       <UiAlertTitle>招聘数据暂时无法读取</UiAlertTitle>
       <UiAlertDescription
         >城市、职位和排行均未读取成功。请稍后分别重试，或检查服务连接。</UiAlertDescription
       >
     </UiAlert>
     <form
-      class="space-y-5 rounded-lg border-[0.5px] border-border/70 bg-card p-5"
+      class="min-w-0 space-y-5 rounded-lg border-[0.5px] border-border bg-card p-4 sm:p-5"
       aria-label="招聘分析筛选"
-      @submit.prevent="analyze"
+      @submit.prevent="submitDraft()"
     >
-      <div class="grid gap-5 sm:grid-cols-2">
+      <div class="grid gap-4 sm:grid-cols-2">
         <UiField
           ><UiFieldLabel for="recruit-city">城市</UiFieldLabel
           ><RecruitmentOptionPicker
             id="recruit-city"
-            v-model="draft.city"
+            :model-value="draft.city"
             :options="cityOptions"
-            :disabled="cityState === 'loading' || jobsState === 'loading'"
+            :disabled="cityPending || queryPending || restoring"
+            described-by="recruit-city-status"
+            @update:model-value="changeDraftCity"
           />
-          <div
+          <div id="recruit-city-status" ref="cityFeedback" tabindex="-1" class="empty:sr-only">
+            <p v-if="cityPending || (cityState === 'ready' && !cities.length)" role="status" class="text-xs text-muted-foreground">
+              {{ cityPending ? '正在加载城市选项…' : '暂无城市选项，可使用全部城市。' }}
+            </p>
+            <UiAlert v-else-if="cityState === 'error' || cityState === 'forbidden'" variant="destructive" role="alert" class="border-0 bg-transparent p-0">
+              <UiAlertDescription>{{ cityState === 'forbidden' ? '无权读取城市选项。' : '城市选项读取失败。' }}</UiAlertDescription>
+            </UiAlert>
+          </div>
+          <UiButton
             v-if="cityState === 'error' || cityState === 'forbidden'"
-            class="text-sm text-destructive"
-            role="alert"
-          >
-            {{ cityState === 'forbidden' ? '无权读取城市选项。' : '城市选项读取失败。'
-            }}<UiButton type="button" variant="ghost" size="sm" @click="loadCities"
-              >重试城市选项</UiButton
-            >
-          </div></UiField
+            type="button" variant="ghost" size="sm" class="self-start"
+            :aria-disabled="cityPending || restoring" @click="retryCities"
+          >重试城市选项</UiButton></UiField
         ><UiField
           ><UiFieldLabel for="recruit-position">职位</UiFieldLabel
           ><RecruitmentOptionPicker
             id="recruit-position"
             v-model="draft.position"
             :options="positionOptions"
-            :disabled="positionState === 'loading' || jobsState === 'loading'"
+            :disabled="positionPending || queryPending || restoring"
+            described-by="recruit-position-status"
           />
-          <div
+          <div id="recruit-position-status" ref="positionFeedback" tabindex="-1" class="empty:sr-only">
+            <p v-if="positionPending || (positionState === 'ready' && !positions.length)" role="status" class="text-xs text-muted-foreground">
+              {{ positionPending ? '正在加载职位选项…' : '当前城市范围暂无职位选项，可使用全部职位。' }}
+            </p>
+            <UiAlert v-else-if="positionState === 'error' || positionState === 'forbidden'" variant="destructive" role="alert" class="border-0 bg-transparent p-0">
+              <UiAlertDescription>{{
+                positionState === 'forbidden' ? '无权读取职位选项。' : '职位选项读取失败，请重试或切换城市。'
+              }}</UiAlertDescription>
+            </UiAlert>
+          </div>
+          <UiButton
             v-if="positionState === 'error' || positionState === 'forbidden'"
-            class="text-sm text-destructive"
-            role="alert"
-          >
-            {{
-              positionState === 'forbidden'
-                ? '无权读取职位选项。'
-                : '职位选项读取失败，请重试或切换城市。'
-            }}<UiButton type="button" variant="ghost" size="sm" @click="loadPositions"
-              >重试职位选项</UiButton
-            >
-          </div></UiField
+            type="button" variant="ghost" size="sm" class="self-start"
+            :aria-disabled="positionPending || restoring" @click="retryPositions"
+          >重试职位选项</UiButton></UiField
         >
       </div>
-      <div class="grid gap-5 lg:grid-cols-2">
-        <UiField
-          v-for="axis in [
-            { key: 'x', label: '横轴' },
-            { key: 'y', label: '纵轴' },
-          ] as const"
-          :key="axis.key"
-          ><UiFieldLabel as="span">{{ axis.label }}</UiFieldLabel
-          ><UiRadioGroup
-            v-model="draft[axis.key]"
-            :aria-label="axis.label"
-            class="flex flex-wrap gap-x-5 gap-y-3"
-            :disabled="jobsState === 'loading'"
-            ><label
-              v-for="option in analysisAxes"
-              :key="option.value"
-              class="flex items-center gap-2 text-sm"
-              ><UiRadioGroupItem :value="option.value" />{{ option.label }}</label
-            ></UiRadioGroup
-          ></UiField
-        >
+      <div class="space-y-3 border-t-[0.5px] border-border pt-4">
+        <div class="grid gap-4 lg:grid-cols-2">
+          <UiField
+            v-for="axis in [
+              { key: 'x', label: '横轴' },
+              { key: 'y', label: '纵轴' },
+            ] as const"
+            :key="axis.key"
+            ><UiFieldLabel as="span">{{ axis.label }}</UiFieldLabel
+            ><UiRadioGroup
+              v-model="draft[axis.key]"
+              :aria-label="axis.label"
+              aria-describedby="recruit-axis-help"
+              class="flex flex-wrap gap-x-5 gap-y-3"
+              :disabled="queryPending || restoring"
+              ><label
+                v-for="option in analysisAxes"
+                :key="option.value"
+                class="flex items-center gap-2 text-sm has-disabled:text-muted-foreground"
+                ><UiRadioGroupItem
+                  :value="option.value"
+                  :disabled="option.value === draft[axis.key === 'x' ? 'y' : 'x']"
+                />{{ option.label }}</label
+              ></UiRadioGroup
+            ></UiField
+          >
+        </div>
+        <p id="recruit-axis-help" class="text-xs text-muted-foreground">
+          横轴和纵轴须使用不同维度。另一轴已选的维度暂不可选。
+        </p>
       </div>
       <div class="flex flex-wrap items-center gap-3">
-        <UiButton type="submit" :disabled="jobsState === 'loading' || positionState === 'loading'"
+        <UiButton type="submit" :aria-disabled="draftPending" class="aria-disabled:opacity-50"
           ><HugeiconsIcon :icon="Search01Icon" class="size-4 -ml-0.5" aria-hidden="true" />{{
-            jobsState === 'loading' ? '正在查询…' : '查询分析'
+            queryPending ? '正在查询…' : '开始分析'
           }}</UiButton
         ><UiButton
           type="button"
           variant="outline"
-          :disabled="jobsState === 'loading'"
-          @click="reset"
-          >重置筛选</UiButton
+          :aria-disabled="queryPending || restoring"
+          class="aria-disabled:opacity-50"
+          @click="resetDraft"
+          >重置草稿</UiButton
         >
-        <p v-if="formError" role="alert" class="text-sm text-destructive">{{ formError }}</p>
-        <p v-else-if="changed" role="status" class="text-xs text-muted-foreground">
-          条件已调整，点击查询分析更新结果。
-        </p>
       </div>
-    </form>
-    <div class="space-y-3">
-      <p class="break-words text-xs text-muted-foreground">
-        当前结果：{{ scope }}。统计仅基于返回样本；K 薪资之外的格式不参与薪资均值。
+      <p v-if="formError" ref="formFeedback" tabindex="-1" role="alert" class="text-sm text-destructive">
+        {{ formError }}
       </p>
-      <div class="grid gap-4 sm:grid-cols-3">
+      <p
+        v-if="changed"
+        role="status"
+        class="text-sm text-status-warning-foreground"
+      >
+        草稿尚未应用。{{ queryFailed ? '可重试上次条件，或按当前草稿查询。' : '开始分析后更新结果。' }}
+      </p>
+    </form>
+    <div v-if="applied" class="space-y-3">
+      <p class="break-words text-xs leading-5 text-muted-foreground">
+        {{ queryFailed ? '上次查询条件' : '已应用条件' }}：{{ scope }}。
+        <template v-if="summary">指标基于本次返回样本。</template>
+      </p>
+      <div v-if="queryPending || summary" class="grid gap-4 sm:grid-cols-3">
         <UiCard
           v-for="metric in [
             {
-              label: '返回职位样本',
+              label: '返回样本总数',
               value: summary?.count,
               unit: '条',
               note: '所选维度数值有效的返回记录',
             },
             {
-              label: '涉及公司',
+              label: '去重公司数',
               value: summary?.companies,
               unit: '家',
               note: '按已提供的公司名称去重',
             },
             {
-              label: '样本薪资均值',
+              label: '有效薪资均值',
               value: summary?.average,
               unit: 'K',
-              note: summary ? `基于 ${summary.salaryCount} 条可解析薪资样本` : '尚未取得薪资样本',
+              note: summary ? `${number.format(summary.salaryCount)} 条有效薪资参与计算` : '尚未取得薪资样本',
             },
           ]"
           :key="metric.label"
-          class="gap-0 border-[0.5px] border-border/70 py-0 shadow-none ring-0"
+          class="min-w-0 gap-0 border-[0.5px] py-0"
           ><UiCardContent class="p-5"
             ><h2 class="text-xs text-muted-foreground">{{ metric.label }}</h2>
             <UiSkeleton v-if="jobsState === 'loading'" class="mt-4 h-8 w-24" />
-            <p v-else class="mt-3 text-3xl font-semibold tabular-nums">
+            <p v-else class="mt-3 break-all font-mono text-3xl font-semibold tabular-nums">
               {{ metric.value == null ? '—' : number.format(metric.value)
               }}<span
                 v-if="metric.value != null"
@@ -294,16 +446,16 @@ onMounted(() => {
       </div>
     </div>
     <div
-      class="min-w-0 rounded-lg border-[0.5px] border-border/70 bg-card"
+      class="min-w-0 rounded-lg border-[0.5px] border-border bg-card"
       :aria-busy="jobsState === 'loading'"
     >
       <div class="border-b-[0.5px] border-border/70 px-5 py-4">
-        <h2 class="text-sm font-semibold">职位样本分析</h2>
+        <h2 ref="analysisTitle" tabindex="-1" class="text-sm font-semibold">职位样本分析</h2>
       </div>
       <div v-if="jobsState === 'idle'" role="status" class="space-y-3 px-6 py-12 text-center">
         <h3 class="text-sm font-medium">选择条件，开始查询</h3>
         <p class="text-sm text-muted-foreground">
-          在上方选择城市、职位和分析维度，点击“查询分析”查看样本。
+          在上方选择城市、职位和分析维度，点击“开始分析”查看样本。
         </p>
       </div>
       <div v-else-if="jobsState === 'loading'" role="status" class="space-y-4 p-6">
@@ -312,37 +464,45 @@ onMounted(() => {
       </div>
       <div
         v-else-if="jobsState === 'error' || jobsState === 'forbidden'"
-        role="alert"
-        class="space-y-3 px-6 py-12 text-center"
+        class="space-y-4 p-5"
       >
-        <h3 class="text-sm font-medium">
-          {{ jobsState === 'forbidden' ? '当前账号无权读取招聘分析' : '招聘分析读取失败' }}
-        </h3>
-        <p class="text-sm text-muted-foreground">
-          {{
+        <UiAlert variant="destructive" role="alert">
+          <UiAlertTitle>
+            {{ jobsState === 'forbidden' ? '当前账号无权读取招聘分析' : '招聘分析读取失败' }}
+          </UiAlertTitle>
+          <UiAlertDescription>{{
             jobsState === 'forbidden'
               ? '请联系管理员确认访问权限。'
               : '请检查服务连接或调整筛选条件后重试。'
-          }}
-        </p>
-        <UiButton variant="outline" @click="analyze">重试当前条件</UiButton>
+          }}</UiAlertDescription>
+        </UiAlert>
+        <div class="flex flex-wrap gap-3">
+          <UiButton variant="outline" :aria-disabled="queryPending" @click="retryAnalysis">重试上次条件</UiButton>
+          <UiButton
+            v-if="changed" variant="outline" :aria-disabled="draftPending" class="aria-disabled:opacity-50"
+            @click="submitDraft(true)"
+          >按当前草稿查询</UiButton>
+        </div>
       </div>
       <div v-else-if="!jobs.length" role="status" class="space-y-3 px-6 py-12 text-center">
         <h3 class="text-sm font-medium">暂无匹配的职位样本</h3>
         <p class="text-sm text-muted-foreground">
           当前条件没有返回所选维度均有效的样本，可调整城市、职位或分析维度。
         </p>
-        <UiButton variant="outline" @click="reset">清除筛选条件</UiButton>
+        <UiButton
+          variant="outline" :aria-disabled="draftPending" class="aria-disabled:opacity-50"
+          @click="resetAndRun"
+        >重置并重新分析</UiButton>
       </div>
       <template v-else-if="applied"
-        ><div class="border-b-[0.5px] border-border/70 p-5">
+        ><div class="border-b border-border p-3 sm:p-5">
           <RecruitmentScatterPlot :jobs="jobs" :x="applied.x" :y="applied.y" />
         </div>
         <UiTable
           ><UiTableCaption class="sr-only">招聘职位样本及薪资、学历和经验要求</UiTableCaption
           ><UiTableHeader
             ><UiTableRow class="border-b-[0.5px]"
-              ><UiTableHead class="px-5">职位 / 公司</UiTableHead
+              ><UiTableHead class="px-3 sm:px-5">职位 / 公司</UiTableHead
               ><UiTableHead class="hidden sm:table-cell">城市</UiTableHead
               ><UiTableHead class="text-right">薪资</UiTableHead
               ><UiTableHead class="hidden md:table-cell">学历</UiTableHead
@@ -351,11 +511,11 @@ onMounted(() => {
             ></UiTableHeader
           ><UiTableBody
             ><UiTableRow v-for="job in visible" :key="job.key" class="border-b-[0.5px]"
-              ><UiTableCell class="min-w-44 max-w-80 whitespace-normal px-5"
+              ><UiTableCell class="min-w-32 max-w-80 whitespace-normal px-3 sm:px-5"
                 ><UiButton
                   variant="ghost"
-                  class="h-auto justify-start whitespace-normal break-words p-0 text-left font-medium hover:bg-transparent"
-                  @click="selected = job"
+                  class="h-auto justify-start whitespace-normal break-words p-0 text-left font-medium underline-offset-4 hover:bg-transparent hover:text-accent-data-foreground hover:underline"
+                  @click="showJob(job, $event)"
                   >{{ job.positionName || '未提供职位名称' }}</UiButton
                 >
                 <p class="mt-1 break-words text-xs text-muted-foreground">
@@ -363,10 +523,14 @@ onMounted(() => {
                 </p>
                 <p class="mt-1 text-xs text-muted-foreground sm:hidden">
                   {{ job.cityName || '—' }}
-                </p></UiTableCell
+                </p>
+                <StatusBadge :tone="analysisStatusTones[job.analysisStatus]" class="mt-2 max-w-full">
+                  {{ analysisStatusLabels[job.analysisStatus] }}
+                </StatusBadge>
+              </UiTableCell
               ><UiTableCell class="hidden sm:table-cell">{{ job.cityName || '—' }}</UiTableCell
-              ><UiTableCell class="whitespace-normal text-right tabular-nums">{{
-                job.salary || '—'
+              ><UiTableCell class="whitespace-normal break-all text-right font-mono tabular-nums">{{
+                formatSampleSalary(job.salary)
               }}</UiTableCell
               ><UiTableCell class="hidden md:table-cell">{{ job.degree || '—' }}</UiTableCell
               ><UiTableCell class="hidden lg:table-cell">{{ job.experience || '—' }}</UiTableCell
@@ -375,7 +539,7 @@ onMounted(() => {
                   variant="ghost"
                   size="sm"
                   :aria-label="`查看${job.positionName || '职位'}详情`"
-                  @click="selected = job"
+                  @click="showJob(job, $event)"
                   >详情</UiButton
                 ></UiTableCell
               ></UiTableRow
@@ -385,24 +549,24 @@ onMounted(() => {
         <div
           class="flex flex-wrap items-center justify-between gap-4 border-t-[0.5px] border-border/70 p-4"
         >
-          <UiRadioGroup v-model="size" aria-label="样本每页条数" class="flex gap-4"
+          <UiRadioGroup :model-value="size" aria-label="样本每页条数" class="flex gap-4" @update:model-value="changeSize"
             ><label
-              v-for="count in [10, 20, 50]"
+              v-for="count in samplePageSizes"
               :key="count"
               class="flex items-center gap-2 text-xs"
-              ><UiRadioGroupItem :value="String(count)" />{{ count }} 条</label
+              ><UiRadioGroupItem :value="count" />{{ count }} 条</label
             ></UiRadioGroup
           >
-          <div class="flex items-center gap-3">
-            <span class="text-xs tabular-nums text-muted-foreground">共 {{ jobs.length }} 条</span
+          <div class="flex min-w-0 flex-wrap items-center gap-3">
+            <span class="font-mono text-xs tabular-nums text-muted-foreground">共 {{ jobs.length }} 条</span
             ><UiPagination
               v-model:page="page"
-              :items-per-page="Number(size)"
+              :items-per-page="size"
               :total="jobs.length"
               :sibling-count="1"
-              class="w-auto"
+              class="w-auto max-w-full"
               aria-label="样本分页"
-              ><UiPaginationContent v-slot="{ items }"
+              ><UiPaginationContent v-slot="{ items }" class="flex-wrap"
                 ><UiPaginationPrevious aria-label="上一页" /><template
                   v-for="(item, index) in items"
                   :key="index"
@@ -422,17 +586,19 @@ onMounted(() => {
       </template>
     </div>
     <section
-      class="min-w-0 rounded-lg border-[0.5px] border-border/70 bg-card"
+      class="min-w-0 rounded-lg border-[0.5px] border-border bg-card"
       aria-labelledby="salary-ranking-title"
-      :aria-busy="rankingState === 'loading'"
+      :aria-busy="rankingPending"
     >
       <div
         class="flex flex-wrap items-center justify-between gap-4 border-b-[0.5px] border-border/70 p-5"
       >
         <div class="space-y-1.5">
-          <h2 id="salary-ranking-title" class="text-sm font-semibold">全量高薪职位排行</h2>
+          <h2 id="salary-ranking-title" ref="rankingTitle" tabindex="-1" class="scroll-mt-20 text-sm font-semibold">
+            全局高薪职位排行
+          </h2>
           <p class="text-xs text-muted-foreground">
-            不受上方筛选影响；职位至少 10 条样本，城市至少 5 条样本。
+            全局统计，与分析筛选独立。入榜职位至少 10 条样本，推荐城市至少 5 条样本。
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
@@ -440,45 +606,46 @@ onMounted(() => {
             v-model="rankingLimit"
             aria-label="排行数量"
             class="flex gap-3"
-            :disabled="rankingState === 'loading'"
+            :disabled="rankingPending"
             ><label
               v-for="count in [5, 10, 20]"
               :key="count"
               class="flex items-center gap-1.5 text-xs"
-              ><UiRadioGroupItem :value="String(count)" />前 {{ count }}</label
+              ><UiRadioGroupItem :value="String(count)" />Top {{ count }}</label
             ></UiRadioGroup
           ><UiButton
             variant="ghost"
             size="sm"
-            :disabled="rankingState === 'loading'"
+            :aria-disabled="rankingPending"
+            class="aria-disabled:opacity-50"
             @click="loadRanking"
             ><HugeiconsIcon
               :icon="RefreshIcon"
               class="size-4"
+              :class="{ 'motion-safe:animate-spin': rankingPending }"
               aria-hidden="true"
-            />刷新排行</UiButton
+            />{{ rankingPending ? '正在刷新…' : '刷新排行' }}</UiButton
           >
         </div>
       </div>
-      <div v-if="rankingState === 'loading'" role="status" class="space-y-3 p-5">
+      <div v-if="rankingPending" role="status" class="space-y-3 p-5">
         <p class="text-sm text-muted-foreground">正在读取薪资排行…</p>
         <UiSkeleton class="h-32 w-full" />
       </div>
       <div
         v-else-if="rankingState === 'error' || rankingState === 'forbidden'"
-        role="alert"
-        class="space-y-3 px-6 py-10 text-center"
+        class="space-y-4 p-5"
       >
-        <h3 class="text-sm font-medium">
-          {{ rankingState === 'forbidden' ? '当前账号无权读取薪资排行' : '薪资排行读取失败' }}
-        </h3>
-        <p class="text-sm text-muted-foreground">请检查访问权限和服务连接后重试。</p>
-        <UiButton variant="outline" @click="loadRanking">重试薪资排行</UiButton>
+        <UiAlert variant="destructive" role="alert">
+          <UiAlertTitle>{{ rankingState === 'forbidden' ? '当前账号无权读取薪资排行' : '薪资排行读取失败' }}</UiAlertTitle>
+          <UiAlertDescription>请检查访问权限和服务连接后重试。</UiAlertDescription>
+        </UiAlert>
+        <UiButton variant="outline" :aria-disabled="rankingPending" @click="retryRanking">重试薪资排行</UiButton>
       </div>
       <div v-else-if="!ranking.length" role="status" class="space-y-2 px-6 py-10 text-center">
         <h3 class="text-sm font-medium">暂无满足样本量要求的职位排行</h3>
         <p class="text-sm text-muted-foreground">排行仅统计可解析的 K 薪资样本，可稍后刷新。</p>
-        <UiButton variant="outline" @click="loadRanking">重新读取排行</UiButton>
+        <UiButton variant="outline" :aria-disabled="rankingPending" @click="retryRanking">重新读取排行</UiButton>
       </div>
       <UiTable v-else
         ><UiTableCaption class="sr-only">按样本平均薪资排序的高薪职位，单位 K</UiTableCaption
@@ -486,34 +653,43 @@ onMounted(() => {
           ><UiTableRow class="border-b-[0.5px]"
             ><UiTableHead class="w-14 px-5 text-right">排名</UiTableHead
             ><UiTableHead>职位</UiTableHead
-            ><UiTableHead class="hidden text-right sm:table-cell">样本数</UiTableHead
+            ><UiTableHead class="hidden text-right lg:table-cell">样本数</UiTableHead
             ><UiTableHead class="text-right">平均薪资（K）</UiTableHead
             ><UiTableHead class="hidden text-right lg:table-cell">薪资范围（K）</UiTableHead
-            ><UiTableHead class="hidden md:table-cell">高薪样本城市</UiTableHead></UiTableRow
+            ><UiTableHead class="hidden lg:table-cell">推荐城市</UiTableHead></UiTableRow
           ></UiTableHeader
         ><UiTableBody
           ><UiTableRow
             v-for="(row, index) in ranking"
             :key="`${row.position}:${index}`"
             class="border-b-[0.5px]"
-            ><UiTableCell class="px-5 text-right tabular-nums text-muted-foreground">{{
+            ><UiTableCell class="px-5 text-right font-mono tabular-nums text-muted-foreground">{{
               index + 1
             }}</UiTableCell
-            ><UiTableCell class="whitespace-normal break-words font-medium">{{
-              row.position
-            }}</UiTableCell
-            ><UiTableCell class="hidden text-right tabular-nums sm:table-cell">{{
+            ><UiTableCell class="whitespace-normal break-words">
+              <p class="font-medium">{{ row.position }}</p>
+              <div class="mt-1 space-y-1 text-xs text-muted-foreground lg:hidden">
+                <p class="font-mono tabular-nums">{{ number.format(row.count) }} 条 · {{ row.minimum }}–{{ row.maximum }} K</p>
+                <p v-if="row.city">
+                  推荐城市 {{ row.city }} ·
+                  <span class="font-mono tabular-nums">{{ row.citySalary == null ? '—' : number.format(row.citySalary) + ' K' }}</span>
+                  · {{ row.cityCount ?? '—' }} 条
+                </p>
+                <p v-else>推荐城市 —</p>
+              </div>
+            </UiTableCell
+            ><UiTableCell class="hidden text-right font-mono tabular-nums lg:table-cell">{{
               number.format(row.count)
             }}</UiTableCell
-            ><UiTableCell class="text-right tabular-nums">{{
+            ><UiTableCell class="text-right font-mono tabular-nums">{{
               number.format(row.average)
             }}</UiTableCell
-            ><UiTableCell class="hidden text-right tabular-nums lg:table-cell"
+            ><UiTableCell class="hidden text-right font-mono tabular-nums lg:table-cell"
               >{{ row.minimum }}–{{ row.maximum }}</UiTableCell
-            ><UiTableCell class="hidden md:table-cell"
+            ><UiTableCell class="hidden lg:table-cell"
               >{{ row.city || '—' }}
-              <p v-if="row.city" class="mt-1 text-xs tabular-nums text-muted-foreground">
-                {{ row.citySalary == null ? '—' : number.format(row.citySalary) + 'K' }} ·
+              <p v-if="row.city" class="mt-1 text-xs text-muted-foreground">
+                <span class="font-mono tabular-nums">{{ row.citySalary == null ? '—' : number.format(row.citySalary) + ' K' }}</span> ·
                 {{ row.cityCount ?? '—' }} 条样本
               </p></UiTableCell
             ></UiTableRow
@@ -521,6 +697,10 @@ onMounted(() => {
         ></UiTable
       >
     </section>
-    <RecruitmentJobSheet :job="selected" @close="selected = null" />
+    <RecruitmentJobSheet
+      :job="selected"
+      @close="selected = null"
+      @close-auto-focus="restoreSheetFocus"
+    />
   </section>
 </template>

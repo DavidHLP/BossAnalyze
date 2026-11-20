@@ -4,14 +4,22 @@ import { defaultDocument, useEventListener, useMediaQuery, useVModel } from '@vu
 import { cn } from 'cn'
 import { TooltipProvider } from 'reka-ui'
 import { computed, ref } from 'vue'
-import { provideSidebarContext, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_KEYBOARD_SHORTCUT, SIDEBAR_MOBILE_BREAKPOINT, SIDEBAR_WIDTH, SIDEBAR_WIDTH_ICON } from './utils'
+import { shouldToggleSidebar } from '@/lib/sidebar-shortcut'
+import {
+  provideSidebarContext,
+  SIDEBAR_COOKIE_MAX_AGE,
+  SIDEBAR_COOKIE_NAME,
+  SIDEBAR_MOBILE_BREAKPOINT,
+  SIDEBAR_WIDTH,
+  SIDEBAR_WIDTH_ICON,
+} from './utils'
 
 const props = withDefaults(defineProps<{
   defaultOpen?: boolean
   open?: boolean
   class?: HTMLAttributes['class']
 }>(), {
-  defaultOpen: !defaultDocument?.cookie.includes(`${SIDEBAR_COOKIE_NAME}=false`),
+  defaultOpen: !defaultDocument?.cookie.split('; ').includes(`${SIDEBAR_COOKIE_NAME}=false`),
   open: undefined,
 })
 
@@ -21,6 +29,7 @@ const emits = defineEmits<{
 
 const isMobile = useMediaQuery(`(max-width: ${SIDEBAR_MOBILE_BREAKPOINT - 1}px)`)
 const openMobile = ref(false)
+const triggerId = useId()
 
 const open = useVModel(props, 'open', emits, {
   defaultValue: props.defaultOpen ?? false,
@@ -28,10 +37,8 @@ const open = useVModel(props, 'open', emits, {
 }) as Ref<boolean>
 
 function setOpen(value: boolean) {
-  open.value = value // emits('update:open', value)
-
-  // This sets the cookie to keep the sidebar state.
-  document.cookie = `${SIDEBAR_COOKIE_NAME}=${open.value}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+  open.value = value
+  document.cookie = `${SIDEBAR_COOKIE_NAME}=${value}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
 }
 
 function setOpenMobile(value: boolean) {
@@ -44,10 +51,11 @@ function toggleSidebar() {
 }
 
 useEventListener('keydown', (event: KeyboardEvent) => {
-  if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
-    event.preventDefault()
-    toggleSidebar()
-  }
+  const target = event.composedPath()[0]
+  const focused = target instanceof HTMLElement ? target : document.activeElement
+  if (!shouldToggleSidebar(event, focused instanceof HTMLElement ? focused : null, document)) return
+  event.preventDefault()
+  toggleSidebar()
 })
 
 // We add a state so that we can do data-state="expanded" or "collapsed".
@@ -61,6 +69,7 @@ provideSidebarContext({
   isMobile,
   openMobile,
   setOpenMobile,
+  triggerId,
   toggleSidebar,
 })
 </script>

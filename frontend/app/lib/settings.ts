@@ -1,3 +1,5 @@
+import { permissionRows, permissionTree } from './roles.ts'
+
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Invalid settings response')
@@ -44,6 +46,25 @@ export function accessSnapshot(role: unknown, permissions: unknown) {
     permissions: [...new Set(permissions as string[])].sort(),
   }
 }
+export function roleStatus(status: number | null) {
+  if (status === 1) return { label: '启用', tone: 'success' } as const
+  if (status === 0) return { label: '停用', tone: 'danger' } as const
+  return { label: '状态未知', tone: 'neutral' } as const
+}
+
+export function permissionLabels(routes: unknown, permissions: string[]) {
+  const granted = new Set(permissions)
+  const matches = new Map<string, Set<string>>()
+  for (const { node } of permissionRows(permissionTree(routes))) {
+    const title = node.title.trim()
+    if (node.status !== 1 || !granted.has(node.permission) || !title) continue
+    const labels = matches.get(node.permission) ?? new Set<string>()
+    labels.add(title)
+    matches.set(node.permission, labels)
+  }
+  return new Map(Array.from(matches, ([permission, labels]) => [permission, [...labels].join(' / ')]))
+}
+
 export function healthSnapshot(value: unknown) {
   const data = record(value)
   if (
@@ -60,6 +81,22 @@ export function healthSnapshot(value: unknown) {
     throw new Error('Invalid health timestamp')
   return { connected: data.status === 'UP', checkedAt: data.timestamp }
 }
+
+export function degradedHealthResponse(error: unknown) {
+  if (!error || typeof error !== 'object' || !('code' in error) || !('data' in error)) return null
+  const { code, data } = error
+  if (typeof code !== 'number' || code === 200 || code === 401 || code === 403) return null
+  try {
+    const health = healthSnapshot(data)
+    if (!health.connected) {
+      return { status: 'DEGRADED', sparkService: 'DOWN', timestamp: health.checkedAt } as const
+    }
+  } catch {
+    // The request error still owns malformed and missing health responses.
+  }
+  return null
+}
+
 export function settingsFailure(error: unknown): 'error' | 'forbidden' {
   return error && typeof error === 'object' && 'code' in error && error.code === 403
     ? 'forbidden'

@@ -9,6 +9,7 @@ import {
   menuErrors,
   menuPayload,
   menuDeleteReason,
+  menuDeleteReasons,
   menuWriteSucceeded,
 } from '../app/lib/menus.ts'
 
@@ -80,4 +81,78 @@ test('deletion cannot remove descendants, shared permissions or role grants; bus
   assert.match(menuDeleteReason({ ...leaf, permission: null }, tree, []), /缺少/)
   menuWriteSucceeded({ code: 200 })
   assert.throws(() => menuWriteSucceeded({ code: 500 }))
+})
+
+test('delete preflight reports every applicable blocker', () => {
+  const shared = { ...leaf, id: 999, permission: root.permission }
+  const reasons = menuDeleteReasons(root, [...tree, shared], [root.permission])
+  assert.equal(reasons.length, 3)
+  assert.match(reasons[0], /存在后代/)
+  assert.match(reasons[1], /共享/)
+  assert.match(reasons[2], /角色仍引用/)
+  assert.equal(menuDeleteReasons({ ...root, permission: null }, tree, []).length, 2)
+  assert.deepEqual(menuDeleteReasons(leaf, tree, []), [])
+})
+
+test('menu edits retain stored permission and nullable historical role metadata', () => {
+  const legacy = { ...leaf, permission: `${leaf.permission} ` }
+  const payload = menuPayload(menuDraft(legacy), tree, legacy, null)
+  assert.equal(payload.permission, legacy.permission)
+  assert.equal(payload.meta.metaRoles, null)
+})
+
+test('delete keeps the leave guard active during the second preflight and locks unknown writes', async () => {
+  const vue = await import('vue')
+  const ts = await import('typescript')
+  const menus = await import('../app/lib/menus.ts')
+  const roles = await import('../app/lib/roles.ts')
+  const mutations = await import('../app/lib/rbac-mutations.ts')
+  const source = await readFile(new URL('../app/pages/console/menus.vue', import.meta.url), 'utf8')
+  const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+    .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
+  const { outputText } = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } })
+  const state = vue.ref({ invalidated: false })
+  const session = { capture: () => ({}), owns: () => !state.value.invalidated, state }
+  const mount = new Function('bindings', `with (bindings) {
+    ${outputText}
+    return { load, prepareDelete, remove, deletion, deleting, checking, beforeUnload, awaitingRead }
+  }`)
+  let preflight
+  let guard
+  let writes = 0
+  const page = mount({
+    ...vue, ...menus, ...roles, ...mutations, useSession: () => session, definePageMeta() {},
+    useRoute: () => ({ query: {} }), useRouter: () => ({ replace() {} }), onMounted() {}, onUnmounted() {},
+    onBeforeRouteLeave: callback => { guard = callback },
+    withSessionOwner: (_owner, call) => call(),
+    getUserRoutes: async () => raw,
+    getRoleList: async () => preflight ?? [],
+    deleteRouter: async () => { writes++; throw { code: 500, resultUnknown: true } },
+  })
+  await page.load()
+  await page.prepareDelete({ currentTarget: null }, leaf)
+  const second = Promise.withResolvers()
+  preflight = second.promise
+  const deleting = page.remove()
+  assert.equal(page.checking.value, true)
+  assert.equal(page.deleting.value, true)
+  assert.equal(guard(), false)
+  const unload = new Event('beforeunload', { cancelable: true })
+  page.beforeUnload(unload)
+  assert.equal(unload.defaultPrevented, true)
+  state.value.invalidated = true
+  assert.equal(guard(), true)
+  second.resolve([])
+  await deleting
+  assert.equal(writes, 0)
+
+  state.value.invalidated = false
+  await page.remove()
+  assert.equal(page.awaitingRead.value, 'delete')
+  assert.equal(page.deletion.value, null)
+  assert.equal(writes, 1)
+  await page.prepareDelete({ currentTarget: null }, leaf)
+  assert.equal(page.deletion.value, null)
+  await page.load()
+  assert.equal(page.awaitingRead.value, null)
 })

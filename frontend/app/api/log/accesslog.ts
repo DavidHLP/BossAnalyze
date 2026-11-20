@@ -1,4 +1,5 @@
 import request from '@/utils/request/request';
+import { degradedHealthResponse } from '@/lib/settings'
 import type { AccessLogStats, DashboardStats } from './accesslog.d';
 
 /**
@@ -147,11 +148,17 @@ export async function triggerLogAnalysis(): Promise<string> {
 /**
  * 检查服务健康状态
  */
-export async function checkServiceHealth(): Promise<any> {
-  return request({
-    url: '/api/v1/system/logs/health',
-    method: 'get'
-  });
+export async function checkServiceHealth(): Promise<unknown> {
+  try {
+    return await request<unknown, unknown>({
+      url: '/api/v1/system/logs/health',
+      method: 'get',
+    })
+  } catch (error) {
+    const degraded = degradedHealthResponse(error)
+    if (degraded) return degraded
+    throw error
+  }
 }
 
 /**

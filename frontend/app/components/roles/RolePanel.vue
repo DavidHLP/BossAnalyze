@@ -2,9 +2,13 @@
 import { useMediaQuery } from '@vueuse/core'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { withSessionOwner } from '@/lib/session'
 import { addRole, editRole, getRoleList, updateRoleRouters } from '@/api/auth/auth'
+import { mutationError, mutationResultUnknown, sessionChangedMessage } from '@/lib/rbac-mutations'
 import {
   canonicalSelection,
+  filterPermissionTree,
+  isDefaultRole,
   managedRoles,
   permissionRows,
   roleDraft,
@@ -23,27 +27,57 @@ const props = defineProps<{
   role: ManagedRole | null
   tree: PermissionNode[]
   treeUnavailable: boolean
+  treePending: boolean
+  treeRestricted: boolean
   actorRoleId: number | null
   locked: boolean
+  awaitingRead: boolean
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  saved: [self: boolean, rows?: ManagedRole[]]
-  rolesRead: [rows: ManagedRole[]]
+  closeAutoFocus: [event: Event]
+  saved: [self: boolean, rows?: ManagedRole[], createdName?: string]
+  rolesRead: [rows: ManagedRole[], id: number]
   retryTree: []
   unconfirmed: []
 }>()
-const mobile = useMediaQuery('(max-width: 639px)')
+const mobile = useMediaQuery('(width < 640px)')
+const session = useSession()
+const owner = session.capture()
+const sessionChanged = computed(() => !session.owns(owner))
 const current = shallowRef<ManagedRole | null>(null)
 const draft = reactive(roleDraft())
 const selected = ref<number[]>([])
 const initial = ref('')
+const hadPermissions = ref(false)
 const pending = ref(false)
-const failed = ref<'' | 'request' | 'unconfirmed' | 'read'>('')
+const requestFailure = ref('')
+const readFailed = ref(false)
 const submitted = ref(false)
 const nameTouched = ref(false)
 const discardOpen = ref(false)
+const discardPrompt = ref<HTMLElement | null>(null)
+let discardTrigger: HTMLElement | null = null
+watch(discardOpen, (open) => {
+  if (open) discardPrompt.value?.focus()
+}, { flush: 'post' })
+function requestDiscard() {
+  if (discardOpen.value) return
+  if (clearOpen.value) cancelClear()
+  discardTrigger = typeof document === 'undefined' ? null : document.activeElement as HTMLElement | null
+  discardOpen.value = true
+}
 const clearOpen = ref(false)
+const clearPrompt = ref<HTMLElement | null>(null)
+let clearTrigger: HTMLElement | null = null
+watch(clearOpen, (open) => {
+  if (open) clearPrompt.value?.focus()
+}, { flush: 'post' })
+function cancelClear() {
+  clearOpen.value = false
+  clearTrigger?.focus()
+  clearTrigger = null
+}
 const destination = ref<string | null>(null)
 const title = computed(
   () => ({ view: '角色详情', create: '新增角色', edit: '编辑角色', grant: '菜单授权' })[props.mode],
@@ -54,14 +88,44 @@ const errors = computed(() => roleErrors(draft))
 const missing = computed(() =>
   current.value ? unrepresentedGrants(current.value, props.tree) : [],
 )
-const self = computed(() => current.value?.id === props.actorRoleId)
+const self = computed(() => !!current.value && current.value.id === props.actorRoleId)
 const grantBlocked = computed(
   () =>
     props.treeUnavailable ||
     missing.value.length > 0 ||
-    failed.value === 'unconfirmed' ||
-    failed.value === 'read',
+    props.awaitingRead,
 )
+
+const permissionQuery = ref('')
+const onlySelected = ref(false)
+const collapsed = ref<number[]>([])
+const displayedTree = computed(() =>
+  filterPermissionTree(props.tree, permissionQuery.value, onlySelected.value ? selected.value : null),
+)
+const permissionCount = computed(() => new Set(permissionRows(props.tree)
+  .filter(({ node }) => node.permission && selected.value.includes(node.id))
+  .map(({ node }) => node.permission)).size)
+const permissionTitles = computed(() => {
+  const titles = new Map<string, string[]>()
+  for (const { node } of permissionRows(props.tree)) {
+    if (!node.permission) continue
+    const names = titles.get(node.permission) ?? []
+    if (!names.includes(node.title)) names.push(node.title)
+    titles.set(node.permission, names)
+  }
+  return titles
+})
+watch([permissionQuery, onlySelected], () => { collapsed.value = [] })
+function expand(id: number, open: boolean) {
+  collapsed.value = open
+    ? collapsed.value.filter((value) => value !== id)
+    : [...collapsed.value, id]
+}
+function collapseAll() {
+  collapsed.value = permissionRows(displayedTree.value)
+    .filter(({ node }) => node.children.length)
+    .map(({ node }) => node.id)
+}
 
 function initialize(role: ManagedRole | null) {
   current.value = role
@@ -77,47 +141,63 @@ function initialize(role: ManagedRole | null) {
       .map(({ node }) => node.id),
   )
   initial.value = serialize()
-  failed.value = ''
+  hadPermissions.value = selectionPermissions(props.tree, selected.value).length > 0
+  requestFailure.value = ''
+  readFailed.value = false
   submitted.value = false
   nameTouched.value = false
 }
 watch(
   () => props.open,
   (open) => {
-    if (open) initialize(props.role)
+    if (open) {
+      permissionQuery.value = ''
+      onlySelected.value = false
+      collapsed.value = []
+      initialize(props.role)
+    }
+    else {
+      cancelDiscard(false)
+      clearOpen.value = false
+    }
   },
 )
 function close() {
   if (pending.value) return
-  if (dirty.value) discardOpen.value = true
+  if (dirty.value) requestDiscard()
   else emit('update:open', false)
 }
 function escape(event: Event) {
   event.preventDefault()
-  close()
+  if (discardOpen.value) cancelDiscard()
+  else if (clearOpen.value) cancelClear()
+  else close()
 }
-function cancelDiscard() {
+function cancelDiscard(restoreFocus = true) {
   discardOpen.value = false
   destination.value = null
+  if (restoreFocus) discardTrigger?.focus()
+  discardTrigger = null
 }
 async function discard() {
   const target = destination.value
-  cancelDiscard()
+  cancelDiscard(false)
   emit('update:open', false)
   await nextTick()
-  if (target === '/login') await useSession().signOut()
-  else if (target) await navigateTo(target)
+  if (target === '/login' && owner && session.owns(owner)) {
+    await session.signOut(false, null, undefined, owner)
+  } else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
-  if (useSession().state.value.invalidated) return true
+  if (session.state.value.invalidated) return true
   if (pending.value) return false
   if (!dirty.value) return true
   destination.value = to.fullPath
-  discardOpen.value = true
+  requestDiscard()
   return false
 })
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (!useSession().state.value.invalidated && (dirty.value || pending.value)) {
+  if (!session.state.value.invalidated && (dirty.value || pending.value)) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -125,30 +205,37 @@ function beforeUnload(event: BeforeUnloadEvent) {
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 function toggle(id: number, checked: boolean) {
-  if (!pending.value && !grantBlocked.value)
+  if (session.owns(owner) && !pending.value && !grantBlocked.value && !discardOpen.value && !clearOpen.value)
     selected.value = togglePermission(props.tree, selected.value, id, checked)
 }
 
 async function reloadRole() {
-  if (!current.value || pending.value) return
+  if (!owner || !session.owns(owner) || !current.value || pending.value) return
   pending.value = true
   try {
-    const rows = managedRoles(await getRoleList())
+    const rows = managedRoles(await withSessionOwner(owner, getRoleList))
+    if (!session.owns(owner)) return
     const role = rows.find((row) => row.id === current.value?.id)
-    if (!role) throw new Error('Role missing')
-    initialize(role)
-    emit('rolesRead', rows)
+    const id = current.value.id
+    initialize(role ?? null)
+    emit('rolesRead', rows, id)
+    if (!role) emit('update:open', false)
   } catch {
-    failed.value = 'read'
+    readFailed.value = true
   } finally {
     pending.value = false
   }
 }
 async function save(confirmedClear = false) {
-  if (pending.value || props.locked || props.mode === 'view') return
+  if (
+    !owner || !session.owns(owner) || discardOpen.value || clearOpen.value ||
+    pending.value || props.locked || props.mode === 'view' ||
+    (props.mode !== 'create' && !dirty.value)
+  ) return
   submitted.value = true
   if (props.mode !== 'grant' && Object.keys(errors.value).length) {
     const first = Object.keys(errors.value)[0]
+    await nextTick()
     document
       .querySelector<HTMLElement>(
         first === 'roleName'
@@ -164,54 +251,62 @@ async function save(confirmedClear = false) {
     if (!current.value || grantBlocked.value) return
     if (
       !confirmedClear &&
-      current.value.permissions.length &&
+      hadPermissions.value &&
       !selectionPermissions(props.tree, selected.value).length
     ) {
+      clearTrigger = document.activeElement as HTMLElement | null
       clearOpen.value = true
       return
     }
   }
   pending.value = true
-  failed.value = ''
+  requestFailure.value = ''
   let grantAccepted = false
   try {
     if (props.mode === 'grant' && current.value) {
+      const roleId = current.value.id
       const expected = selectionPermissions(props.tree, selected.value)
       roleWriteSucceeded(
-        await updateRoleRouters({
-          roleId: current.value.id,
+        await withSessionOwner(owner, () => updateRoleRouters({
+          roleId,
           routerIds: canonicalSelection(props.tree, selected.value),
-        }),
+        })),
       )
       grantAccepted = true
-      const rows = managedRoles(await getRoleList())
-      const updated = rows.find((role) => role.id === current.value?.id)
+      if (!session.owns(owner)) return
+      const rows = managedRoles(await withSessionOwner(owner, getRoleList))
+      if (!session.owns(owner)) return
+      const updated = rows.find((role) => role.id === roleId)
       if (!updated || JSON.stringify([...updated.permissions].sort()) !== JSON.stringify(expected))
         throw new Error('Grant read-back mismatch')
       initial.value = serialize()
       emit('saved', self.value, rows)
     } else {
       const payload = rolePayload(draft, props.mode === 'create' ? null : current.value)
-      roleWriteSucceeded(await (props.mode === 'create' ? addRole(payload) : editRole(payload)))
+      roleWriteSucceeded(await withSessionOwner(owner, () =>
+        props.mode === 'create' ? addRole(payload) : editRole(payload),
+      ))
+      if (!session.owns(owner)) return
       initial.value = serialize()
-      emit('saved', props.mode === 'edit' && self.value)
+      emit('saved', props.mode === 'edit' && self.value, undefined, props.mode === 'create' ? payload.roleName : undefined)
     }
-  } catch {
-    failed.value = grantAccepted ? 'unconfirmed' : 'request'
-    if (grantAccepted) {
+  } catch (error) {
+    if (!session.owns(owner)) return
+    if (props.mode === 'grant' && (grantAccepted || mutationResultUnknown(error))) {
       initial.value = serialize()
       emit('unconfirmed')
       if (self.value) {
         pending.value = false
-        await useSession().signOut(true)
+        await session.signOut(true, null, undefined, owner)
       }
-    }
+    } else requestFailure.value = mutationError(error, '保存')
   } finally {
     pending.value = false
   }
 }
 async function confirmClear() {
-  clearOpen.value = false
+  if (!session.owns(owner) || !clearOpen.value || discardOpen.value) return
+  cancelClear()
   await save(true)
 }
 </script>
@@ -228,14 +323,15 @@ async function confirmClear() {
     <UiSheetContent
       :side="mobile ? 'bottom' : 'right'"
       :show-close-button="false"
-      class="w-full! sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
+      class="w-full! shadow-panel sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
       @pointer-down-outside.prevent
       @interact-outside.prevent
+      @close-auto-focus="emit('closeAutoFocus', $event)"
       @escape-key-down="escape"
     >
       <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-14"
         ><UiSheetTitle>{{ title }}</UiSheetTitle
-        ><UiSheetDescription>{{
+        ><UiSheetDescription class="break-all">{{
           mode === 'create' ? '先创建角色，再按需配置菜单授权' : current?.roleName
         }}</UiSheetDescription></UiSheetHeader
       >
@@ -249,16 +345,53 @@ async function confirmClear() {
         @click="close"
         ><HugeiconsIcon :icon="Cancel01Icon" aria-hidden="true"
       /></UiButton>
+      <div
+        v-if="discardOpen"
+        ref="discardPrompt"
+        tabindex="-1"
+        role="group"
+        aria-label="放弃未保存的修改？"
+        class="mx-4 mt-3 shrink-0 space-y-2 rounded-md border border-border bg-muted p-3"
+        @keydown.esc.stop.prevent="cancelDiscard()"
+      >
+        <p class="text-sm font-medium">放弃未保存的修改？</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <UiButton type="button" variant="ghost" class="text-destructive hover:text-destructive"
+            @click="discard">放弃修改</UiButton>
+          <UiButton type="button" variant="secondary" @click="cancelDiscard()">继续编辑</UiButton>
+        </div>
+      </div>
+      <div
+        v-if="clearOpen"
+        ref="clearPrompt"
+        tabindex="-1"
+        role="group"
+        aria-label="确认清空授权"
+        class="mx-4 mt-3 shrink-0 space-y-2 rounded-md border border-border bg-muted p-3"
+        @keydown.esc.stop.prevent="cancelClear"
+      >
+        <p class="text-sm font-medium">清空「{{ current?.roleName }}」的授权？</p>
+        <p class="text-sm">该角色将失去全部菜单与操作授权。</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <UiButton type="button" variant="secondary" @click="cancelClear">取消</UiButton>
+          <UiButton type="button" variant="destructive" :aria-disabled="sessionChanged" @click="confirmClear">清空授权</UiButton>
+        </div>
+      </div>
+      <UiAlert v-if="sessionChanged && mode !== 'view'" variant="destructive" role="alert" class="mx-4 mt-3 w-auto shrink-0">
+        <UiAlertDescription>{{ sessionChangedMessage }}</UiAlertDescription>
+      </UiAlert>
       <div v-if="mode === 'view' && current" class="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
         <dl class="grid grid-cols-2 gap-5 text-sm">
           <div>
             <dt class="text-xs text-muted-foreground">角色 ID</dt>
-            <dd class="mt-1.5 tabular-nums">{{ current.id }}</dd>
+            <dd class="mt-1.5 font-mono tabular-nums">{{ current.id }}</dd>
           </div>
           <div>
             <dt class="text-xs text-muted-foreground">状态</dt>
             <dd class="mt-1.5">
-              {{ current.status === 1 ? '启用' : current.status === 0 ? '停用' : '未知' }}
+              <StatusBadge :tone="current.status === 1 ? 'success' : current.status === 0 ? 'warning' : 'neutral'">
+                {{ current.status === 1 ? '启用' : current.status === 0 ? '停用' : '未知' }}
+              </StatusBadge>
             </dd>
           </div>
           <div class="col-span-2">
@@ -267,14 +400,17 @@ async function confirmClear() {
           </div>
         </dl>
         <div>
-          <h3 class="mb-3 text-sm font-medium">权限标识（{{ current.permissions.length }}）</h3>
+          <h3 class="mb-3 text-sm font-medium">
+            菜单权限 <span class="font-mono tabular-nums">{{ current.permissions.length }}</span>
+          </h3>
           <ul v-if="current.permissions.length" class="space-y-2">
             <li
               v-for="permission in current.permissions"
               :key="permission"
-              class="break-all rounded-md bg-muted/50 px-3 py-2 font-mono text-xs"
+              class="break-all rounded-md bg-muted/50 px-3 py-2"
             >
-              {{ permission }}
+              <p class="text-sm font-medium">{{ permissionTitles.get(permission)?.join('、') ?? '未匹配到菜单' }}</p>
+              <p class="font-mono text-xs text-muted-foreground">{{ permission }}</p>
             </li>
           </ul>
           <p v-else class="text-sm text-muted-foreground">此角色尚未分配权限。</p>
@@ -295,46 +431,83 @@ async function confirmClear() {
           <p class="text-sm leading-6 text-muted-foreground">
             勾选子项会包含必要父级；共享同一权限标识的条目联动选择。取消父级会移除其下授权。
           </p>
-          <UiAlert v-if="treeUnavailable" role="alert"
-            ><UiAlertTitle>菜单列表暂不可用</UiAlertTitle
-            ><UiAlertDescription>请重新读取菜单后再配置授权。</UiAlertDescription
+          <UiAlert v-if="awaitingRead" :variant="readFailed ? 'destructive' : 'default'"
+            :role="readFailed ? 'alert' : 'status'"
+            :class="!readFailed && 'border-status-warning/40 bg-status-warning-surface text-status-warning-foreground'"
+            ><UiAlertTitle>授权已提交，未确认</UiAlertTitle
+            ><UiAlertDescription class="text-inherit">{{
+              readFailed ? '重新读取失败，请稍后重试。' : '请重新读取角色，并核对当前授权。'
+            }}</UiAlertDescription
+            ><UiButton
+              type="button"
+              variant="outline"
+              size="sm"
+              class="mt-2 text-foreground"
+              :aria-disabled="pending || sessionChanged"
+              @click="reloadRole"
+              >重新读取角色</UiButton
+            ></UiAlert
+          >
+          <UiAlert v-if="treeUnavailable" variant="destructive" role="alert"
+            ><UiAlertTitle>{{ treeRestricted ? '当前账号无权读取菜单列表' : '菜单列表暂不可用' }}</UiAlertTitle
+            ><UiAlertDescription>{{ treeRestricted ? '请联系管理员确认权限。' : '请重新读取菜单后再配置授权。' }}</UiAlertDescription
             ><UiButton
               type="button"
               variant="outline"
               size="sm"
               class="mt-2"
-              @click="emit('retryTree')"
+              :aria-disabled="treePending || sessionChanged"
+              @click="!treePending && !sessionChanged && emit('retryTree')"
               >重新读取菜单</UiButton
             ></UiAlert
           >
-          <UiAlert v-else-if="missing.length" role="alert"
+          <UiAlert v-else-if="missing.length" variant="destructive" role="alert"
             ><UiAlertTitle>部分现有权限无法在菜单中匹配</UiAlertTitle
-            ><UiAlertDescription
+            ><UiAlertDescription class="text-inherit"
               >为保留现有授权，暂不允许覆盖保存。请先核对以下权限与菜单的关联。</UiAlertDescription
             >
-            <ul class="mt-2 space-y-1 break-all text-xs">
+            <ul class="mt-2 space-y-1 break-all font-mono text-xs tabular-nums">
               <li v-for="item in missing" :key="item">{{ item }}</li>
             </ul></UiAlert
           >
-          <div class="flex items-center justify-between gap-3 text-sm">
-            <h3 class="font-medium">菜单与操作</h3>
-            <span class="text-xs text-muted-foreground"
-              >已选 {{ selected.length }} 项（含父级）</span
-            >
+          <div class="space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <h3 class="font-medium">菜单与操作</h3>
+              <span class="text-xs text-muted-foreground" role="status">
+                已选 <span class="font-mono tabular-nums">{{ permissionCount }}</span> 项权限（不含仅作路径的父级）
+              </span>
+            </div>
+            <UiField>
+              <UiFieldLabel for="permission-search">搜索菜单或权限标识</UiFieldLabel>
+              <UiInput id="permission-search" v-model="permissionQuery" placeholder="输入菜单标题或权限码" />
+            </UiField>
+            <div class="flex flex-wrap items-center gap-2">
+              <UiButton type="button" variant="outline" size="sm" aria-controls="role-permission-tree"
+                @click="collapsed = []">展开全部</UiButton>
+              <UiButton type="button" variant="outline" size="sm" aria-controls="role-permission-tree"
+                @click="collapseAll">收起全部</UiButton>
+              <label class="ml-1 flex items-center gap-2 text-sm">
+                <UiCheckbox v-model="onlySelected" />仅看已选
+              </label>
+            </div>
           </div>
-          <ul v-if="tree.length" class="space-y-1">
-            <RolesPermissionBranch
-              v-for="node in tree"
-              :key="node.id"
-              :node="node"
-              :selected="selected"
-              :disabled="pending || grantBlocked || locked"
-              @toggle="toggle"
-            />
-          </ul>
-          <p v-else-if="!treeUnavailable" class="py-8 text-center text-sm text-muted-foreground">
-            暂无可分配的菜单或操作。
-          </p>
+          <div id="role-permission-tree">
+            <ul v-if="displayedTree.length" class="space-y-1 rounded-lg border border-border bg-card p-2">
+              <RolesPermissionBranch
+                v-for="node in displayedTree"
+                :key="node.id"
+                :node="node"
+                :selected="selected"
+                :collapsed="collapsed"
+                :disabled="pending || grantBlocked || locked || sessionChanged || discardOpen || clearOpen"
+                @toggle="toggle"
+                @expand="expand"
+              />
+            </ul>
+            <p v-else-if="!treeUnavailable" class="py-8 text-center text-sm text-muted-foreground">
+              {{ tree.length ? '没有符合筛选条件的权限。' : '暂无可分配的菜单或操作。' }}
+            </p>
+          </div>
         </template>
         <template v-else>
           <UiField
@@ -344,7 +517,7 @@ async function confirmClear() {
               v-model="draft.roleName"
               required
               maxlength="255"
-              :readonly="current?.roleName === 'USER'"
+              :readonly="isDefaultRole(current)"
               :disabled="pending"
               :aria-invalid="Boolean((submitted || nameTouched) && errors.roleName)"
               :aria-describedby="
@@ -352,16 +525,16 @@ async function confirmClear() {
               "
               @blur="nameTouched = true"
             />
-            <p v-if="current?.roleName === 'USER'" class="text-xs text-muted-foreground">
+            <p v-if="isDefaultRole(current)" class="text-xs text-muted-foreground">
               系统默认角色名称固定。
             </p>
-            <p
+            <UiFieldError
               v-if="(submitted || nameTouched) && errors.roleName"
               id="role-name-error"
               class="text-xs text-destructive"
             >
               {{ errors.roleName }}
-            </p></UiField
+            </UiFieldError></UiField
           >
           <UiField
             ><UiFieldLabel as="span">状态</UiFieldLabel
@@ -371,15 +544,17 @@ async function confirmClear() {
               aria-label="角色状态"
               class="flex gap-6"
               :disabled="pending"
+              :aria-invalid="Boolean(submitted && errors.status)"
+              :aria-describedby="submitted && errors.status ? 'role-status-error' : undefined"
               ><label class="flex items-center gap-2 text-sm"
                 ><UiRadioGroupItem value="1" />启用</label
               ><label class="flex items-center gap-2 text-sm"
                 ><UiRadioGroupItem value="0" />停用</label
               ></UiRadioGroup
             >
-            <p v-if="submitted && errors.status" class="text-xs text-destructive">
+            <UiFieldError v-if="submitted && errors.status" id="role-status-error">
               {{ errors.status }}
-            </p></UiField
+            </UiFieldError></UiField
           >
           <UiField
             ><UiFieldLabel for="role-remark">备注</UiFieldLabel
@@ -389,31 +564,18 @@ async function confirmClear() {
               maxlength="255"
               class="min-h-24"
               :disabled="pending"
+              :aria-invalid="Boolean(submitted && errors.remark)"
+              :aria-describedby="submitted && errors.remark ? 'role-remark-error' : undefined"
             />
-            <p v-if="submitted && errors.remark" class="text-xs text-destructive">
+            <UiFieldError v-if="submitted && errors.remark" id="role-remark-error">
               {{ errors.remark }}
-            </p></UiField
+            </UiFieldError></UiField
           >
         </template>
-        <p v-if="failed === 'request'" role="alert" class="text-sm text-destructive">
-          保存失败，请检查输入或服务连接后重试。填写内容已保留。
-        </p>
-        <UiAlert v-else-if="failed" role="alert"
-          ><UiAlertTitle>{{
-            failed === 'unconfirmed' ? '授权已提交，但无法确认最终结果' : '无法重新读取角色'
-          }}</UiAlertTitle
-          ><UiAlertDescription>请重新读取角色并核对授权后再操作。</UiAlertDescription
-          ><UiButton
-            type="button"
-            variant="outline"
-            size="sm"
-            class="mt-2"
-            :disabled="pending"
-            @click="reloadRole"
-            >重新读取角色</UiButton
-          ></UiAlert
-        >
       </form>
+      <UiAlert v-if="requestFailure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">
+        <UiAlertDescription><span class="block">{{ requestFailure }}</span><span class="block">填写内容已保留。</span></UiAlertDescription>
+      </UiAlert>
       <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border"
         ><UiButton variant="outline" :disabled="pending" @click="close">{{
           mode === 'view' ? '关闭' : '取消'
@@ -422,8 +584,8 @@ async function confirmClear() {
           v-if="mode !== 'view'"
           form="role-panel-form"
           type="submit"
-          :disabled="
-            pending || locked || (mode === 'grant' && grantBlocked) || (mode !== 'create' && !dirty)
+          :aria-disabled="
+            pending || sessionChanged || discardOpen || clearOpen || locked || (mode === 'grant' && grantBlocked) || (mode !== 'create' && !dirty)
           "
           >{{
             pending
@@ -438,50 +600,4 @@ async function confirmClear() {
       >
     </UiSheetContent>
   </UiSheet>
-  <UiDialog
-    :open="discardOpen"
-    @update:open="
-      (value) => {
-        if (!value) cancelDiscard()
-      }
-    "
-    ><UiDialogContent
-      :show-close-button="false"
-      class="top-[38.2%]! sm:max-w-[400px]!"
-      @pointer-down-outside.prevent
-      @interact-outside.prevent
-      ><UiDialogHeader
-        ><UiDialogTitle>放弃未保存的修改？</UiDialogTitle
-        ><UiDialogDescription
-          >关闭后，本次填写与勾选的内容不会保存。</UiDialogDescription
-        ></UiDialogHeader
-      ><UiDialogFooter
-        ><UiButton variant="outline" @click="cancelDiscard">继续编辑</UiButton
-        ><UiButton variant="outline" @click="discard">放弃修改</UiButton></UiDialogFooter
-      ></UiDialogContent
-    ></UiDialog
-  >
-  <UiDialog
-    :open="clearOpen"
-    @update:open="
-      (value) => {
-        if (!pending) clearOpen = value
-      }
-    "
-    ><UiDialogContent
-      :show-close-button="false"
-      class="top-[38.2%]! sm:max-w-[400px]!"
-      @pointer-down-outside.prevent
-      @interact-outside.prevent
-      ><UiDialogHeader
-        ><UiDialogTitle>清空「{{ current?.roleName }}」的授权？</UiDialogTitle
-        ><UiDialogDescription
-          >该角色将失去全部菜单与操作授权。保存后无法在此撤销，请确认影响范围。</UiDialogDescription
-        ></UiDialogHeader
-      ><UiDialogFooter
-        ><UiButton variant="outline" @click="clearOpen = false">取消</UiButton
-        ><UiButton variant="destructive" @click="confirmClear">清空授权</UiButton></UiDialogFooter
-      ></UiDialogContent
-    ></UiDialog
-  >
 </template>

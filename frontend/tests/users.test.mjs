@@ -8,6 +8,8 @@ import {
   userDraft,
   userErrors,
   userPayload,
+  userSaveError,
+  userDeleteError,
   userWriteSucceeded,
 } from '../app/lib/users.ts'
 
@@ -89,6 +91,34 @@ test('business failures in HTTP 200 responses cannot show a successful mutation'
     assert.throws(() => userWriteSucceeded(response))
 })
 
+test('user save errors provide safe actions for HTTP and business failures', () => {
+  for (const [failure, message] of [
+    [{ code: 403 }, /联系管理员/],
+    [{ code: 409, data: { code: 1001 } }, /邮箱已存在/],
+    [{ code: 400, data: { code: 1007 } }, /参数未通过校验/],
+    [{ code: 503 }, /服务暂不可用/],
+    [new Error('internal stack trace'), /核对当前记录/],
+  ]) {
+    assert.match(userSaveError({ ...failure, message: 'internal stack trace' }), message)
+    assert.doesNotMatch(userSaveError(failure), /internal stack trace/)
+  }
+  assert.throws(
+    () => userWriteSucceeded({ code: 1001, message: 'internal stack trace' }),
+    (error) => /^邮箱已存在/.test(userSaveError(error)) && !error.message.includes('stack trace'),
+  )
+})
+
+test('only the confirmation-password business code identifies an incorrect operator password', () => {
+  const expected = '操作者密码不正确，请重试'
+  assert.equal(userDeleteError({ code: 400, data: { code: 1006, message: 'internal' } }), expected)
+  assert.throws(
+    () => userWriteSucceeded({ code: 1006 }),
+    (error) => userDeleteError(error) === expected,
+  )
+  assert.match(userDeleteError({ code: 400, data: { code: 1007 } }), /参数未通过校验/)
+  assert.match(userDeleteError({ code: 403 }), /无权删除/)
+})
+
 test('create and edit introductions respect the existing 255-character column without truncation', () => {
   const draft = userDraft(userPage(fixture).users[0])
   draft.password = 'fixture-password-only'
@@ -105,4 +135,51 @@ test('create and edit introductions respect the existing 255-character column wi
       assert.equal(draft.introduction.length, length)
     }
   }
+})
+
+test('a stale list response or error cannot reinstate a deleted row after rereading', async () => {
+  const vue = await import('vue')
+  const ts = await import('typescript')
+  const usersLib = await import('../app/lib/users.ts')
+  const mutations = await import('../app/lib/rbac-mutations.ts')
+  const source = await readFile(new URL('../app/pages/console/users.vue', import.meta.url), 'utf8')
+  const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+    .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
+  const { outputText } = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } })
+  const session = { capture: () => ({}), owns: () => true, state: vue.ref({}) }
+  const requests = []
+  const mount = new Function('bindings', `with (bindings) {
+    ${outputText}
+    return { users, total, pending, failed, restricted, loadUsers, deleted, changeSize, size }
+  }`)
+  const page = mount({
+    ...vue, ...usersLib, ...mutations,
+    definePageMeta() {}, useSession: () => session, useRoute: () => ({ query: {} }),
+    useRouter: () => ({ replace() {} }), onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {},
+    withSessionOwner: (_owner, call) => call(),
+    getUserManageInfo: () => {
+      const request = Promise.withResolvers()
+      requests.push(request)
+      return request.promise
+    },
+  })
+  const older = page.loadUsers()
+  page.changeSize('50')
+  assert.equal(page.size.value, 10)
+  const newer = page.deleted()
+  requests[1].resolve({ content: [], totalElements: 0 })
+  await newer
+  requests[0].resolve(fixture)
+  await older
+  assert.deepEqual(page.users.value, [])
+  assert.equal(page.total.value, 0)
+  const stale = page.loadUsers()
+  const latest = page.loadUsers()
+  requests[2].reject({ code: 403 })
+  await stale
+  assert.equal(page.pending.value, true)
+  assert.equal(page.failed.value, false)
+  assert.equal(page.restricted.value, false)
+  requests[3].resolve({ content: [], totalElements: 0 })
+  await latest
 })

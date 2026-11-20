@@ -1,3 +1,5 @@
+export { requireMutationSuccess as roleWriteSucceeded } from './rbac-mutations.ts'
+
 export interface ManagedRole {
   id: number
   roleName: string
@@ -9,6 +11,7 @@ export interface ManagedRole {
 export interface PermissionNode {
   id: number
   title: string
+  type: string
   permission: string
   status: number | null
   children: PermissionNode[]
@@ -94,6 +97,7 @@ export function permissionTree(value: unknown): PermissionNode[] {
               ? item.name
               : `路由 #${item.id}`,
         permission: typeof item.permission === 'string' ? item.permission : '',
+        type: typeof meta.type === 'string' ? meta.type : '',
         status: typeof item.status === 'number' ? item.status : null,
         children: parse(item.children ?? []),
       }
@@ -107,6 +111,21 @@ export function permissionRows(
 ): Array<{ node: PermissionNode; parent: number | null }> {
   return nodes.flatMap((node) => [{ node, parent }, ...permissionRows(node.children, node.id)])
 }
+export function filterPermissionTree(nodes: PermissionNode[], query: string, selected: number[] | null) {
+  const keyword = query.trim().toLocaleLowerCase()
+  if (!keyword && selected === null) return nodes
+  const ids = selected === null ? null : new Set(selected)
+  function filter(branch: PermissionNode[]): PermissionNode[] {
+    return branch.flatMap((node) => {
+      const children = filter(node.children)
+      const matches = (!ids || (node.permission && ids.has(node.id))) &&
+        (!keyword || [node.title, node.permission].some((value) => value.toLocaleLowerCase().includes(keyword)))
+      return matches || children.length ? [{ ...node, children }] : []
+    })
+  }
+  return filter(nodes)
+}
+
 export function canonicalSelection(nodes: PermissionNode[], ids: number[]): number[] {
   const rows = permissionRows(nodes)
   if (ids.some((value) => !rows.some((row) => row.node.id === value)))
@@ -132,6 +151,7 @@ export function togglePermission(
   checked: boolean,
 ) {
   const rows = permissionRows(nodes)
+  if (rows.some(({ node }) => node.id === target && !node.permission)) return selected
   if (checked) return canonicalSelection(nodes, [...selected, target])
   const blocked = new Set([target])
   let previous = -1
@@ -152,7 +172,9 @@ export function togglePermission(
   }
   return canonicalSelection(
     nodes,
-    selected.filter((value) => !blocked.has(value)),
+    rows
+      .filter(({ node }) => node.permission && selected.includes(node.id) && !blocked.has(node.id))
+      .map(({ node }) => node.id),
   )
 }
 export function selectionPermissions(nodes: PermissionNode[], ids: number[]) {
@@ -191,10 +213,13 @@ export function roleErrors(draft: RoleDraft) {
   if (draft.remark.length > 255) errors.remark = '备注不能超过 255 个字符'
   return errors
 }
+export function isDefaultRole(role?: ManagedRole | null) {
+  return role?.roleName.toUpperCase() === 'USER'
+}
 export function rolePayload(draft: RoleDraft, role?: ManagedRole | null) {
   if (
     Object.keys(roleErrors(draft)).length ||
-    (role?.roleName === 'USER' && draft.roleName.trim() !== 'USER')
+    (isDefaultRole(role) && draft.roleName.trim() !== role?.roleName)
   )
     throw new Error('Invalid role form')
   return {
@@ -203,7 +228,4 @@ export function rolePayload(draft: RoleDraft, role?: ManagedRole | null) {
     status: Number(draft.status),
     remark: draft.remark.trim(),
   }
-}
-export function roleWriteSucceeded(value: unknown) {
-  if (!object(value) || value.code !== 200) throw new Error('Role operation failed')
 }
