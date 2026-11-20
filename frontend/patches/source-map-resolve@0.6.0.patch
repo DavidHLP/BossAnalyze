@@ -1,0 +1,14 @@
+diff --git a/index.js b/index.js
+index 66bb63834990021f524699e903697a782f756912..c24cb1cfcf7eeff43b13c5bceb364e1d0817b839 100644
+--- a/index.js
++++ b/index.js
+@@ -1,7 +1,8 @@
+ var atob = require("atob")
+ var urlLib = require("url")
+ var pathLib = require("path")
+-var decodeUriComponentLib = require("decode-uri-component")
++// decode-uri-component 0.5.1 exports ESM; Node >=22.12 supports require(ESM).
++var decodeUriComponentLib = require("decode-uri-component").default
+ 
+ 
+ 

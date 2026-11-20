@@ -1,0 +1,243 @@
+import assert from 'node:assert/strict'
+import { after, test } from 'node:test'
+import { AxiosError } from 'axios'
+import request from '../src/utils/request/request.ts'
+import { loginFailure } from '../src/lib/session.ts'
+
+after(() => {
+  delete globalThis.window
+  delete globalThis.localStorage
+})
+
+test('server requests fail before accessing browser storage or sending HTTP', async () => {
+  request.defaults.adapter = () => assert.fail('Server request reached the network')
+  await assert.rejects(request.get('/api/resume'), error =>
+    error.message === 'The API client requires a browser session')
+})
+
+test('browser requests keep bearer authentication and response unwrapping', async () => {
+  globalThis.window = { location: { href: '/' } }
+  globalThis.localStorage = { getItem: () => 'test-session-token' }
+  request.defaults.adapter = async config => {
+    assert.equal(config.headers.Authorization, 'Bearer test-session-token')
+    return { config, status: 200, headers: {}, data: { code: 200, data: ['resume'] } }
+  }
+  assert.deepEqual(await request.get('/api/resume'), ['resume'])
+})
+
+test('missing browser token still redirects without sending HTTP', async () => {
+  globalThis.localStorage = { getItem: () => null }
+  request.defaults.adapter = () => assert.fail('Unauthenticated request reached the network')
+  await assert.rejects(request.get('/api/resume'))
+  assert.equal(window.location.href, '/login?redirect=%2Fconsole')
+})
+
+test('HTTP 401 still clears the token and dispatches unauthorized', async () => {
+  const removed = []
+  const events = []
+  globalThis.localStorage = {
+    getItem: () => 'test-session-token',
+    removeItem: key => removed.push(key),
+  }
+  window.dispatchEvent = event => events.push(event.type)
+  request.defaults.adapter = async config => {
+    const response = { config, status: 401, headers: {}, data: { message: 'Expired' } }
+    throw new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', config, undefined, response)
+  }
+  await assert.rejects(request.get('/api/resume'), error => error.code === 401)
+  assert.deepEqual(removed, ['token'])
+  assert.deepEqual(events, ['unauthorized'])
+})
+
+test('logout is public and reaches the server without a token or redirect', async () => {
+  globalThis.window = { location: { href: '/console' } }
+  globalThis.localStorage = { getItem: () => null }
+  let sent = false
+  request.defaults.adapter = async config => {
+    sent = true
+    assert.equal(config.headers.Authorization, undefined)
+    return { config, status: 200, headers: {}, data: { code: 200, data: null } }
+  }
+  await request.post('/api/auth/logout')
+  assert.equal(sent, true)
+  assert.equal(window.location.href, '/console')
+})
+
+test('wrong operator confirmation preserves the session for inline retry', async () => {
+  const removed = []
+  const events = []
+  globalThis.localStorage = {
+    getItem: () => 'test-session-token',
+    removeItem: key => removed.push(key),
+  }
+  window.dispatchEvent = event => events.push(event.type)
+  request.defaults.adapter = async config => {
+    const response = { config, status: 400, headers: {}, data: { code: 1006, message: '密码错误' } }
+    throw new AxiosError('Bad request', 'ERR_BAD_REQUEST', config, undefined, response)
+  }
+  await assert.rejects(request.post('/api/user/deleteUser', { id: 2, password: 'wrong' }),
+    error => error.code === 400 && error.data.code === 1006)
+  assert.deepEqual(removed, [])
+  assert.deepEqual(events, [])
+})
+
+test('logout 401 leaves revocation feedback to signOut instead of the expiry flow', async () => {
+  const removed = []
+  const events = []
+  globalThis.localStorage = {
+    getItem: () => 'test-session-token',
+    removeItem: key => removed.push(key),
+  }
+  window.dispatchEvent = event => events.push(event.type)
+  request.defaults.adapter = async config => {
+    const response = { config, status: 401, headers: {}, data: { message: 'Expired' } }
+    throw new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', config, undefined, response)
+  }
+  await assert.rejects(request.post('/api/auth/logout'), error => error.code === 401)
+  assert.deepEqual(removed, [])
+  assert.deepEqual(events, [])
+})
+
+test('a delayed 401 from a previous token cannot invalidate the newly signed-in session', async () => {
+  let token = 'previous-token'
+  let finish
+  const sent = Promise.withResolvers()
+  const events = []
+  globalThis.localStorage = {
+    getItem: () => token,
+    removeItem: () => { token = null },
+  }
+  window.dispatchEvent = event => events.push(event.type)
+  request.defaults.adapter = config => new Promise((resolve, reject) => {
+    finish = () => reject(new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', config, undefined,
+      { config, status: 401, headers: {}, data: {} }))
+    sent.resolve()
+  })
+  const oldRequest = request.get('/api/resume')
+  const rejected = assert.rejects(oldRequest, error => error.code === 401)
+  await sent.promise
+  token = 'new-token'
+  finish()
+  await rejected
+  assert.equal(token, 'new-token')
+  assert.deepEqual(events, [])
+})
+
+test('login-controller-shaped 500 responses remain neutral after request normalization', async () => {
+  for (const message of ['登录失败: 用户不存在', '登录失败: 密码错误', '登录失败: private database error']) {
+    request.defaults.adapter = async config => {
+      const response = {
+        config, status: 500, headers: {}, data: { code: 500, message, data: null },
+      }
+      throw new AxiosError(
+        'Request failed with status code 500', 'ERR_BAD_RESPONSE', config, undefined, response,
+      )
+    }
+    await assert.rejects(
+      request.post('/api/auth/login', { email: 'fixture@example.invalid', password: 'synthetic' }),
+      error => {
+        assert.equal(error.code, 500)
+        assert.equal(loginFailure(error), '登录失败，请检查邮箱、密码及服务连接后重试。')
+        return true
+      },
+    )
+  }
+})
+
+test('legacy HTTP 200 login failures cannot be mistaken for a service outage after token validation', async () => {
+  request.defaults.adapter = async config => ({
+    config, status: 200, headers: {}, data: { code: 500, message: '登录失败: 密码错误', data: null },
+  })
+  const result = await request.post('/api/auth/login', {
+    email: 'fixture@example.invalid', password: 'synthetic',
+  })
+  assert.equal(result.token, undefined)
+  assert.equal(loginFailure(new Error('Missing token')), '登录失败，请检查邮箱、密码及服务连接后重试。')
+})
+
+// Exercise the installed consumers, including pnpm patches, without external services.
+test('dependency merges reject prototype setters in source and target without losing merge behavior', async () => {
+  const { createRequire } = await import('node:module')
+  const require = createRequire(import.meta.url)
+  const shadcn = createRequire(require.resolve('shadcn-vue'))
+  for (const entry of ['deepmerge', 'deepmerge/dist/umd.js']) {
+    const merge = shadcn(entry)
+    const payload = JSON.parse('{"__proto__":{"isAdmin":true}}')
+    for (const [target, source] of [
+      [Object.create(null), payload], [payload, {}],
+      [{ session: null }, { session: payload }], [{ session: 0 }, { session: payload }],
+    ]) {
+      for (const options of [{}, { clone: false }]) {
+        const result = merge(target, source, options)
+        const value = result.session ?? result
+        assert.equal(Object.getPrototypeOf(value), Object.prototype)
+        assert.equal(value.isAdmin, undefined)
+        assert.equal({}.isAdmin, undefined)
+      }
+    }
+    const symbol = Symbol('metadata')
+    assert.deepEqual(merge({ nested: { a: 1 }, items: [1] }, { nested: { b: 2 }, items: [2], [symbol]: 3 }),
+      { nested: { a: 1, b: 2 }, items: [1, 2], [symbol]: 3 })
+    assert.deepEqual(merge({ items: [1] }, { items: [2] }, { arrayMerge: (_, source) => source }), { items: [2] })
+  }
+})
+
+test('Zod rejects oversized collections before walking or allocating across its installed exports', async () => {
+  const { createRequire } = await import('node:module')
+  const { pathToFileURL } = await import('node:url')
+  const { checkCollectionBounds } = await import('./fixtures/zod-collections.mjs')
+  const root = createRequire(import.meta.url)
+  const shadcn = createRequire(root.resolve('shadcn-vue'))
+  for (const entry of ['zod', 'zod/v3', 'zod/v4', 'zod/v4/mini', 'zod/v4-mini']) {
+    const path = shadcn.resolve(entry)
+    for (const z of [shadcn(entry), await import(pathToFileURL(path.replace(/\.cjs$/, '.js')).href)]) {
+      await checkCollectionBounds(z, entry === 'zod' || entry === 'zod/v3')
+    }
+  }
+})
+
+test('actual shadcn MCP tool schemas and exported registry parsers retain their contracts', async () => {
+  const { createRequire } = await import('node:module')
+  const { readFile, readdir } = await import('node:fs/promises')
+  const { dirname, join } = await import('node:path')
+  const { pathToFileURL } = await import('node:url')
+  const { runInNewContext } = await import('node:vm')
+  const root = createRequire(import.meta.url)
+  const entry = root.resolve('shadcn-vue')
+  const shadcn = createRequire(entry)
+  const dist = dirname(entry)
+  const files = (await readdir(dist)).filter(name => /^mcp-.*\.js$/.test(name))
+  assert.equal(files.length, 1)
+  const source = await readFile(join(dist, files[0]), 'utf8')
+  // Evaluate only the actual list-tools registration; no transport, CLI or registry network calls.
+  const start = source.indexOf('server.setRequestHandler(ListToolsRequestSchema,')
+  const end = source.indexOf('server.setRequestHandler(CallToolRequestSchema,', start)
+  assert.ok(start >= 0 && end > start)
+  let listTools
+  runInNewContext(source.slice(start, end), {
+    server: { setRequestHandler(_, handler) { listTools = handler } },
+    ListToolsRequestSchema: {}, z$1: shadcn('zod'),
+    zodToJsonSchema: shadcn('zod-to-json-schema').zodToJsonSchema,
+  }, { timeout: 1000 })
+  const { tools } = await listTools()
+  assert.equal(tools.length, 7)
+  for (const tool of tools) assert.equal(tool.inputSchema.type, 'object')
+  const search = tools.find(tool => tool.name === 'search_items_in_registries').inputSchema
+  assert.equal(search.properties.registries.type, 'array')
+  assert.equal(search.properties.registries.items.type, 'string')
+  assert.equal(search.properties.query.type, 'string')
+  assert.equal(search.properties.limit.type, 'number')
+  assert.deepEqual(Array.from(search.required), ['registries', 'query'])
+  for (const name of ['view_items_in_registries', 'get_add_command_for_items']) {
+    const schema = tools.find(tool => tool.name === name).inputSchema
+    assert.equal(schema.properties.items.items.type, 'string')
+    assert.deepEqual(Array.from(schema.required), ['items'])
+  }
+  const { registrySchema, registryConfigSchema } = await import(pathToFileURL(join(dist, 'schema/index.js')).href)
+  const fixture = { name: 'fixture', homepage: 'https://example.invalid', items: [{ name: 'button', type: 'registry:ui', files: [{ path: 'ui/button.vue', type: 'registry:ui', content: '<template />' }] }] }
+  assert.equal(registrySchema.parse(fixture).items[0].files[0].content, '<template />')
+  assert.equal(registrySchema.safeParse({ ...fixture, items: [{ name: 'button', type: 'invalid' }] }).success, false)
+  assert.equal(registryConfigSchema.safeParse({ '@fixture': { url: 'https://example.invalid/{name}.json', headers: { Accept: 'application/json' } } }).success, true)
+  assert.equal(registryConfigSchema.safeParse({ invalid: 'https://example.invalid/{name}.json' }).success, false)
+  assert.equal(registryConfigSchema.safeParse({ '@fixture': { url: 'https://example.invalid/{name}.json', headers: { Accept: 123 } } }).success, false)
+})
