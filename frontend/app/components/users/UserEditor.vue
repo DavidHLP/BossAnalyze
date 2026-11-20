@@ -2,6 +2,8 @@
 import { useMediaQuery } from '@vueuse/core'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { withSessionOwner } from '@/lib/session'
+import { sessionChangedMessage } from '@/lib/rbac-mutations'
 import { addUser, updateUser } from '@/api/user/user'
 import { userDraft, userErrors, userPayload, userSaveError, userWriteSucceeded } from '@/lib/users'
 import type { ManagedUser, UserRole } from '@/lib/users'
@@ -15,11 +17,14 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
+  closeAutoFocus: [event: Event]
   saved: [self: boolean]
   retryRoles: []
 }>()
 const mobile = useMediaQuery('(width < 640px)')
 const session = useSession()
+const owner = session.capture()
+const sessionChanged = computed(() => !session.owns(owner))
 const draft = reactive(userDraft())
 const initial = ref('')
 const saving = ref(false)
@@ -27,6 +32,16 @@ const failure = ref('')
 const submitted = ref(false)
 const touched = reactive<Record<string, boolean>>({})
 const discardOpen = ref(false)
+const discardPrompt = ref<HTMLElement | null>(null)
+let discardTrigger: HTMLElement | null = null
+watch(discardOpen, (open) => {
+  if (open) discardPrompt.value?.focus()
+}, { flush: 'post' })
+function requestDiscard() {
+  if (discardOpen.value) return
+  discardTrigger = typeof document === 'undefined' ? null : document.activeElement as HTMLElement | null
+  discardOpen.value = true
+}
 const destination = ref<string | null>(null)
 const creating = computed(() => props.mode === 'create')
 const title = computed(() =>
@@ -49,22 +64,28 @@ watch(
       submitted.value = false
       failure.value = ''
       Object.keys(touched).forEach((key) => delete touched[key])
-    } else draft.password = ''
+    } else {
+      cancelDiscard()
+      draft.password = ''
+    }
   },
 )
 
 function close() {
   if (saving.value) return
-  if (dirty.value) discardOpen.value = true
+  if (dirty.value) requestDiscard()
   else emit('update:open', false)
 }
 function escape(event: Event) {
   event.preventDefault()
-  close()
+  if (discardOpen.value) cancelDiscard()
+  else close()
 }
 function cancelDiscard() {
   discardOpen.value = false
   destination.value = null
+  discardTrigger?.focus()
+  discardTrigger = null
 }
 async function discard() {
   const target = destination.value
@@ -72,15 +93,15 @@ async function discard() {
   discardOpen.value = false
   emit('update:open', false)
   await nextTick()
-  if (target === '/login') await useSession().signOut()
+  if (target === '/login') await session.signOut(false, null, undefined, owner ?? undefined)
   else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
-  if (useSession().state.value.invalidated) return true
+  if (session.state.value.invalidated) return true
   if (saving.value) return false
   if (!dirty.value) return true
   destination.value = to.fullPath
-  discardOpen.value = true
+  requestDiscard()
   return false
 })
 const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -93,10 +114,11 @@ onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 
 async function save() {
-  if (saving.value || props.mode === 'view' || props.rolesUnavailable) return
+  if (!owner || !session.owns(owner) || discardOpen.value || saving.value || props.mode === 'view' || props.rolesUnavailable) return
   submitted.value = true
   const firstError = Object.keys(errors.value)[0]
   if (firstError) {
+    await nextTick()
     const selector =
       firstError === 'roleId'
         ? '#user-role input, #user-role button'
@@ -106,14 +128,18 @@ async function save() {
     document.querySelector<HTMLElement>(selector)?.focus()
     return
   }
+  const self = !creating.value && props.user?.email === session.state.value.user?.email
   saving.value = true
   failure.value = ''
   try {
     const payload = userPayload(draft, creating.value ? undefined : props.user?.id)
-    userWriteSucceeded(await (creating.value ? addUser(payload) : updateUser(payload)))
+    userWriteSucceeded(await withSessionOwner(owner, () =>
+      creating.value ? addUser(payload) : updateUser(payload),
+    ))
+    if (!session.owns(owner)) return
     draft.password = ''
     initial.value = JSON.stringify(draft)
-    emit('saved', !creating.value && props.user?.email === session.state.value.user?.email)
+    emit('saved', self)
   } catch (error) {
     failure.value = userSaveError(error)
   } finally {
@@ -137,6 +163,7 @@ async function save() {
       class="w-full! shadow-panel sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
       @pointer-down-outside.prevent
       @interact-outside.prevent
+      @close-auto-focus="emit('closeAutoFocus', $event)"
       @escape-key-down="escape"
     >
       <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-14">
@@ -156,6 +183,25 @@ async function save() {
         ><HugeiconsIcon :icon="Cancel01Icon" aria-hidden="true"
       /></UiButton>
 
+      <div
+        v-if="discardOpen"
+        ref="discardPrompt"
+        tabindex="-1"
+        role="group"
+        aria-label="放弃未保存的修改？"
+        class="mx-4 mt-3 shrink-0 space-y-2 rounded-md border border-border bg-muted p-3"
+        @keydown.esc.stop.prevent="cancelDiscard"
+      >
+        <p class="text-sm font-medium">放弃未保存的修改？</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <UiButton type="button" variant="ghost" class="text-destructive hover:text-destructive"
+            @click="discard">放弃修改</UiButton>
+          <UiButton type="button" variant="secondary" @click="cancelDiscard">继续编辑</UiButton>
+        </div>
+      </div>
+      <UiAlert v-if="sessionChanged && mode !== 'view'" variant="destructive" role="alert" class="mx-4 mt-3 w-auto shrink-0">
+        <UiAlertDescription>{{ sessionChangedMessage }}</UiAlertDescription>
+      </UiAlert>
       <div v-if="mode === 'view' && user" class="min-h-0 flex-1 overflow-y-auto p-6">
         <div class="mb-6">
           <p class="break-all text-lg font-semibold">{{ user.name || '未命名用户' }}</p>
@@ -197,7 +243,11 @@ async function save() {
         :aria-busy="saving"
         @submit.prevent="save"
       >
-        <UiAlert v-if="rolesUnavailable" role="alert"
+        <UiAlert v-if="mode === 'edit' && user?.email === session.state.value.user?.email"
+          class="border-status-warning/40 bg-status-warning-surface text-status-warning-foreground">
+          <UiAlertDescription class="text-inherit">修改当前登录账号保存后需重新登录。</UiAlertDescription>
+        </UiAlert>
+        <UiAlert v-if="rolesUnavailable" variant="destructive" role="alert"
           ><UiAlertTitle>角色列表暂不可用</UiAlertTitle
           ><UiAlertDescription>请重新读取角色后保存。</UiAlertDescription
           ><UiButton
@@ -222,9 +272,9 @@ async function save() {
             :aria-describedby="error('name') ? 'user-name-error' : undefined"
             @blur="touched.name = true"
           />
-          <p v-if="error('name')" id="user-name-error" class="text-xs text-destructive">
+          <UiFieldError v-if="error('name')" id="user-name-error" class="text-xs text-destructive">
             {{ error('name') }}
-          </p></UiField
+          </UiFieldError></UiField
         >
         <UiField
           ><UiFieldLabel for="user-email">邮箱 <span aria-hidden="true">*</span></UiFieldLabel
@@ -240,9 +290,9 @@ async function save() {
             :aria-describedby="error('email') ? 'user-email-error' : undefined"
             @blur="touched.email = true"
           />
-          <p v-if="error('email')" id="user-email-error" class="text-xs text-destructive">
+          <UiFieldError v-if="error('email')" id="user-email-error" class="text-xs text-destructive">
             {{ error('email') }}
-          </p></UiField
+          </UiFieldError></UiField
         >
         <UiField v-if="creating"
           ><UiFieldLabel for="user-password"
@@ -260,9 +310,9 @@ async function save() {
             @blur="touched.password = true"
           />
           <p id="user-password-hint" class="text-xs text-muted-foreground">8–64 个字符</p>
-          <p v-if="error('password')" id="user-password-error" class="text-xs text-destructive">
+          <UiFieldError v-if="error('password')" id="user-password-error" class="text-xs text-destructive">
             {{ error('password') }}
-          </p></UiField
+          </UiFieldError></UiField
         >
         <UiField
           @focusout="touched.roleId = true"
@@ -277,9 +327,9 @@ async function save() {
             :invalid="Boolean(error('roleId'))"
             :described-by="error('roleId') ? 'user-role-error' : undefined"
           />
-          <p v-if="error('roleId')" id="user-role-error" class="text-xs text-destructive">
+          <UiFieldError v-if="error('roleId')" id="user-role-error" class="text-xs text-destructive">
             {{ error('roleId') }}
-          </p></UiField
+          </UiFieldError></UiField
         >
         <UiField @focusout="touched.status = true"
           ><UiFieldLabel as="span">状态</UiFieldLabel
@@ -297,9 +347,9 @@ async function save() {
               ><UiRadioGroupItem value="0" />停用</label
             ></UiRadioGroup
           >
-          <p v-if="error('status')" id="user-status-error" class="text-xs text-destructive">
+          <UiFieldError v-if="error('status')" id="user-status-error" class="text-xs text-destructive">
             {{ error('status') }}
-          </p></UiField
+          </UiFieldError></UiField
         >
         <UiSeparator />
         <UiField
@@ -308,9 +358,9 @@ async function save() {
             :aria-invalid="Boolean(error('address'))"
             :aria-describedby="error('address') ? 'user-address-error' : undefined"
             @blur="touched.address = true" />
-          <p v-if="error('address')" id="user-address-error" class="text-xs text-destructive">
+          <UiFieldError v-if="error('address')" id="user-address-error" class="text-xs text-destructive">
             {{ error('address') }}
-          </p></UiField
+          </UiFieldError></UiField
         >
         <UiField
           ><UiFieldLabel for="user-introduction">个人简介</UiFieldLabel
@@ -324,14 +374,14 @@ async function save() {
             :aria-describedby="error('introduction') ? 'user-introduction-error' : undefined"
             @blur="touched.introduction = true"
           />
-          <p v-if="error('introduction')" id="user-introduction-error" class="text-xs text-destructive">
+          <UiFieldError v-if="error('introduction')" id="user-introduction-error" class="text-xs text-destructive">
             {{ error('introduction') }}
-          </p></UiField
+          </UiFieldError></UiField
         >
       </form>
-      <p v-if="failure" role="alert" class="shrink-0 px-6 text-sm text-destructive">
-        {{ failure }}填写内容已保留。
-      </p>
+      <UiAlert v-if="failure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">
+        <UiAlertDescription><p>{{ failure }}</p><p>填写内容已保留。</p></UiAlertDescription>
+      </UiAlert>
       <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border">
         <UiButton variant="outline" :disabled="saving" @click="close">{{
           mode === 'view' ? '关闭' : '取消'
@@ -340,35 +390,10 @@ async function save() {
           v-if="mode !== 'view'"
           type="submit"
           form="user-editor-form"
-          :disabled="saving || rolesUnavailable"
+          :aria-disabled="saving || rolesUnavailable || discardOpen || sessionChanged"
           >{{ saving ? '正在保存…' : creating ? '创建用户' : '保存更改' }}</UiButton
         >
       </UiSheetFooter>
     </UiSheetContent>
   </UiSheet>
-  <UiDialog
-    :open="discardOpen"
-    @update:open="
-      (value) => {
-        discardOpen = value
-        if (!value) destination = null
-      }
-    "
-  >
-    <UiDialogContent
-      :show-close-button="false"
-      class="top-[38.2%]! sm:max-w-[400px]!"
-      @pointer-down-outside.prevent
-      @interact-outside.prevent
-    >
-      <UiDialogHeader
-        ><UiDialogTitle>放弃未保存的修改？</UiDialogTitle
-        ><UiDialogDescription>关闭后，本次填写的内容不会保存。</UiDialogDescription></UiDialogHeader
-      >
-      <UiDialogFooter
-        ><UiButton variant="outline" @click="cancelDiscard">继续编辑</UiButton
-        ><UiButton variant="outline" @click="discard">放弃修改</UiButton></UiDialogFooter
-      >
-    </UiDialogContent>
-  </UiDialog>
 </template>

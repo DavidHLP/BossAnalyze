@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { Logout01Icon, UnfoldMoreIcon } from '@hugeicons/core-free-icons'
+import { Logout01Icon, Settings02Icon, UnfoldMoreIcon, UserCircleIcon } from '@hugeicons/core-free-icons'
 import { useSidebar } from '@/components/ui/sidebar'
+import { findMenu } from '@/lib/session'
 
 const props = defineProps<{ user: { name: string; email: string } }>()
-const { isMobile } = useSidebar()
-const { signOut } = useSession()
+const { isMobile, setOpenMobile } = useSidebar()
+const { state: session, signOut } = useSession()
 const initial = computed(() => Array.from(props.user.name.trim() || props.user.email)[0])
+const links = computed(() => [
+  { path: '/console/profile', label: '个人中心', icon: UserCircleIcon },
+  { path: '/console/settings', label: '系统设置', icon: Settings02Icon },
+].filter((link) => findMenu(session.value.menus, link.path)))
 </script>
 
 <template>
@@ -24,7 +29,7 @@ const initial = computed(() => Array.from(props.user.name.trim() || props.user.e
                 {{ initial }}
               </UiAvatarFallback>
             </UiAvatar>
-            <span class="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+            <span class="grid min-w-0 flex-1 text-left text-sm leading-normal group-data-[collapsible=icon]:hidden">
               <span class="truncate font-medium">{{ user.name }}</span>
               <span class="truncate text-xs text-muted-foreground">{{ user.email }}</span>
             </span>
@@ -46,6 +51,13 @@ const initial = computed(() => Array.from(props.user.name.trim() || props.user.e
             <span class="block truncate text-xs text-muted-foreground">{{ user.email }}</span>
           </UiDropdownMenuLabel>
           <UiDropdownMenuSeparator />
+          <UiDropdownMenuItem v-for="link in links" :key="link.path" as-child>
+            <NuxtLink :to="link.path" @click="setOpenMobile(false)">
+              <HugeiconsIcon :icon="link.icon" aria-hidden="true" />
+              {{ link.label }}
+            </NuxtLink>
+          </UiDropdownMenuItem>
+          <UiDropdownMenuSeparator v-if="links.length" />
           <UiDropdownMenuItem @select="() => signOut()">
             <HugeiconsIcon :icon="Logout01Icon" aria-hidden="true" />退出登录
           </UiDropdownMenuItem>

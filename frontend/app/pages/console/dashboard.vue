@@ -21,8 +21,8 @@ const number = new Intl.NumberFormat('zh-CN')
 const metrics = computed(() => {
   const data = snapshot.value
   return [
-    { title: '总访问量', value: data?.visits, note: '快照中的请求次数', icon: ViewIcon },
-    { title: '独立访客', value: data?.visitors, note: '按访问 IP 去重', icon: UserGroupIcon },
+    { title: '总访问量', value: data?.visits ?? null, note: '快照中的请求次数', icon: ViewIcon },
+    { title: '独立访客', value: data?.visitors ?? null, note: '按访问 IP 去重', icon: UserGroupIcon },
     {
       title: '峰值小时访问量',
       value: data && peakVisits(data.hours),
@@ -31,7 +31,7 @@ const metrics = computed(() => {
     },
     {
       title: '活跃小时数',
-      value: data?.hours.filter((row) => row.count > 0).length,
+      value: data?.hours.filter((row) => row.count > 0).length ?? null,
       note: '全快照访问量大于 0 的小时',
       icon: Clock01Icon,
     },
@@ -50,6 +50,12 @@ async function load() {
     pending.value = false
   }
 }
+
+function refresh() {
+  if (pending.value) return
+  return load()
+}
+
 onMounted(load)
 </script>
 
@@ -58,15 +64,23 @@ onMounted(load)
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div class="min-w-0 space-y-2">
         <h1 id="dashboard-title" class="text-2xl font-semibold tracking-tight">数据看板</h1>
-        <p class="max-w-2xl text-sm leading-6 text-muted-foreground">{{ snapshotScope }}</p>
-        <p v-if="snapshot" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <span class="text-muted-foreground">快照生成时间</span>
-          <time :datetime="snapshot.generatedAt" class="font-mono tabular-nums">
-            {{ snapshotTime(snapshot.generatedAt) }}
-          </time>
+        <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <span v-if="snapshot">
+            快照生成于
+            <time :datetime="snapshot.generatedAt" class="font-mono tabular-nums text-foreground">
+              {{ snapshotTime(snapshot.generatedAt) }}
+            </time>
+          </span>
+          <span>静态日志快照，需手动刷新。</span>
         </p>
+        <details class="max-w-2xl text-xs text-muted-foreground">
+          <summary class="w-fit cursor-pointer rounded-sm py-1 font-medium text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            数据口径说明
+          </summary>
+          <p class="mt-1 leading-5">{{ snapshotScope }}</p>
+        </details>
       </div>
-      <UiButton variant="outline" :disabled="pending" @click="load">
+      <UiButton variant="outline" :aria-disabled="pending" @click="refresh">
         <HugeiconsIcon
           :icon="RefreshIcon"
           class="size-4"
@@ -84,7 +98,7 @@ onMounted(load)
       <UiAlertDescription>
         {{ failed === 'forbidden' ? '当前账号未获授权，请联系管理员。' : '暂时无法获取统计数据。' }}
       </UiAlertDescription>
-      <UiButton v-if="failed === 'error'" size="sm" variant="outline" class="mt-2" @click="load">
+      <UiButton v-if="failed === 'error'" size="sm" variant="outline" class="mt-2" @click="refresh">
         重试
       </UiButton>
     </UiAlert>
@@ -95,19 +109,23 @@ onMounted(load)
     </UiAlert>
 
     <div
-      v-if="pending || snapshot"
+      v-if="!failed"
       :aria-busy="pending"
       class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
     >
-      <UiCard v-for="metric in metrics" :key="metric.title" class="min-w-0 gap-3 shadow-panel">
+      <UiCard v-for="metric in metrics" :key="metric.title" class="min-w-0 gap-3">
         <UiCardHeader class="flex flex-row items-center justify-between gap-2">
           <h2 class="text-sm font-medium text-muted-foreground">{{ metric.title }}</h2>
           <HugeiconsIcon :icon="metric.icon" class="size-4 shrink-0 text-accent-data" aria-hidden="true" />
         </UiCardHeader>
         <UiCardContent class="space-y-2">
           <UiSkeleton v-if="pending" class="h-9 w-24" />
-          <p v-else-if="metric.value != null" class="break-all font-mono text-3xl font-semibold tabular-nums">
-            {{ number.format(metric.value) }}
+          <p v-else class="break-all font-mono text-3xl font-semibold tabular-nums">
+            <template v-if="metric.value != null">{{ number.format(metric.value) }}</template>
+            <template v-else>
+              <span aria-hidden="true">—</span>
+              <span class="sr-only">暂无数据</span>
+            </template>
           </p>
           <p class="text-xs text-muted-foreground">{{ metric.note }}</p>
         </UiCardContent>
@@ -139,7 +157,7 @@ onMounted(load)
         />
       </div>
 
-      <UiCard class="min-w-0 shadow-panel">
+      <UiCard class="min-w-0">
         <UiCardHeader>
           <h2 class="text-base font-semibold">热门访问路径</h2>
           <UiCardDescription>按访问次数排序，最多展示 10 条</UiCardDescription>

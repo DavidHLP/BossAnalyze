@@ -1,10 +1,17 @@
 import tailwindcss from '@tailwindcss/vite'
+import { themeHeadScript } from './app/lib/theme'
 
 export default defineNuxtConfig({
   css: ['~/assets/css/tailwind.css'],
   compatibilityDate: '2025-01-01',
   devServer: { host: '127.0.0.1', port: 5020 },
-  app: { head: { title: 'BossAnalyze', htmlAttrs: { lang: 'zh-CN' } } },
+  app: {
+    head: {
+      title: 'BossAnalyze',
+      htmlAttrs: { lang: 'zh-CN' },
+      script: [{ key: 'theme-init', innerHTML: themeHeadScript, tagPriority: 'critical' }],
+    },
+  },
   routeRules: {
     '/recruitment': { ssr: false },
     '/console': { ssr: false },

@@ -9,7 +9,7 @@ const props = defineProps<{
 
 <template>
   <nav
-    aria-label="breadcrumb"
+    aria-label="面包屑导航"
     data-slot="breadcrumb"
     :class="cn('', props.class)"
   >

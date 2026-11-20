@@ -6,6 +6,51 @@ export interface MenuItem {
   children: MenuItem[]
 }
 
+export interface SessionOwner {
+  token: string | null
+  timestamp: string | null
+  generation: number
+}
+
+let generation = 0
+let requestOwner: SessionOwner | undefined
+
+export function sessionOwner(): SessionOwner {
+  return {
+    token: localStorage.getItem('token'),
+    timestamp: localStorage.getItem('token_timestamp'),
+    generation,
+  }
+}
+
+export function advanceSession() {
+  generation++
+}
+
+export function ownsSession(owner: SessionOwner) {
+  const current = sessionOwner()
+  return owner.generation === current.generation &&
+    owner.token === current.token && owner.timestamp === current.timestamp
+}
+
+// The synchronous request interceptor consumes this scope before Axios dispatches.
+export function withSessionOwner<T>(owner: SessionOwner, request: () => T): T {
+  if (!ownsSession(owner)) throw new Error('Session changed')
+  const previous = requestOwner
+  requestOwner = owner
+  try {
+    return request()
+  } finally {
+    requestOwner = previous
+  }
+}
+
+export function requestSessionOwner() {
+  const owner = requestOwner ?? sessionOwner()
+  if (!ownsSession(owner)) throw new Error('Session changed')
+  return owner
+}
+
 export function validSession(token: string | null, timestamp: string | null, now = Date.now()) {
   const issued = Number(timestamp)
   return Boolean(

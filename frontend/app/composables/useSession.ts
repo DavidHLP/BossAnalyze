@@ -1,7 +1,7 @@
 import { getUserBaseInfo, getUserPrivateInformation, login, logout } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
-import { loginLocation, menuTree, validSession } from '@/lib/session'
-import type { MenuItem } from '@/lib/session'
+import { advanceSession, loginLocation, menuTree, ownsSession, sessionOwner, validSession, withSessionOwner } from '@/lib/session'
+import type { MenuItem, SessionOwner } from '@/lib/session'
 
 interface Session {
   user: { name: string; email: string } | null
@@ -10,13 +10,24 @@ interface Session {
   ready: boolean
 }
 
-let loadedToken: string | null = null
+let loadedOwner: SessionOwner | null = null
 
 export function useSession() {
   const state = useState<Session>('session', () => ({ user: null, menus: [], ready: false }))
 
+  function capture() {
+    return import.meta.client ? sessionOwner() : null
+  }
+  function owns(owner: SessionOwner | null) {
+    return import.meta.client && !state.value.invalidated && !!owner?.token && ownsSession(owner)
+  }
+  function changed() {
+    advanceSession()
+    state.value = { ...state.value }
+  }
   function clear() {
-    loadedToken = null
+    advanceSession()
+    loadedOwner = null
     state.value = { user: null, menus: [], ready: false, invalidated: true }
     if (import.meta.client) {
       for (const key of ['token', 'token_timestamp', 'cachedRoutes']) localStorage.removeItem(key)
@@ -26,12 +37,12 @@ export function useSession() {
 
   async function restore() {
     if (import.meta.server) return false
-    const token = localStorage.getItem('token')
-    if (!validSession(token, localStorage.getItem('token_timestamp'))) {
+    const owner = sessionOwner()
+    if (!validSession(owner.token, owner.timestamp)) {
       clear()
       return false
     }
-    if (state.value.ready && loadedToken === token) return true
+    if (state.value.ready && loadedOwner && ownsSession(loadedOwner)) return true
     state.value = { user: null, menus: [], ready: false }
     let result
     try {
@@ -41,13 +52,13 @@ export function useSession() {
         getUserRoutes(),
       ])
     } catch (error) {
-      const currentToken = localStorage.getItem('token')
-      if (currentToken && token !== currentToken) return restore()
-      if (error && typeof error === 'object' && 'code' in error && error.code === 401) clear()
+      if (!ownsSession(owner)) {
+        if (sessionOwner().token) return restore()
+      } else if (error && typeof error === 'object' && 'code' in error && error.code === 401) clear()
       throw error
     }
     const [user, permissions, routes] = result
-    if (token !== localStorage.getItem('token')) return restore()
+    if (!ownsSession(owner)) return restore()
     if (!user || typeof user !== 'object' || typeof user.email !== 'string') {
       throw new Error('Invalid user response')
     }
@@ -59,45 +70,53 @@ export function useSession() {
       menus: menuTree(routes, permissions),
       ready: true,
     }
-    loadedToken = token
+    loadedOwner = owner
     return true
   }
 
   async function signIn(email: string, password: string) {
     clear()
+    const owner = sessionOwner()
     try {
       const result = await login({ email, password })
       if (!result?.token || typeof result.token !== 'string') throw new Error('Missing token')
+      if (!ownsSession(owner)) throw new Error('Session changed')
       localStorage.setItem('token', result.token)
       localStorage.setItem('token_timestamp', String(Date.now()))
       if (!(await restore())) throw new Error('Session changed')
     } catch (error) {
-      if (!localStorage.getItem('token')) clear()
+      if (ownsSession(owner)) clear()
       throw error
     }
   }
 
   const router = useRouter()
-  async function signOut(force = false, destination: unknown = null, reason?: string) {
-    const token = localStorage.getItem('token')
+  async function signOut(
+    force = false,
+    destination: unknown = null,
+    reason?: string,
+    owner = sessionOwner(),
+  ) {
+    if (!ownsSession(owner)) return false
     if (force) clear()
     const target = destination ? loginLocation(destination, reason) : '/login'
     const failure = await router.replace(target)
     if (failure || router.currentRoute.value.path !== '/login') return false
-    if (!force && token && localStorage.getItem('token') === token) {
+    if (force || !ownsSession(owner)) return true
+    if (owner.token) {
       try {
-        await logout()
+        await withSessionOwner(owner, logout)
       } catch {
-        if (localStorage.getItem('token') === token) {
+        if (ownsSession(owner)) {
           clear()
           await router.replace({ path: '/login', query: { logout: 'unconfirmed' } })
         }
         return true
       }
     }
-    if (force || localStorage.getItem('token') === token) clear()
+    if (ownsSession(owner)) clear()
     return true
   }
 
-  return { state, restore, signIn, signOut, clear }
+  return { state, restore, signIn, signOut, clear, capture, owns, changed }
 }

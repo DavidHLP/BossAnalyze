@@ -53,7 +53,7 @@ function toggleSidebar() {
 useEventListener('keydown', (event: KeyboardEvent) => {
   const target = event.composedPath()[0]
   const focused = target instanceof HTMLElement ? target : document.activeElement
-  if (!shouldToggleSidebar(event, focused instanceof HTMLElement ? focused : null)) return
+  if (!shouldToggleSidebar(event, focused instanceof HTMLElement ? focused : null, document)) return
   event.preventDefault()
   toggleSidebar()
 })

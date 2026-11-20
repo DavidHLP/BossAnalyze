@@ -5,9 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-heading: var(--font-sans);
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -26,7 +26,11 @@
   --color-accent-data: var(--accent-data);
   --color-accent-data-surface: var(--accent-data-surface);
   --color-accent-data-foreground: var(--accent-data-foreground);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-foreground: var(--brand-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-solid: var(--destructive-solid);
+  --color-destructive-solid-hover: var(--destructive-solid-hover);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -62,16 +66,16 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 3px);
-  --radius-2xl: calc(var(--radius) + 6px);
-  --radius-3xl: calc(var(--radius) + 10px);
-  --radius-4xl: calc(var(--radius) + 13px);
-  --shadow-panel: 0 4px 6px rgba(0, 0, 0, 0.09);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --shadow-panel: var(--panel-shadow);
 }
 
 :root {
   color-scheme: light;
-  --background: #ffffff;
+  --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: var(--foreground);
@@ -88,10 +92,15 @@
   --accent-data: #0284c7;
   --accent-data-surface: #f0f9ff;
   --accent-data-foreground: #075985;
+  --brand-surface: var(--primary);
+  --brand-foreground: #f8fafc;
   --destructive: #dc2626;
+  --destructive-solid: #b91c1c;
+  --destructive-solid-hover: #991b1b;
   --border: #e2e8f0;
   --input: #cbd5e1;
   --ring: #0284c7;
+  --panel-shadow: 0 4px 12px rgb(15 23 42 / 0.06), 0 16px 36px rgb(15 23 42 / 0.12);
 
   --status-success: #059669;
   --status-success-surface: #ecfdf5;
@@ -112,7 +121,7 @@
   --chart-4: #b45309;
   --chart-5: #64748b;
 
-  --radius: 0.5rem;
+  --radius: 8px;
   --sidebar: #f8fafc;
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
@@ -137,10 +146,14 @@
   --accent-data: #38bdf8;
   --accent-data-surface: #082f49;
   --accent-data-foreground: #bae6fd;
+  --brand-surface: var(--background);
   --destructive: #fca5a5;
+  --destructive-solid: #dc2626;
+  --destructive-solid-hover: #b91c1c;
   --border: #334155;
   --input: #475569;
   --ring: #38bdf8;
+  --panel-shadow: 0 0 0 1px rgb(148 163 184 / 0.16), 0 20px 48px rgb(0 0 0 / 0.5);
 
   --status-success: #34d399;
   --status-success-surface: #022c22;
@@ -171,6 +184,10 @@
 
   body {
     @apply bg-background font-sans text-foreground antialiased;
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
   }
 
   code, kbd {

@@ -4,6 +4,7 @@ const tones = {
   warning: 'bg-status-warning-surface text-status-warning-foreground',
   danger: 'bg-status-danger-surface text-status-danger-foreground',
   neutral: 'bg-status-neutral-surface text-status-neutral-foreground',
+  info: 'bg-accent-data-surface text-accent-data-foreground',
 } as const
 
 withDefaults(defineProps<{ tone?: keyof typeof tones }>(), { tone: 'neutral' })
@@ -14,7 +15,11 @@ withDefaults(defineProps<{ tone?: keyof typeof tones }>(), { tone: 'neutral' })
     :class="tones[tone]"
     class="inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium"
   >
-    <span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current" />
+    <span
+      aria-hidden="true"
+      class="size-1.5 shrink-0 rounded-full"
+      :class="tone === 'info' ? 'bg-accent-data' : 'bg-current'"
+    />
     <slot />
   </span>
 </template>

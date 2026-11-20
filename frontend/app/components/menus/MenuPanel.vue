@@ -2,10 +2,11 @@
 import { useMediaQuery } from '@vueuse/core'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { withSessionOwner } from '@/lib/session'
 import { addRouter, editRouter, getUserRoutes } from '@/api/router/router'
 import { getRoleList } from '@/api/auth/auth'
 import { managedRoles } from '@/lib/roles'
-import { mutationError } from '@/lib/rbac-mutations'
+import { mutationError, mutationResultUnknown, sessionChangedMessage } from '@/lib/rbac-mutations'
 import {
   managedMenus,
   menuDraft,
@@ -26,11 +27,15 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
+  closeAutoFocus: [event: Event]
   saved: [tree: MenuRecord[]]
   read: [tree: MenuRecord[]]
   unconfirmed: []
 }>()
 const mobile = useMediaQuery('(width < 640px)')
+const session = useSession()
+const owner = session.capture()
+const sessionChanged = computed(() => !session.owns(owner))
 const draft = reactive(menuDraft())
 const initial = ref('')
 const pending = ref(false)
@@ -40,6 +45,16 @@ const submitted = ref(false)
 const usedPermission = ref('')
 const touched = reactive<Record<string, boolean>>({})
 const discardOpen = ref(false)
+const discardPrompt = ref<HTMLElement | null>(null)
+let discardTrigger: HTMLElement | null = null
+watch(discardOpen, (open) => {
+  if (open) discardPrompt.value?.focus()
+}, { flush: 'post' })
+function requestDiscard() {
+  if (discardOpen.value) return
+  discardTrigger = typeof document === 'undefined' ? null : document.activeElement as HTMLElement | null
+  discardOpen.value = true
+}
 const destination = ref<string | null>(null)
 const dirty = computed(
   () => props.open && props.mode !== 'view' && JSON.stringify(draft) !== initial.value,
@@ -79,7 +94,10 @@ const metadataFlags = [
 watch(
   () => props.open,
   (open) => {
-    if (!open) return
+    if (!open) {
+      cancelDiscard()
+      return
+    }
     Object.assign(draft, menuDraft(props.mode === 'create' ? null : props.node))
     initial.value = JSON.stringify(draft)
     requestFailure.value = ''
@@ -91,12 +109,14 @@ watch(
 )
 function close() {
   if (pending.value) return
-  if (dirty.value) discardOpen.value = true
+  if (dirty.value) requestDiscard()
   else emit('update:open', false)
 }
 function cancelDiscard() {
   discardOpen.value = false
   destination.value = null
+  discardTrigger?.focus()
+  discardTrigger = null
 }
 async function discard() {
   const target = destination.value
@@ -104,19 +124,19 @@ async function discard() {
   initial.value = JSON.stringify(draft)
   emit('update:open', false)
   await nextTick()
-  if (target === '/login') await useSession().signOut()
+  if (target === '/login') await session.signOut(false, null, undefined, owner ?? undefined)
   else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
-  if (useSession().state.value.invalidated) return true
+  if (session.state.value.invalidated) return true
   if (pending.value) return false
   if (!dirty.value) return true
   destination.value = to.fullPath
-  discardOpen.value = true
+  requestDiscard()
   return false
 })
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (!useSession().state.value.invalidated && (dirty.value || pending.value)) {
+  if (!session.state.value.invalidated && (dirty.value || pending.value)) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -124,10 +144,12 @@ function beforeUnload(event: BeforeUnloadEvent) {
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 async function reread() {
-  if (pending.value) return
+  if (!owner || !session.owns(owner) || pending.value) return
   pending.value = true
   try {
-    emit('read', managedMenus(await getUserRoutes()))
+    const tree = managedMenus(await withSessionOwner(owner, getUserRoutes))
+    if (!session.owns(owner)) return
+    emit('read', tree)
     emit('update:open', false)
   } catch {
     readFailed.value = true
@@ -136,33 +158,39 @@ async function reread() {
   }
 }
 async function save() {
-  if (pending.value || props.awaitingRead || props.mode === 'view') return
+  if (!owner || !session.owns(owner) || discardOpen.value || pending.value || props.awaitingRead || props.mode === 'view') return
   if (props.mode === 'edit' && (!dirty.value || !props.node)) return
   submitted.value = true
   const first = Object.keys(errors.value)[0]
   if (first) {
+    await nextTick()
     const radio = first === 'type' || first === 'status'
     document.querySelector<HTMLElement>(`#menu-${first}${radio ? ' button' : ''}`)?.focus()
     return
   }
   pending.value = true
   requestFailure.value = ''
+  let writeStarted = false
   let accepted = false
   try {
     const current = props.mode === 'edit' ? props.node : null
     const payload = menuPayload(draft, props.tree, current, props.parent)
     if (
       !current &&
-      managedRoles(await getRoleList()).some((role) =>
+      managedRoles(await withSessionOwner(owner, getRoleList)).some((role) =>
         role.permissions.includes(payload.permission),
       )
     ) {
       usedPermission.value = payload.permission
       return
     }
-    menuWriteSucceeded(await (current ? editRouter(payload) : addRouter(payload)))
+    if (!session.owns(owner)) return
+    writeStarted = true
+    menuWriteSucceeded(await withSessionOwner(owner, () => current ? editRouter(payload) : addRouter(payload)))
     accepted = true
-    const tree = managedMenus(await getUserRoutes())
+    if (!session.owns(owner)) return
+    const tree = managedMenus(await withSessionOwner(owner, getUserRoutes))
+    if (!session.owns(owner)) return
     const saved = menuRows(tree).find(({ node }) =>
       current
         ? node.id === current.id
@@ -177,7 +205,8 @@ async function save() {
     initial.value = JSON.stringify(draft)
     emit('saved', tree)
   } catch (error) {
-    if (accepted) {
+    if (!session.owns(owner)) return
+    if (accepted || (writeStarted && mutationResultUnknown(error))) {
       initial.value = JSON.stringify(draft)
       emit('unconfirmed')
     } else requestFailure.value = mutationError(error, '保存', '路由名称或权限标识发生冲突，请核对后重试。')
@@ -206,10 +235,12 @@ async function save() {
       class="w-full! shadow-panel sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
       @pointer-down-outside.prevent
       @interact-outside.prevent
+      @close-auto-focus="emit('closeAutoFocus', $event)"
       @escape-key-down="
         (event) => {
           event.preventDefault()
-          close()
+          if (discardOpen) cancelDiscard()
+          else close()
         }
       "
     >
@@ -228,6 +259,25 @@ async function save() {
         @click="close"
         ><HugeiconsIcon :icon="Cancel01Icon" aria-hidden="true"
       /></UiButton>
+      <div
+        v-if="discardOpen"
+        ref="discardPrompt"
+        tabindex="-1"
+        role="group"
+        aria-label="放弃未保存的修改？"
+        class="mx-4 mt-3 shrink-0 space-y-2 rounded-md border border-border bg-muted p-3"
+        @keydown.esc.stop.prevent="cancelDiscard"
+      >
+        <p class="text-sm font-medium">放弃未保存的修改？</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <UiButton type="button" variant="ghost" class="text-destructive hover:text-destructive"
+            @click="discard">放弃修改</UiButton>
+          <UiButton type="button" variant="secondary" @click="cancelDiscard">继续编辑</UiButton>
+        </div>
+      </div>
+      <UiAlert v-if="sessionChanged && mode !== 'view'" variant="destructive" role="alert" class="mx-4 mt-3 w-auto shrink-0">
+        <UiAlertDescription>{{ sessionChangedMessage }}</UiAlertDescription>
+      </UiAlert>
       <div v-if="mode === 'view' && node" class="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
         <dl class="grid grid-cols-2 gap-5 text-sm">
           <div
@@ -316,7 +366,7 @@ async function save() {
             readFailed ? '重新读取失败，请稍后重试。' : '请重新读取菜单，并核对最终配置。'
           }}</UiAlertDescription>
           <UiButton type="button" variant="outline" size="sm" class="mt-2 text-foreground"
-            :disabled="pending" @click="reread">重新读取菜单</UiButton>
+            :aria-disabled="pending || sessionChanged" @click="reread">重新读取菜单</UiButton>
         </UiAlert>
         <section class="space-y-4" aria-label="菜单资料">
           <h3 class="text-sm font-medium">菜单资料</h3>
@@ -344,13 +394,13 @@ async function save() {
               "
               @blur="touched[field.key] = true"
             />
-            <p
+            <UiFieldError
               v-if="(submitted || touched[field.key]) && errors[field.key]"
               :id="`menu-${field.key}-error`"
               class="text-xs text-destructive"
             >
               {{ errors[field.key] }}
-            </p>
+            </UiFieldError>
           </UiField>
           <UiField
             ><UiFieldLabel as="span">类型</UiFieldLabel
@@ -373,9 +423,9 @@ async function save() {
                   :disabled="option.value === 'F' && Boolean(node?.children.length)" />{{ option.label }}</label
               >
             </UiRadioGroup>
-            <p v-if="submitted && errors.type" class="text-xs text-destructive">
+            <UiFieldError v-if="submitted && errors.type" class="text-xs text-destructive">
               {{ errors.type }}
-            </p></UiField
+            </UiFieldError></UiField
           >
           <UiField
             ><UiFieldLabel as="span">状态</UiFieldLabel
@@ -391,9 +441,9 @@ async function save() {
                 ><UiRadioGroupItem value="0" />停用</label
               ></UiRadioGroup
             >
-            <p v-if="submitted && errors.status" class="text-xs text-destructive">
+            <UiFieldError v-if="submitted && errors.status" class="text-xs text-destructive">
               {{ errors.status }}
-            </p></UiField
+            </UiFieldError></UiField
           >
           <UiField
             ><UiFieldLabel for="menu-order">排序</UiFieldLabel
@@ -405,9 +455,9 @@ async function save() {
               :aria-invalid="Boolean((submitted || touched.order) && errors.order)"
               @blur="touched.order = true"
             />
-            <p v-if="(submitted || touched.order) && errors.order" class="text-xs text-destructive">
+            <UiFieldError v-if="(submitted || touched.order) && errors.order" class="text-xs text-destructive">
               {{ errors.order }}
-            </p></UiField
+            </UiFieldError></UiField
           >
         </section>
         <section v-for="group in [
@@ -430,9 +480,9 @@ async function save() {
               :aria-invalid="Boolean((submitted || touched[field.key]) && errors[field.key])"
               @blur="touched[field.key] = true"
             />
-            <p v-if="(submitted || touched[field.key]) && errors[field.key]" class="text-xs text-destructive">
+            <UiFieldError v-if="(submitted || touched[field.key]) && errors[field.key]" class="text-xs text-destructive">
               {{ errors[field.key] }}
-            </p>
+            </UiFieldError>
           </UiField>
           <template v-if="group.fields === routeFields">
             <fieldset class="space-y-3 rounded-lg border border-border p-4">
@@ -461,9 +511,9 @@ async function save() {
           /></UiField>
         </div>
       </form>
-      <p v-if="requestFailure" role="alert" class="shrink-0 px-6 text-sm text-destructive">
-        {{ requestFailure }}填写内容已保留。
-      </p>
+      <UiAlert v-if="requestFailure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">
+        <UiAlertDescription><p>{{ requestFailure }}</p><p>填写内容已保留。</p></UiAlertDescription>
+      </UiAlert>
       <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border">
         <UiButton variant="outline" :disabled="pending" @click="close">{{
           mode === 'view' ? '关闭' : '取消'
@@ -472,33 +522,10 @@ async function save() {
           v-if="mode !== 'view'"
           type="submit"
           form="menu-panel-form"
-          :disabled="pending || awaitingRead || (mode === 'edit' && !dirty)"
+          :aria-disabled="pending || sessionChanged || discardOpen || awaitingRead || (mode === 'edit' && !dirty)"
           >{{ pending ? '正在保存…' : mode === 'create' ? '创建菜单' : '保存更改' }}</UiButton
         >
       </UiSheetFooter>
     </UiSheetContent>
   </UiSheet>
-  <UiDialog
-    :open="discardOpen"
-    @update:open="
-      (value) => {
-        if (!value) cancelDiscard()
-      }
-    "
-    ><UiDialogContent
-      :show-close-button="false"
-      class="top-[38.2%]! sm:max-w-[400px]!"
-      @pointer-down-outside.prevent
-      @interact-outside.prevent
-      ><UiDialogHeader
-        ><UiDialogTitle>放弃未保存的修改？</UiDialogTitle
-        ><UiDialogDescription
-          >关闭后，本次填写的菜单配置不会保存。</UiDialogDescription
-        ></UiDialogHeader
-      ><UiDialogFooter
-        ><UiButton variant="outline" @click="cancelDiscard">继续编辑</UiButton
-        ><UiButton variant="outline" @click="discard">放弃修改</UiButton></UiDialogFooter
-      ></UiDialogContent
-    ></UiDialog
-  >
 </template>

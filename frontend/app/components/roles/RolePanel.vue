@@ -2,8 +2,9 @@
 import { useMediaQuery } from '@vueuse/core'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { withSessionOwner } from '@/lib/session'
 import { addRole, editRole, getRoleList, updateRoleRouters } from '@/api/auth/auth'
-import { mutationError } from '@/lib/rbac-mutations'
+import { mutationError, mutationResultUnknown, sessionChangedMessage } from '@/lib/rbac-mutations'
 import {
   canonicalSelection,
   isDefaultRole,
@@ -31,12 +32,16 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  saved: [self: boolean, rows?: ManagedRole[]]
+  closeAutoFocus: [event: Event]
+  saved: [self: boolean, rows?: ManagedRole[], createdName?: string]
   rolesRead: [rows: ManagedRole[], id: number]
   retryTree: []
   unconfirmed: []
 }>()
 const mobile = useMediaQuery('(width < 640px)')
+const session = useSession()
+const owner = session.capture()
+const sessionChanged = computed(() => !session.owns(owner))
 const current = shallowRef<ManagedRole | null>(null)
 const draft = reactive(roleDraft())
 const selected = ref<number[]>([])
@@ -48,7 +53,28 @@ const readFailed = ref(false)
 const submitted = ref(false)
 const nameTouched = ref(false)
 const discardOpen = ref(false)
+const discardPrompt = ref<HTMLElement | null>(null)
+let discardTrigger: HTMLElement | null = null
+watch(discardOpen, (open) => {
+  if (open) discardPrompt.value?.focus()
+}, { flush: 'post' })
+function requestDiscard() {
+  if (discardOpen.value) return
+  if (clearOpen.value) cancelClear()
+  discardTrigger = typeof document === 'undefined' ? null : document.activeElement as HTMLElement | null
+  discardOpen.value = true
+}
 const clearOpen = ref(false)
+const clearPrompt = ref<HTMLElement | null>(null)
+let clearTrigger: HTMLElement | null = null
+watch(clearOpen, (open) => {
+  if (open) clearPrompt.value?.focus()
+}, { flush: 'post' })
+function cancelClear() {
+  clearOpen.value = false
+  clearTrigger?.focus()
+  clearTrigger = null
+}
 const destination = ref<string | null>(null)
 const title = computed(
   () => ({ view: '角色详情', create: '新增角色', edit: '编辑角色', grant: '菜单授权' })[props.mode],
@@ -59,7 +85,7 @@ const errors = computed(() => roleErrors(draft))
 const missing = computed(() =>
   current.value ? unrepresentedGrants(current.value, props.tree) : [],
 )
-const self = computed(() => current.value?.id === props.actorRoleId)
+const self = computed(() => !!current.value && current.value.id === props.actorRoleId)
 const grantBlocked = computed(
   () =>
     props.treeUnavailable ||
@@ -91,39 +117,47 @@ watch(
   () => props.open,
   (open) => {
     if (open) initialize(props.role)
+    else {
+      cancelDiscard()
+      clearOpen.value = false
+    }
   },
 )
 function close() {
   if (pending.value) return
-  if (dirty.value) discardOpen.value = true
+  if (dirty.value) requestDiscard()
   else emit('update:open', false)
 }
 function escape(event: Event) {
   event.preventDefault()
-  close()
+  if (discardOpen.value) cancelDiscard()
+  else if (clearOpen.value) cancelClear()
+  else close()
 }
 function cancelDiscard() {
   discardOpen.value = false
   destination.value = null
+  discardTrigger?.focus()
+  discardTrigger = null
 }
 async function discard() {
   const target = destination.value
   cancelDiscard()
   emit('update:open', false)
   await nextTick()
-  if (target === '/login') await useSession().signOut()
+  if (target === '/login') await session.signOut(false, null, undefined, owner ?? undefined)
   else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
-  if (useSession().state.value.invalidated) return true
+  if (session.state.value.invalidated) return true
   if (pending.value) return false
   if (!dirty.value) return true
   destination.value = to.fullPath
-  discardOpen.value = true
+  requestDiscard()
   return false
 })
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (!useSession().state.value.invalidated && (dirty.value || pending.value)) {
+  if (!session.state.value.invalidated && (dirty.value || pending.value)) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -131,19 +165,21 @@ function beforeUnload(event: BeforeUnloadEvent) {
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 function toggle(id: number, checked: boolean) {
-  if (!pending.value && !grantBlocked.value)
+  if (session.owns(owner) && !pending.value && !grantBlocked.value && !discardOpen.value && !clearOpen.value)
     selected.value = togglePermission(props.tree, selected.value, id, checked)
 }
 
 async function reloadRole() {
-  if (!current.value || pending.value) return
+  if (!owner || !session.owns(owner) || !current.value || pending.value) return
   pending.value = true
   try {
-    const rows = managedRoles(await getRoleList())
+    const rows = managedRoles(await withSessionOwner(owner, getRoleList))
+    if (!session.owns(owner)) return
     const role = rows.find((row) => row.id === current.value?.id)
-    if (!role) throw new Error('Role missing')
-    initialize(role)
-    emit('rolesRead', rows, role.id)
+    const id = current.value.id
+    initialize(role ?? null)
+    emit('rolesRead', rows, id)
+    if (!role) emit('update:open', false)
   } catch {
     readFailed.value = true
   } finally {
@@ -152,12 +188,14 @@ async function reloadRole() {
 }
 async function save(confirmedClear = false) {
   if (
+    !owner || !session.owns(owner) || discardOpen.value || clearOpen.value ||
     pending.value || props.locked || props.mode === 'view' ||
     (props.mode !== 'create' && !dirty.value)
   ) return
   submitted.value = true
   if (props.mode !== 'grant' && Object.keys(errors.value).length) {
     const first = Object.keys(errors.value)[0]
+    await nextTick()
     document
       .querySelector<HTMLElement>(
         first === 'roleName'
@@ -176,6 +214,7 @@ async function save(confirmedClear = false) {
       hadPermissions.value &&
       !selectionPermissions(props.tree, selected.value).length
     ) {
+      clearTrigger = document.activeElement as HTMLElement | null
       clearOpen.value = true
       return
     }
@@ -187,13 +226,15 @@ async function save(confirmedClear = false) {
     if (props.mode === 'grant' && current.value) {
       const expected = selectionPermissions(props.tree, selected.value)
       roleWriteSucceeded(
-        await updateRoleRouters({
-          roleId: current.value.id,
+        await withSessionOwner(owner, () => updateRoleRouters({
+          roleId: current.value!.id,
           routerIds: canonicalSelection(props.tree, selected.value),
-        }),
+        })),
       )
       grantAccepted = true
-      const rows = managedRoles(await getRoleList())
+      if (!session.owns(owner)) return
+      const rows = managedRoles(await withSessionOwner(owner, getRoleList))
+      if (!session.owns(owner)) return
       const updated = rows.find((role) => role.id === current.value?.id)
       if (!updated || JSON.stringify([...updated.permissions].sort()) !== JSON.stringify(expected))
         throw new Error('Grant read-back mismatch')
@@ -201,17 +242,21 @@ async function save(confirmedClear = false) {
       emit('saved', self.value, rows)
     } else {
       const payload = rolePayload(draft, props.mode === 'create' ? null : current.value)
-      roleWriteSucceeded(await (props.mode === 'create' ? addRole(payload) : editRole(payload)))
+      roleWriteSucceeded(await withSessionOwner(owner, () =>
+        props.mode === 'create' ? addRole(payload) : editRole(payload),
+      ))
+      if (!session.owns(owner)) return
       initial.value = serialize()
-      emit('saved', props.mode === 'edit' && self.value)
+      emit('saved', props.mode === 'edit' && self.value, undefined, props.mode === 'create' ? payload.roleName : undefined)
     }
   } catch (error) {
-    if (grantAccepted) {
+    if (!session.owns(owner)) return
+    if (props.mode === 'grant' && (grantAccepted || mutationResultUnknown(error))) {
       initial.value = serialize()
       emit('unconfirmed')
       if (self.value) {
         pending.value = false
-        await useSession().signOut(true)
+        await session.signOut(true, null, undefined, owner)
       }
     } else requestFailure.value = mutationError(error, '保存')
   } finally {
@@ -219,7 +264,8 @@ async function save(confirmedClear = false) {
   }
 }
 async function confirmClear() {
-  clearOpen.value = false
+  if (!clearOpen.value || discardOpen.value) return
+  cancelClear()
   await save(true)
 }
 </script>
@@ -239,6 +285,7 @@ async function confirmClear() {
       class="w-full! shadow-panel sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
       @pointer-down-outside.prevent
       @interact-outside.prevent
+      @close-auto-focus="emit('closeAutoFocus', $event)"
       @escape-key-down="escape"
     >
       <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-14"
@@ -257,6 +304,41 @@ async function confirmClear() {
         @click="close"
         ><HugeiconsIcon :icon="Cancel01Icon" aria-hidden="true"
       /></UiButton>
+      <div
+        v-if="discardOpen"
+        ref="discardPrompt"
+        tabindex="-1"
+        role="group"
+        aria-label="放弃未保存的修改？"
+        class="mx-4 mt-3 shrink-0 space-y-2 rounded-md border border-border bg-muted p-3"
+        @keydown.esc.stop.prevent="cancelDiscard"
+      >
+        <p class="text-sm font-medium">放弃未保存的修改？</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <UiButton type="button" variant="ghost" class="text-destructive hover:text-destructive"
+            @click="discard">放弃修改</UiButton>
+          <UiButton type="button" variant="secondary" @click="cancelDiscard">继续编辑</UiButton>
+        </div>
+      </div>
+      <div
+        v-if="clearOpen"
+        ref="clearPrompt"
+        tabindex="-1"
+        role="group"
+        aria-label="确认清空授权"
+        class="mx-4 mt-3 shrink-0 space-y-2 rounded-md border border-border bg-muted p-3"
+        @keydown.esc.stop.prevent="cancelClear"
+      >
+        <p class="text-sm font-medium">清空「{{ current?.roleName }}」的授权？</p>
+        <p class="text-sm">该角色将失去全部菜单与操作授权。</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <UiButton type="button" variant="secondary" @click="cancelClear">取消</UiButton>
+          <UiButton type="button" variant="destructive" @click="confirmClear">清空授权</UiButton>
+        </div>
+      </div>
+      <UiAlert v-if="sessionChanged && mode !== 'view'" variant="destructive" role="alert" class="mx-4 mt-3 w-auto shrink-0">
+        <UiAlertDescription>{{ sessionChangedMessage }}</UiAlertDescription>
+      </UiAlert>
       <div v-if="mode === 'view' && current" class="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
         <dl class="grid grid-cols-2 gap-5 text-sm">
           <div>
@@ -317,12 +399,12 @@ async function confirmClear() {
               variant="outline"
               size="sm"
               class="mt-2 text-foreground"
-              :disabled="pending"
+              :aria-disabled="pending || sessionChanged"
               @click="reloadRole"
               >重新读取角色</UiButton
             ></UiAlert
           >
-          <UiAlert v-if="treeUnavailable" role="alert"
+          <UiAlert v-if="treeUnavailable" variant="destructive" role="alert"
             ><UiAlertTitle>菜单列表暂不可用</UiAlertTitle
             ><UiAlertDescription>请重新读取菜单后再配置授权。</UiAlertDescription
             ><UiButton
@@ -334,7 +416,7 @@ async function confirmClear() {
               >重新读取菜单</UiButton
             ></UiAlert
           >
-          <UiAlert v-else-if="missing.length" role="alert"
+          <UiAlert v-else-if="missing.length" variant="destructive" role="alert"
             class="border-status-warning/40 bg-status-warning-surface text-status-warning-foreground"
             ><UiAlertTitle>部分现有权限无法在菜单中匹配</UiAlertTitle
             ><UiAlertDescription class="text-inherit"
@@ -383,13 +465,13 @@ async function confirmClear() {
             <p v-if="isDefaultRole(current)" class="text-xs text-muted-foreground">
               系统默认角色名称固定。
             </p>
-            <p
+            <UiFieldError
               v-if="(submitted || nameTouched) && errors.roleName"
               id="role-name-error"
               class="text-xs text-destructive"
             >
               {{ errors.roleName }}
-            </p></UiField
+            </UiFieldError></UiField
           >
           <UiField
             ><UiFieldLabel as="span">状态</UiFieldLabel
@@ -405,9 +487,9 @@ async function confirmClear() {
                 ><UiRadioGroupItem value="0" />停用</label
               ></UiRadioGroup
             >
-            <p v-if="submitted && errors.status" class="text-xs text-destructive">
+            <UiFieldError v-if="submitted && errors.status" class="text-xs text-destructive">
               {{ errors.status }}
-            </p></UiField
+            </UiFieldError></UiField
           >
           <UiField
             ><UiFieldLabel for="role-remark">备注</UiFieldLabel
@@ -418,15 +500,15 @@ async function confirmClear() {
               class="min-h-24"
               :disabled="pending"
             />
-            <p v-if="submitted && errors.remark" class="text-xs text-destructive">
+            <UiFieldError v-if="submitted && errors.remark" class="text-xs text-destructive">
               {{ errors.remark }}
-            </p></UiField
+            </UiFieldError></UiField
           >
         </template>
       </form>
-      <p v-if="requestFailure" role="alert" class="shrink-0 px-6 text-sm text-destructive">
-        {{ requestFailure }}填写内容已保留。
-      </p>
+      <UiAlert v-if="requestFailure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">
+        <UiAlertDescription><p>{{ requestFailure }}</p><p>填写内容已保留。</p></UiAlertDescription>
+      </UiAlert>
       <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border"
         ><UiButton variant="outline" :disabled="pending" @click="close">{{
           mode === 'view' ? '关闭' : '取消'
@@ -435,8 +517,8 @@ async function confirmClear() {
           v-if="mode !== 'view'"
           form="role-panel-form"
           type="submit"
-          :disabled="
-            pending || locked || (mode === 'grant' && grantBlocked) || (mode !== 'create' && !dirty)
+          :aria-disabled="
+            pending || sessionChanged || discardOpen || clearOpen || locked || (mode === 'grant' && grantBlocked) || (mode !== 'create' && !dirty)
           "
           >{{
             pending
@@ -451,50 +533,4 @@ async function confirmClear() {
       >
     </UiSheetContent>
   </UiSheet>
-  <UiDialog
-    :open="discardOpen"
-    @update:open="
-      (value) => {
-        if (!value) cancelDiscard()
-      }
-    "
-    ><UiDialogContent
-      :show-close-button="false"
-      class="top-[38.2%]! sm:max-w-[400px]!"
-      @pointer-down-outside.prevent
-      @interact-outside.prevent
-      ><UiDialogHeader
-        ><UiDialogTitle>放弃未保存的修改？</UiDialogTitle
-        ><UiDialogDescription
-          >关闭后，本次填写与勾选的内容不会保存。</UiDialogDescription
-        ></UiDialogHeader
-      ><UiDialogFooter
-        ><UiButton variant="outline" @click="cancelDiscard">继续编辑</UiButton
-        ><UiButton variant="outline" @click="discard">放弃修改</UiButton></UiDialogFooter
-      ></UiDialogContent
-    ></UiDialog
-  >
-  <UiDialog
-    :open="clearOpen"
-    @update:open="
-      (value) => {
-        if (!pending) clearOpen = value
-      }
-    "
-    ><UiDialogContent
-      :show-close-button="false"
-      class="top-[38.2%]! sm:max-w-[400px]!"
-      @pointer-down-outside.prevent
-      @interact-outside.prevent
-      ><UiDialogHeader
-        ><UiDialogTitle class="break-all">清空「{{ current?.roleName }}」的授权？</UiDialogTitle
-        ><UiDialogDescription
-          >该角色将失去全部菜单与操作授权。保存后无法在此撤销，请确认影响范围。</UiDialogDescription
-        ></UiDialogHeader
-      ><UiDialogFooter
-        ><UiButton variant="outline" @click="clearOpen = false">取消</UiButton
-        ><UiButton variant="destructive" @click="confirmClear">清空授权</UiButton></UiDialogFooter
-      ></UiDialogContent
-    ></UiDialog
-  >
 </template>

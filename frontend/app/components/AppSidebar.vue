@@ -1,19 +1,28 @@
 <script setup lang="ts">
-import { ChartHistogramIcon, Home01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/vue'
 import type { SidebarProps } from '@/components/ui/sidebar'
 import { useSidebar } from '@/components/ui/sidebar'
-import { navigationMenus } from '@/lib/session'
+import { navigationMenus, type MenuItem } from '@/lib/session'
 
 const props = withDefaults(defineProps<SidebarProps>(), { collapsible: 'icon' })
 const { state: session } = useSession()
-const route = useRoute()
 const { setOpenMobile } = useSidebar()
-const workspace = [
-  { path: '/console', title: '工作台', icon: Home01Icon },
-  { path: '/recruitment', title: '招聘数据分析', icon: ChartHistogramIcon },
+const workspace: MenuItem[] = [
+  { path: '/console', title: '工作台', children: [] },
+  { path: '/recruitment', title: '招聘数据分析', icon: 'ChartHistogramIcon', children: [] },
 ]
-const menus = computed(() => navigationMenus(session.value.menus))
+const menus = computed(() => {
+  const seen = new Set(workspace.map((item) => item.path))
+  function uniqueMenus(items: MenuItem[]): MenuItem[] {
+    return items.flatMap((item) => {
+      const duplicate = item.path !== null && seen.has(item.path)
+      if (item.path) seen.add(item.path)
+      const children = uniqueMenus(item.children)
+      if (duplicate) return children
+      return item.path || children.length ? [{ ...item, children }] : []
+    })
+  }
+  return uniqueMenus(navigationMenus(session.value.menus))
+})
 </script>
 
 <template>
@@ -29,42 +38,17 @@ const menus = computed(() => navigationMenus(session.value.menus))
         </UiSidebarMenuItem>
       </UiSidebarMenu>
     </UiSidebarHeader>
-    <UiSidebarContent aria-label="控制台导航" class="py-2">
-      <UiSidebarGroup role="group" aria-labelledby="workspace-label">
-        <UiSidebarGroupLabel id="workspace-label" class="font-medium text-muted-foreground">
-          工作空间
-        </UiSidebarGroupLabel>
-        <UiSidebarMenu class="gap-1">
-          <UiSidebarMenuItem v-for="item in workspace" :key="item.path">
-            <UiSidebarMenuButton
-              as-child
-              :tooltip="item.title"
-              :is-active="route.path === item.path"
-              class="h-9 text-sm"
-            >
-              <NuxtLink
-                :to="item.path"
-                :aria-current="route.path === item.path ? 'page' : undefined"
-                @click="setOpenMobile(false)"
-              >
-                <HugeiconsIcon :icon="item.icon" aria-hidden="true" />
-                <span class="group-data-[collapsible=icon]:sr-only">{{ item.title }}</span>
-              </NuxtLink>
-            </UiSidebarMenuButton>
-          </UiSidebarMenuItem>
-        </UiSidebarMenu>
-      </UiSidebarGroup>
-      <NavMain :items="menus" />
+    <UiSidebarContent as="nav" aria-label="控制台导航" class="py-2">
+      <NavMain label="工作空间" :items="workspace" />
+      <NavMain label="控制台功能" :items="menus" />
     </UiSidebarContent>
     <UiSidebarFooter class="border-t border-sidebar-border">
-      <div class="flex items-center justify-between gap-2">
-        <ThemeToggle class="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
-        <kbd
-          class="hidden rounded-sm border border-sidebar-border px-1.5 py-0.5 text-[0.625rem] text-muted-foreground md:inline-block group-data-[collapsible=icon]:hidden"
-        >
+      <p class="hidden items-center justify-between gap-2 px-2 text-xs text-muted-foreground md:flex group-data-[collapsible=icon]:hidden">
+        切换侧栏
+        <kbd title="侧栏快捷键：Mac 按 ⌘B，其他平台按 Ctrl+B" class="rounded-sm border border-sidebar-border px-1.5 py-0.5">
           ⌘B / Ctrl+B
         </kbd>
-      </div>
+      </p>
       <NavUser v-if="session.user" :user="session.user" />
     </UiSidebarFooter>
     <UiSidebarRail />

@@ -15,14 +15,14 @@ export const analysisStatusTones = {
   unparsed: 'neutral',
   legacy_unverified: 'warning',
   pending: 'neutral',
-  running: 'neutral',
+  running: 'info',
   complete: 'success',
   no_evidence: 'success',
   needs_review: 'warning',
   failed: 'danger',
   stale: 'warning',
   unknown: 'neutral',
-} as const satisfies Record<AnalysisStatus, 'success' | 'warning' | 'danger' | 'neutral'>
+} as const satisfies Record<AnalysisStatus, 'success' | 'warning' | 'danger' | 'neutral' | 'info'>
 
 function analysisStatus(value: unknown): AnalysisStatus {
   return typeof value === 'string' && Object.hasOwn(analysisStatusLabels, value)
@@ -39,6 +39,15 @@ export interface AnalysisFilter {
   x: string
   y: string
 }
+
+export const defaultAnalysisFilter = {
+  city: 'all',
+  position: 'all',
+  x: 'salary_value',
+  y: 'degree_value',
+} as const satisfies AnalysisFilter
+export const samplePageSizes = [10, 20, 50] as const
+export const defaultSampleSize = 20
 
 export function sameAnalysisFilter(first: AnalysisFilter, second: AnalysisFilter) {
   return first.city === second.city && first.position === second.position &&
@@ -112,6 +121,41 @@ export function safeCity(value: string) {
   return Boolean(value && value.length <= 255 && !/['\\\u0000-\u001f\u007f]/u.test(value))
 }
 
+export function recruitmentQueryCity(value: unknown, cities: string[]) {
+  if (typeof value === 'string' && safeCity(value) && (value === 'all' || cities.includes(value))) {
+    return value
+  }
+}
+
+export function readRecruitmentQuery(query: Record<string, unknown>, cities: string[], positions: string[]) {
+  const defaults = defaultAnalysisFilter
+  const city = recruitmentQueryCity(query.city, cities)
+  const position = typeof query.position === 'string' && (query.position === 'all' || positions.includes(query.position))
+    ? query.position : undefined
+  const x = analysisAxes.find((axis) => axis.value === query.x)?.value
+  const y = analysisAxes.find((axis) => axis.value === query.y)?.value
+  const page = typeof query.page === 'string' && /^[1-9]\d*$/.test(query.page) ? Number(query.page) : NaN
+  const validPage = Number.isSafeInteger(page)
+  const size = samplePageSizes.find((value) => String(value) === query.size)
+  if (!city && !position && x === y && !validPage && size === undefined) return null
+
+  const sameAxis = x !== undefined && x === y
+  return {
+    filter: {
+      city: city ?? defaults.city,
+      position: position ?? defaults.position,
+      x: sameAxis ? defaults.x : x ?? (y === defaults.x ? defaults.y : defaults.x),
+      y: sameAxis ? defaults.y : y ?? (x === defaults.y ? defaults.x : defaults.y),
+    },
+    page: validPage ? page : 1,
+    size: size ?? defaultSampleSize,
+  }
+}
+
+export function formatSampleSalary(value: string | null) {
+  return value?.replace(/(\d)\s*K\b/g, '$1 K') ?? '—'
+}
+
 const degreeLabels = ['不限', '初中', '高中/中专', '大专', '本科', '硕士', '博士']
 const experienceTicks = [0, 1, 2, 4, 7, 10]
 
@@ -129,8 +173,7 @@ export function degreeLabel(value: number) {
 }
 export function analysisQuery(filter: AnalysisFilter, cities: string[], positions: string[]) {
   if (
-    !safeCity(filter.city) ||
-    (filter.city !== 'all' && !cities.includes(filter.city)) ||
+    !recruitmentQueryCity(filter.city, cities) ||
     (filter.position !== 'all' && !positions.includes(filter.position)) ||
     !analysisAxes.some((axis) => axis.value === filter.x) ||
     !analysisAxes.some((axis) => axis.value === filter.y) ||

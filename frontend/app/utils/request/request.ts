@@ -1,6 +1,26 @@
 import axios from 'axios'
-import { loginLocation } from '../../lib/session.ts'
-import type { Request } from '@/utils/request/request.d'
+import { loginLocation, ownsSession, requestSessionOwner } from '../../lib/session.ts'
+import type { SessionOwner } from '../../lib/session.ts'
+import type { Request, RequestFailure } from '@/utils/request/request.d'
+
+const owners = new WeakMap<object, SessionOwner>()
+
+export function requestFailure(status: number | undefined, data: unknown, message?: string): RequestFailure {
+  const body = data && typeof data === 'object' && 'message' in data ? data.message : undefined
+  const businessRejection = data && typeof data === 'object' && 'code' in data &&
+    typeof data.code === 'number' && data.code !== 200
+  const empty = data == null || (typeof data === 'string' && !data.trim())
+  const resultUnknown = status === undefined || (!businessRejection && (
+    status === 408 || status === 502 || status === 504 ||
+    (empty && (status < 400 || status >= 500))
+  ))
+  return {
+    code: status ?? 500,
+    message: (typeof body === 'string' ? body : message) || '请求失败',
+    data,
+    resultUnknown,
+  }
+}
 
 // 创建一个 axios 实例
 const service = axios.create({
@@ -17,7 +37,7 @@ service.interceptors.request.use(
   (config) => {
     // Authentication uses browser storage; server-side callers must use a server-aware client.
     if (typeof window === 'undefined') {
-      return Promise.reject(new Error('The API client requires a browser session'))
+      throw new Error('The API client requires a browser session')
     }
 
     // 排除无需鉴权的接口（登录、注册、发送注册验证码、注销等）
@@ -29,13 +49,15 @@ service.interceptors.request.use(
     ];
     const isPublicPath = publicPaths.some(path => config.url?.endsWith(path));
 
-    const token = localStorage.getItem('token');
+    const owner = requestSessionOwner()
+    const token = owner.token
+    owners.set(config, owner)
 
     // 如果不是公开路径且没有token，直接拒绝请求
     if (!isPublicPath && !token) {
       const target = loginLocation(`${window.location.pathname ?? ''}${window.location.search ?? ''}${window.location.hash ?? ''}`);
       window.location.href = `/login?${new URLSearchParams(target.query)}`;
-      return Promise.reject('No token available');
+      throw new Error('No token available')
     }
 
     // 添加token到请求头
@@ -44,39 +66,28 @@ service.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    console.error(error)
-    return Promise.reject(error)
-  },
+  (error) => { throw error },
+  { synchronous: true },
 )
 
 // 响应拦截器
 service.interceptors.response.use(
   (response) => {
-    if (response.status === 200) {
+    if (response.status === 200 && !requestFailure(200, response.data).resultUnknown) {
       return response.data?.data ?? (response.data as Request<unknown>)
-    } else {
-      return Promise.reject({
-        code: response.status,
-        message: response.data?.message || '请求失败',
-        data: response.data,
-      })
     }
+    return Promise.reject(requestFailure(response.status, response.data))
   },
   (error) => {
-    const token = typeof window === 'undefined' ? null : localStorage.getItem('token')
     const isLogout = error.config?.url?.endsWith('/api/auth/logout')
-    if (!isLogout && error.response?.status === 401 && token &&
-        error.config?.headers?.Authorization === `Bearer ${token}`) {
+    const owner = error.config && owners.get(error.config)
+    if (!isLogout && error.response?.status === 401 && owner?.token &&
+        error.config.headers?.Authorization === `Bearer ${owner.token}` && ownsSession(owner)) {
       localStorage.removeItem('token')
       // 触发全局登出逻辑；注销请求自行处理失败，避免与登录页跳转竞争
       window.dispatchEvent(new CustomEvent('unauthorized'))
     }
-    return Promise.reject({
-      code: error.response?.status || 500,
-      message: error.response?.data?.message || error.message,
-      data: error.response?.data,
-    })
+    return Promise.reject(requestFailure(error.response?.status, error.response?.data, error.message))
   },
 )
 export default service

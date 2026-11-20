@@ -15,6 +15,7 @@ const label = computed(() => theme.value === 'dark' ? '切换到浅色主题' : 
     :title="label"
     @click="toggleTheme"
   >
-    <HugeiconsIcon :icon="theme === 'dark' ? Sun01Icon : Moon02Icon" aria-hidden="true" />
+    <HugeiconsIcon :icon="Sun01Icon" class="hidden dark:block" aria-hidden="true" />
+    <HugeiconsIcon :icon="Moon02Icon" class="dark:hidden" aria-hidden="true" />
   </UiButton>
 </template>

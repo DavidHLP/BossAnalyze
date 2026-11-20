@@ -8,14 +8,14 @@ const number = new Intl.NumberFormat('zh-CN')
 </script>
 
 <template>
-  <UiCard class="min-w-0 shadow-panel">
+  <UiCard class="min-w-0">
     <UiCardHeader>
       <h2 class="text-base font-semibold">{{ title }}</h2>
       <UiCardDescription>{{ description }}</UiCardDescription>
     </UiCardHeader>
     <UiCardContent class="space-y-4">
       <ul v-if="rows.length" class="space-y-4">
-        <li v-for="row in rows" :key="row.label" class="space-y-2">
+        <li v-for="(row, index) in rows" :key="row.label" class="space-y-2">
           <div class="flex items-center justify-between gap-3 text-sm">
             <span class="min-w-0 break-all font-medium">{{ row.label || '未知' }}</span>
             <span class="shrink-0 font-mono tabular-nums">
@@ -27,7 +27,8 @@ const number = new Intl.NumberFormat('zh-CN')
           </div>
           <div class="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
             <div
-              class="h-full rounded-full bg-chart-2"
+              class="h-full rounded-full"
+              :class="index === 0 ? 'bg-chart-1' : 'bg-chart-1/45'"
               :style="{ width: `${visitShare(row.count, total)}%` }"
             />
           </div>

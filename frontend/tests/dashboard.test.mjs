@@ -64,6 +64,25 @@ test('generation timestamps normalize cache milliseconds and retain valid string
   }
 })
 
+test('snapshot dates and hourly buckets must exist in the Gregorian calendar', () => {
+  for (const date of ['2026-02-31', '2026-02-29', '1900-02-29', '2026-04-31', '2026-13-01']) {
+    for (const suffix of ['T01:00:00', 'T01:00:00+08:00', ' 01:00:00 UTC']) {
+      assert.throws(() => dashboardSnapshot({ ...fixture, generatedAt: `${date}${suffix}` }), /Invalid/)
+    }
+    const heatMapData = { hourHeatmap: { [`${date} 01`]: { count: 0 } } }
+    assert.throws(() => dashboardSnapshot({ ...fixture, heatMapData }), /Invalid dashboard hour/)
+  }
+
+  for (const date of ['2000-02-29', '2028-02-29', '2026-04-30']) {
+    const generatedAt = `${date}T01:00:00+08:00`
+    const label = `${date} 01`
+    const heatMapData = { hourHeatmap: { [label]: { count: 0 } } }
+    const snapshot = dashboardSnapshot({ ...fixture, generatedAt, heatMapData })
+    assert.equal(snapshot.generatedAt, generatedAt)
+    assert.deepEqual(snapshot.hours, [{ label, count: 0 }])
+  }
+})
+
 test('malformed snapshots and invalid counts fail instead of implying no data', () => {
   for (const value of [undefined, {}, { overview: { totalVisits: '0', uniqueVisitors: 0 } }]) {
     assert.throws(() => dashboardSnapshot(value), /Invalid/)

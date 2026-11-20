@@ -5,7 +5,7 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 
 <template>
   <span class="inline-flex min-w-0 items-center gap-2.5">
-    <span class="grid size-8 shrink-0 place-items-center rounded-md bg-[#0284c7] text-white">
+    <span class="grid size-8 shrink-0 place-items-center rounded-md bg-accent-data text-white">
       <HugeiconsIcon :icon="Briefcase01Icon" class="size-4" aria-hidden="true" />
     </span>
     <span class="truncate font-semibold tracking-tight group-data-[collapsible=icon]:sr-only">

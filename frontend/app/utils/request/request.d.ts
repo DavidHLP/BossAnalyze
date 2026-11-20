@@ -15,3 +15,10 @@ export interface Request<T> {
   message: string
   data: T
 }
+
+export interface RequestFailure {
+  code: number
+  message: string
+  data: unknown
+  resultUnknown: boolean
+}

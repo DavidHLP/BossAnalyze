@@ -1,5 +1,5 @@
-import { createSharedComposable, useMounted, usePreferredDark, useStorage } from '@vueuse/core'
-import { resolveTheme, THEME_STORAGE_KEY } from '@/lib/theme'
+import { createSharedComposable, useMediaQuery, useMounted, useStorage } from '@vueuse/core'
+import { DARK_THEME_QUERY, resolveTheme, THEME_STORAGE_KEY } from '@/lib/theme'
 
 export const useTheme = createSharedComposable(() => {
   const preference = useStorage(THEME_STORAGE_KEY, '', undefined, {
@@ -8,15 +8,17 @@ export const useTheme = createSharedComposable(() => {
     onError: () => {}, // The toggle also works when the browser blocks storage.
   })
   const mounted = useMounted()
-  const prefersDark = usePreferredDark()
+  const prefersDark = useMediaQuery(DARK_THEME_QUERY)
   const theme = computed(() => mounted.value ? resolveTheme(preference.value, prefersDark.value) : 'light')
 
   if (import.meta.client) {
-    watch(theme, (value) => {
+    watchEffect(() => {
+      if (!mounted.value) return
+      const value = theme.value
       const root = document.documentElement
       root.classList.toggle('dark', value === 'dark')
       root.style.colorScheme = value
-    }, { immediate: true, flush: 'sync' })
+    }, { flush: 'sync' })
   }
 
   function toggleTheme() {
