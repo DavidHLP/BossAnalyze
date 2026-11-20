@@ -247,7 +247,7 @@ test('all production editor guards preserve session and draft on cancel, then co
       defineProps: () => panelProps,
       defineEmits: () => (event, value) => { if (event === 'update:open') panelProps.open = value },
       onBeforeRouteLeave: callback => { guard = callback }, onMounted() {}, onUnmounted() {},
-      navigateTo: target => router.push(target),
+      useRouter: () => router,
     }, ['draft', 'cancelDiscard', 'discard', 'discardOpen'])
     panel.draft[draftName] = 'unsaved fixture'
     const remove = router.beforeEach(guard)
@@ -428,7 +428,7 @@ test('a storage change freezes the displayed draft and requests while reload is 
   const draftProps = vue.reactive({ open: false, mode: 'create', rolesUnavailable: false })
   let writes = 0
   const panel = await scriptRuntime('components/users/UserEditor.vue', {
-    ...vue, ...users, ...sessionLib, useSession, defineProps: () => draftProps,
+    ...vue, ...users, ...sessionLib, useSession, useRouter: () => router, defineProps: () => draftProps,
     defineEmits: () => () => {}, useMediaQuery: () => vue.ref(false), onBeforeRouteLeave() {},
     onMounted() {}, onUnmounted() {}, addUser: async () => { writes++ },
   }, ['draft', 'save', 'sessionChanged'])
@@ -513,12 +513,12 @@ test('the synchronous Axios interceptor sends the owned bearer and ignores an ol
 })
 
 async function panelRuntime(fixture, file, props, bindings, exports) {
-  const { vue, sessionLib, useSession } = fixture
+  const { vue, sessionLib, useSession, router } = fixture
   const events = []
   const panelProps = vue.reactive({ open: false, ...props })
   const mutationLib = await import('../src/lib/rbac-mutations.ts')
   const panel = await scriptRuntime(`components/${file}.vue`, {
-    ...vue, ...sessionLib, ...mutationLib, useSession,
+    ...vue, ...sessionLib, ...mutationLib, useSession, useRouter: () => router,
     defineProps: () => panelProps, useMediaQuery: () => vue.ref(false),
     defineEmits: () => (...event) => {
       events.push(event)
