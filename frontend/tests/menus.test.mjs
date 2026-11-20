@@ -9,6 +9,7 @@ import {
   menuErrors,
   menuPayload,
   menuDeleteReason,
+  menuDeleteReasons,
   menuWriteSucceeded,
 } from '../app/lib/menus.ts'
 
@@ -80,4 +81,22 @@ test('deletion cannot remove descendants, shared permissions or role grants; bus
   assert.match(menuDeleteReason({ ...leaf, permission: null }, tree, []), /缺少/)
   menuWriteSucceeded({ code: 200 })
   assert.throws(() => menuWriteSucceeded({ code: 500 }))
+})
+
+test('delete preflight reports every applicable blocker', () => {
+  const shared = { ...leaf, id: 999, permission: root.permission }
+  const reasons = menuDeleteReasons(root, [...tree, shared], [root.permission])
+  assert.equal(reasons.length, 3)
+  assert.match(reasons[0], /存在后代/)
+  assert.match(reasons[1], /共享/)
+  assert.match(reasons[2], /角色仍引用/)
+  assert.equal(menuDeleteReasons({ ...root, permission: null }, tree, []).length, 2)
+  assert.deepEqual(menuDeleteReasons(leaf, tree, []), [])
+})
+
+test('menu edits retain stored permission and nullable historical role metadata', () => {
+  const legacy = { ...leaf, permission: `${leaf.permission} ` }
+  const payload = menuPayload(menuDraft(legacy), tree, legacy, null)
+  assert.equal(payload.permission, legacy.permission)
+  assert.equal(payload.meta.metaRoles, null)
 })

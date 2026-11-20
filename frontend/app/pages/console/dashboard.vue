@@ -10,7 +10,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { getDashboardStats } from '@/api/log/accesslog'
 import { settingsFailure } from '@/lib/settings'
-import { dashboardSnapshot, snapshotScope, snapshotTime } from '@/lib/dashboard'
+import { dashboardSnapshot, peakVisits, snapshotScope, snapshotTime, visitShare } from '@/lib/dashboard'
 import type { DashboardSnapshot } from '@/lib/dashboard'
 
 definePageMeta({ layout: 'console', middleware: 'auth' })
@@ -18,34 +18,25 @@ const snapshot = shallowRef<DashboardSnapshot | null>(null)
 const pending = ref(true)
 const failed = ref<false | 'error' | 'forbidden'>(false)
 const number = new Intl.NumberFormat('zh-CN')
-const metrics = computed(() => [
-  {
-    title: '总访问量',
-    value: snapshot.value?.visits,
-    description: '快照中的访问请求总数',
-    icon: ViewIcon,
-  },
-  {
-    title: '独立访客',
-    value: snapshot.value?.visitors,
-    description: '按访问 IP 去重',
-    icon: UserGroupIcon,
-  },
-  {
-    title: '峰值小时访问量',
-    value: snapshot.value
-      ? Math.max(0, ...snapshot.value.hours.map((row) => row.count))
-      : undefined,
-    description: '单个小时的最高访问量',
-    icon: ChartHistogramIcon,
-  },
-  {
-    title: '活跃小时',
-    value: snapshot.value?.hours.filter((row) => row.count > 0).length,
-    description: '有访问记录的小时数',
-    icon: Clock01Icon,
-  },
-])
+const metrics = computed(() => {
+  const data = snapshot.value
+  return [
+    { title: '总访问量', value: data?.visits, note: '快照中的请求次数', icon: ViewIcon },
+    { title: '独立访客', value: data?.visitors, note: '按访问 IP 去重', icon: UserGroupIcon },
+    {
+      title: '峰值小时访问量',
+      value: data && peakVisits(data.hours),
+      note: '全快照单小时最高值',
+      icon: ChartHistogramIcon,
+    },
+    {
+      title: '活跃小时数',
+      value: data?.hours.filter((row) => row.count > 0).length,
+      note: '全快照访问量大于 0 的小时',
+      icon: Clock01Icon,
+    },
+  ]
+})
 
 async function load() {
   pending.value = true
@@ -63,18 +54,17 @@ onMounted(load)
 </script>
 
 <template>
-  <section
-    class="flex min-w-0 flex-col gap-6"
-    aria-labelledby="dashboard-title"
-    :aria-busy="pending"
-  >
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="space-y-2">
-        <div class="flex items-center gap-3">
-          <h1 id="dashboard-title" class="text-2xl font-semibold tracking-tight">数据看板</h1>
-          <UiBadge variant="secondary">访问日志</UiBadge>
-        </div>
-        <p class="text-sm text-muted-foreground">了解访问变化、热门路径与访客使用的浏览器。</p>
+  <section class="flex min-w-0 flex-col gap-6" aria-labelledby="dashboard-title">
+    <header class="flex flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0 space-y-2">
+        <h1 id="dashboard-title" class="text-2xl font-semibold tracking-tight">数据看板</h1>
+        <p class="max-w-2xl text-sm leading-6 text-muted-foreground">{{ snapshotScope }}</p>
+        <p v-if="snapshot" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <span class="text-muted-foreground">快照生成时间</span>
+          <time :datetime="snapshot.generatedAt" class="font-mono tabular-nums">
+            {{ snapshotTime(snapshot.generatedAt) }}
+          </time>
+        </p>
       </div>
       <UiButton variant="outline" :disabled="pending" @click="load">
         <HugeiconsIcon
@@ -82,112 +72,109 @@ onMounted(load)
           class="size-4"
           :class="{ 'motion-safe:animate-spin': pending }"
           aria-hidden="true"
-        />{{ pending ? '正在读取…' : '刷新数据' }}
+        />
+        {{ pending ? '正在读取…' : '刷新快照' }}
       </UiButton>
-    </div>
+    </header>
 
     <UiAlert v-if="failed" variant="destructive" role="alert">
-      <UiAlertTitle>{{ failed === 'forbidden' ? '无权读取看板数据' : '看板数据读取失败' }}</UiAlertTitle>
-      <UiAlertDescription>{{ failed === 'forbidden' ? '当前账号未获授权，请联系管理员。' : '暂时无法获取统计数据，请稍后重试。' }}</UiAlertDescription>
-      <div v-if="failed !== 'forbidden'" class="mt-3"><UiButton size="sm" variant="outline" @click="load">重试</UiButton></div>
+      <UiAlertTitle>
+        {{ failed === 'forbidden' ? '无权读取看板数据' : '看板数据读取失败' }}
+      </UiAlertTitle>
+      <UiAlertDescription>
+        {{ failed === 'forbidden' ? '当前账号未获授权，请联系管理员。' : '暂时无法获取统计数据。' }}
+      </UiAlertDescription>
+      <UiButton v-if="failed === 'error'" size="sm" variant="outline" class="mt-2" @click="load">
+        重试
+      </UiButton>
     </UiAlert>
     <UiAlert v-else-if="!pending && !snapshot" role="status">
       <HugeiconsIcon :icon="Database02Icon" aria-hidden="true" />
       <UiAlertTitle>暂无可用的分析快照</UiAlertTitle>
-      <UiAlertDescription
-        >当前响应未提供完整统计。请在已有分析结果可用后刷新查看；这不代表实际访问量为零。</UiAlertDescription
-      >
+      <UiAlertDescription>日志服务尚未返回分析快照，请在快照生成后刷新。</UiAlertDescription>
     </UiAlert>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <UiCard v-for="metric in metrics" :key="metric.title">
-        <UiCardHeader class="flex flex-row items-center justify-between gap-3">
-          <UiCardDescription class="text-sm">{{ metric.title }}</UiCardDescription>
-          <HugeiconsIcon
-            :icon="metric.icon"
-            class="size-4 text-muted-foreground"
-            aria-hidden="true"
-          />
+    <div
+      v-if="pending || snapshot"
+      :aria-busy="pending"
+      class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+    >
+      <UiCard v-for="metric in metrics" :key="metric.title" class="min-w-0 gap-3 shadow-panel">
+        <UiCardHeader class="flex flex-row items-center justify-between gap-2">
+          <h2 class="text-sm font-medium text-muted-foreground">{{ metric.title }}</h2>
+          <HugeiconsIcon :icon="metric.icon" class="size-4 shrink-0 text-accent-data" aria-hidden="true" />
         </UiCardHeader>
-        <UiCardContent>
-          <UiSkeleton v-if="pending" class="mb-3 h-9 w-24" />
-          <p v-else class="mb-3 text-3xl font-semibold tracking-tight tabular-nums">
-            {{ metric.value === undefined ? '—' : number.format(metric.value) }}
+        <UiCardContent class="space-y-2">
+          <UiSkeleton v-if="pending" class="h-9 w-24" />
+          <p v-else-if="metric.value != null" class="break-all font-mono text-3xl font-semibold tabular-nums">
+            {{ number.format(metric.value) }}
           </p>
-          <p class="text-xs text-muted-foreground">{{ metric.description }}</p>
+          <p class="text-xs text-muted-foreground">{{ metric.note }}</p>
         </UiCardContent>
       </UiCard>
     </div>
 
-    <div v-if="pending" class="grid gap-4 lg:grid-cols-3" role="status" aria-label="正在加载看板">
-      <UiSkeleton class="h-80 lg:col-span-2" /><UiSkeleton class="h-80" />
-      <span class="sr-only">正在加载统计数据</span>
+    <div v-if="pending" role="status" class="space-y-4">
+      <span class="sr-only">正在加载看板数据</span>
+      <UiSkeleton class="h-80" />
+      <div class="grid gap-4 lg:grid-cols-2">
+        <UiSkeleton class="h-40" />
+        <UiSkeleton class="h-40" />
+      </div>
     </div>
-    <template v-else-if="!failed">
-      <div class="grid min-w-0 gap-4 lg:grid-cols-3">
-        <DashboardVisitChart :hours="snapshot?.hours ?? []" class="lg:col-span-2" />
+    <template v-else-if="snapshot">
+      <DashboardVisitChart :hours="snapshot.hours" />
+
+      <div class="grid min-w-0 items-start gap-4 lg:grid-cols-2">
         <DashboardDistributionCard
           title="浏览器分布"
-          description="按浏览器统计访问次数及占比"
-          :rows="snapshot?.browsers ?? []"
+          description="按浏览器统计访问次数及组内占比"
+          note="按 UA 规则，带 Chrome 标识的 Edge 访问计入 Chrome。"
+          :rows="snapshot.browsers"
         />
-      </div>
-      <div class="grid min-w-0 gap-4 lg:grid-cols-3">
-        <UiCard class="min-w-0 lg:col-span-2">
-          <UiCardHeader
-            ><UiCardTitle>热门访问路径</UiCardTitle
-            ><UiCardDescription>按访问次数排序，最多展示 10 条</UiCardDescription></UiCardHeader
-          >
-          <UiCardContent>
-            <UiTable v-if="snapshot?.pages.length">
-              <UiTableCaption class="sr-only">当前分析快照中的热门访问路径</UiTableCaption>
-              <UiTableHeader
-                ><UiTableRow
-                  ><UiTableHead class="w-12">排名</UiTableHead><UiTableHead>访问路径</UiTableHead
-                  ><UiTableHead class="text-right">访问次数</UiTableHead
-                  ><UiTableHead class="text-right">占总访问量</UiTableHead></UiTableRow
-                ></UiTableHeader
-              >
-              <UiTableBody>
-                <UiTableRow v-for="(row, index) in snapshot.pages" :key="row.label">
-                  <UiTableCell class="text-muted-foreground">{{
-                    String(index + 1).padStart(2, '0')
-                  }}</UiTableCell>
-                  <UiTableCell class="min-w-32 max-w-xs whitespace-normal break-all font-medium">{{
-                    row.label
-                  }}</UiTableCell>
-                  <UiTableCell class="text-right tabular-nums">{{
-                    number.format(row.count)
-                  }}</UiTableCell>
-                  <UiTableCell class="text-right tabular-nums text-muted-foreground"
-                    >{{
-                      snapshot.visits ? ((row.count / snapshot.visits) * 100).toFixed(1) : '0.0'
-                    }}%</UiTableCell
-                  >
-                </UiTableRow>
-              </UiTableBody>
-            </UiTable>
-            <p
-              v-else
-              class="flex min-h-32 items-center justify-center text-sm text-muted-foreground"
-            >
-              暂无访问路径数据
-            </p>
-          </UiCardContent>
-        </UiCard>
         <DashboardDistributionCard
-          title="请求方法"
-          description="按 HTTP 方法统计访问次数及占比"
-          :rows="snapshot?.methods ?? []"
+          title="HTTP 请求方法分布"
+          description="按请求方法统计访问次数及组内占比"
+          :rows="snapshot.methods"
         />
       </div>
-      <p class="text-xs leading-6 text-muted-foreground">
-        <template v-if="snapshot"
-          >快照生成于 {{ snapshotTime(snapshot.generatedAt) }}。</template
-        >
-        {{ snapshotScope }}。仅展示已有日志分析结果，刷新不会启动新的分析。在线人数、性能与安全指标暂未纳入实测展示。
-      </p>
+
+      <UiCard class="min-w-0 shadow-panel">
+        <UiCardHeader>
+          <h2 class="text-base font-semibold">热门访问路径</h2>
+          <UiCardDescription>按访问次数排序，最多展示 10 条</UiCardDescription>
+        </UiCardHeader>
+        <UiCardContent>
+          <UiTable v-if="snapshot.pages.length">
+            <UiTableCaption class="sr-only">当前分析快照中的热门访问路径</UiTableCaption>
+            <UiTableHeader>
+              <UiTableRow>
+                <UiTableHead class="w-12">排名</UiTableHead>
+                <UiTableHead>访问路径</UiTableHead>
+                <UiTableHead class="text-right">访问次数</UiTableHead>
+                <UiTableHead class="text-right">占总访问量</UiTableHead>
+              </UiTableRow>
+            </UiTableHeader>
+            <UiTableBody>
+              <UiTableRow v-for="(row, index) in snapshot.pages" :key="row.label">
+                <UiTableCell class="font-mono tabular-nums text-muted-foreground">
+                  {{ String(index + 1).padStart(2, '0') }}
+                </UiTableCell>
+                <UiTableCell class="whitespace-normal break-all font-mono font-medium">
+                  {{ row.label }}
+                </UiTableCell>
+                <UiTableCell class="text-right font-mono tabular-nums">
+                  {{ number.format(row.count) }}
+                </UiTableCell>
+                <UiTableCell class="text-right font-mono tabular-nums text-muted-foreground">
+                  {{ visitShare(row.count, snapshot.visits).toFixed(1) }}%
+                </UiTableCell>
+              </UiTableRow>
+            </UiTableBody>
+          </UiTable>
+          <p v-else class="py-8 text-center text-sm text-muted-foreground">暂无访问路径数据</p>
+        </UiCardContent>
+      </UiCard>
     </template>
   </section>
-  <p class="text-xs text-muted-foreground"><a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a></p>
 </template>

@@ -94,7 +94,11 @@ function changeSize(value: unknown) {
   page.value = 1
   void loadUsers()
 }
+function isCurrentUser(user: ManagedUser) {
+  return Boolean(user.email && user.email === session.state.value.user?.email)
+}
 function openEditor(mode: 'view' | 'create' | 'edit', user: ManagedUser | null = null) {
+  if (mode !== 'view' && rolesUnavailable.value) return
   selected.value = user
   editorMode.value = mode
   editorOpen.value = true
@@ -147,7 +151,7 @@ onMounted(() => {
     </UiAlert>
 
     <form
-      class="flex flex-wrap items-end gap-x-6 gap-y-4"
+      class="flex min-w-0 flex-wrap items-end gap-x-6 gap-y-4 rounded-lg border border-border bg-card p-4"
       aria-label="用户筛选"
       @submit.prevent="search"
     >
@@ -160,7 +164,7 @@ onMounted(() => {
           :disabled="pending"
           maxlength="50"
       /></UiField>
-      <UiField class="w-full sm:w-auto sm:min-w-48"
+      <UiField class="min-w-0 w-full sm:max-w-md sm:min-w-48 sm:w-auto"
         ><UiFieldLabel as="span">角色</UiFieldLabel
         ><UsersRolePicker
           v-model="filters.roleId"
@@ -201,13 +205,15 @@ onMounted(() => {
       </div>
     </form>
 
-    <div class="min-w-0 rounded-lg border-[0.5px] border-border/70 bg-card" :aria-busy="pending">
+    <div class="min-w-0 rounded-lg border border-border bg-card shadow-panel" :aria-busy="pending">
       <div class="flex items-center justify-between gap-3 border-b-[0.5px] border-border/70 p-4">
         <h2 class="text-sm font-medium">
           用户列表
-          <span class="ml-2 font-normal text-muted-foreground">{{
-            failed ? '—' : pending && !users.length ? '读取中' : `共 ${number.format(total)} 位用户`
-          }}</span>
+          <span class="ml-2 font-normal text-muted-foreground">
+            <template v-if="failed">—</template>
+            <template v-else-if="pending && !users.length">读取中</template>
+            <template v-else>共 <span class="font-mono tabular-nums">{{ number.format(total) }}</span> 位用户</template>
+          </span>
         </h2>
         <UiButton variant="ghost" size="sm" :disabled="pending" @click="loadUsers"
           ><HugeiconsIcon
@@ -269,7 +275,7 @@ onMounted(() => {
             ><UiTableHead class="text-center">状态</UiTableHead
             ><UiTableHead class="hidden text-right xl:table-cell">创建日期</UiTableHead
             ><UiTableHead
-              class="sticky right-0 w-32 min-w-32 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
+              class="sticky right-0 z-10 w-32 min-w-32 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
               >操作</UiTableHead
             ></UiTableRow
           ></UiTableHeader
@@ -294,6 +300,9 @@ onMounted(() => {
                   <p class="mt-1 text-xs text-muted-foreground md:hidden">
                     {{ user.roleName || '未分配角色' }}
                   </p>
+                  <StatusBadge v-if="isCurrentUser(user)" :id="`self-user-${user.id}`" class="mt-1">
+                    当前账号<span class="sr-only">，无法删除自己的账号</span>
+                  </StatusBadge>
                 </div>
               </div></UiTableCell
             >
@@ -301,22 +310,17 @@ onMounted(() => {
               user.roleName || (user.roleId ? `角色 #${user.roleId}` : '未分配')
             }}</UiTableCell>
             <UiTableCell class="text-center"
-              ><UiBadge
-                variant="secondary"
-                :class="
-                  user.status === 1
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                    : 'bg-muted text-muted-foreground'
-                "
-                >{{ user.status === 1 ? '启用' : user.status === 0 ? '停用' : '未知' }}</UiBadge
+              ><StatusBadge
+                :tone="user.status === 1 ? 'success' : user.status === 0 ? 'warning' : 'neutral'"
+                >{{ user.status === 1 ? '启用' : user.status === 0 ? '停用' : '未知' }}</StatusBadge
               ></UiTableCell
             >
             <UiTableCell
-              class="hidden text-right tabular-nums text-muted-foreground xl:table-cell"
+              class="hidden text-right font-mono tabular-nums text-muted-foreground xl:table-cell"
               >{{ user.createTime || '—' }}</UiTableCell
             >
             <UiTableCell
-              class="sticky right-0 w-32 min-w-32 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
+              class="sticky right-0 z-10 w-32 min-w-32 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
               ><div class="flex justify-center">
                 <UiButton
                   variant="ghost"
@@ -331,15 +335,18 @@ onMounted(() => {
                   :disabled="rolesUnavailable"
                   @click="openEditor('edit', user)"
                   >编辑</UiButton
-                ><UiButton
-                  variant="ghost"
-                  size="sm"
-                  class="text-destructive hover:text-destructive"
-                  :aria-label="`删除${user.name || user.id}`"
-                  :disabled="user.email === session.state.value.user?.email"
-                  @click="deletion = user"
-                  >删除</UiButton
-                >
+                ><span :title="isCurrentUser(user) ? '无法删除自己的账号' : undefined">
+                  <UiButton
+                    variant="ghost"
+                    size="sm"
+                    class="text-destructive hover:text-destructive"
+                    :aria-label="`删除${user.name || user.id}`"
+                    :aria-describedby="isCurrentUser(user) ? `self-user-${user.id}` : undefined"
+                    :disabled="isCurrentUser(user)"
+                    @click="deletion = user"
+                    >删除</UiButton
+                  >
+                </span>
               </div></UiTableCell
             >
           </UiTableRow></UiTableBody
@@ -363,7 +370,7 @@ onMounted(() => {
           ></UiRadioGroup
         >
         <div class="flex items-center gap-3">
-          <span class="whitespace-nowrap text-xs tabular-nums text-muted-foreground"
+          <span class="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground"
             >第 {{ page }} / {{ Math.max(1, Math.ceil(total / size)) }} 页</span
           ><UiPagination
             :page="page"

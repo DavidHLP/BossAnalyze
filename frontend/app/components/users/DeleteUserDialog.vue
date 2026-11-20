@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { deleteUser } from '@/api/user/user'
-import { userWriteSucceeded } from '@/lib/users'
+import { userDeleteError, userWriteSucceeded } from '@/lib/users'
 import type { ManagedUser } from '@/lib/users'
 const props = defineProps<{ user: ManagedUser | null }>()
 const emit = defineEmits<{ close: []; deleted: [] }>()
 const password = ref('')
 const pending = ref(false)
-const failed = ref(false)
+const failure = ref('')
 watch(
   () => props.user,
   () => {
     password.value = ''
-    failed.value = false
+    failure.value = ''
   },
 )
 function close() {
@@ -20,15 +20,19 @@ function close() {
 async function remove() {
   if (pending.value || !props.user || !password.value) return
   pending.value = true
-  failed.value = false
+  failure.value = ''
   try {
     userWriteSucceeded(await deleteUser(props.user.id, password.value))
     password.value = ''
     emit('deleted')
-  } catch {
-    failed.value = true
+  } catch (error) {
+    failure.value = userDeleteError(error)
   } finally {
     pending.value = false
+  }
+  if (failure.value) {
+    await nextTick()
+    document.querySelector<HTMLElement>('#delete-user-password')?.focus()
   }
 }
 </script>
@@ -71,10 +75,10 @@ async function remove() {
             autocomplete="current-password"
             :disabled="pending"
             required
-            :aria-describedby="failed ? 'delete-user-error' : undefined"
+            :aria-describedby="failure ? 'delete-user-error' : undefined"
         /></UiField>
-        <p v-if="failed" id="delete-user-error" role="alert" class="mt-3 text-sm text-destructive">
-          删除失败，请检查当前账号密码或服务连接后重试。
+        <p v-if="failure" id="delete-user-error" role="alert" class="mt-3 text-sm text-destructive">
+          {{ failure }}
         </p>
       </form>
       <UiDialogFooter

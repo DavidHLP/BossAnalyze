@@ -1,3 +1,7 @@
+import { mutationBusinessCode, mutationError } from './rbac-mutations.ts'
+
+export { requireMutationSuccess as userWriteSucceeded } from './rbac-mutations.ts'
+
 export interface ManagedUser {
   id: number
   name: string
@@ -129,6 +133,14 @@ export function userPayload(draft: UserDraft, userId?: number) {
   }
 }
 
-export function userWriteSucceeded(value: unknown) {
-  if (!record(value) || value.code !== 200) throw new Error('User operation failed')
+export function userSaveError(value: unknown) {
+  return mutationError(value, '保存', '邮箱已存在或与现有账号冲突，请核对邮箱后重试。')
+}
+
+export function userDeleteError(value: unknown) {
+  if (
+    mutationBusinessCode(value) === 1006 ||
+    (record(value) && value.code === 1006)
+  ) return '操作者密码不正确，请重试'
+  return mutationError(value, '删除')
 }

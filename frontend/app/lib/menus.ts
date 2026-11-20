@@ -1,3 +1,5 @@
+export { requireMutationSuccess as menuWriteSucceeded } from './rbac-mutations.ts'
+
 export interface MenuRecord {
   id: number
   pid: number | null
@@ -197,7 +199,7 @@ export function menuPayload(
     pid: current ? current.pid : (parent?.id ?? null),
     name: draft.name.trim(),
     path: draft.path.trim(),
-    permission: draft.permission.trim(),
+    permission: current?.permission ?? draft.permission.trim(),
     menuOrder: Number(draft.order),
     status: Number(draft.status),
     remark: draft.remark.trim(),
@@ -212,23 +214,27 @@ export function menuPayload(
       metaKeepAlive:
         current?.meta.metaKeepAlive === null && !draft.keepAlive ? null : draft.keepAlive,
       hidden: draft.hidden,
-      metaRoles: current?.meta.metaRoles ?? '[]',
+      metaRoles: current ? current.meta.metaRoles : '[]',
     },
   }
 }
-export function menuDeleteReason(node: MenuRecord, nodes: MenuRecord[], rolePermissions: string[]) {
-  if (node.children.length) return '请先逐项处理子菜单；不支持级联删除。'
-  if (!node.permission) return '该菜单缺少有效权限标识，暂不能安全删除。'
+export function menuDeleteReasons(node: MenuRecord, nodes: MenuRecord[], rolePermissions: string[]) {
+  const reasons: string[] = []
+  if (node.children.length) reasons.push('存在后代节点，请先处理子菜单。')
+  if (!node.permission) {
+    reasons.push('该菜单缺少独立权限标识，暂不能安全删除。')
+    return reasons
+  }
   if (
     menuRows(nodes).some(
       (row) => row.node.id !== node.id && row.node.permission === node.permission,
     )
   )
-    return '其他菜单共享此权限标识，暂不能删除。'
+    reasons.push('其他菜单共享此权限标识，暂不能删除。')
   if (rolePermissions.includes(node.permission))
-    return '角色仍引用此权限，请先在角色管理中移除授权。'
-  return ''
+    reasons.push('角色仍引用此权限，请先在角色管理中移除授权。')
+  return reasons
 }
-export function menuWriteSucceeded(value: unknown) {
-  if (!object(value) || value.code !== 200) throw new Error('Menu operation failed')
+export function menuDeleteReason(node: MenuRecord, nodes: MenuRecord[], rolePermissions: string[]) {
+  return menuDeleteReasons(node, nodes, rolePermissions)[0] ?? ''
 }

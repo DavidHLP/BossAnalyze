@@ -1,40 +1,101 @@
 <script setup lang="ts">
-import type { NuxtError } from '#app'
+import { isNuxtError, type NuxtError } from '#app'
 
 const props = defineProps<{ error: NuxtError }>()
+const router = useRouter()
+const nuxtApp = useNuxtApp()
+const activeError = useError()
+const pending = ref(false)
 const retryPath = computed(() => {
   const data = props.error.data as { sessionRestore?: boolean; redirect?: string } | undefined
-  return data?.sessionRestore ? data.redirect : null
+  return props.error.statusCode === 503 && data?.sessionRestore === true ? data.redirect : null
 })
-const title = computed(() =>
-  props.error.statusCode === 403
-    ? '无权访问此页面'
-    : props.error.statusCode === 404
-      ? '页面不存在'
-      : '页面暂时无法加载',
-)
+const title = computed(() => {
+  if (retryPath.value) return '暂时无法恢复会话'
+  if (props.error.statusCode === 403) return '无权访问此页面'
+  if (props.error.statusCode === 404) return '页面不存在'
+  return '页面暂时无法加载'
+})
+const description = computed(() => {
+  if (props.error.statusCode === 403) {
+    return '当前账号没有此页面的访问权限，请返回工作台或使用其他账号登录。'
+  }
+  if (props.error.statusCode === 404) return '请检查页面地址，或返回工作台继续操作。'
+  return '请返回工作台继续操作，或稍后重试。'
+})
 useHead({ title: () => `${title.value} · BossAnalyze` })
+
+async function leaveError(redirect: string) {
+  if (pending.value) return
+  pending.value = true
+  try {
+    const { fullPath, path, query, hash } = router.resolve(redirect)
+    if (fullPath === router.currentRoute.value.fullPath) {
+      // Same-location retries must run the route middleware again.
+      const failure = await router.replace({ path, query, hash, force: true })
+      if (!failure && activeError.value) await nuxtApp.runWithContext(() => clearError())
+    } else {
+      await clearError({ redirect })
+    }
+  } catch (cause) {
+    if (!isNuxtError(cause)) throw cause
+    activeError.value = cause
+  } finally {
+    pending.value = false
+  }
+}
 </script>
 
 <template>
-  <main class="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
-    <section class="w-full max-w-md space-y-6" aria-labelledby="error-title">
-      <p class="text-sm font-medium">BossAnalyze · {{ error.statusCode }}</p>
-      <h1 id="error-title" class="text-2xl font-semibold tracking-tight">{{ title }}</h1>
-      <p class="text-sm text-muted-foreground">
-        {{
-          error.statusCode === 403
-            ? '当前账号没有此页面的访问权限，请返回工作台或使用其他账号登录。'
-            : retryPath
-              ? '暂时无法恢复会话，登录凭据已保留。页面权限尚未确认，请重试。'
-              : '请返回工作台继续操作，或稍后重试。'
-        }}
-      </p>
-      <div class="flex flex-wrap gap-3">
-        <UiButton v-if="retryPath" @click="clearError({ redirect: retryPath })">重试恢复会话</UiButton>
-        <UiButton @click="clearError({ redirect: '/console' })">返回工作台</UiButton>
-        <UiButton variant="outline" @click="clearError({ redirect: '/login' })">前往登录</UiButton>
-      </div>
-    </section>
-  </main>
+  <div class="flex min-h-svh flex-col bg-background px-6 text-foreground sm:px-10">
+    <header class="flex h-16 items-center justify-between gap-4">
+      <AppBrand />
+      <ThemeToggle />
+    </header>
+    <main class="grid flex-1 place-items-center pb-16">
+      <section
+        class="w-full max-w-lg space-y-5 rounded-lg border bg-card p-6 text-card-foreground shadow-panel sm:p-8"
+        aria-labelledby="error-title"
+      >
+        <p class="font-mono text-5xl font-semibold tracking-tight text-accent-data-foreground tabular-nums">
+          {{ error.statusCode }}
+        </p>
+        <h1 id="error-title" class="text-2xl font-semibold tracking-tight">{{ title }}</h1>
+        <div
+          v-if="retryPath"
+          class="space-y-1 rounded-md bg-status-warning-surface p-3 text-sm text-status-warning-foreground"
+        >
+          <StatusBadge tone="warning" class="px-0 text-sm font-semibold">已保留当前登录凭据</StatusBadge>
+          <p>重试后将返回原页面，并重新确认访问权限。</p>
+        </div>
+        <p v-else class="text-sm leading-relaxed text-muted-foreground">{{ description }}</p>
+        <div class="flex flex-wrap gap-2" :aria-busy="pending">
+          <UiButton
+            v-if="retryPath"
+            class="h-9 px-3 text-sm"
+            :disabled="pending"
+            @click="leaveError(retryPath)"
+          >
+            {{ pending ? '正在重试…' : '重试恢复会话' }}
+          </UiButton>
+          <UiButton
+            :variant="retryPath ? 'outline' : 'default'"
+            class="h-9 px-3 text-sm"
+            :disabled="pending"
+            @click="leaveError('/console')"
+          >
+            返回工作台
+          </UiButton>
+          <UiButton
+            variant="outline"
+            class="h-9 px-3 text-sm"
+            :disabled="pending"
+            @click="leaveError('/login')"
+          >
+            前往登录
+          </UiButton>
+        </div>
+      </section>
+    </main>
+  </div>
 </template>

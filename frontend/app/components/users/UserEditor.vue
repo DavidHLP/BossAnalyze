@@ -3,7 +3,7 @@ import { useMediaQuery } from '@vueuse/core'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { addUser, updateUser } from '@/api/user/user'
-import { userDraft, userErrors, userPayload, userWriteSucceeded } from '@/lib/users'
+import { userDraft, userErrors, userPayload, userSaveError, userWriteSucceeded } from '@/lib/users'
 import type { ManagedUser, UserRole } from '@/lib/users'
 
 const props = defineProps<{
@@ -18,12 +18,12 @@ const emit = defineEmits<{
   saved: [self: boolean]
   retryRoles: []
 }>()
-const mobile = useMediaQuery('(max-width: 639px)')
+const mobile = useMediaQuery('(width < 640px)')
 const session = useSession()
 const draft = reactive(userDraft())
 const initial = ref('')
 const saving = ref(false)
-const failed = ref(false)
+const failure = ref('')
 const submitted = ref(false)
 const touched = reactive<Record<string, boolean>>({})
 const discardOpen = ref(false)
@@ -47,7 +47,7 @@ watch(
       Object.assign(draft, userDraft(props.user))
       initial.value = JSON.stringify(draft)
       submitted.value = false
-      failed.value = false
+      failure.value = ''
       Object.keys(touched).forEach((key) => delete touched[key])
     } else draft.password = ''
   },
@@ -107,15 +107,15 @@ async function save() {
     return
   }
   saving.value = true
-  failed.value = false
+  failure.value = ''
   try {
     const payload = userPayload(draft, creating.value ? undefined : props.user?.id)
     userWriteSucceeded(await (creating.value ? addUser(payload) : updateUser(payload)))
     draft.password = ''
     initial.value = JSON.stringify(draft)
     emit('saved', !creating.value && props.user?.email === session.state.value.user?.email)
-  } catch {
-    failed.value = true
+  } catch (error) {
+    failure.value = userSaveError(error)
   } finally {
     saving.value = false
   }
@@ -134,7 +134,7 @@ async function save() {
     <UiSheetContent
       :side="mobile ? 'bottom' : 'right'"
       :show-close-button="false"
-      class="w-full! sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
+      class="w-full! shadow-panel sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
       @pointer-down-outside.prevent
       @interact-outside.prevent
       @escape-key-down="escape"
@@ -158,7 +158,7 @@ async function save() {
 
       <div v-if="mode === 'view' && user" class="min-h-0 flex-1 overflow-y-auto p-6">
         <div class="mb-6">
-          <p class="text-lg font-semibold">{{ user.name || '未命名用户' }}</p>
+          <p class="break-all text-lg font-semibold">{{ user.name || '未命名用户' }}</p>
           <p class="mt-1 break-all text-sm text-muted-foreground">
             {{ user.email || '未填写邮箱' }}
           </p>
@@ -166,20 +166,26 @@ async function save() {
         <dl class="grid grid-cols-2 gap-x-6 gap-y-5 text-sm">
           <div
             v-for="item in [
-              ['用户 ID', String(user.id)],
-              ['角色', user.roleName || (user.roleId ? `角色 #${user.roleId}` : '未分配')],
-              ['状态', user.status === 1 ? '启用' : user.status === 0 ? '停用' : '未知'],
-              ['创建日期', user.createTime],
-              ['最近登录', user.lastLogin],
-              ['最近登录 IP', user.lastLoginIp],
-              ['地址', user.address],
-              ['个人简介', user.introduction],
+              { label: '用户 ID', value: user.id, mono: true },
+              { label: '角色', value: user.roleName || (user.roleId ? `角色 #${user.roleId}` : '未分配') },
+              { label: '状态' },
+              { label: '创建日期', value: user.createTime, mono: true },
+              { label: '最近登录', value: user.lastLogin, mono: true },
+              { label: '最近登录 IP', value: user.lastLoginIp, mono: true },
+              { label: '地址', value: user.address },
+              { label: '个人简介', value: user.introduction },
             ]"
-            :key="item[0]"
+            :key="item.label"
             class="min-w-0 space-y-1.5"
           >
-            <dt class="text-xs text-muted-foreground">{{ item[0] }}</dt>
-            <dd class="break-words whitespace-pre-wrap font-medium">{{ item[1] || '—' }}</dd>
+            <dt class="text-xs text-muted-foreground">{{ item.label }}</dt>
+            <dd v-if="item.label === '状态'">
+              <StatusBadge :tone="user.status === 1 ? 'success' : user.status === 0 ? 'warning' : 'neutral'">
+                {{ user.status === 1 ? '启用' : user.status === 0 ? '停用' : '未知' }}
+              </StatusBadge>
+            </dd>
+            <dd v-else class="break-words whitespace-pre-wrap font-medium"
+              :class="{ 'font-mono tabular-nums': 'mono' in item && item.mono }">{{ item.value || '—' }}</dd>
           </div>
         </dl>
       </div>
@@ -259,6 +265,7 @@ async function save() {
           </p></UiField
         >
         <UiField
+          @focusout="touched.roleId = true"
           ><UiFieldLabel as="span">角色 <span aria-hidden="true">*</span></UiFieldLabel
           ><UsersRolePicker
             id="user-role"
@@ -266,15 +273,15 @@ async function save() {
             :roles="roles"
             label="用户角色"
             :disabled="saving || rolesUnavailable"
-            aria-required="true"
-            :aria-invalid="Boolean(error('roleId'))"
-            :aria-describedby="error('roleId') ? 'user-role-error' : undefined"
+            required
+            :invalid="Boolean(error('roleId'))"
+            :described-by="error('roleId') ? 'user-role-error' : undefined"
           />
           <p v-if="error('roleId')" id="user-role-error" class="text-xs text-destructive">
             {{ error('roleId') }}
           </p></UiField
         >
-        <UiField
+        <UiField @focusout="touched.status = true"
           ><UiFieldLabel as="span">状态</UiFieldLabel
           ><UiRadioGroup
             id="user-status"
@@ -282,21 +289,26 @@ async function save() {
             aria-label="用户状态"
             class="flex gap-6"
             :disabled="saving"
+            :aria-invalid="Boolean(error('status'))"
+            :aria-describedby="error('status') ? 'user-status-error' : undefined"
             ><label class="flex items-center gap-2 text-sm"
               ><UiRadioGroupItem value="1" />启用</label
             ><label class="flex items-center gap-2 text-sm"
               ><UiRadioGroupItem value="0" />停用</label
             ></UiRadioGroup
           >
-          <p v-if="error('status')" class="text-xs text-destructive">
+          <p v-if="error('status')" id="user-status-error" class="text-xs text-destructive">
             {{ error('status') }}
           </p></UiField
         >
         <UiSeparator />
         <UiField
           ><UiFieldLabel for="user-address">地址</UiFieldLabel
-          ><UiInput id="user-address" v-model="draft.address" maxlength="255" :disabled="saving" />
-          <p v-if="error('address')" class="text-xs text-destructive">
+          ><UiInput id="user-address" v-model="draft.address" maxlength="255" :disabled="saving"
+            :aria-invalid="Boolean(error('address'))"
+            :aria-describedby="error('address') ? 'user-address-error' : undefined"
+            @blur="touched.address = true" />
+          <p v-if="error('address')" id="user-address-error" class="text-xs text-destructive">
             {{ error('address') }}
           </p></UiField
         >
@@ -308,15 +320,18 @@ async function save() {
             maxlength="255"
             class="min-h-24"
             :disabled="saving"
+            :aria-invalid="Boolean(error('introduction'))"
+            :aria-describedby="error('introduction') ? 'user-introduction-error' : undefined"
+            @blur="touched.introduction = true"
           />
-          <p v-if="error('introduction')" class="text-xs text-destructive">
+          <p v-if="error('introduction')" id="user-introduction-error" class="text-xs text-destructive">
             {{ error('introduction') }}
           </p></UiField
         >
-        <p v-if="failed" role="alert" class="text-sm text-destructive">
-          保存失败，请检查输入或服务连接后重试。填写内容已保留。
-        </p>
       </form>
+      <p v-if="failure" role="alert" class="shrink-0 px-6 text-sm text-destructive">
+        {{ failure }}填写内容已保留。
+      </p>
       <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border">
         <UiButton variant="outline" :disabled="saving" @click="close">{{
           mode === 'view' ? '关闭' : '取消'

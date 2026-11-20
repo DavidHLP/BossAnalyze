@@ -11,6 +11,19 @@ export const analysisStatusLabels = {
   unknown: '分析状态未知',
 } as const
 export type AnalysisStatus = keyof typeof analysisStatusLabels
+export const analysisStatusTones = {
+  unparsed: 'neutral',
+  legacy_unverified: 'warning',
+  pending: 'neutral',
+  running: 'neutral',
+  complete: 'success',
+  no_evidence: 'success',
+  needs_review: 'warning',
+  failed: 'danger',
+  stale: 'warning',
+  unknown: 'neutral',
+} as const satisfies Record<AnalysisStatus, 'success' | 'warning' | 'danger' | 'neutral'>
+
 function analysisStatus(value: unknown): AnalysisStatus {
   return typeof value === 'string' && Object.hasOwn(analysisStatusLabels, value)
     ? value as AnalysisStatus : 'unknown'
@@ -26,6 +39,12 @@ export interface AnalysisFilter {
   x: string
   y: string
 }
+
+export function sameAnalysisFilter(first: AnalysisFilter, second: AnalysisFilter) {
+  return first.city === second.city && first.position === second.position &&
+    first.x === second.x && first.y === second.y
+}
+
 export interface JobSample {
   key: string
   positionId: string | null
@@ -89,8 +108,24 @@ export function optionNames(value: unknown): string[] {
   ]
 }
 export function safeCity(value: string) {
-  // The existing position lookup interpolates city into a Spark SQL expression.
+  // Keep the supported city-filter values consistent between option selection and submission.
   return Boolean(value && value.length <= 255 && !/['\\\u0000-\u001f\u007f]/u.test(value))
+}
+
+const degreeLabels = ['不限', '初中', '高中/中专', '大专', '本科', '硕士', '博士']
+const experienceTicks = [0, 1, 2, 4, 7, 10]
+
+export function scatterTicks(axis: string, min: number, max: number) {
+  if (min === max) return [min]
+  const candidates = axis === 'degree_value' ? degreeLabels.map((_, index) => index)
+    : axis === 'experience_value' ? experienceTicks : []
+  const interior = candidates.filter((value) => value > min && value < max)
+  if (interior.length || candidates.length) return [min, ...interior, max]
+  return [min, min + (max - min) / 2, max]
+}
+
+export function degreeLabel(value: number) {
+  return degreeLabels[value]
 }
 export function analysisQuery(filter: AnalysisFilter, cities: string[], positions: string[]) {
   if (
@@ -222,14 +257,16 @@ export function scatterData(jobs: JobSample[], x: string, y: string) {
   const maxX = xs.reduce((max, value) => Math.max(max, value), -Infinity)
   const minY = ys.reduce((min, value) => Math.min(min, value), Infinity)
   const maxY = ys.reduce((max, value) => Math.max(max, value), -Infinity)
+  const plotX = (value: number) => minX === maxX ? 330 : 60 + ((value - minX) / (maxX - minX)) * 540
+  const plotY = (value: number) => minY === maxY ? 125 : 220 - ((value - minY) / (maxY - minY)) * 190
   // shortcut: render at most 1000 coordinate groups; use a canvas plot for larger interactive views.
   const points = Array.from(
     { length: Math.min(all.length, 1000) },
     (_, index) => all[Math.floor((index * all.length) / Math.min(all.length, 1000))]!,
   ).map((point) => ({
     ...point,
-    cx: minX === maxX ? 330 : 60 + ((point.x - minX) / (maxX - minX)) * 540,
-    cy: minY === maxY ? 125 : 220 - ((point.y - minY) / (maxY - minY)) * 190,
+    cx: plotX(point.x),
+    cy: plotY(point.y),
   }))
   return {
     points,
@@ -242,5 +279,7 @@ export function scatterData(jobs: JobSample[], x: string, y: string) {
     maxY,
     xLabel: xAxis.label,
     yLabel: yAxis.label,
+    xTicks: valid ? scatterTicks(x, minX, maxX).map((value) => ({ value, x: plotX(value) })) : [],
+    yTicks: valid ? scatterTicks(y, minY, maxY).map((value) => ({ value, y: plotY(value) })) : [],
   }
 }

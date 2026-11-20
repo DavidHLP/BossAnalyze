@@ -8,6 +8,8 @@ import {
   userDraft,
   userErrors,
   userPayload,
+  userSaveError,
+  userDeleteError,
   userWriteSucceeded,
 } from '../app/lib/users.ts'
 
@@ -87,6 +89,34 @@ test('business failures in HTTP 200 responses cannot show a successful mutation'
   userWriteSucceeded({ code: 200, data: null, message: '更新成功' })
   for (const response of [{ code: 500, message: 'Failed' }, undefined, {}, { code: 401 }])
     assert.throws(() => userWriteSucceeded(response))
+})
+
+test('user save errors provide safe actions for HTTP and business failures', () => {
+  for (const [failure, message] of [
+    [{ code: 403 }, /联系管理员/],
+    [{ code: 409, data: { code: 1001 } }, /邮箱已存在/],
+    [{ code: 400, data: { code: 1007 } }, /参数未通过校验/],
+    [{ code: 503 }, /服务暂不可用/],
+    [new Error('internal stack trace'), /核对当前记录/],
+  ]) {
+    assert.match(userSaveError({ ...failure, message: 'internal stack trace' }), message)
+    assert.doesNotMatch(userSaveError(failure), /internal stack trace/)
+  }
+  assert.throws(
+    () => userWriteSucceeded({ code: 1001, message: 'internal stack trace' }),
+    (error) => /^邮箱已存在/.test(userSaveError(error)) && !error.message.includes('stack trace'),
+  )
+})
+
+test('only the confirmation-password business code identifies an incorrect operator password', () => {
+  const expected = '操作者密码不正确，请重试'
+  assert.equal(userDeleteError({ code: 400, data: { code: 1006, message: 'internal' } }), expected)
+  assert.throws(
+    () => userWriteSucceeded({ code: 1006 }),
+    (error) => userDeleteError(error) === expected,
+  )
+  assert.match(userDeleteError({ code: 400, data: { code: 1007 } }), /参数未通过校验/)
+  assert.match(userDeleteError({ code: 403 }), /无权删除/)
 })
 
 test('create and edit introductions respect the existing 255-character column without truncation', () => {

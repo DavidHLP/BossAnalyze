@@ -3,8 +3,10 @@ import { useMediaQuery } from '@vueuse/core'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { addRole, editRole, getRoleList, updateRoleRouters } from '@/api/auth/auth'
+import { mutationError } from '@/lib/rbac-mutations'
 import {
   canonicalSelection,
+  isDefaultRole,
   managedRoles,
   permissionRows,
   roleDraft,
@@ -25,21 +27,24 @@ const props = defineProps<{
   treeUnavailable: boolean
   actorRoleId: number | null
   locked: boolean
+  awaitingRead: boolean
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
   saved: [self: boolean, rows?: ManagedRole[]]
-  rolesRead: [rows: ManagedRole[]]
+  rolesRead: [rows: ManagedRole[], id: number]
   retryTree: []
   unconfirmed: []
 }>()
-const mobile = useMediaQuery('(max-width: 639px)')
+const mobile = useMediaQuery('(width < 640px)')
 const current = shallowRef<ManagedRole | null>(null)
 const draft = reactive(roleDraft())
 const selected = ref<number[]>([])
 const initial = ref('')
+const hadPermissions = ref(false)
 const pending = ref(false)
-const failed = ref<'' | 'request' | 'unconfirmed' | 'read'>('')
+const requestFailure = ref('')
+const readFailed = ref(false)
 const submitted = ref(false)
 const nameTouched = ref(false)
 const discardOpen = ref(false)
@@ -59,8 +64,7 @@ const grantBlocked = computed(
   () =>
     props.treeUnavailable ||
     missing.value.length > 0 ||
-    failed.value === 'unconfirmed' ||
-    failed.value === 'read',
+    props.awaitingRead,
 )
 
 function initialize(role: ManagedRole | null) {
@@ -77,7 +81,9 @@ function initialize(role: ManagedRole | null) {
       .map(({ node }) => node.id),
   )
   initial.value = serialize()
-  failed.value = ''
+  hadPermissions.value = selectionPermissions(props.tree, selected.value).length > 0
+  requestFailure.value = ''
+  readFailed.value = false
   submitted.value = false
   nameTouched.value = false
 }
@@ -137,15 +143,18 @@ async function reloadRole() {
     const role = rows.find((row) => row.id === current.value?.id)
     if (!role) throw new Error('Role missing')
     initialize(role)
-    emit('rolesRead', rows)
+    emit('rolesRead', rows, role.id)
   } catch {
-    failed.value = 'read'
+    readFailed.value = true
   } finally {
     pending.value = false
   }
 }
 async function save(confirmedClear = false) {
-  if (pending.value || props.locked || props.mode === 'view') return
+  if (
+    pending.value || props.locked || props.mode === 'view' ||
+    (props.mode !== 'create' && !dirty.value)
+  ) return
   submitted.value = true
   if (props.mode !== 'grant' && Object.keys(errors.value).length) {
     const first = Object.keys(errors.value)[0]
@@ -164,7 +173,7 @@ async function save(confirmedClear = false) {
     if (!current.value || grantBlocked.value) return
     if (
       !confirmedClear &&
-      current.value.permissions.length &&
+      hadPermissions.value &&
       !selectionPermissions(props.tree, selected.value).length
     ) {
       clearOpen.value = true
@@ -172,7 +181,7 @@ async function save(confirmedClear = false) {
     }
   }
   pending.value = true
-  failed.value = ''
+  requestFailure.value = ''
   let grantAccepted = false
   try {
     if (props.mode === 'grant' && current.value) {
@@ -196,8 +205,7 @@ async function save(confirmedClear = false) {
       initial.value = serialize()
       emit('saved', props.mode === 'edit' && self.value)
     }
-  } catch {
-    failed.value = grantAccepted ? 'unconfirmed' : 'request'
+  } catch (error) {
     if (grantAccepted) {
       initial.value = serialize()
       emit('unconfirmed')
@@ -205,7 +213,7 @@ async function save(confirmedClear = false) {
         pending.value = false
         await useSession().signOut(true)
       }
-    }
+    } else requestFailure.value = mutationError(error, '保存')
   } finally {
     pending.value = false
   }
@@ -228,14 +236,14 @@ async function confirmClear() {
     <UiSheetContent
       :side="mobile ? 'bottom' : 'right'"
       :show-close-button="false"
-      class="w-full! sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
+      class="w-full! shadow-panel sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
       @pointer-down-outside.prevent
       @interact-outside.prevent
       @escape-key-down="escape"
     >
       <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-14"
         ><UiSheetTitle>{{ title }}</UiSheetTitle
-        ><UiSheetDescription>{{
+        ><UiSheetDescription class="break-all">{{
           mode === 'create' ? '先创建角色，再按需配置菜单授权' : current?.roleName
         }}</UiSheetDescription></UiSheetHeader
       >
@@ -253,12 +261,14 @@ async function confirmClear() {
         <dl class="grid grid-cols-2 gap-5 text-sm">
           <div>
             <dt class="text-xs text-muted-foreground">角色 ID</dt>
-            <dd class="mt-1.5 tabular-nums">{{ current.id }}</dd>
+            <dd class="mt-1.5 font-mono tabular-nums">{{ current.id }}</dd>
           </div>
           <div>
             <dt class="text-xs text-muted-foreground">状态</dt>
             <dd class="mt-1.5">
-              {{ current.status === 1 ? '启用' : current.status === 0 ? '停用' : '未知' }}
+              <StatusBadge :tone="current.status === 1 ? 'success' : current.status === 0 ? 'warning' : 'neutral'">
+                {{ current.status === 1 ? '启用' : current.status === 0 ? '停用' : '未知' }}
+              </StatusBadge>
             </dd>
           </div>
           <div class="col-span-2">
@@ -267,7 +277,9 @@ async function confirmClear() {
           </div>
         </dl>
         <div>
-          <h3 class="mb-3 text-sm font-medium">权限标识（{{ current.permissions.length }}）</h3>
+          <h3 class="mb-3 text-sm font-medium">
+            权限标识 <span class="font-mono tabular-nums">{{ current.permissions.length }}</span>
+          </h3>
           <ul v-if="current.permissions.length" class="space-y-2">
             <li
               v-for="permission in current.permissions"
@@ -295,6 +307,21 @@ async function confirmClear() {
           <p class="text-sm leading-6 text-muted-foreground">
             勾选子项会包含必要父级；共享同一权限标识的条目联动选择。取消父级会移除其下授权。
           </p>
+          <UiAlert v-if="awaitingRead" class="border-status-warning/40 bg-status-warning-surface text-status-warning-foreground"
+            ><UiAlertTitle>授权已提交，未确认</UiAlertTitle
+            ><UiAlertDescription class="text-inherit">{{
+              readFailed ? '重新读取失败，请稍后重试。' : '请重新读取角色，并核对当前授权。'
+            }}</UiAlertDescription
+            ><UiButton
+              type="button"
+              variant="outline"
+              size="sm"
+              class="mt-2 text-foreground"
+              :disabled="pending"
+              @click="reloadRole"
+              >重新读取角色</UiButton
+            ></UiAlert
+          >
           <UiAlert v-if="treeUnavailable" role="alert"
             ><UiAlertTitle>菜单列表暂不可用</UiAlertTitle
             ><UiAlertDescription>请重新读取菜单后再配置授权。</UiAlertDescription
@@ -308,21 +335,22 @@ async function confirmClear() {
             ></UiAlert
           >
           <UiAlert v-else-if="missing.length" role="alert"
+            class="border-status-warning/40 bg-status-warning-surface text-status-warning-foreground"
             ><UiAlertTitle>部分现有权限无法在菜单中匹配</UiAlertTitle
-            ><UiAlertDescription
+            ><UiAlertDescription class="text-inherit"
               >为保留现有授权，暂不允许覆盖保存。请先核对以下权限与菜单的关联。</UiAlertDescription
             >
-            <ul class="mt-2 space-y-1 break-all text-xs">
+            <ul class="mt-2 space-y-1 break-all font-mono text-xs tabular-nums">
               <li v-for="item in missing" :key="item">{{ item }}</li>
             </ul></UiAlert
           >
           <div class="flex items-center justify-between gap-3 text-sm">
             <h3 class="font-medium">菜单与操作</h3>
             <span class="text-xs text-muted-foreground"
-              >已选 {{ selected.length }} 项（含父级）</span
+              >已选 <span class="font-mono tabular-nums">{{ selected.length }}</span> 项（含父级）</span
             >
           </div>
-          <ul v-if="tree.length" class="space-y-1">
+          <ul v-if="tree.length" class="space-y-1 rounded-lg border border-border bg-card p-2">
             <RolesPermissionBranch
               v-for="node in tree"
               :key="node.id"
@@ -344,7 +372,7 @@ async function confirmClear() {
               v-model="draft.roleName"
               required
               maxlength="255"
-              :readonly="current?.roleName === 'USER'"
+              :readonly="isDefaultRole(current)"
               :disabled="pending"
               :aria-invalid="Boolean((submitted || nameTouched) && errors.roleName)"
               :aria-describedby="
@@ -352,7 +380,7 @@ async function confirmClear() {
               "
               @blur="nameTouched = true"
             />
-            <p v-if="current?.roleName === 'USER'" class="text-xs text-muted-foreground">
+            <p v-if="isDefaultRole(current)" class="text-xs text-muted-foreground">
               系统默认角色名称固定。
             </p>
             <p
@@ -395,25 +423,10 @@ async function confirmClear() {
             </p></UiField
           >
         </template>
-        <p v-if="failed === 'request'" role="alert" class="text-sm text-destructive">
-          保存失败，请检查输入或服务连接后重试。填写内容已保留。
-        </p>
-        <UiAlert v-else-if="failed" role="alert"
-          ><UiAlertTitle>{{
-            failed === 'unconfirmed' ? '授权已提交，但无法确认最终结果' : '无法重新读取角色'
-          }}</UiAlertTitle
-          ><UiAlertDescription>请重新读取角色并核对授权后再操作。</UiAlertDescription
-          ><UiButton
-            type="button"
-            variant="outline"
-            size="sm"
-            class="mt-2"
-            :disabled="pending"
-            @click="reloadRole"
-            >重新读取角色</UiButton
-          ></UiAlert
-        >
       </form>
+      <p v-if="requestFailure" role="alert" class="shrink-0 px-6 text-sm text-destructive">
+        {{ requestFailure }}填写内容已保留。
+      </p>
       <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border"
         ><UiButton variant="outline" :disabled="pending" @click="close">{{
           mode === 'view' ? '关闭' : '取消'
@@ -474,7 +487,7 @@ async function confirmClear() {
       @pointer-down-outside.prevent
       @interact-outside.prevent
       ><UiDialogHeader
-        ><UiDialogTitle>清空「{{ current?.roleName }}」的授权？</UiDialogTitle
+        ><UiDialogTitle class="break-all">清空「{{ current?.roleName }}」的授权？</UiDialogTitle
         ><UiDialogDescription
           >该角色将失去全部菜单与操作授权。保存后无法在此撤销，请确认影响范围。</UiDialogDescription
         ></UiDialogHeader

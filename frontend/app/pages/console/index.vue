@@ -10,8 +10,8 @@ import {
 } from '@hugeicons/core-free-icons'
 import { getDashboardStats } from '@/api/log/accesslog'
 import { getUserRole, getUserPrivateInformation } from '@/api/auth/auth'
-import { dashboardSnapshot, snapshotScope, snapshotTime } from '@/lib/dashboard'
-import { accessSnapshot, settingsFailure } from '@/lib/settings'
+import { dashboardSnapshot, peakVisits, snapshotScope, snapshotTime } from '@/lib/dashboard'
+import { accessSnapshot, roleStatus, settingsFailure } from '@/lib/settings'
 import { findMenu, menuShortcuts } from '@/lib/session'
 import { menuIcon } from '@/lib/menu-icons'
 
@@ -25,6 +25,7 @@ const canViewDashboard = computed(() =>
 const snapshot = shallowRef<ReturnType<typeof dashboardSnapshot>>(null)
 const access = shallowRef<ReturnType<typeof accessSnapshot> | null>(null)
 const statsState = ref<State>('loading')
+const currentRole = computed(() => roleStatus(access.value?.status ?? null))
 const accessState = ref<State>('loading')
 const pending = computed(() => statsState.value === 'loading' || accessState.value === 'loading')
 const number = new Intl.NumberFormat('zh-CN')
@@ -43,7 +44,7 @@ const metrics = computed(() => [
   },
   {
     title: '峰值小时访问量',
-    value: snapshot.value?.hours.reduce((peak, hour) => Math.max(peak, hour.count), 0),
+    value: snapshot.value ? peakVisits(snapshot.value.hours) : undefined,
     description: '快照中单小时最高访问量',
     icon: ChartHistogramIcon,
   },
@@ -81,12 +82,14 @@ onMounted(refresh)
 
 <template>
   <section class="flex min-w-0 flex-col gap-8" aria-labelledby="workbench-title">
-    <header class="flex flex-wrap items-start justify-between gap-4">
+    <header class="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-panel sm:p-6">
       <div class="min-w-0 space-y-2">
         <h1 id="workbench-title" class="break-words text-2xl font-semibold tracking-tight">
           欢迎回来<span v-if="session.user?.name">，{{ session.user.name }}</span>
         </h1>
-        <p class="text-sm text-muted-foreground">查看当前角色与可访问的功能。</p>
+        <StatusBadge v-if="access" :tone="currentRole.tone" class="max-w-full break-all">
+          {{ access.name }}
+        </StatusBadge>
       </div>
       <UiButton variant="outline" :disabled="pending" @click="refresh"
         ><HugeiconsIcon
@@ -98,44 +101,46 @@ onMounted(refresh)
       >
     </header>
     <section
-      v-if="canViewDashboard"
-      class="min-w-0 space-y-4"
+      class="min-w-0 space-y-4 rounded-lg border border-border bg-card p-5 shadow-panel sm:p-6"
       aria-labelledby="overview-title"
       :aria-busy="statsState === 'loading'"
     >
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="overview-title" class="text-sm font-semibold">日志访问概览</h2>
+        <h2 id="overview-title" class="text-base font-semibold">日志访问概览</h2>
         <UiButton v-if="canViewDashboard" variant="ghost" size="sm" as-child
           ><NuxtLink to="/console/dashboard"
-            >查看数据看板<HugeiconsIcon
+            >进入数据看板<HugeiconsIcon
               :icon="ArrowRight01Icon"
               class="size-4"
               aria-hidden="true" /></NuxtLink
         ></UiButton>
       </div>
-      <UiAlert v-if="statsState === 'forbidden'" role="status"
+      <UiAlert v-if="!canViewDashboard || statsState === 'forbidden'" role="status"
         ><UiAlertTitle>日志概览暂不可访问</UiAlertTitle
         ><UiAlertDescription
           >当前账号未获授权访问数据看板。如需访问，请联系管理员。</UiAlertDescription
         ></UiAlert
       >
       <template v-else>
-        <div class="grid gap-4 sm:grid-cols-3">
+        <div
+          v-if="statsState === 'loading' || snapshot"
+          class="grid gap-3 sm:grid-cols-3"
+        >
           <UiCard
             v-for="metric in metrics"
             :key="metric.title"
-            class="gap-0 border-[0.5px] border-border/70 py-0 shadow-none ring-0"
-            ><UiCardContent class="p-5"
+            class="min-w-0 gap-0 bg-muted/35 py-0"
+            ><UiCardContent class="p-4"
               ><div class="flex items-center justify-between gap-3">
                 <h3 class="text-xs text-muted-foreground">{{ metric.title }}</h3>
                 <HugeiconsIcon
                   :icon="metric.icon"
-                  class="size-4 text-muted-foreground"
+                  class="size-4 text-accent-data"
                   aria-hidden="true"
                 />
               </div>
               <UiSkeleton v-if="statsState === 'loading'" class="mt-4 h-8 w-24" />
-              <p v-else class="mt-3 text-3xl font-semibold tabular-nums tracking-tight">
+              <p v-else class="mt-3 break-all font-mono text-3xl font-semibold tabular-nums">
                 {{ metric.value == null ? '—' : number.format(metric.value) }}
               </p>
               <p class="mt-2 text-xs text-muted-foreground">
@@ -162,12 +167,13 @@ onMounted(refresh)
           ></UiAlert
         >
         <p v-else class="break-words text-xs text-muted-foreground">
-          数据范围：{{ snapshotScope }} · 快照生成时间 {{ snapshotTime(snapshot.generatedAt) }}
+          <span class="block">快照生成时间 <span class="font-mono tabular-nums">{{ snapshotTime(snapshot.generatedAt) }}</span></span>
+          <span class="mt-1 block">{{ snapshotScope }}</span>
         </p>
       </template>
     </section>
-    <div class="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-      <UiCard class="gap-0 border-[0.5px] border-border/70 py-0 shadow-none ring-0">
+    <div class="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)]">
+      <UiCard class="min-w-0 gap-0 py-0 shadow-panel">
         <UiCardHeader class="border-b-[0.5px] border-border/70 px-5 py-4"
           ><div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-sm font-semibold">快捷入口</h2>
@@ -175,21 +181,24 @@ onMounted(refresh)
           </div></UiCardHeader
         >
         <UiCardContent class="p-3"
-          ><div v-if="shortcuts.length" class="grid gap-2 sm:grid-cols-2">
+          ><div v-if="shortcuts.length" class="grid gap-3 xl:grid-cols-2">
             <UiButton
               v-for="item in shortcuts"
               :key="item.path"
               variant="ghost"
-              class="h-auto min-h-20 justify-start gap-3 whitespace-normal rounded-md p-4 text-left"
+              class="h-auto min-h-20 min-w-0 justify-start gap-3 whitespace-normal rounded-md border border-border p-3 text-left"
               as-child
               ><NuxtLink :to="item.path"
                 ><span
-                  class="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/5 text-primary"
+                  class="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-data-surface text-accent-data-foreground"
                   ><HugeiconsIcon
                     :icon="menuIcon(item.path, item.icon)"
                     class="size-5"
                     aria-hidden="true" /></span
-                ><span class="min-w-0 flex-1 break-words text-sm font-medium">{{ item.title }}</span
+                ><span class="min-w-0 flex-1">
+                  <span class="block break-words text-sm font-medium">{{ item.title }}</span>
+                  <span class="mt-1 block break-all font-mono text-xs text-muted-foreground">{{ item.path }}</span>
+                </span
                 ><HugeiconsIcon
                   :icon="ArrowRight01Icon"
                   class="size-4 shrink-0 text-muted-foreground"
@@ -208,7 +217,7 @@ onMounted(refresh)
         >
       </UiCard>
       <UiCard
-        class="gap-0 border-[0.5px] border-border/70 py-0 shadow-none ring-0"
+        class="min-w-0 gap-0 py-0 shadow-panel"
         :aria-busy="accessState === 'loading'"
       >
         <UiCardHeader class="border-b-[0.5px] border-border/70 px-5 py-4"
@@ -217,7 +226,7 @@ onMounted(refresh)
               :icon="ShieldUserIcon"
               class="size-4 text-muted-foreground"
               aria-hidden="true"
-            />当前角色
+            />当前角色与权限
           </h2></UiCardHeader
         >
         <UiCardContent class="space-y-4 p-5">
@@ -242,30 +251,18 @@ onMounted(refresh)
           <template v-else-if="access"
             ><div class="flex flex-wrap items-center gap-2">
               <p class="min-w-0 break-all text-sm font-medium">{{ access.name }}</p>
-              <UiBadge
-                variant="secondary"
-                :class="
-                  access.status === 1
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                    : 'bg-muted text-muted-foreground'
-                "
-                >{{
-                  access.status === 1 ? '启用' : access.status === 0 ? '停用' : '状态未知'
-                }}</UiBadge
-              >
+              <StatusBadge :tone="currentRole.tone">{{ currentRole.label }}</StatusBadge>
             </div>
             <p
-              v-if="access.remark"
               class="whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground"
             >
-              {{ access.remark }}
+              {{ access.remark || '暂无角色备注' }}
             </p>
             <p class="border-t-[0.5px] border-border/70 pt-4 text-xs text-muted-foreground">
-              已授予
-              <span class="font-medium tabular-nums text-foreground">{{
-                access.permissions.length
-              }}</span>
-              项权限
+              <template v-if="access.permissions.length">
+                已授予 <span class="font-mono font-medium tabular-nums text-foreground">{{ access.permissions.length }}</span> 项权限
+              </template>
+              <template v-else>尚未分配权限（<span class="font-mono tabular-nums">0</span> 项）</template>
             </p></template
           >
         </UiCardContent>

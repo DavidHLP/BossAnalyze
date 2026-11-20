@@ -3,9 +3,10 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { Logout01Icon, UnfoldMoreIcon } from '@hugeicons/core-free-icons'
 import { useSidebar } from '@/components/ui/sidebar'
 
-defineProps<{ user: { name: string; email: string } }>()
+const props = defineProps<{ user: { name: string; email: string } }>()
 const { isMobile } = useSidebar()
 const { signOut } = useSession()
+const initial = computed(() => Array.from(props.user.name.trim() || props.user.email)[0])
 </script>
 
 <template>
@@ -16,20 +17,26 @@ const { signOut } = useSession()
           <UiSidebarMenuButton
             size="lg"
             aria-label="账号菜单"
-            class="data-[state=open]:bg-sidebar-accent"
+            class="gap-2.5 data-[state=open]:bg-sidebar-accent"
           >
             <UiAvatar class="size-8 rounded-lg">
-              <UiAvatarFallback class="rounded-lg">{{ user.name.slice(0, 1) }}</UiAvatarFallback>
+              <UiAvatarFallback class="rounded-lg bg-accent-data-surface text-accent-data-foreground">
+                {{ initial }}
+              </UiAvatarFallback>
             </UiAvatar>
-            <span class="grid flex-1 text-left text-sm leading-tight">
+            <span class="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
               <span class="truncate font-medium">{{ user.name }}</span>
               <span class="truncate text-xs text-muted-foreground">{{ user.email }}</span>
             </span>
-            <HugeiconsIcon :icon="UnfoldMoreIcon" class="ml-auto size-4" aria-hidden="true" />
+            <HugeiconsIcon
+              :icon="UnfoldMoreIcon"
+              class="ml-auto size-4 group-data-[collapsible=icon]:hidden"
+              aria-hidden="true"
+            />
           </UiSidebarMenuButton>
         </UiDropdownMenuTrigger>
         <UiDropdownMenuContent
-          class="min-w-56 rounded-lg"
+          class="min-w-56 rounded-lg border shadow-panel"
           :side="isMobile ? 'bottom' : 'right'"
           align="end"
           :side-offset="4"

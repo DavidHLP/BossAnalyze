@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import {
   canonicalSelection,
   currentRoleId,
+  isDefaultRole,
   managedRoles,
   permissionTree,
   permissionRows,
@@ -88,4 +89,21 @@ test('unrepresented grants are detected and HTTP 200 business errors cannot pass
   ])
   roleWriteSucceeded({ code: 200, data: null })
   for (const value of [{ code: 500 }, {}, undefined]) assert.throws(() => roleWriteSucceeded(value))
+})
+
+test('permissionless groups are carried by descendants and clear with the last child', () => {
+  const nodes = permissionTree([
+    { id: 1, children: [{ id: 2, permission: 'action.write', meta: { type: 'F' }, status: 0 }] },
+  ])
+  assert.equal(nodes[0].children[0].type, 'F')
+  assert.deepEqual(togglePermission(nodes, [], 1, true), [])
+  assert.deepEqual(togglePermission(nodes, [], 2, true), [1, 2])
+  assert.deepEqual(togglePermission(nodes, [1, 2], 2, false), [])
+})
+
+test('default role protection follows the case-insensitive server identity', () => {
+  const role = { ...roles.find((row) => row.roleName === 'USER'), roleName: 'User' }
+  assert.equal(isDefaultRole(role), true)
+  assert.equal(rolePayload(roleDraft(role), role).roleName, 'User')
+  assert.throws(() => rolePayload({ ...roleDraft(role), roleName: 'USER' }, role))
 })

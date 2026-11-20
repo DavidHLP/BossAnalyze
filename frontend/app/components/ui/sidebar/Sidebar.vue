@@ -17,7 +17,14 @@ const props = withDefaults(defineProps<SidebarProps>(), {
   collapsible: 'offcanvas',
 })
 
-const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+const { isMobile, state, openMobile, setOpenMobile, triggerId } = useSidebar()
+
+function restoreTriggerFocus(event: Event) {
+  const active = document.activeElement
+  if (active === document.body || (event.target instanceof Node && event.target.contains(active))) {
+    document.getElementById(triggerId)?.focus()
+  }
+}
 </script>
 
 <template>
@@ -36,10 +43,11 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
       data-slot="sidebar"
       data-mobile="true"
       :side="side"
-      class="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
+      class="w-(--sidebar-width)! max-w-full! bg-sidebar p-0 text-sidebar-foreground"
       :style="{
         '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
       }"
+      @close-auto-focus.prevent="restoreTriggerFocus"
     >
       <SheetHeader class="sr-only">
         <SheetTitle>导航菜单</SheetTitle>
@@ -83,7 +91,7 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
         // Adjust the padding for floating and inset variants.
         variant === 'floating' || variant === 'inset'
           ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
-          : 'group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l',
+          : 'border-sidebar-border group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l',
         props.class,
       )"
       v-bind="$attrs"

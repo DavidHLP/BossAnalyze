@@ -3,7 +3,8 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { Add01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { deleteRole, getRoleList, getUserRole } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
-import { currentRoleId, managedRoles, permissionTree, roleWriteSucceeded } from '@/lib/roles'
+import { mutationError } from '@/lib/rbac-mutations'
+import { currentRoleId, isDefaultRole, managedRoles, permissionTree, roleWriteSucceeded } from '@/lib/roles'
 import type { ManagedRole, PermissionNode } from '@/lib/roles'
 
 definePageMeta({ layout: 'console', middleware: 'auth' })
@@ -39,9 +40,10 @@ const treeUnavailable = computed(() => treePending.value || treeFailed.value)
 const open = ref(false)
 const mode = ref<'view' | 'create' | 'edit' | 'grant'>('view')
 const selected = shallowRef<ManagedRole | null>(null)
+const awaitingRead = reactive(new Set<number>())
 const deletion = shallowRef<ManagedRole | null>(null)
 const deleting = ref(false)
-const deleteFailed = ref(false)
+const deleteFailure = ref('')
 
 function clampPage() {
   page.value = Math.min(page.value, Math.max(1, Math.ceil(filtered.value.length / size.value)))
@@ -123,33 +125,40 @@ async function saved(self: boolean, rows?: ManagedRole[]) {
     clampPage()
   } else await loadRoles()
 }
-function readRoles(rows: ManagedRole[]) {
+function readRoles(rows: ManagedRole[], id: number) {
   roles.value = rows
-  notice.value = ''
+  awaitingRead.delete(id)
+  notice.value = '已重新读取角色，请核对当前授权。'
   clampPage()
 }
+function lockGrant() {
+  if (!selected.value) return
+  awaitingRead.add(selected.value.id)
+  notice.value = '授权已提交，未确认。请在该角色的菜单授权面板重新读取。'
+}
 function confirmDelete(role: ManagedRole) {
-  if (locked.value || role.id === actorId.value || role.roleName === 'USER') return
+  if (locked.value || role.id === actorId.value || isDefaultRole(role)) return
   deletion.value = role
-  deleteFailed.value = false
+  deleteFailure.value = ''
 }
 async function remove() {
   if (
     !deletion.value ||
     deleting.value ||
+    locked.value ||
     deletion.value.id === actorId.value ||
-    deletion.value.roleName === 'USER'
+    isDefaultRole(deletion.value)
   )
     return
   deleting.value = true
-  deleteFailed.value = false
+  deleteFailure.value = ''
   try {
     roleWriteSucceeded(await deleteRole(deletion.value.id))
     deletion.value = null
     notice.value = '角色已删除'
     await loadRoles()
-  } catch {
-    deleteFailed.value = true
+  } catch (error) {
+    deleteFailure.value = mutationError(error, '删除', '该角色可能仍有关联用户，请核对角色分配后重试。')
   } finally {
     deleting.value = false
   }
@@ -200,7 +209,7 @@ onMounted(() => {
     >
 
     <form
-      class="flex flex-wrap items-end gap-x-6 gap-y-4"
+      class="flex min-w-0 flex-wrap items-end gap-x-6 gap-y-4 rounded-lg border border-border bg-card p-4"
       aria-label="角色筛选"
       @submit.prevent="search"
     >
@@ -245,13 +254,15 @@ onMounted(() => {
       </div>
     </form>
 
-    <div class="min-w-0 rounded-lg border-[0.5px] border-border/70 bg-card" :aria-busy="pending">
+    <div class="min-w-0 rounded-lg border border-border bg-card shadow-panel" :aria-busy="pending">
       <div class="flex items-center justify-between gap-3 border-b-[0.5px] border-border/70 p-4">
         <h2 class="text-sm font-medium">
           角色列表
-          <span class="ml-2 font-normal text-muted-foreground">{{
-            failed ? '—' : pending && !roles.length ? '读取中' : `共 ${filtered.length} 个角色`
-          }}</span>
+          <span class="ml-2 font-normal text-muted-foreground">
+            <template v-if="failed">—</template>
+            <template v-else-if="pending && !roles.length">读取中</template>
+            <template v-else>共 <span class="font-mono tabular-nums">{{ filtered.length }}</span> 个角色</template>
+          </span>
         </h2>
         <UiButton variant="ghost" size="sm" :disabled="pending" @click="loadRoles"
           ><HugeiconsIcon
@@ -314,7 +325,7 @@ onMounted(() => {
             ><UiTableHead class="hidden text-right md:table-cell">权限数</UiTableHead
             ><UiTableHead class="hidden lg:table-cell">备注</UiTableHead
             ><UiTableHead
-              class="sticky right-0 w-44 min-w-44 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
+              class="sticky right-0 z-10 w-44 min-w-44 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
               >操作</UiTableHead
             ></UiTableRow
           ></UiTableHeader
@@ -329,27 +340,24 @@ onMounted(() => {
                 @click="show('view', role)"
                 >{{ role.roleName }}</UiButton
               >
-              <p class="mt-1 text-xs text-muted-foreground">
-                ID {{ role.id }}<span v-if="role.roleName === 'USER'" class="ml-2">系统默认</span
-                ><span v-if="role.id === actorId" class="ml-2">当前账号</span>
-              </p>
-              <p class="mt-1 text-xs text-muted-foreground sm:hidden">
-                {{ role.status === 1 ? '启用' : role.status === 0 ? '停用' : '未知' }} ·
-                {{ role.permissions.length }} 项权限
-              </p></UiTableCell
+              <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span class="font-mono tabular-nums">ID {{ role.id }}</span>
+                <StatusBadge v-if="isDefaultRole(role)">系统默认</StatusBadge>
+                <StatusBadge v-if="role.id === actorId">当前账号</StatusBadge>
+                <StatusBadge v-if="awaitingRead.has(role.id)" tone="warning">授权未确认</StatusBadge>
+                <StatusBadge class="sm:hidden"
+                  :tone="role.status === 1 ? 'success' : role.status === 0 ? 'warning' : 'neutral'">
+                  {{ role.status === 1 ? '启用' : role.status === 0 ? '停用' : '未知' }}
+                </StatusBadge>
+                <span class="md:hidden"><span class="font-mono tabular-nums">{{ role.permissions.length }}</span> 项权限</span>
+              </div></UiTableCell
             >
             <UiTableCell class="hidden text-center sm:table-cell"
-              ><UiBadge
-                variant="secondary"
-                :class="
-                  role.status === 1
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                    : 'bg-muted text-muted-foreground'
-                "
-                >{{ role.status === 1 ? '启用' : role.status === 0 ? '停用' : '未知' }}</UiBadge
+              ><StatusBadge :tone="role.status === 1 ? 'success' : role.status === 0 ? 'warning' : 'neutral'"
+                >{{ role.status === 1 ? '启用' : role.status === 0 ? '停用' : '未知' }}</StatusBadge
               ></UiTableCell
             >
-            <UiTableCell class="hidden text-right tabular-nums md:table-cell">{{
+            <UiTableCell class="hidden text-right font-mono tabular-nums md:table-cell">{{
               role.permissions.length
             }}</UiTableCell
             ><UiTableCell
@@ -357,7 +365,7 @@ onMounted(() => {
               >{{ role.remark || '—' }}</UiTableCell
             >
             <UiTableCell
-              class="sticky right-0 w-44 min-w-44 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
+              class="sticky right-0 z-10 w-44 min-w-44 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
               ><div class="flex justify-center">
                 <UiButton
                   variant="ghost"
@@ -378,7 +386,7 @@ onMounted(() => {
                   size="sm"
                   class="text-destructive hover:text-destructive"
                   :aria-label="`删除${role.roleName}`"
-                  :disabled="locked || role.id === actorId || role.roleName === 'USER'"
+                  :disabled="locked || role.id === actorId || isDefaultRole(role)"
                   @click="confirmDelete(role)"
                   >删除</UiButton
                 >
@@ -405,7 +413,7 @@ onMounted(() => {
           ></UiRadioGroup
         >
         <div class="flex items-center gap-3">
-          <span class="whitespace-nowrap text-xs tabular-nums text-muted-foreground"
+          <span class="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground"
             >第 {{ page }} / {{ Math.max(1, Math.ceil(filtered.length / size)) }} 页</span
           ><UiPagination
             v-model:page="page"
@@ -441,10 +449,11 @@ onMounted(() => {
       :tree-unavailable="treeUnavailable"
       :actor-role-id="actorId"
       :locked="locked"
+      :awaiting-read="Boolean(selected && awaitingRead.has(selected.id))"
       @saved="saved"
       @roles-read="readRoles"
       @retry-tree="loadTree"
-      @unconfirmed="notice = '授权已提交，尚未确认最终结果，请重新读取角色核对'"
+      @unconfirmed="lockGrant"
     />
     <UiDialog
       :open="Boolean(deletion)"
@@ -469,9 +478,9 @@ onMounted(() => {
             >将永久删除此角色及其授权关系，无法在此恢复。请先确保相关用户已重新分配角色。</UiDialogDescription
           ></UiDialogHeader
         >
-        <p class="text-xs text-muted-foreground">角色 ID：{{ deletion?.id }}</p>
-        <p v-if="deleteFailed" role="alert" class="text-sm text-destructive">
-          删除失败，请检查服务连接以及是否仍有关联用户后重试。
+        <p class="text-xs text-muted-foreground">角色 ID <span class="font-mono tabular-nums">{{ deletion?.id }}</span></p>
+        <p v-if="deleteFailure" role="alert" class="text-sm text-destructive">
+          {{ deleteFailure }}
         </p>
         <UiDialogFooter
           ><UiButton variant="outline" :disabled="deleting" @click="deletion = null">取消</UiButton

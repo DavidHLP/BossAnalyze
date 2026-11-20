@@ -358,3 +358,48 @@ test('a completed old logout cannot clear a newly signed-in session', async () =
   assert.equal(storage.get('token'), 'synthetic-login')
   assert.equal(session.state.value.ready, true)
 })
+
+test('retry from the global error page reruns guards even at the current URL', async () => {
+  const { vue, router } = await sessionFixture()
+  const redirect = '/console/users?edit=1#form'
+  await router.replace(redirect)
+  const outage = { statusCode: 503, data: { sessionRestore: true, redirect } }
+  const denied = { statusCode: 403 }
+  const activeError = vue.ref(outage)
+  let guardCalls = 0
+  let failure = outage
+  router.onError(() => {})
+  router.beforeEach(() => {
+    guardCalls++
+    if (failure) throw failure
+  })
+
+  const { leaveError } = await scriptRuntime('error.vue', {
+    ...vue,
+    defineProps: () => ({ error: activeError.value }),
+    useRouter: () => router,
+    useNuxtApp: () => ({ runWithContext: fn => fn() }),
+    useError: () => activeError,
+    useHead: () => {},
+    isNuxtError: cause => Boolean(cause?.statusCode),
+    clearError: async (options) => {
+      if (options?.redirect) await router.replace(options.redirect)
+      activeError.value = undefined
+    },
+  }, ['leaveError'])
+
+  await leaveError(redirect)
+  assert.equal(guardCalls, 1)
+  assert.deepEqual(activeError.value, outage)
+
+  failure = denied
+  await leaveError(redirect)
+  assert.equal(guardCalls, 2)
+  assert.deepEqual(activeError.value, denied)
+
+  failure = null
+  await leaveError(redirect)
+  assert.equal(guardCalls, 3)
+  assert.equal(router.currentRoute.value.fullPath, redirect)
+  assert.equal(activeError.value, undefined)
+})

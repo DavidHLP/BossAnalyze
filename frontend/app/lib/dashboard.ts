@@ -88,8 +88,18 @@ export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
 
 export function snapshotTime(value: string) {
   // A zone-less LocalDateTime is server wall time; do not invent its timezone.
-  if (!/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return `${value.replace('T', ' ')}（服务端时间，时区未提供）`
+  if (!/(?:Z|[+-]\d{2}:?\d{2}|GMT|UTC)$/i.test(value.trim())) {
+    return `${value.replace('T', ' ')}（服务端时间，时区未提供）`
+  }
   return `${new Date(value).toISOString().replace('T', ' ')}（UTC）`
 }
 
-export const snapshotScope = '当前配置日志目录中可解析访问记录的分析快照；非固定近 24 小时统计'
+export function peakVisits(hours: CountRow[]) {
+  return hours.reduce((peak, hour) => Math.max(peak, hour.count), 0)
+}
+
+export function visitShare(count: number, total: number) {
+  return total ? (count / total) * 100 : 0
+}
+
+export const snapshotScope = '统计配置日志目录中可解析的受保护 API 请求。非近 24 小时实时监控，无响应耗时或状态码。'

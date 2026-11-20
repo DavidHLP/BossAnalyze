@@ -9,15 +9,15 @@ import type { MenuItem } from '@/lib/session'
 const props = defineProps<{ item: MenuItem }>()
 const icon = computed(() => menuIcon(props.item.path, props.item.icon))
 const route = useRoute()
-const { state, setOpen, setOpenMobile } = useSidebar()
+const { state, isMobile, setOpen, setOpenMobile } = useSidebar()
 const active = computed(() => Boolean(findMenu([props.item], route.path)))
 const open = ref(active.value)
-watch(active, (value) => {
+watch([active, () => route.path], ([value]) => {
   if (value) open.value = true
 })
 
 async function revealGroup() {
-  if (state.value === 'collapsed') {
+  if (state.value === 'collapsed' && !isMobile.value) {
     setOpen(true)
     await nextTick()
     open.value = true
@@ -29,11 +29,17 @@ async function revealGroup() {
   <UiCollapsible v-if="item.children.length" v-model:open="open" as-child>
     <UiSidebarMenuItem>
       <UiCollapsibleTrigger as-child>
-        <UiSidebarMenuButton :tooltip="item.title" :is-active="active" @click="revealGroup">
-          <HugeiconsIcon :icon="icon" aria-hidden="true" /><span>{{ item.title }}</span>
+        <UiSidebarMenuButton
+          :tooltip="item.title"
+          :is-active="active"
+          class="h-9 text-sm"
+          @click="revealGroup"
+        >
+          <HugeiconsIcon :icon="icon" aria-hidden="true" />
+          <span class="min-w-0 truncate group-data-[collapsible=icon]:sr-only">{{ item.title }}</span>
           <HugeiconsIcon
             :icon="ArrowRight01Icon"
-            class="ml-auto transition-transform"
+            class="ml-auto transition-transform group-data-[collapsible=icon]:hidden"
             :class="{ 'rotate-90': open }"
             aria-hidden="true"
           />
@@ -51,13 +57,14 @@ async function revealGroup() {
     </UiSidebarMenuItem>
   </UiCollapsible>
   <UiSidebarMenuItem v-else-if="item.path">
-    <UiSidebarMenuButton as-child :tooltip="item.title" :is-active="active">
+    <UiSidebarMenuButton as-child :tooltip="item.title" :is-active="active" class="h-9 text-sm">
       <NuxtLink
         :to="item.path"
         :aria-current="active ? 'page' : undefined"
         @click="setOpenMobile(false)"
       >
-        <HugeiconsIcon :icon="icon" aria-hidden="true" /><span>{{ item.title }}</span>
+        <HugeiconsIcon :icon="icon" aria-hidden="true" />
+        <span class="group-data-[collapsible=icon]:sr-only">{{ item.title }}</span>
       </NuxtLink>
     </UiSidebarMenuButton>
   </UiSidebarMenuItem>

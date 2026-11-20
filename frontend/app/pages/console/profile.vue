@@ -7,7 +7,7 @@ import {
   UserAccountIcon,
 } from '@hugeicons/core-free-icons'
 import { getUserBaseInfo, getUserRole, getUserPrivateInformation } from '@/api/auth/auth'
-import { accountSnapshot, accessSnapshot, settingsFailure } from '@/lib/settings'
+import { accountSnapshot, accessSnapshot, roleStatus, settingsFailure } from '@/lib/settings'
 
 definePageMeta({ layout: 'console', middleware: 'auth' })
 type State = 'loading' | 'ready' | 'error' | 'forbidden'
@@ -16,6 +16,7 @@ const access = shallowRef<ReturnType<typeof accessSnapshot> | null>(null)
 const profileState = ref<State>('loading')
 const accessState = ref<State>('loading')
 const permissionsOpen = ref(false)
+const currentRole = computed(() => roleStatus(access.value?.status ?? null))
 const pending = computed(() => profileState.value === 'loading' || accessState.value === 'loading')
 const initial = computed(() =>
   Array.from(profile.value?.name.trim() || profile.value?.email || '')[0]?.toLocaleUpperCase(),
@@ -53,7 +54,7 @@ onMounted(refresh)
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div class="space-y-2">
         <h1 id="profile-title" class="text-2xl font-semibold tracking-tight">个人中心</h1>
-        <p class="text-sm text-muted-foreground">查看你的账号资料与当前访问权限。</p>
+        <p class="text-sm text-muted-foreground">当前页面仅支持只读查看；修改资料或密码请联系系统管理员。</p>
       </div>
       <UiButton variant="outline" :disabled="pending" @click="refresh"
         ><HugeiconsIcon
@@ -66,7 +67,7 @@ onMounted(refresh)
     </header>
     <div class="grid min-w-0 items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
       <UiCard
-        class="gap-0 border-[0.5px] border-border/70 py-0 shadow-none ring-0"
+        class="min-w-0 gap-0 py-0 shadow-panel"
         :aria-busy="profileState === 'loading'"
       >
         <UiCardContent class="p-6">
@@ -93,7 +94,7 @@ onMounted(refresh)
           >
             <UiAvatar class="size-16 shrink-0 rounded-lg" aria-hidden="true"
               ><UiAvatarFallback
-                class="rounded-lg bg-primary/10 text-2xl font-medium text-primary"
+                class="rounded-lg bg-accent-data-surface text-2xl font-semibold text-accent-data-foreground"
                 >{{ initial }}</UiAvatarFallback
               ></UiAvatar
             >
@@ -107,7 +108,7 @@ onMounted(refresh)
       </UiCard>
       <div class="min-w-0 space-y-6">
         <UiCard
-          class="gap-0 border-[0.5px] border-border/70 py-0 shadow-none ring-0"
+          class="min-w-0 gap-0 py-0 shadow-panel"
           :aria-busy="profileState === 'loading'"
         >
           <UiCardHeader class="border-b-[0.5px] border-border/70 px-6 py-4"
@@ -136,25 +137,20 @@ onMounted(refresh)
               </div>
               <div>
                 <dt class="text-xs text-muted-foreground">账号 ID</dt>
-                <dd class="mt-1.5 tabular-nums">{{ profile.id }}</dd>
+                <dd class="mt-1.5 font-mono tabular-nums">{{ profile.id }}</dd>
               </div>
               <div>
                 <dt class="text-xs text-muted-foreground">关联角色 ID</dt>
-                <dd class="mt-1.5 tabular-nums">{{ profile.roleId ?? '—' }}</dd>
+                <dd class="mt-1.5 font-mono tabular-nums">{{ profile.roleId ?? '—' }}</dd>
               </div>
             </dl>
             <p v-else class="min-h-28 text-sm text-muted-foreground">
               个人资料暂不可用，请在账号卡片中重新读取。
             </p>
           </UiCardContent>
-          <UiCardFooter class="border-t-[0.5px] border-border/70 px-6 py-4"
-            ><p class="text-xs leading-5 text-muted-foreground">
-              如需调整账号资料，请联系管理员。
-            </p></UiCardFooter
-          >
         </UiCard>
         <UiCard
-          class="gap-0 border-[0.5px] border-border/70 py-0 shadow-none ring-0"
+          class="min-w-0 gap-0 py-0 shadow-panel"
           :aria-busy="accessState === 'loading'"
         >
           <UiCardHeader class="border-b-[0.5px] border-border/70 px-6 py-4"
@@ -163,7 +159,7 @@ onMounted(refresh)
                 :icon="Shield01Icon"
                 class="size-4 text-muted-foreground"
                 aria-hidden="true"
-              />角色与访问
+              />角色与访问权限
             </h2></UiCardHeader
           >
           <UiCardContent class="p-6">
@@ -188,25 +184,14 @@ onMounted(refresh)
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0 space-y-1.5">
                   <h3 class="break-all text-sm font-semibold">{{ access.name }}</h3>
-                  <p class="text-xs tabular-nums text-muted-foreground">角色 ID {{ access.id }}</p>
+                  <p class="text-xs text-muted-foreground">角色 ID <span class="font-mono tabular-nums">{{ access.id }}</span></p>
                 </div>
-                <UiBadge
-                  variant="secondary"
-                  :class="
-                    access.status === 1
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                      : 'bg-muted text-muted-foreground'
-                  "
-                  >{{
-                    access.status === 1 ? '启用' : access.status === 0 ? '停用' : '状态未知'
-                  }}</UiBadge
-                >
+                <StatusBadge :tone="currentRole.tone">{{ currentRole.label }}</StatusBadge>
               </div>
               <p
-                v-if="access.remark"
                 class="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground"
               >
-                {{ access.remark }}
+                {{ access.remark || '暂无角色备注' }}
               </p>
               <UiCollapsible
                 v-if="access.permissions.length"
@@ -215,7 +200,7 @@ onMounted(refresh)
                 ><div class="flex flex-wrap items-center justify-between gap-3">
                   <p class="text-sm">
                     已授予
-                    <span class="font-medium tabular-nums">{{ access.permissions.length }}</span>
+                    <span class="font-mono font-medium tabular-nums">{{ access.permissions.length }}</span>
                     项权限
                   </p>
                   <UiCollapsibleTrigger as-child
@@ -250,7 +235,7 @@ onMounted(refresh)
                 role="status"
                 class="rounded-md bg-muted/30 p-4 text-sm leading-6 text-muted-foreground"
               >
-                当前角色尚未分配权限。如需访问业务功能，请联系管理员。
+                尚未分配权限（<span class="font-mono tabular-nums">0</span> 项）。
               </p>
             </div>
           </UiCardContent>

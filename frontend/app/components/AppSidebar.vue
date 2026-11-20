@@ -1,65 +1,72 @@
 <script setup lang="ts">
+import { ChartHistogramIcon, Home01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { Briefcase01Icon, Home01Icon, ChartHistogramIcon } from '@hugeicons/core-free-icons'
-import { navigationMenus } from '@/lib/session'
 import type { SidebarProps } from '@/components/ui/sidebar'
 import { useSidebar } from '@/components/ui/sidebar'
+import { navigationMenus } from '@/lib/session'
 
 const props = withDefaults(defineProps<SidebarProps>(), { collapsible: 'icon' })
 const { state: session } = useSession()
 const route = useRoute()
 const { setOpenMobile } = useSidebar()
+const workspace = [
+  { path: '/console', title: '工作台', icon: Home01Icon },
+  { path: '/recruitment', title: '招聘数据分析', icon: ChartHistogramIcon },
+]
+const menus = computed(() => navigationMenus(session.value.menus))
 </script>
 
 <template>
   <UiSidebar v-bind="props">
-    <UiSidebarHeader>
+    <UiSidebarHeader class="h-14 justify-center border-b border-sidebar-border pr-14 md:pr-2">
       <UiSidebarMenu>
         <UiSidebarMenuItem>
-          <UiSidebarMenuButton as-child size="lg" tooltip="BossAnalyze">
+          <UiSidebarMenuButton as-child size="lg" class="h-10 text-sm" tooltip="BossAnalyze">
             <NuxtLink to="/console" @click="setOpenMobile(false)">
-              <span
-                class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
-              >
-                <HugeiconsIcon :icon="Briefcase01Icon" class="size-5" aria-hidden="true" />
-              </span>
-              <span class="grid text-left"
-                ><span class="font-semibold">BossAnalyze</span>
-                <span class="text-xs text-muted-foreground">招聘数据分析工作台</span>
-              </span>
+              <AppBrand />
             </NuxtLink>
           </UiSidebarMenuButton>
         </UiSidebarMenuItem>
       </UiSidebarMenu>
     </UiSidebarHeader>
-    <UiSidebarContent>
-      <UiSidebarGroup>
-        <UiSidebarMenu>
-          <UiSidebarMenuItem>
-            <UiSidebarMenuButton as-child tooltip="工作台" :is-active="route.path === '/console'">
-              <NuxtLink to="/console" @click="setOpenMobile(false)">
-                <HugeiconsIcon :icon="Home01Icon" aria-hidden="true" /><span>工作台</span>
-              </NuxtLink>
-            </UiSidebarMenuButton>
-          </UiSidebarMenuItem>
-          <UiSidebarMenuItem>
+    <UiSidebarContent aria-label="控制台导航" class="py-2">
+      <UiSidebarGroup role="group" aria-labelledby="workspace-label">
+        <UiSidebarGroupLabel id="workspace-label" class="font-medium text-muted-foreground">
+          工作空间
+        </UiSidebarGroupLabel>
+        <UiSidebarMenu class="gap-1">
+          <UiSidebarMenuItem v-for="item in workspace" :key="item.path">
             <UiSidebarMenuButton
               as-child
-              tooltip="招聘数据分析"
-              :is-active="route.path === '/recruitment'"
+              :tooltip="item.title"
+              :is-active="route.path === item.path"
+              class="h-9 text-sm"
             >
-              <NuxtLink to="/recruitment" @click="setOpenMobile(false)">
-                <HugeiconsIcon :icon="ChartHistogramIcon" aria-hidden="true" /><span
-                  >招聘数据分析</span
-                >
+              <NuxtLink
+                :to="item.path"
+                :aria-current="route.path === item.path ? 'page' : undefined"
+                @click="setOpenMobile(false)"
+              >
+                <HugeiconsIcon :icon="item.icon" aria-hidden="true" />
+                <span class="group-data-[collapsible=icon]:sr-only">{{ item.title }}</span>
               </NuxtLink>
             </UiSidebarMenuButton>
           </UiSidebarMenuItem>
         </UiSidebarMenu>
       </UiSidebarGroup>
-      <NavMain :items="navigationMenus(session.menus)" />
+      <NavMain :items="menus" />
     </UiSidebarContent>
-    <UiSidebarFooter><NavUser v-if="session.user" :user="session.user" /></UiSidebarFooter>
+    <UiSidebarFooter class="border-t border-sidebar-border">
+      <div class="flex items-center justify-between gap-2">
+        <ThemeToggle class="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+        <kbd
+          class="hidden rounded-sm border border-sidebar-border px-1.5 py-0.5 text-[0.625rem] text-muted-foreground md:inline-block group-data-[collapsible=icon]:hidden"
+        >
+          ⌘B / Ctrl+B
+        </kbd>
+      </div>
+      <NavUser v-if="session.user" :user="session.user" />
+    </UiSidebarFooter>
     <UiSidebarRail />
   </UiSidebar>
 </template>

@@ -17,10 +17,11 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
       }
     "
   >
-    <UiComboboxAnchor class="w-full"
+    <UiComboboxAnchor class="w-full min-w-0"
       ><UiComboboxInput
         :id="id"
         :display-value="(value) => options.find((option) => option.value === value)?.label ?? ''"
+        class="min-w-0"
         placeholder="搜索并选择"
     /></UiComboboxAnchor>
     <UiComboboxList
@@ -31,8 +32,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
           :key="option.value"
           :value="option.value"
           :disabled="option.disabled"
-          >{{ option.label
-          }}<span v-if="option.disabled" class="ml-2 text-muted-foreground"
+          ><span class="min-w-0 break-all">{{ option.label }}</span><span v-if="option.disabled" class="ml-2 shrink-0 text-xs text-muted-foreground"
             >暂不支持</span
           ></UiComboboxItem
         ></UiComboboxViewport

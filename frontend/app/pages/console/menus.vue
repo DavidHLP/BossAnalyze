@@ -3,19 +3,25 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { Add01Icon, ArrowRight01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { getUserRoutes, deleteRouter } from '@/api/router/router'
 import { getRoleList } from '@/api/auth/auth'
-import type { Router } from '@/router/index.d'
+import { mutationError } from '@/lib/rbac-mutations'
 import { managedRoles } from '@/lib/roles'
 import {
   managedMenus,
   menuRows,
   visibleMenus,
-  menuDeleteReason,
+  menuDeleteReasons,
   menuWriteSucceeded,
 } from '@/lib/menus'
 import type { MenuRecord } from '@/lib/menus'
 
 definePageMeta({ layout: 'console', middleware: 'auth' })
-const types: Record<string, string> = { C: '目录', M: '菜单', F: '操作' }
+const types = {
+  C: { label: '目录', tone: 'neutral' },
+  M: { label: '菜单', tone: 'success' },
+  F: { label: '操作', tone: 'warning' },
+} as const
+const menuType = (type: string) =>
+  type === 'C' || type === 'M' || type === 'F' ? types[type] : undefined
 const tree = shallowRef<MenuRecord[]>([])
 const pending = ref(true)
 const failed = ref(false)
@@ -29,6 +35,8 @@ const rows = computed(() =>
 const filtering = computed(() => Boolean(applied.query || applied.status !== 'all'))
 const total = computed(() => menuRows(tree.value).length)
 const notice = ref('')
+const navigationNotice = '重新登录后将更新左侧导航栏。'
+const awaitingRead = ref(false)
 const open = ref(false)
 const mode = ref<'view' | 'create' | 'edit'>('view')
 const selected = shallowRef<MenuRecord | null>(null)
@@ -36,14 +44,15 @@ const parent = shallowRef<MenuRecord | null>(null)
 const deletion = shallowRef<MenuRecord | null>(null)
 const deleting = ref(false)
 const checking = ref(false)
-const deleteReason = ref('')
-const deleteFailed = ref(false)
+const deleteReasons = ref<string[]>([])
+const deleteFailure = ref('')
 async function load() {
   pending.value = true
   failed.value = false
   restricted.value = false
   try {
     tree.value = managedMenus(await getUserRoutes())
+    if (awaitingRead.value) read(tree.value)
   } catch (error) {
     tree.value = []
     failed.value = true
@@ -72,6 +81,7 @@ function show(
   node: MenuRecord | null = null,
   ancestor: MenuRecord | null = null,
 ) {
+  if (awaitingRead.value && next !== 'view') return
   mode.value = next
   selected.value = node
   parent.value = ancestor
@@ -80,55 +90,59 @@ function show(
 function saved(value: MenuRecord[]) {
   tree.value = value
   open.value = false
-  notice.value = '菜单已保存并回读确认。重新登录后导航会应用最新配置。'
+  notice.value = `菜单已保存并回读确认。${navigationNotice}`
 }
 function read(value: MenuRecord[]) {
   tree.value = value
-  notice.value = '已重新读取菜单，请核对最终配置。'
+  awaitingRead.value = false
+  notice.value = `已重新读取菜单，请核对最终配置。${navigationNotice}`
 }
-async function prepareDelete(node: MenuRecord) {
-  deletion.value = node
+function lockSave() {
+  awaitingRead.value = true
+  notice.value = ''
+}
+async function preflight(id: number) {
   checking.value = true
-  deleteFailed.value = false
-  deleteReason.value = ''
+  deleteReasons.value = []
   try {
     const [menus, roles] = await Promise.all([getUserRoutes(), getRoleList()])
     const fresh = managedMenus(menus)
-    const current = menuRows(fresh).find((row) => row.node.id === node.id)?.node
-    if (!current) throw new Error('Menu missing')
     tree.value = fresh
+    const current = menuRows(fresh).find((row) => row.node.id === id)?.node
+    if (!current) {
+      deleteReasons.value = ['该菜单已不存在，请关闭确认窗口。']
+      return
+    }
     deletion.value = current
-    deleteReason.value = menuDeleteReason(
+    deleteReasons.value = menuDeleteReasons(
       current,
       fresh,
       managedRoles(roles).flatMap((role) => role.permissions),
     )
+    if (!deleteReasons.value.length) return current
   } catch {
-    deleteReason.value = '无法核对菜单及角色引用，请关闭后重试。'
+    deleteReasons.value = ['无法核对菜单及角色引用，请关闭后重试。']
   } finally {
     checking.value = false
   }
 }
+async function prepareDelete(node: MenuRecord) {
+  if (awaitingRead.value || checking.value || deleting.value) return
+  deletion.value = node
+  deleteFailure.value = ''
+  await preflight(node.id)
+}
 async function remove() {
-  if (!deletion.value || deleting.value || checking.value || deleteReason.value) return
+  if (
+    !deletion.value || deleting.value || checking.value || awaitingRead.value ||
+    deleteReasons.value.length
+  ) return
+  deleteFailure.value = ''
+  const target = await preflight(deletion.value.id)
+  if (!target) return
   deleting.value = true
-  deleteFailed.value = false
   let accepted = false
   try {
-    const [menus, roles] = await Promise.all([getUserRoutes(), getRoleList()])
-    const fresh = managedMenus(menus)
-    const target = menuRows(fresh).find((row) => row.node.id === deletion.value?.id)?.node
-    if (!target) throw new Error('Menu missing')
-    const reason = menuDeleteReason(
-      target,
-      fresh,
-      managedRoles(roles).flatMap((role) => role.permissions),
-    )
-    if (reason) {
-      deleteReason.value = reason
-      tree.value = fresh
-      return
-    }
     // Send no descendants: the backend deletes supplied children and their permission records.
     menuWriteSucceeded(
       await deleteRouter({
@@ -136,7 +150,7 @@ async function remove() {
         name: target.name,
         permission: target.permission,
         children: [],
-      } as unknown as Router),
+      }),
     )
     accepted = true
     const result = managedMenus(await getUserRoutes())
@@ -144,13 +158,13 @@ async function remove() {
       throw new Error('Delete not confirmed')
     tree.value = result
     deletion.value = null
-    notice.value = '菜单已删除并回读确认。重新登录后导航会应用最新配置。'
-  } catch {
+    notice.value = `菜单已删除并回读确认。${navigationNotice}`
+  } catch (error) {
     if (accepted) {
       deletion.value = null
-      notice.value = '删除请求已提交，尚未确认结果，请刷新菜单核对。'
+      notice.value = `删除请求已提交，未确认。请刷新菜单核对。${navigationNotice}`
       await load()
-    } else deleteFailed.value = true
+    } else deleteFailure.value = mutationError(error, '删除', '菜单依赖可能已变化，请重新核对后重试。')
   } finally {
     deleting.value = false
   }
@@ -165,7 +179,7 @@ onMounted(load)
         <h1 id="menus-title" class="text-2xl font-semibold tracking-tight">菜单管理</h1>
         <p class="text-sm text-muted-foreground">管理导航层级、路由配置与操作权限。</p>
       </div>
-      <UiButton :disabled="pending || failed" @click="show('create')"
+      <UiButton :disabled="pending || failed || awaitingRead" @click="show('create')"
         ><HugeiconsIcon
           :icon="Add01Icon"
           class="size-4 -ml-0.5"
@@ -176,8 +190,15 @@ onMounted(load)
     <UiAlert v-if="notice" role="status"
       ><UiAlertTitle>{{ notice }}</UiAlertTitle></UiAlert
     >
+    <UiAlert v-if="awaitingRead" class="border-status-warning/40 bg-status-warning-surface text-status-warning-foreground">
+      <UiAlertTitle>菜单配置已提交，未确认</UiAlertTitle>
+      <UiAlertDescription class="text-inherit">请重新读取菜单并核对最终配置。</UiAlertDescription>
+      <UiButton variant="outline" size="sm" class="mt-2 text-foreground" :disabled="pending" @click="load">
+        重新读取菜单
+      </UiButton>
+    </UiAlert>
     <form
-      class="flex flex-wrap items-end gap-x-6 gap-y-4"
+      class="flex min-w-0 flex-wrap items-end gap-x-6 gap-y-4 rounded-lg border border-border bg-card p-4"
       aria-label="菜单筛选"
       @submit.prevent="search"
     >
@@ -221,15 +242,17 @@ onMounted(load)
         >
       </div>
     </form>
-    <div class="min-w-0 rounded-lg border-[0.5px] border-border/70 bg-card" :aria-busy="pending">
+    <div class="min-w-0 rounded-lg border border-border bg-card shadow-panel" :aria-busy="pending">
       <div
         class="flex flex-wrap items-center justify-between gap-3 border-b-[0.5px] border-border/70 p-4"
       >
         <h2 class="text-sm font-medium">
           菜单树
-          <span class="ml-2 font-normal text-muted-foreground">{{
-            failed ? '—' : pending ? '读取中' : `共 ${total} 项`
-          }}</span>
+          <span class="ml-2 font-normal text-muted-foreground">
+            <template v-if="failed">—</template>
+            <template v-else-if="pending">读取中</template>
+            <template v-else>共 <span class="font-mono tabular-nums">{{ total }}</span> 项</template>
+          </span>
         </h2>
         <div class="flex gap-1">
           <UiButton
@@ -292,7 +315,7 @@ onMounted(load)
           }}
         </p>
         <UiButton v-if="filtering" variant="outline" @click="reset">清除筛选</UiButton
-        ><UiButton v-else :disabled="pending" @click="show('create')">新增菜单</UiButton>
+        ><UiButton v-else :disabled="pending || awaitingRead" @click="show('create')">新增菜单</UiButton>
       </div>
       <UiTable v-else
         ><UiTableCaption class="sr-only">菜单层级、类型、状态、路径、权限和操作</UiTableCaption
@@ -304,7 +327,7 @@ onMounted(load)
             ><UiTableHead class="hidden lg:table-cell">路由 / 权限</UiTableHead
             ><UiTableHead class="hidden text-right xl:table-cell">排序</UiTableHead
             ><UiTableHead
-              class="sticky right-0 w-44 min-w-44 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
+              class="sticky right-0 z-10 w-40 min-w-40 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)] sm:w-44 sm:min-w-44"
               >操作</UiTableHead
             ></UiTableRow
           ></UiTableHeader
@@ -316,10 +339,10 @@ onMounted(load)
             class="border-b-[0.5px]"
             :class="{ 'bg-muted/25': filtering && !row.match }"
           >
-            <UiTableCell class="min-w-48 max-w-80 whitespace-normal px-4"
+            <UiTableCell class="min-w-40 max-w-80 whitespace-normal px-2 sm:min-w-48 sm:px-4"
               ><div
-                class="flex items-start gap-1"
-                :style="{ paddingLeft: `${Math.min(row.depth, 5) * 16}px` }"
+                class="flex items-start gap-1 pl-[calc(var(--depth)*0.5rem)] sm:pl-[calc(var(--depth)*1rem)]"
+                :style="{ '--depth': Math.min(row.depth, 5) }"
               >
                 <UiButton
                   v-if="row.node.children.length"
@@ -344,53 +367,52 @@ onMounted(load)
                     @click="show('view', row.node)"
                     >{{ row.node.meta.metaTitle }}</UiButton
                   >
-                  <p class="mt-1 text-xs text-muted-foreground">
-                    ID {{ row.node.id
-                    }}<span v-if="row.node.meta.hidden || row.node.meta.metaHidden" class="ml-2"
-                      >隐藏</span
-                    >
-                  </p>
-                  <p class="mt-1 text-xs text-muted-foreground md:hidden">
-                    {{ row.node.status === 1 ? '启用' : row.node.status === 0 ? '停用' : '未知' }}
-                  </p>
+                  <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    <span class="font-mono tabular-nums">ID {{ row.node.id }}</span>
+                    <StatusBadge v-if="filtering && !row.match">祖先上下文</StatusBadge>
+                    <StatusBadge v-if="row.node.meta.hidden" tone="warning">整枝隐藏</StatusBadge>
+                    <StatusBadge v-if="row.node.meta.metaHidden">仅藏导航</StatusBadge>
+                    <StatusBadge class="sm:hidden" :tone="menuType(row.node.meta.type)?.tone">
+                      {{ menuType(row.node.meta.type)?.label ?? '未知类型' }}
+                    </StatusBadge>
+                    <StatusBadge class="md:hidden"
+                      :tone="row.node.status === 1 ? 'success' : row.node.status === 0 ? 'warning' : 'neutral'">
+                      {{ row.node.status === 1 ? '启用' : row.node.status === 0 ? '停用' : '未知' }}
+                    </StatusBadge>
+                  </div>
                 </div>
               </div></UiTableCell
             >
             <UiTableCell class="hidden sm:table-cell"
-              ><UiBadge variant="secondary" class="bg-muted text-muted-foreground">{{
-                types[row.node.meta.type] || '未知'
-              }}</UiBadge></UiTableCell
+              ><StatusBadge :tone="menuType(row.node.meta.type)?.tone">{{
+                menuType(row.node.meta.type)?.label ?? '未知类型'
+              }}</StatusBadge></UiTableCell
             >
             <UiTableCell class="hidden text-center md:table-cell"
-              ><UiBadge
-                variant="secondary"
-                :class="
-                  row.node.status === 1
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                    : 'bg-muted text-muted-foreground'
-                "
+              ><StatusBadge
+                :tone="row.node.status === 1 ? 'success' : row.node.status === 0 ? 'warning' : 'neutral'"
                 >{{
                   row.node.status === 1 ? '启用' : row.node.status === 0 ? '停用' : '未知'
-                }}</UiBadge
+                }}</StatusBadge
               ></UiTableCell
             >
-            <UiTableCell class="hidden max-w-56 whitespace-normal break-all text-xs lg:table-cell"
+            <UiTableCell class="hidden max-w-56 whitespace-normal break-all font-mono text-xs lg:table-cell"
               ><p>{{ row.node.path }}</p>
               <p class="mt-1 text-muted-foreground">
                 {{ row.node.permission || '无权限标识' }}
               </p></UiTableCell
-            ><UiTableCell class="hidden text-right tabular-nums xl:table-cell">{{
+            ><UiTableCell class="hidden text-right font-mono tabular-nums xl:table-cell">{{
               row.node.menuOrder
             }}</UiTableCell>
             <UiTableCell
-              class="sticky right-0 w-44 min-w-44 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
+              class="sticky right-0 z-10 w-40 min-w-40 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)] sm:w-44 sm:min-w-44"
               ><div class="flex justify-center">
                 <UiButton
                   variant="ghost"
                   size="sm"
                   :aria-label="`添加${row.node.meta.metaTitle}的子项`"
                   :disabled="
-                    pending ||
+                    pending || awaitingRead ||
                     row.node.meta.type === 'F' ||
                     (row.node.pid !== null && row.node.pid >= row.node.id)
                   "
@@ -400,7 +422,7 @@ onMounted(load)
                   variant="ghost"
                   size="sm"
                   :aria-label="`编辑${row.node.meta.metaTitle}`"
-                  :disabled="pending || row.node.permission === null"
+                  :disabled="pending || awaitingRead || row.node.permission === null"
                   @click="show('edit', row.node)"
                   >编辑</UiButton
                 ><UiButton
@@ -408,7 +430,7 @@ onMounted(load)
                   size="sm"
                   class="text-destructive hover:text-destructive"
                   :aria-label="`删除${row.node.meta.metaTitle}`"
-                  :disabled="pending || row.node.children.length > 0"
+                  :disabled="pending || awaitingRead"
                   @click="prepareDelete(row.node)"
                   >删除</UiButton
                 >
@@ -434,9 +456,10 @@ onMounted(load)
       :node="selected"
       :parent="parent"
       :tree="tree"
+      :awaiting-read="awaitingRead"
       @saved="saved"
       @read="read"
-      @unconfirmed="notice = '菜单配置已提交，尚未确认结果，请重新读取后核对。'"
+      @unconfirmed="lockSave"
     />
     <UiDialog
       :open="Boolean(deletion)"
@@ -462,22 +485,28 @@ onMounted(load)
             >将永久删除此菜单及其独立权限记录，无法在此恢复。子菜单、共享权限和角色引用会阻止删除。</UiDialogDescription
           ></UiDialogHeader
         >
-        <p class="text-xs text-muted-foreground">菜单 ID：{{ deletion?.id }}</p>
+        <p class="text-xs text-muted-foreground">菜单 ID <span class="font-mono tabular-nums">{{ deletion?.id }}</span></p>
         <p v-if="checking" role="status" class="text-sm text-muted-foreground">
-          正在核对菜单和角色引用…
+          依赖预检中，正在核对菜单和角色引用…
         </p>
-        <p v-else-if="deleteReason" role="alert" class="text-sm text-muted-foreground">
-          {{ deleteReason }}
+        <UiAlert v-else-if="deleteReasons.length" class="border-status-warning/40 bg-status-warning-surface text-status-warning-foreground">
+          <UiAlertTitle>暂不能删除</UiAlertTitle>
+          <ul class="list-disc space-y-1 pl-5">
+            <li v-for="reason in deleteReasons" :key="reason">{{ reason }}</li>
+          </ul>
+        </UiAlert>
+        <p v-else-if="!deleting" role="status" class="text-sm text-muted-foreground">
+          依赖预检通过，确认删除时将再次核对。
         </p>
-        <p v-if="deleteFailed" role="alert" class="text-sm text-destructive">
-          删除失败，请检查服务连接后重试。
+        <p v-if="deleteFailure" role="alert" class="text-sm text-destructive">
+          {{ deleteFailure }}
         </p>
         <UiDialogFooter
           ><UiButton variant="outline" :disabled="deleting || checking" @click="deletion = null"
             >取消</UiButton
           ><UiButton
             variant="destructive"
-            :disabled="deleting || checking || Boolean(deleteReason)"
+            :disabled="deleting || checking || deleteReasons.length > 0"
             @click="remove"
             >{{ deleting ? '正在删除…' : '删除菜单' }}</UiButton
           ></UiDialogFooter
