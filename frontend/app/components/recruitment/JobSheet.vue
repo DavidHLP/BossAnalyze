@@ -37,13 +37,13 @@ const fields = computed(() =>
       class="w-full! sm:max-w-[600px]! data-[side=bottom]:h-[80dvh] data-[side=bottom]:rounded-t-xl"
       @close-auto-focus="emit('closeAutoFocus', $event)"
     >
-      <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-12"
-        ><UiSheetTitle class="break-all">{{ job?.positionName || '职位详情' }}</UiSheetTitle
-        ><UiSheetDescription class="break-all">{{
+      <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-14"
+        ><UiSheetTitle class="break-words">{{ job?.positionName || '职位详情' }}</UiSheetTitle
+        ><UiSheetDescription class="break-words">{{
           job?.companyName || '未提供公司名称'
         }}</UiSheetDescription></UiSheetHeader
       >
-      <div v-if="job" class="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-4 sm:p-6">
+      <div v-if="job" class="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-6">
         <dl class="grid grid-cols-2 gap-5 text-sm">
           <div v-for="field in fields" :key="field.label">
             <dt class="text-xs text-muted-foreground">{{ field.label }}</dt>

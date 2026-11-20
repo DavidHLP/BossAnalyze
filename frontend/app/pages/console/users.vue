@@ -5,22 +5,53 @@ import { getUserManageInfo } from '@/api/user/user'
 import { getRoleList } from '@/api/role/role'
 import { userPage, userPageNumber, userRoles } from '@/lib/users'
 import type { ManagedUser, UserRole } from '@/lib/users'
+import { checkReadAccess, listPage, listSize, listStatus, permissionDenied, restoreActionFocus, sessionChangedMessage } from '@/lib/rbac-mutations'
+import { withSessionOwner } from '@/lib/session'
 import type { UserBaseInfo } from '@/api/auth/auth.d'
 
 definePageMeta({ layout: 'console', middleware: 'auth' })
 const session = useSession()
-const filters = reactive({ name: '', roleId: null as number | null, status: 'all' })
-const applied = shallowRef<UserBaseInfo>({})
+const owner = session.capture()
+const sessionChanged = computed(() => !session.owns(owner))
+const route = useRoute()
+const router = useRouter()
+const queryRole = Number(route.query.roleId)
+const filters = reactive({
+  name: typeof route.query.name === 'string' ? route.query.name.trim().slice(0, 50) : '',
+  roleId: typeof route.query.roleId === 'string' && Number.isSafeInteger(queryRole) &&
+    queryRole > 0 ? queryRole : null,
+  status: listStatus(route.query.status),
+})
+function userFilters(): UserBaseInfo {
+  return {
+    ...(filters.name.trim() ? { name: filters.name.trim() } : {}),
+    ...(filters.roleId === null ? {} : { roleId: filters.roleId }),
+    ...(filters.status === 'all' ? {} : { status: Number(filters.status) }),
+  }
+}
+const applied = shallowRef(userFilters())
 const users = shallowRef<ManagedUser[]>([])
 const roles = shallowRef<UserRole[]>([])
-const page = ref(1)
-const size = ref(10)
+const size = ref(listSize(route.query.size))
+const page = ref(listPage(route.query.page, size.value))
+watch([applied, page, size], () => {
+  if (sessionChanged.value) return
+  void router.replace({ query: {
+    ...route.query,
+    name: applied.value.name || undefined,
+    roleId: applied.value.roleId?.toString(),
+    status: applied.value.status?.toString(),
+    page: page.value > 1 ? String(page.value) : undefined,
+    size: size.value !== 10 ? String(size.value) : undefined,
+  } })
+})
 const total = ref(0)
 const pending = ref(true)
 const failed = ref(false)
 const restricted = ref(false)
 const rolePending = ref(true)
 const roleFailed = ref(false)
+const roleRestricted = ref(false)
 const rolesUnavailable = computed(
   () => rolePending.value || roleFailed.value || !roles.value.length,
 )
@@ -31,15 +62,40 @@ const editorMode = ref<'view' | 'create' | 'edit'>('view')
 const selected = shallowRef<ManagedUser | null>(null)
 const deletion = shallowRef<ManagedUser | null>(null)
 const number = new Intl.NumberFormat('zh-CN')
+const deleting = ref(false)
+const listTitle = ref<HTMLElement | null>(null)
+let sheetTrigger: HTMLElement | null = null
+let deleteTrigger: HTMLElement | null = null
+
+function restoreSheetFocus(event: Event) {
+  restoreActionFocus(event, sheetTrigger, listTitle.value)
+  sheetTrigger = null
+}
+function restoreDeleteFocus(event: Event) {
+  restoreActionFocus(event, deleteTrigger, listTitle.value)
+  deleteTrigger = null
+}
+onBeforeRouteLeave(() => session.state.value.invalidated || !deleting.value)
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (session.state.value.invalidated || !deleting.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+let loadGeneration = 0
 
 async function loadUsers() {
+  if (!owner || !session.owns(owner)) return
+  const generation = ++loadGeneration
+  const isLatest = () => generation === loadGeneration && session.owns(owner)
   pending.value = true
   failed.value = false
   restricted.value = false
   try {
-    const result = userPage(
-      await getUserManageInfo(userPageNumber(page.value, size.value), size.value, applied.value),
+    const response = await withSessionOwner(owner, () =>
+      getUserManageInfo(userPageNumber(page.value, size.value), size.value, applied.value),
     )
+    const result = userPage(checkReadAccess(response))
+    if (!isLatest()) return
     const last = Math.max(1, Math.ceil(result.total / size.value))
     if (page.value > last) {
       page.value = last
@@ -48,65 +104,81 @@ async function loadUsers() {
     users.value = result.users
     total.value = result.total
   } catch (error) {
+    if (!isLatest()) return
     users.value = []
     failed.value = true
-    restricted.value = Boolean(
-      error && typeof error === 'object' && 'code' in error && error.code === 403,
-    )
+    restricted.value = permissionDenied(error)
   } finally {
-    pending.value = false
+    if (generation === loadGeneration) pending.value = false
   }
 }
+function refreshUsers() {
+  if (!pending.value) void loadUsers()
+}
 async function loadRoles() {
+  if (!owner || !session.owns(owner)) return
   rolePending.value = true
   roleFailed.value = false
+  roleRestricted.value = false
   try {
-    roles.value = userRoles(await getRoleList())
-  } catch {
+    const result = userRoles(checkReadAccess(await withSessionOwner(owner, getRoleList)))
+    if (session.owns(owner)) roles.value = result
+  } catch (error) {
+    if (!session.owns(owner)) return
     roles.value = []
     roleFailed.value = true
+    roleRestricted.value = permissionDenied(error)
   } finally {
     rolePending.value = false
   }
 }
+function refreshRoles() {
+  if (!rolePending.value) void loadRoles()
+}
 function search() {
-  applied.value = {
-    ...(filters.name.trim() ? { name: filters.name.trim() } : {}),
-    ...(filters.roleId === null ? {} : { roleId: filters.roleId }),
-    ...(filters.status === 'all' ? {} : { status: Number(filters.status) }),
-  }
+  if (pending.value || sessionChanged.value) return
+  applied.value = userFilters()
   page.value = 1
   notice.value = ''
   void loadUsers()
 }
 function reset() {
+  if (pending.value || sessionChanged.value) return
   Object.assign(filters, { name: '', roleId: null, status: 'all' })
   search()
 }
 function changePage(value: number) {
-  if (!pending.value) {
+  if (!pending.value && !sessionChanged.value) {
     page.value = value
     void loadUsers()
   }
 }
 function changeSize(value: unknown) {
-  size.value = Number(value)
+  if (pending.value || sessionChanged.value) return
+  size.value = listSize(value)
   page.value = 1
   void loadUsers()
 }
 function isCurrentUser(user: ManagedUser) {
   return Boolean(user.email && user.email === session.state.value.user?.email)
 }
-function openEditor(mode: 'view' | 'create' | 'edit', user: ManagedUser | null = null) {
-  if (mode !== 'view' && rolesUnavailable.value) return
+function openEditor(event: Event, mode: 'view' | 'create' | 'edit', user: ManagedUser | null = null) {
+  if (mode !== 'view' && (sessionChanged.value || pending.value || rolesUnavailable.value || restricted.value)) return
+  sheetTrigger = event.currentTarget as HTMLElement
+
   selected.value = user
   editorMode.value = mode
   editorOpen.value = true
 }
+function confirmDelete(event: Event, user: ManagedUser) {
+  if (pending.value || sessionChanged.value || isCurrentUser(user)) return
+  deleteTrigger = event.currentTarget as HTMLElement
+  deletion.value = user
+}
 async function saved(self: boolean) {
   editorOpen.value = false
   if (self) {
-    await session.signOut(true)
+    if (owner) await session.signOut(true, null, undefined, owner)
     return
   }
   notice.value = editorMode.value === 'create' ? '用户已创建' : '用户信息已更新'
@@ -114,14 +186,17 @@ async function saved(self: boolean) {
   await loadUsers()
 }
 async function deleted() {
+  deleteTrigger = null
   deletion.value = null
   notice.value = '用户已删除'
   await loadUsers()
 }
 onMounted(() => {
+  window.addEventListener('beforeunload', beforeUnload)
   void loadUsers()
   void loadRoles()
 })
+onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 </script>
 
 <template>
@@ -131,7 +206,7 @@ onMounted(() => {
         <h1 id="users-title" class="text-2xl font-semibold tracking-tight">用户管理</h1>
         <p class="text-sm text-muted-foreground">管理账户资料、状态与角色分配。</p>
       </div>
-      <UiButton :disabled="rolesUnavailable || restricted" @click="openEditor('create')"
+      <UiButton :disabled="pending || rolesUnavailable || restricted || sessionChanged" @click="openEditor($event, 'create')"
         ><HugeiconsIcon
           :icon="Add01Icon"
           class="size-4 -ml-0.5"
@@ -142,10 +217,15 @@ onMounted(() => {
     <UiAlert v-if="notice" role="status"
       ><UiAlertTitle>{{ notice }}</UiAlertTitle></UiAlert
     >
-    <UiAlert v-if="roleFailed || (!rolePending && !roles.length)" role="alert">
-      <UiAlertTitle>{{ roleFailed ? '角色列表读取失败' : '暂无可分配角色' }}</UiAlertTitle
-      ><UiAlertDescription>角色筛选和用户保存暂不可用，请重新读取角色列表。</UiAlertDescription
-      ><UiButton variant="outline" size="sm" class="mt-2" :disabled="rolePending" @click="loadRoles"
+    <UiAlert v-if="sessionChanged" variant="destructive" role="alert">
+      <UiAlertDescription>{{ sessionChangedMessage }}</UiAlertDescription>
+    </UiAlert>
+    <UiAlert v-if="roleFailed || (!rolePending && !roles.length)" variant="destructive" role="alert">
+      <UiAlertTitle>{{ roleRestricted ? '当前账号无权读取角色列表' : roleFailed ? '角色列表读取失败' : '暂无可分配角色' }}</UiAlertTitle
+      ><UiAlertDescription>{{ roleRestricted
+        ? '角色筛选和用户保存暂不可用，请联系管理员确认权限。'
+        : '角色筛选和用户保存暂不可用，请重新读取角色列表。' }}</UiAlertDescription
+      ><UiButton variant="outline" size="sm" class="mt-2" :aria-disabled="rolePending || sessionChanged" @click="refreshRoles"
         >重新读取角色</UiButton
       >
     </UiAlert>
@@ -193,7 +273,7 @@ onMounted(() => {
         ></UiField
       >
       <div class="flex gap-2">
-        <UiButton type="submit" :disabled="pending"
+        <UiButton type="submit" variant="secondary" :aria-disabled="pending || sessionChanged"
           ><HugeiconsIcon
             :icon="Search01Icon"
             class="size-4 -ml-0.5"
@@ -205,9 +285,9 @@ onMounted(() => {
       </div>
     </form>
 
-    <div class="min-w-0 rounded-lg border border-border bg-card shadow-panel" :aria-busy="pending">
+    <div class="min-w-0 rounded-lg border border-border bg-card" :aria-busy="pending">
       <div class="flex items-center justify-between gap-3 border-b-[0.5px] border-border/70 p-4">
-        <h2 class="text-sm font-medium">
+        <h2 ref="listTitle" tabindex="-1" class="text-sm font-medium">
           用户列表
           <span class="ml-2 font-normal text-muted-foreground">
             <template v-if="failed">—</template>
@@ -215,7 +295,7 @@ onMounted(() => {
             <template v-else>共 <span class="font-mono tabular-nums">{{ number.format(total) }}</span> 位用户</template>
           </span>
         </h2>
-        <UiButton variant="ghost" size="sm" :disabled="pending" @click="loadUsers"
+        <UiButton variant="ghost" size="sm" :aria-disabled="pending || sessionChanged" @click="refreshUsers"
           ><HugeiconsIcon
             :icon="RefreshIcon"
             class="size-4"
@@ -239,14 +319,19 @@ onMounted(() => {
               : '暂时无法取得用户数据，请检查服务连接后重试。'
           }}
         </p>
-        <UiButton variant="outline" @click="loadUsers">重试</UiButton>
+        <UiButton variant="outline" :aria-disabled="sessionChanged" @click="refreshUsers">重试</UiButton>
       </div>
       <div
         v-else-if="pending && !users.length"
-        class="flex min-h-72 items-center justify-center text-sm text-muted-foreground"
+        class="divide-y divide-border px-4"
         role="status"
       >
-        正在读取用户列表…
+        <span class="sr-only">正在读取用户列表…</span>
+        <div v-for="row in 5" :key="row" aria-hidden="true" class="grid grid-cols-3 items-center gap-4 py-5">
+          <UiSkeleton class="h-4 w-3/4" />
+          <UiSkeleton class="h-4 w-1/2" />
+          <UiSkeleton class="ml-auto h-4 w-3/4 max-w-28" />
+        </div>
       </div>
       <div
         v-else-if="!users.length"
@@ -262,7 +347,7 @@ onMounted(() => {
           }}
         </p>
         <UiButton v-if="filtered" variant="outline" @click="reset">清除筛选</UiButton
-        ><UiButton v-else :disabled="rolesUnavailable" @click="openEditor('create')"
+        ><UiButton v-else variant="outline" :disabled="rolesUnavailable || sessionChanged" @click="openEditor($event, 'create')"
           >新增用户</UiButton
         >
       </div>
@@ -281,7 +366,7 @@ onMounted(() => {
           ></UiTableHeader
         >
         <UiTableBody
-          ><UiTableRow v-for="user in users" :key="user.id" class="border-b-[0.5px]">
+          ><UiTableRow v-for="user in users" :key="user.id" class="border-b-[0.5px] hover:bg-muted">
             <UiTableCell class="min-w-40 whitespace-normal px-4"
               ><div class="flex items-center gap-3">
                 <UiAvatar class="hidden size-8 shrink-0 sm:flex"
@@ -290,8 +375,8 @@ onMounted(() => {
                 <div class="min-w-0">
                   <UiButton
                     variant="ghost"
-                    class="h-auto max-w-48 justify-start whitespace-normal break-words p-0 text-left font-medium hover:bg-transparent"
-                    @click="openEditor('view', user)"
+                    class="h-auto max-w-48 justify-start whitespace-normal break-words p-0 text-left font-medium hover:bg-transparent hover:text-accent-data-foreground hover:underline underline-offset-4"
+                    @click="openEditor($event, 'view', user)"
                     >{{ user.name || '未命名用户' }}</UiButton
                   >
                   <p class="mt-1 max-w-56 break-all text-xs text-muted-foreground">
@@ -301,7 +386,7 @@ onMounted(() => {
                     {{ user.roleName || '未分配角色' }}
                   </p>
                   <StatusBadge v-if="isCurrentUser(user)" :id="`self-user-${user.id}`" class="mt-1">
-                    当前账号<span class="sr-only">，无法删除自己的账号</span>
+                    当前账号 · 无法自删
                   </StatusBadge>
                 </div>
               </div></UiTableCell
@@ -320,30 +405,30 @@ onMounted(() => {
               >{{ user.createTime || '—' }}</UiTableCell
             >
             <UiTableCell
-              class="sticky right-0 z-10 w-32 min-w-32 bg-card text-center shadow-[-4px_0_6px_-6px_var(--border)]"
-              ><div class="flex justify-center">
+              class="sticky right-0 z-10 w-32 min-w-32 bg-card group-hover/row:bg-muted text-center shadow-[-4px_0_6px_-6px_var(--border)]"
+              ><div class="flex justify-center gap-1">
                 <UiButton
                   variant="ghost"
                   size="sm"
                   :aria-label="`查看${user.name || user.id}`"
-                  @click="openEditor('view', user)"
+                  @click="openEditor($event, 'view', user)"
                   >查看</UiButton
                 ><UiButton
                   variant="ghost"
                   size="sm"
                   :aria-label="`编辑${user.name || user.id}`"
-                  :disabled="rolesUnavailable"
-                  @click="openEditor('edit', user)"
+                  :aria-disabled="pending || rolesUnavailable || sessionChanged"
+                  @click="openEditor($event, 'edit', user)"
                   >编辑</UiButton
                 ><span :title="isCurrentUser(user) ? '无法删除自己的账号' : undefined">
                   <UiButton
                     variant="ghost"
                     size="sm"
-                    class="text-destructive hover:text-destructive"
+                    class="text-destructive hover:text-destructive aria-disabled:opacity-50 aria-disabled:cursor-not-allowed"
                     :aria-label="`删除${user.name || user.id}`"
                     :aria-describedby="isCurrentUser(user) ? `self-user-${user.id}` : undefined"
-                    :disabled="isCurrentUser(user)"
-                    @click="deletion = user"
+                    :aria-disabled="pending || sessionChanged || isCurrentUser(user)"
+                    @click="confirmDelete($event, user)"
                     >删除</UiButton
                   >
                 </span>
@@ -405,9 +490,19 @@ onMounted(() => {
       :user="selected"
       :roles="roles"
       :roles-unavailable="rolesUnavailable"
+      :role-pending="rolePending"
+      :role-restricted="roleRestricted"
       @saved="saved"
-      @retry-roles="loadRoles"
+      @retry-roles="refreshRoles"
+      @close-auto-focus="restoreSheetFocus"
     />
-    <UsersDeleteUserDialog :user="deletion" @close="deletion = null" @deleted="deleted" />
+    <UsersDeleteUserDialog
+      :user="deletion"
+      :session-changed="sessionChanged"
+      @pending="deleting = $event"
+      @close="deletion = null"
+      @deleted="deleted"
+      @close-auto-focus="restoreDeleteFocus"
+    />
   </section>
 </template>

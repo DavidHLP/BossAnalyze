@@ -136,3 +136,50 @@ test('create and edit introductions respect the existing 255-character column wi
     }
   }
 })
+
+test('a stale list response or error cannot reinstate a deleted row after rereading', async () => {
+  const vue = await import('vue')
+  const ts = await import('typescript')
+  const usersLib = await import('../app/lib/users.ts')
+  const mutations = await import('../app/lib/rbac-mutations.ts')
+  const source = await readFile(new URL('../app/pages/console/users.vue', import.meta.url), 'utf8')
+  const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+    .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
+  const { outputText } = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } })
+  const session = { capture: () => ({}), owns: () => true, state: vue.ref({}) }
+  const requests = []
+  const mount = new Function('bindings', `with (bindings) {
+    ${outputText}
+    return { users, total, pending, failed, restricted, loadUsers, deleted, changeSize, size }
+  }`)
+  const page = mount({
+    ...vue, ...usersLib, ...mutations,
+    definePageMeta() {}, useSession: () => session, useRoute: () => ({ query: {} }),
+    useRouter: () => ({ replace() {} }), onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {},
+    withSessionOwner: (_owner, call) => call(),
+    getUserManageInfo: () => {
+      const request = Promise.withResolvers()
+      requests.push(request)
+      return request.promise
+    },
+  })
+  const older = page.loadUsers()
+  page.changeSize('50')
+  assert.equal(page.size.value, 10)
+  const newer = page.deleted()
+  requests[1].resolve({ content: [], totalElements: 0 })
+  await newer
+  requests[0].resolve(fixture)
+  await older
+  assert.deepEqual(page.users.value, [])
+  assert.equal(page.total.value, 0)
+  const stale = page.loadUsers()
+  const latest = page.loadUsers()
+  requests[2].reject({ code: 403 })
+  await stale
+  assert.equal(page.pending.value, true)
+  assert.equal(page.failed.value, false)
+  assert.equal(page.restricted.value, false)
+  requests[3].resolve({ content: [], totalElements: 0 })
+  await latest
+})

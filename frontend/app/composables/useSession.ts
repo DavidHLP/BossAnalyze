@@ -1,6 +1,10 @@
 import { getUserBaseInfo, getUserPrivateInformation, login, logout } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
-import { advanceSession, loginLocation, menuTree, ownsSession, sessionOwner, validSession, withSessionOwner } from '@/lib/session'
+import { requireMutationSuccess } from '@/lib/rbac-mutations'
+import {
+  advanceSession, bindDocumentSession, loginLocation, menuTree, ownsSession,
+  sessionOwner, validSession, withSessionOwner,
+} from '@/lib/session'
 import type { MenuItem, SessionOwner } from '@/lib/session'
 
 interface Session {
@@ -19,7 +23,8 @@ export function useSession() {
     return import.meta.client ? sessionOwner() : null
   }
   function owns(owner: SessionOwner | null) {
-    return import.meta.client && !state.value.invalidated && !!owner?.token && ownsSession(owner)
+    return import.meta.client && !state.value.invalidated && !!owner &&
+      validSession(owner.token, owner.timestamp) && ownsSession(owner)
   }
   function changed() {
     advanceSession()
@@ -46,11 +51,11 @@ export function useSession() {
     state.value = { user: null, menus: [], ready: false }
     let result
     try {
-      result = await Promise.all([
+      result = await withSessionOwner(owner, () => Promise.all([
         getUserBaseInfo(),
         getUserPrivateInformation(),
         getUserRoutes(),
-      ])
+      ]))
     } catch (error) {
       if (!ownsSession(owner)) {
         if (sessionOwner().token) return restore()
@@ -71,6 +76,7 @@ export function useSession() {
       ready: true,
     }
     loadedOwner = owner
+    bindDocumentSession(owner)
     return true
   }
 
@@ -83,7 +89,9 @@ export function useSession() {
       if (!ownsSession(owner)) throw new Error('Session changed')
       localStorage.setItem('token', result.token)
       localStorage.setItem('token_timestamp', String(Date.now()))
-      if (!(await restore())) throw new Error('Session changed')
+      const signedIn = sessionOwner()
+      if (!(await restore()) || !ownsSession(signedIn)) throw new Error('Session changed')
+      bindDocumentSession(signedIn, true)
     } catch (error) {
       if (ownsSession(owner)) clear()
       throw error
@@ -105,7 +113,7 @@ export function useSession() {
     if (force || !ownsSession(owner)) return true
     if (owner.token) {
       try {
-        await withSessionOwner(owner, logout)
+        requireMutationSuccess(await withSessionOwner(owner, logout))
       } catch {
         if (ownsSession(owner)) {
           clear()

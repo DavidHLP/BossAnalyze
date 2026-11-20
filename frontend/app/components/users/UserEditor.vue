@@ -14,6 +14,8 @@ const props = defineProps<{
   user: ManagedUser | null
   roles: UserRole[]
   rolesUnavailable: boolean
+  rolePending: boolean
+  roleRestricted: boolean
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
@@ -65,7 +67,7 @@ watch(
       failure.value = ''
       Object.keys(touched).forEach((key) => delete touched[key])
     } else {
-      cancelDiscard()
+      cancelDiscard(false)
       draft.password = ''
     }
   },
@@ -81,20 +83,20 @@ function escape(event: Event) {
   if (discardOpen.value) cancelDiscard()
   else close()
 }
-function cancelDiscard() {
+function cancelDiscard(restoreFocus = true) {
   discardOpen.value = false
   destination.value = null
-  discardTrigger?.focus()
+  if (restoreFocus) discardTrigger?.focus()
   discardTrigger = null
 }
 async function discard() {
   const target = destination.value
-  destination.value = null
-  discardOpen.value = false
+  cancelDiscard(false)
   emit('update:open', false)
   await nextTick()
-  if (target === '/login') await session.signOut(false, null, undefined, owner ?? undefined)
-  else if (target) await navigateTo(target)
+  if (target === '/login' && owner && session.owns(owner)) {
+    await session.signOut(false, null, undefined, owner)
+  } else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
   if (session.state.value.invalidated) return true
@@ -190,13 +192,13 @@ async function save() {
         role="group"
         aria-label="放弃未保存的修改？"
         class="mx-4 mt-3 shrink-0 space-y-2 rounded-md border border-border bg-muted p-3"
-        @keydown.esc.stop.prevent="cancelDiscard"
+        @keydown.esc.stop.prevent="cancelDiscard()"
       >
         <p class="text-sm font-medium">放弃未保存的修改？</p>
         <div class="flex flex-wrap justify-end gap-2">
           <UiButton type="button" variant="ghost" class="text-destructive hover:text-destructive"
             @click="discard">放弃修改</UiButton>
-          <UiButton type="button" variant="secondary" @click="cancelDiscard">继续编辑</UiButton>
+          <UiButton type="button" variant="secondary" @click="cancelDiscard()">继续编辑</UiButton>
         </div>
       </div>
       <UiAlert v-if="sessionChanged && mode !== 'view'" variant="destructive" role="alert" class="mx-4 mt-3 w-auto shrink-0">
@@ -248,14 +250,15 @@ async function save() {
           <UiAlertDescription class="text-inherit">修改当前登录账号保存后需重新登录。</UiAlertDescription>
         </UiAlert>
         <UiAlert v-if="rolesUnavailable" variant="destructive" role="alert"
-          ><UiAlertTitle>角色列表暂不可用</UiAlertTitle
-          ><UiAlertDescription>请重新读取角色后保存。</UiAlertDescription
+          ><UiAlertTitle>{{ roleRestricted ? '当前账号无权读取角色列表' : '角色列表暂不可用' }}</UiAlertTitle
+          ><UiAlertDescription>{{ roleRestricted ? '请联系管理员确认权限。' : '请重新读取角色后保存。' }}</UiAlertDescription
           ><UiButton
             type="button"
             size="sm"
             variant="outline"
             class="mt-2"
-            @click="emit('retryRoles')"
+            :aria-disabled="rolePending || sessionChanged"
+            @click="!rolePending && !sessionChanged && emit('retryRoles')"
             >重新读取角色</UiButton
           ></UiAlert
         >
@@ -380,7 +383,7 @@ async function save() {
         >
       </form>
       <UiAlert v-if="failure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">
-        <UiAlertDescription><p>{{ failure }}</p><p>填写内容已保留。</p></UiAlertDescription>
+        <UiAlertDescription><span class="block">{{ failure }}</span><span class="block">填写内容已保留。</span></UiAlertDescription>
       </UiAlert>
       <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border">
         <UiButton variant="outline" :disabled="saving" @click="close">{{

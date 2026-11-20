@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircleIcon } from '@hugeicons/core-free-icons'
+import { AlertCircleIcon, ViewIcon, ViewOffIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { loginDestination, loginFailure } from '@/lib/session'
 
@@ -7,6 +7,7 @@ const session = useSession()
 const route = useRoute()
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const action = ref<'login' | 'restore' | null>(null)
 const pending = computed(() => action.value !== null)
 const error = ref('')
@@ -83,25 +84,41 @@ async function submit() {
             autocomplete="username"
             :aria-describedby="error ? 'login-error' : undefined"
             placeholder="请输入邮箱"
-            class="h-11 px-3 text-sm md:text-sm"
             required
-            :disabled="pending"
+            autofocus
+            :readonly="pending"
+            :aria-disabled="pending"
           />
         </UiField>
         <UiField>
           <UiFieldLabel for="password" class="text-sm">密码</UiFieldLabel>
-          <UiInput
-            id="password"
-            v-model="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            :aria-describedby="error ? 'login-error' : undefined"
-            placeholder="请输入密码"
-            class="h-11 px-3 text-sm md:text-sm"
-            required
-            :disabled="pending"
-          />
+          <div class="relative">
+            <UiInput
+              id="password"
+              v-model="password"
+              name="password"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="current-password"
+              :aria-describedby="error ? 'login-error' : undefined"
+              placeholder="请输入密码"
+              class="pr-10"
+              required
+              :readonly="pending"
+              :aria-disabled="pending"
+            />
+            <UiButton
+              type="button"
+              variant="ghost"
+              size="icon"
+              class="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground aria-disabled:opacity-50"
+              :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+              :aria-disabled="pending"
+              aria-controls="password"
+              @click="!pending && (showPassword = !showPassword)"
+            >
+              <HugeiconsIcon :icon="showPassword ? ViewOffIcon : ViewIcon" aria-hidden="true" />
+            </UiButton>
+          </div>
         </UiField>
         <p
           v-if="error"
@@ -127,7 +144,7 @@ async function submit() {
           会话已失效，请重新登录。
         </p>
 
-        <UiButton type="submit" class="h-11 w-full text-sm" :disabled="pending">
+        <UiButton type="submit" size="lg" class="w-full aria-disabled:opacity-50" :aria-disabled="pending">
           {{ action === 'login' ? '正在登录…' : '登录' }}
         </UiButton>
       </UiFieldGroup>
@@ -138,8 +155,8 @@ async function submit() {
       <UiButton
         type="button"
         variant="outline"
-        class="h-9 w-full text-sm"
-        :disabled="pending"
+        class="w-full aria-disabled:opacity-50"
+        :aria-disabled="pending"
         @click="retrySession"
       >
         {{ action === 'restore' ? '正在恢复会话…' : '重试恢复会话' }}

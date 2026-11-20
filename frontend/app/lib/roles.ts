@@ -111,6 +111,21 @@ export function permissionRows(
 ): Array<{ node: PermissionNode; parent: number | null }> {
   return nodes.flatMap((node) => [{ node, parent }, ...permissionRows(node.children, node.id)])
 }
+export function filterPermissionTree(nodes: PermissionNode[], query: string, selected: number[] | null) {
+  const keyword = query.trim().toLocaleLowerCase()
+  if (!keyword && selected === null) return nodes
+  const ids = selected === null ? null : new Set(selected)
+  function filter(branch: PermissionNode[]): PermissionNode[] {
+    return branch.flatMap((node) => {
+      const children = filter(node.children)
+      const matches = (!ids || (node.permission && ids.has(node.id))) &&
+        (!keyword || [node.title, node.permission].some((value) => value.toLocaleLowerCase().includes(keyword)))
+      return matches || children.length ? [{ ...node, children }] : []
+    })
+  }
+  return filter(nodes)
+}
+
 export function canonicalSelection(nodes: PermissionNode[], ids: number[]): number[] {
   const rows = permissionRows(nodes)
   if (ids.some((value) => !rows.some((row) => row.node.id === value)))

@@ -38,7 +38,7 @@ const menus = computed(() => {
         </UiSidebarMenuItem>
       </UiSidebarMenu>
     </UiSidebarHeader>
-    <UiSidebarContent as="nav" aria-label="控制台导航" class="py-2">
+    <UiSidebarContent aria-label="控制台导航" class="py-2">
       <NavMain label="工作空间" :items="workspace" />
       <NavMain label="控制台功能" :items="menus" />
     </UiSidebarContent>

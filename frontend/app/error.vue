@@ -54,7 +54,7 @@ async function leaveError(redirect: string) {
     </header>
     <main class="grid flex-1 place-items-center pb-16">
       <section
-        class="w-full max-w-lg space-y-5 rounded-lg border bg-card p-6 text-card-foreground shadow-panel sm:p-8"
+        class="w-full max-w-lg space-y-5 rounded-lg border bg-card p-6 text-card-foreground sm:p-8"
         aria-labelledby="error-title"
       >
         <p class="font-mono text-5xl font-semibold tracking-tight text-accent-data-foreground tabular-nums">
@@ -65,14 +65,13 @@ async function leaveError(redirect: string) {
           v-if="retryPath"
           class="space-y-1 rounded-md bg-status-warning-surface p-3 text-sm text-status-warning-foreground"
         >
-          <StatusBadge tone="warning" class="px-0 text-sm font-semibold">已保留当前登录凭据</StatusBadge>
+          <h2 class="font-semibold">已保留当前登录凭据</h2>
           <p>重试后将返回原页面，并重新确认访问权限。</p>
         </div>
         <p v-else class="text-sm leading-relaxed text-muted-foreground">{{ description }}</p>
         <div class="flex flex-wrap gap-2" :aria-busy="pending">
           <UiButton
             v-if="retryPath"
-            class="h-9 px-3 text-sm"
             :disabled="pending"
             @click="leaveError(retryPath)"
           >
@@ -80,7 +79,6 @@ async function leaveError(redirect: string) {
           </UiButton>
           <UiButton
             :variant="retryPath ? 'outline' : 'default'"
-            class="h-9 px-3 text-sm"
             :disabled="pending"
             @click="leaveError('/console')"
           >
@@ -88,7 +86,6 @@ async function leaveError(redirect: string) {
           </UiButton>
           <UiButton
             variant="outline"
-            class="h-9 px-3 text-sm"
             :disabled="pending"
             @click="leaveError('/login')"
           >

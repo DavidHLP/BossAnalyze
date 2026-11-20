@@ -54,6 +54,8 @@ const rankingLimit = ref('10')
 const selected = shallowRef<JobSample | null>(null)
 const formError = ref('')
 const formFeedback = useTemplateRef<HTMLElement>('formFeedback')
+const cityFeedback = useTemplateRef<HTMLElement>('cityFeedback')
+const positionFeedback = useTemplateRef<HTMLElement>('positionFeedback')
 const analysisTitle = useTemplateRef<HTMLElement>('analysisTitle')
 const rankingTitle = useTemplateRef<HTMLElement>('rankingTitle')
 const queryPending = computed(() => jobsState.value === 'loading')
@@ -101,6 +103,13 @@ async function loadCities() {
     cityState.value = settingsFailure(error)
   }
 }
+
+function retryCities() {
+  if (cityPending.value || restoring.value) return
+  cityFeedback.value?.focus()
+  void loadCities()
+}
+
 async function loadPositions() {
   const request = ++positionRequest,
     city = draft.city
@@ -126,6 +135,7 @@ function changeDraftCity(city: string) {
 
 function retryPositions() {
   if (positionPending.value || restoring.value) return
+  positionFeedback.value?.focus()
   void loadPositions()
 }
 
@@ -140,7 +150,6 @@ watch([applied, page, size], ([filter, currentPage, currentSize]) => {
   const current = router.currentRoute.value
   if (!filter || current.path !== recruitmentPath) return
   const params = { ...filter, page: String(currentPage), size: String(currentSize) }
-  if (Object.entries(params).every(([key, value]) => current.query[key] === value)) return
   void router.replace({ query: { ...current.query, ...params }, hash: current.hash })
 })
 watch(rankingLimit, () => {
@@ -162,6 +171,11 @@ function retryRanking() {
   if (rankingPending.value) return
   rankingTitle.value?.focus()
   void loadRanking()
+}
+
+function goToRanking() {
+  rankingTitle.value?.focus({ preventScroll: true })
+  rankingTitle.value?.scrollIntoView({ block: 'start' })
 }
 
 async function submitDraft(fromRecovery = false) {
@@ -234,15 +248,21 @@ function resetAndRun() {
 onMounted(async () => {
   void loadRanking()
   const loadingCities = loadCities()
-  const city = initialQuery.city
-  if (typeof city === 'string' && city !== 'all' && safeCity(city)) {
+  const { city, position } = initialQuery
+  const needsCity = typeof city === 'string' && city !== 'all' && safeCity(city)
+  const needsPosition = typeof position === 'string' && position !== 'all' && position.trim() !== ''
+  if (needsCity) {
     await loadingCities
     draft.city = recruitmentQueryCity(city, cities.value) ?? defaultAnalysisFilter.city
   }
   await loadPositions()
   if (!restoring.value) return
-  const saved = readRecruitmentQuery(initialQuery, cities.value, positions.value)
   restoring.value = false
+  if ((needsCity && cityState.value !== 'ready') || (needsPosition && positionState.value !== 'ready')) {
+    formError.value = '暂无法验证链接中的城市或职位。选项恢复后，可重新选择并开始分析。'
+    return
+  }
+  const saved = readRecruitmentQuery(initialQuery, cities.value, positions.value)
   if (!saved) return
   Object.assign(draft, saved.filter)
   size.value = saved.size
@@ -259,7 +279,7 @@ onMounted(async () => {
         <p class="text-sm text-muted-foreground">按城市与职位比较招聘样本，查看薪资和任职要求。</p>
       </div>
       <UiButton variant="outline" as-child>
-        <a href="#salary-ranking-title">查看全局高薪职位排行</a>
+        <a href="#salary-ranking-title" @click.prevent="goToRanking">查看全局高薪职位排行</a>
       </UiButton>
     </header>
     <UiAlert v-if="sourcesUnavailable" variant="destructive" role="alert">
@@ -284,18 +304,18 @@ onMounted(async () => {
             described-by="recruit-city-status"
             @update:model-value="changeDraftCity"
           />
-          <div id="recruit-city-status">
+          <div id="recruit-city-status" ref="cityFeedback" tabindex="-1" class="empty:sr-only">
             <p v-if="cityPending || (cityState === 'ready' && !cities.length)" role="status" class="text-xs text-muted-foreground">
               {{ cityPending ? '正在加载城市选项…' : '暂无城市选项，可使用全部城市。' }}
             </p>
-            <UiAlert v-else-if="cityState === 'error' || cityState === 'forbidden'" variant="destructive" role="alert">
+            <UiAlert v-else-if="cityState === 'error' || cityState === 'forbidden'" variant="destructive" role="alert" class="border-0 bg-transparent p-0">
               <UiAlertDescription>{{ cityState === 'forbidden' ? '无权读取城市选项。' : '城市选项读取失败。' }}</UiAlertDescription>
             </UiAlert>
           </div>
           <UiButton
             v-if="cityState === 'error' || cityState === 'forbidden'"
             type="button" variant="ghost" size="sm" class="self-start"
-            :aria-disabled="cityPending" @click="loadCities"
+            :aria-disabled="cityPending || restoring" @click="retryCities"
           >重试城市选项</UiButton></UiField
         ><UiField
           ><UiFieldLabel for="recruit-position">职位</UiFieldLabel
@@ -306,11 +326,11 @@ onMounted(async () => {
             :disabled="positionPending || queryPending || restoring"
             described-by="recruit-position-status"
           />
-          <div id="recruit-position-status">
+          <div id="recruit-position-status" ref="positionFeedback" tabindex="-1" class="empty:sr-only">
             <p v-if="positionPending || (positionState === 'ready' && !positions.length)" role="status" class="text-xs text-muted-foreground">
               {{ positionPending ? '正在加载职位选项…' : '当前城市范围暂无职位选项，可使用全部职位。' }}
             </p>
-            <UiAlert v-else-if="positionState === 'error' || positionState === 'forbidden'" variant="destructive" role="alert">
+            <UiAlert v-else-if="positionState === 'error' || positionState === 'forbidden'" variant="destructive" role="alert" class="border-0 bg-transparent p-0">
               <UiAlertDescription>{{
                 positionState === 'forbidden' ? '无权读取职位选项。' : '职位选项读取失败，请重试或切换城市。'
               }}</UiAlertDescription>
@@ -566,15 +586,17 @@ onMounted(async () => {
       </template>
     </div>
     <section
-      class="min-w-0 rounded-lg border border-border bg-card shadow-panel"
+      class="min-w-0 rounded-lg border-[0.5px] border-border bg-card"
       aria-labelledby="salary-ranking-title"
-      :aria-busy="rankingState === 'loading'"
+      :aria-busy="rankingPending"
     >
       <div
         class="flex flex-wrap items-center justify-between gap-4 border-b-[0.5px] border-border/70 p-5"
       >
         <div class="space-y-1.5">
-          <h2 id="salary-ranking-title" class="text-sm font-semibold">全局高薪职位排行</h2>
+          <h2 id="salary-ranking-title" ref="rankingTitle" tabindex="-1" class="scroll-mt-20 text-sm font-semibold">
+            全局高薪职位排行
+          </h2>
           <p class="text-xs text-muted-foreground">
             全局统计，与分析筛选独立。入榜职位至少 10 条样本，推荐城市至少 5 条样本。
           </p>
@@ -584,7 +606,7 @@ onMounted(async () => {
             v-model="rankingLimit"
             aria-label="排行数量"
             class="flex gap-3"
-            :disabled="rankingState === 'loading'"
+            :disabled="rankingPending"
             ><label
               v-for="count in [5, 10, 20]"
               :key="count"
@@ -594,35 +616,36 @@ onMounted(async () => {
           ><UiButton
             variant="ghost"
             size="sm"
-            :disabled="rankingState === 'loading'"
+            :aria-disabled="rankingPending"
+            class="aria-disabled:opacity-50"
             @click="loadRanking"
             ><HugeiconsIcon
               :icon="RefreshIcon"
               class="size-4"
+              :class="{ 'motion-safe:animate-spin': rankingPending }"
               aria-hidden="true"
-            />刷新排行</UiButton
+            />{{ rankingPending ? '正在刷新…' : '刷新排行' }}</UiButton
           >
         </div>
       </div>
-      <div v-if="rankingState === 'loading'" role="status" class="space-y-3 p-5">
+      <div v-if="rankingPending" role="status" class="space-y-3 p-5">
         <p class="text-sm text-muted-foreground">正在读取薪资排行…</p>
         <UiSkeleton class="h-32 w-full" />
       </div>
       <div
         v-else-if="rankingState === 'error' || rankingState === 'forbidden'"
-        role="alert"
-        class="space-y-3 px-6 py-10 text-center"
+        class="space-y-4 p-5"
       >
-        <h3 class="text-sm font-medium">
-          {{ rankingState === 'forbidden' ? '当前账号无权读取薪资排行' : '薪资排行读取失败' }}
-        </h3>
-        <p class="text-sm text-muted-foreground">请检查访问权限和服务连接后重试。</p>
-        <UiButton variant="outline" @click="loadRanking">重试薪资排行</UiButton>
+        <UiAlert variant="destructive" role="alert">
+          <UiAlertTitle>{{ rankingState === 'forbidden' ? '当前账号无权读取薪资排行' : '薪资排行读取失败' }}</UiAlertTitle>
+          <UiAlertDescription>请检查访问权限和服务连接后重试。</UiAlertDescription>
+        </UiAlert>
+        <UiButton variant="outline" :aria-disabled="rankingPending" @click="retryRanking">重试薪资排行</UiButton>
       </div>
       <div v-else-if="!ranking.length" role="status" class="space-y-2 px-6 py-10 text-center">
         <h3 class="text-sm font-medium">暂无满足样本量要求的职位排行</h3>
         <p class="text-sm text-muted-foreground">排行仅统计可解析的 K 薪资样本，可稍后刷新。</p>
-        <UiButton variant="outline" @click="loadRanking">重新读取排行</UiButton>
+        <UiButton variant="outline" :aria-disabled="rankingPending" @click="retryRanking">重新读取排行</UiButton>
       </div>
       <UiTable v-else
         ><UiTableCaption class="sr-only">按样本平均薪资排序的高薪职位，单位 K</UiTableCaption
@@ -648,7 +671,9 @@ onMounted(async () => {
               <div class="mt-1 space-y-1 text-xs text-muted-foreground lg:hidden">
                 <p class="font-mono tabular-nums">{{ number.format(row.count) }} 条 · {{ row.minimum }}–{{ row.maximum }} K</p>
                 <p v-if="row.city">
-                  推荐城市 {{ row.city }} · {{ row.citySalary == null ? '—' : number.format(row.citySalary) + ' K' }} · {{ row.cityCount ?? '—' }} 条
+                  推荐城市 {{ row.city }} ·
+                  <span class="font-mono tabular-nums">{{ row.citySalary == null ? '—' : number.format(row.citySalary) + ' K' }}</span>
+                  · {{ row.cityCount ?? '—' }} 条
                 </p>
                 <p v-else>推荐城市 —</p>
               </div>
@@ -663,8 +688,8 @@ onMounted(async () => {
               >{{ row.minimum }}–{{ row.maximum }}</UiTableCell
             ><UiTableCell class="hidden lg:table-cell"
               >{{ row.city || '—' }}
-              <p v-if="row.city" class="mt-1 text-xs tabular-nums text-muted-foreground">
-                {{ row.citySalary == null ? '—' : number.format(row.citySalary) + 'K' }} ·
+              <p v-if="row.city" class="mt-1 text-xs text-muted-foreground">
+                <span class="font-mono tabular-nums">{{ row.citySalary == null ? '—' : number.format(row.citySalary) + ' K' }}</span> ·
                 {{ row.cityCount ?? '—' }} 条样本
               </p></UiTableCell
             ></UiTableRow

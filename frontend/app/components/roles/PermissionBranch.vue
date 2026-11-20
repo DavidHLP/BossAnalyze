@@ -3,12 +3,13 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import type { PermissionNode } from '@/lib/roles'
 
-defineProps<{ node: PermissionNode; selected: number[]; disabled?: boolean }>()
-const emit = defineEmits<{ toggle: [id: number, checked: boolean] }>()
+defineProps<{ node: PermissionNode; selected: number[]; collapsed: number[]; disabled?: boolean }>()
+const emit = defineEmits<{ toggle: [id: number, checked: boolean]; expand: [id: number, open: boolean] }>()
 </script>
 
 <template>
-  <UiCollapsible :default-open="true" as-child>
+  <UiCollapsible :open="!collapsed.includes(node.id)" as-child
+    @update:open="(open) => emit('expand', node.id, open)">
     <li>
       <div class="flex min-h-10 items-center gap-2 rounded-md px-1 py-1 hover:bg-muted/50">
         <UiCollapsibleTrigger v-if="node.children.length" as-child>
@@ -49,7 +50,9 @@ const emit = defineEmits<{ toggle: [id: number, checked: boolean] }>()
             :key="child.id"
             :node="child"
             :selected="selected"
+            :collapsed="collapsed"
             :disabled="disabled"
+            @expand="(id, open) => emit('expand', id, open)"
             @toggle="(id, checked) => emit('toggle', id, checked)"
           />
         </ul>

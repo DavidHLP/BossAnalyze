@@ -129,7 +129,7 @@ test('dashboard API preserves response and propagates transport errors for retry
   }
   assert.deepEqual(await api.getDashboardStats(), fixture)
   request.defaults.adapter = async (config) => ({ config, status: 200, headers: {}, data: null })
-  await assert.rejects(api.getDashboardStats(), /Invalid dashboard response/)
+  await assert.rejects(api.getDashboardStats(), { code: 200, data: null, resultUnknown: true })
   request.defaults.adapter = async (config) => ({ config, status: 204, headers: {}, data: '' })
   assert.equal(await api.getDashboardStats(), null)
   for (const status of [403, 503]) {

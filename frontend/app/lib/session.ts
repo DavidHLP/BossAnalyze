@@ -14,6 +14,7 @@ export interface SessionOwner {
 
 let generation = 0
 let requestOwner: SessionOwner | undefined
+let documentOwner: SessionOwner | undefined
 
 export function sessionOwner(): SessionOwner {
   return {
@@ -45,8 +46,12 @@ export function withSessionOwner<T>(owner: SessionOwner, request: () => T): T {
   }
 }
 
-export function requestSessionOwner() {
-  const owner = requestOwner ?? sessionOwner()
+export function bindDocumentSession(owner: SessionOwner, signedIn = false) {
+  if (signedIn || !documentOwner) documentOwner = owner
+}
+
+export function requestSessionOwner(authenticatedWrite = false) {
+  const owner = requestOwner ?? (authenticatedWrite ? documentOwner : undefined) ?? sessionOwner()
   if (!ownsSession(owner)) throw new Error('Session changed')
   return owner
 }

@@ -221,7 +221,7 @@ export function menuPayload(
 export function menuDeleteReasons(node: MenuRecord, nodes: MenuRecord[], rolePermissions: string[]) {
   const reasons: string[] = []
   if (node.children.length) reasons.push('存在后代节点，请先处理子菜单。')
-  if (!node.permission) {
+  if (!node.permission?.trim()) {
     reasons.push('该菜单缺少独立权限标识，暂不能安全删除。')
     return reasons
   }

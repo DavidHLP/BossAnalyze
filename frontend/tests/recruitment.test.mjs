@@ -3,10 +3,14 @@ import { test } from 'node:test'
 import { readFile } from 'node:fs/promises'
 import {
   analysisQuery,
+  analysisStatusTones,
+  defaultAnalysisFilter,
   degreeLabel,
+  formatSampleSalary,
   jobSamples,
   jobSummary,
   optionNames,
+  readRecruitmentQuery,
   safeCity,
   salaryRanking,
   sameAnalysisFilter,
@@ -47,6 +51,53 @@ test('the failed applied scope can be compared independently of the current draf
     assert.equal(sameAnalysisFilter(applied, { ...applied, ...change }), false)
   }
   assert.deepEqual(args, ['北京', '前端开发', 'salary_value', 'degree_value'])
+})
+
+test('recruitment links restore only dictionary-backed conditions and supported pagination', () => {
+  const filter = { city: '北京', position: '前端开发', x: 'degree_value', y: 'salary_value' }
+  const cities = ['北京', "O'City"]
+  const positions = ['前端开发']
+  assert.deepEqual(
+    readRecruitmentQuery({ ...filter, page: '3', size: '50', unrelated: 'keep' }, cities, positions),
+    { filter, page: 3, size: 50 },
+  )
+  assert.deepEqual(
+    readRecruitmentQuery({
+      city: "O'City", position: ['前端开发', 'all'], x: 'injected_column', y: 'salary_value',
+      page: '9007199254740992', size: '100',
+    }, cities, positions),
+    { filter: { ...defaultAnalysisFilter, x: 'degree_value', y: 'salary_value' }, page: 1, size: 20 },
+  )
+  assert.deepEqual(
+    readRecruitmentQuery({ city: 'all', x: 'experience_value', y: 'experience_value', size: '10' }, [], []),
+    { filter: defaultAnalysisFilter, page: 1, size: 10 },
+  )
+})
+
+test('recruitment links without valid conditions or pagination leave analysis idle', () => {
+  for (const query of [
+    {},
+    { unrelated: 'value' },
+    { city: '未知城市', position: '未知职位' },
+    { city: ['北京'], position: null, x: ['salary_value'], page: ['2'], size: ['20'] },
+    { x: 'degree_value', y: 'degree_value' },
+    { page: '0', size: '25' },
+    { page: '1e2', size: 20 },
+  ]) {
+    assert.equal(readRecruitmentQuery(query, ['北京'], ['前端开发']), null)
+  }
+  assert.deepEqual(
+    readRecruitmentQuery({ page: '2' }, [], []),
+    { filter: defaultAnalysisFilter, page: 2, size: 20 },
+  )
+})
+
+test('sample table separates K from the amount while preserving source text and zero', () => {
+  assert.equal(formatSampleSalary('20-30K·13薪'), '20-30 K·13薪')
+  assert.equal(formatSampleSalary('0K'), '0 K')
+  assert.equal(formatSampleSalary('20 K'), '20 K')
+  assert.equal(formatSampleSalary('面议'), '面议')
+  assert.equal(formatSampleSalary(null), '—')
 })
 
 test('scatter ticks use domain levels and keep a single centered tick for a constant axis', () => {
@@ -156,6 +207,7 @@ test('analysis provenance stays explicit and array punctuation survives normaliz
   assert.equal(job.analysisModel, 'typesafe/jev-1.14.0')
   assert.equal(jobSamples([{}])[0].analysisStatus, 'unknown')
   assert.equal(jobSamples([{ analysisStatus: 'future_status' }])[0].analysisStatus, 'unknown')
+  assert.equal(analysisStatusTones.running, 'info')
   for (const analysisStatus of [
     'unparsed',
     'legacy_unverified',

@@ -8,10 +8,14 @@ const plot = computed(() => scatterData(props.jobs, props.x, props.y))
 const plotFrame = useTemplateRef<HTMLElement>('plotFrame')
 const { width } = useElementSize(plotFrame)
 const plotWidth = computed(() => Math.max(220, width.value || 640))
-const left = 64
+const left = computed(() => props.y === 'salary_value' ? 64 : 80)
 const right = computed(() => plotWidth.value - 24)
-const chartX = (cx: number) => left + ((cx - 60) / 540) * (right.value - left)
+const chartX = (cx: number) => left.value + ((cx - 60) / 540) * (right.value - left.value)
+const bubbleRadius = (count: number) => Math.min(8, 3 + Math.log2(count))
+const legend = [1, 10, 32]
 const page = ref(1)
+const jumpPage = ref<string | number>(1)
+const jumpPageId = useId()
 const currentPoint = ref(0)
 const tabPoint = ref(0)
 const pageSize = 20
@@ -21,12 +25,28 @@ const visibleGroups = computed(() =>
 )
 const active = computed(() => plot.value.points[currentPoint.value])
 const number = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 })
+const experienceLabels: Record<number, string> = {
+  0: '应届 / 不限',
+  1: '1 年以内',
+  2: '1–3 年',
+  4: '3–5 年',
+  7: '5–10 年',
+  10: '10 年以上',
+}
 
 watch(() => [props.jobs, props.x, props.y], () => {
   page.value = 1
+  jumpPage.value = 1
   currentPoint.value = 0
   tabPoint.value = 0
 })
+
+watch(page, (value) => { jumpPage.value = value })
+
+function goToPage() {
+  const target = Number(jumpPage.value)
+  if (Number.isInteger(target) && target >= 1 && target <= pageCount.value) page.value = target
+}
 
 function coordinate(axis: string, value: number) {
   const formatted = number.format(value)
@@ -43,6 +63,10 @@ function pointDescription(point: { x: number; y: number; count: number }) {
 
 function tickLabel(axis: string, value: number) {
   return (axis === 'degree_value' && degreeLabel(value)) || number.format(value)
+}
+
+function yTickLabel(value: number) {
+  return (props.y === 'experience_value' && experienceLabels[value]) || tickLabel(props.y, value)
 }
 
 function focusPoint(index: number) {
@@ -73,11 +97,24 @@ function pointKey(event: KeyboardEvent, index: number) {
 <template>
   <div v-if="plot.valid" class="space-y-4">
     <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-      <h3 class="text-sm font-semibold">职位样本分布</h3>
-      <p class="text-xs text-muted-foreground">
-        <span class="font-mono tabular-nums">{{ number.format(plot.valid) }}</span> 条有效样本 ·
-        <span class="font-mono tabular-nums">{{ number.format(plot.groups) }}</span> 组坐标
-      </p>
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold">职位样本分布</h3>
+        <p class="text-xs text-muted-foreground">
+          <span class="font-mono tabular-nums">{{ number.format(plot.valid) }}</span> 条有效样本 ·
+          <span class="font-mono tabular-nums">{{ number.format(plot.groups) }}</span> 组坐标
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span>气泡样本量</span>
+        <ul class="flex items-center gap-2 font-mono tabular-nums">
+          <li v-for="count in legend" :key="count" class="flex items-center gap-1">
+            <svg viewBox="0 0 16 16" class="size-4" aria-hidden="true">
+              <circle cx="8" cy="8" :r="bubbleRadius(count)" class="fill-chart-1/65" />
+            </svg>
+            {{ count === 32 ? '32+' : count }}
+          </li>
+        </ul>
+      </div>
     </div>
     <div
       v-if="active"
@@ -105,7 +142,7 @@ function pointKey(event: KeyboardEvent, index: number) {
           <g v-for="tick in plot.xTicks" :key="tick.value">
             <line
               :x1="chartX(tick.x)" y1="30" :x2="chartX(tick.x)" y2="220"
-              class="stroke-chart-5/45" stroke-dasharray="3 4"
+              class="stroke-border/60" stroke-dasharray="3 4"
             />
             <text :x="chartX(tick.x)" y="240" text-anchor="middle" fill="currentColor">
               <template v-if="x === 'degree_value' && tick.value === 2">
@@ -117,10 +154,10 @@ function pointKey(event: KeyboardEvent, index: number) {
           <g v-for="tick in plot.yTicks" :key="tick.value">
             <line
               :x1="left" :y1="tick.y" :x2="right" :y2="tick.y"
-              class="stroke-chart-5/45" stroke-dasharray="3 4"
+              class="stroke-border/60" stroke-dasharray="3 4"
             />
             <text :x="left - 10" :y="tick.y" dy=".35em" text-anchor="end" fill="currentColor">
-              {{ tickLabel(y, tick.value) }}
+              {{ yTickLabel(tick.value) }}
             </text>
           </g>
           <text :x="(left + right) / 2" y="273" text-anchor="middle" fill="currentColor" font-size="12">
@@ -134,13 +171,12 @@ function pointKey(event: KeyboardEvent, index: number) {
           :data-point="index"
           :cx="chartX(point.cx)"
           :cy="point.cy"
-          :r="Math.min(8, 3 + Math.log2(point.count))"
+          :r="bubbleRadius(point.count)"
           :tabindex="tabPoint === index ? 0 : -1"
           :aria-label="pointDescription(point)"
-          :aria-pressed="currentPoint === index"
+          :aria-current="currentPoint === index ? 'true' : undefined"
           role="button"
-          class="fill-chart-1 stroke-card outline-none aria-pressed:stroke-accent-data-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          :stroke-width="currentPoint === index ? 2 : 1"
+          class="fill-chart-1/65 stroke-card outline-none hover:fill-chart-1 aria-[current=true]:fill-chart-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           @mouseenter="currentPoint = index"
           @focus="focusPoint(index)"
           @click="focusPoint(index)"
@@ -148,6 +184,15 @@ function pointKey(event: KeyboardEvent, index: number) {
         >
           <title>{{ pointDescription(point) }}</title>
         </circle>
+        <circle
+          v-if="active"
+          :cx="chartX(active.cx)"
+          :cy="active.cy"
+          :r="bubbleRadius(active.count)"
+          class="pointer-events-none fill-none stroke-accent-data-foreground"
+          stroke-width="2"
+          aria-hidden="true"
+        />
       </svg>
     </div>
     <p class="text-xs leading-5 text-muted-foreground">
@@ -174,13 +219,50 @@ function pointKey(event: KeyboardEvent, index: number) {
           </UiTableRow>
         </UiTableBody>
       </UiTable>
-      <nav v-if="pageCount > 1" aria-label="坐标分组分页" class="mt-3 flex flex-wrap items-center justify-end gap-2">
+      <div v-if="pageCount > 1" class="mt-3 flex flex-wrap items-center justify-between gap-3">
         <span class="font-mono text-xs tabular-nums text-muted-foreground" aria-live="polite">
           第 {{ page }} / {{ pageCount }} 页
         </span>
-        <UiButton variant="outline" size="sm" :disabled="page === 1" @click="page--">上一页</UiButton>
-        <UiButton variant="outline" size="sm" :disabled="page === pageCount" @click="page++">下一页</UiButton>
-      </nav>
+        <UiPagination
+          v-model:page="page"
+          :total="plot.groups"
+          :items-per-page="pageSize"
+          :sibling-count="1"
+          show-edges
+          aria-label="坐标分组分页"
+          class="mx-0 w-auto max-w-full"
+        >
+          <UiPaginationContent v-slot="{ items }" class="flex-wrap">
+            <UiPaginationPrevious aria-label="上一页" />
+            <template v-for="(item, index) in items" :key="index">
+              <UiPaginationItem
+                v-if="item.type === 'page'"
+                :value="item.value"
+                :is-active="item.value === page"
+                :aria-label="`第 ${item.value} 页`"
+                :aria-current="item.value === page ? 'page' : undefined"
+                size="icon-sm"
+              >{{ item.value }}</UiPaginationItem>
+              <UiPaginationEllipsis v-else />
+            </template>
+            <UiPaginationNext aria-label="下一页" />
+          </UiPaginationContent>
+        </UiPagination>
+        <form class="flex items-center gap-2" @submit.prevent="goToPage">
+          <label :for="jumpPageId" class="text-xs text-muted-foreground">跳至页码</label>
+          <UiInput
+            :id="jumpPageId"
+            v-model="jumpPage"
+            type="number"
+            min="1"
+            :max="pageCount"
+            step="1"
+            required
+            class="h-8 w-20 font-mono tabular-nums"
+          />
+          <UiButton type="submit" size="sm" variant="outline">前往</UiButton>
+        </form>
+      </div>
     </details>
   </div>
   <p v-else class="py-12 text-center text-sm text-muted-foreground">

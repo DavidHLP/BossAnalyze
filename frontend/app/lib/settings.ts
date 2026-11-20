@@ -1,3 +1,5 @@
+import { permissionRows, permissionTree } from './roles.ts'
+
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Invalid settings response')
@@ -48,6 +50,19 @@ export function roleStatus(status: number | null) {
   if (status === 1) return { label: '启用', tone: 'success' } as const
   if (status === 0) return { label: '停用', tone: 'danger' } as const
   return { label: '状态未知', tone: 'neutral' } as const
+}
+
+export function permissionLabels(routes: unknown, permissions: string[]) {
+  const granted = new Set(permissions)
+  const matches = new Map<string, Set<string>>()
+  for (const { node } of permissionRows(permissionTree(routes))) {
+    const title = node.title.trim()
+    if (node.status !== 1 || !granted.has(node.permission) || !title) continue
+    const labels = matches.get(node.permission) ?? new Set<string>()
+    labels.add(title)
+    matches.set(node.permission, labels)
+  }
+  return new Map(Array.from(matches, ([permission, labels]) => [permission, [...labels].join(' / ')]))
 }
 
 export function healthSnapshot(value: unknown) {

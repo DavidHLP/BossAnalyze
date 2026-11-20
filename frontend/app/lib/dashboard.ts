@@ -39,6 +39,11 @@ function validCalendarDate(value: string) {
   return Number.isFinite(day.getTime()) && day.toISOString().split('T')[0] === value
 }
 
+function validSnapshotTime(value: string) {
+  const date = /^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}(?=[T\s]|$)/i.exec(value.trim())?.[0]
+  return date && validCalendarDate(date) && Number.isFinite(Date.parse(value))
+}
+
 export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
   if (value === null) return null
   if (!object(value) || !object(value.overview)) throw new Error('Invalid dashboard response')
@@ -53,8 +58,7 @@ export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
       : value.generatedAt
   if (
     typeof generatedAt !== 'string' ||
-    !validCalendarDate(/^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}(?=[T\s]|$)/i.exec(generatedAt.trim())?.[0] ?? '') ||
-    !Number.isFinite(Date.parse(generatedAt)) ||
+    !validSnapshotTime(generatedAt) ||
     !object(value.heatMapData) ||
     !object(value.topPages) ||
     !Array.isArray(value.topPages.pages) ||
@@ -65,7 +69,9 @@ export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
   const hours = distribution(value.heatMapData.hourHeatmap).sort((a, b) =>
     a.label.localeCompare(b.label),
   )
-  if (hours.some(({ label }) => !/^\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3])$/.test(label) || !validCalendarDate(label.slice(0, 10)))) {
+  if (hours.some(({ label }) =>
+    !/^\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3])$/.test(label) || !validCalendarDate(label.slice(0, 10)),
+  )) {
     throw new Error('Invalid dashboard hour')
   }
   const pages = value.topPages.pages

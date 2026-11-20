@@ -6,7 +6,7 @@ import { withSessionOwner } from '@/lib/session'
 import { addRouter, editRouter, getUserRoutes } from '@/api/router/router'
 import { getRoleList } from '@/api/auth/auth'
 import { managedRoles } from '@/lib/roles'
-import { mutationError, mutationResultUnknown, sessionChangedMessage } from '@/lib/rbac-mutations'
+import { checkReadAccess, mutationError, mutationResultUnknown, sessionChangedMessage } from '@/lib/rbac-mutations'
 import {
   managedMenus,
   menuDraft,
@@ -71,9 +71,9 @@ const title = computed(
   () => ({ view: '菜单详情', create: '新增菜单', edit: '编辑菜单' })[props.mode],
 )
 const basicFields = [
-  { key: 'title', label: '显示名称', required: true },
-  { key: 'name', label: '路由名称', required: true },
-  { key: 'permission', label: '权限标识', required: true },
+  { key: 'title', label: '显示名称', required: true, placeholder: undefined },
+  { key: 'name', label: '路由名称', required: true, placeholder: '例如 user-management' },
+  { key: 'permission', label: '权限标识', required: true, placeholder: '例如 system:users:read' },
 ] as const
 const routeFields = [
   { key: 'path', label: '路由路径', required: true },
@@ -95,7 +95,7 @@ watch(
   () => props.open,
   (open) => {
     if (!open) {
-      cancelDiscard()
+      cancelDiscard(false)
       return
     }
     Object.assign(draft, menuDraft(props.mode === 'create' ? null : props.node))
@@ -112,20 +112,21 @@ function close() {
   if (dirty.value) requestDiscard()
   else emit('update:open', false)
 }
-function cancelDiscard() {
+function cancelDiscard(restoreFocus = true) {
   discardOpen.value = false
   destination.value = null
-  discardTrigger?.focus()
+  if (restoreFocus) discardTrigger?.focus()
   discardTrigger = null
 }
 async function discard() {
   const target = destination.value
-  cancelDiscard()
+  cancelDiscard(false)
   initial.value = JSON.stringify(draft)
   emit('update:open', false)
   await nextTick()
-  if (target === '/login') await session.signOut(false, null, undefined, owner ?? undefined)
-  else if (target) await navigateTo(target)
+  if (target === '/login' && owner && session.owns(owner)) {
+    await session.signOut(false, null, undefined, owner)
+  } else if (target) await navigateTo(target)
 }
 onBeforeRouteLeave((to) => {
   if (session.state.value.invalidated) return true
@@ -165,7 +166,12 @@ async function save() {
   if (first) {
     await nextTick()
     const radio = first === 'type' || first === 'status'
-    document.querySelector<HTMLElement>(`#menu-${first}${radio ? ' button' : ''}`)?.focus()
+    const field = document.querySelector<HTMLElement>(
+      `#menu-${first}${radio ? ' button:not(:disabled)' : ''}`,
+    )
+    const details = field?.closest('details')
+    if (details) details.open = true
+    field?.focus()
     return
   }
   pending.value = true
@@ -177,7 +183,7 @@ async function save() {
     const payload = menuPayload(draft, props.tree, current, props.parent)
     if (
       !current &&
-      managedRoles(await withSessionOwner(owner, getRoleList)).some((role) =>
+      managedRoles(checkReadAccess(await withSessionOwner(owner, getRoleList))).some((role) =>
         role.permissions.includes(payload.permission),
       )
     ) {
@@ -266,13 +272,13 @@ async function save() {
         role="group"
         aria-label="放弃未保存的修改？"
         class="mx-4 mt-3 shrink-0 space-y-2 rounded-md border border-border bg-muted p-3"
-        @keydown.esc.stop.prevent="cancelDiscard"
+        @keydown.esc.stop.prevent="cancelDiscard()"
       >
         <p class="text-sm font-medium">放弃未保存的修改？</p>
         <div class="flex flex-wrap justify-end gap-2">
           <UiButton type="button" variant="ghost" class="text-destructive hover:text-destructive"
             @click="discard">放弃修改</UiButton>
-          <UiButton type="button" variant="secondary" @click="cancelDiscard">继续编辑</UiButton>
+          <UiButton type="button" variant="secondary" @click="cancelDiscard()">继续编辑</UiButton>
         </div>
       </div>
       <UiAlert v-if="sessionChanged && mode !== 'view'" variant="destructive" role="alert" class="mx-4 mt-3 w-auto shrink-0">
@@ -305,6 +311,9 @@ async function save() {
                 {{ field.value }}
               </StatusBadge>
             </dd>
+            <dd v-else-if="field.label === '类型'" class="mt-1.5">
+              <UiBadge variant="outline">{{ field.value }}</UiBadge>
+            </dd>
             <dd v-else class="mt-1.5 break-all" :class="{ 'font-mono tabular-nums': 'mono' in field && field.mono }">
               {{ field.value }}
             </dd>
@@ -333,10 +342,9 @@ async function save() {
             </div>
           </dl>
         </section>
-        <section aria-labelledby="menu-view-metadata" class="space-y-3 rounded-lg bg-muted/50 p-4">
-          <h3 id="menu-view-metadata" class="text-sm font-medium">仅保存元数据</h3>
-          <p class="text-xs text-muted-foreground">以下配置在当前控制台不生效。</p>
-          <dl class="grid grid-cols-2 gap-4 text-sm">
+        <details class="rounded-lg bg-muted/50 p-4">
+          <summary class="cursor-pointer text-sm font-medium">仅保存元数据（当前不生效）</summary>
+          <dl class="mt-3 grid grid-cols-2 gap-4 text-sm">
             <div v-for="field in metadataFields" :key="field.key" class="min-w-0">
               <dt class="text-xs text-muted-foreground">{{ field.label }}</dt>
               <dd class="mt-1 break-all">{{ draft[field.key] || '—' }}</dd>
@@ -350,7 +358,7 @@ async function save() {
               <dd class="mt-1 break-all">{{ node.meta.metaRoles || '—' }}</dd>
             </div>
           </dl>
-        </section>
+        </details>
       </div>
       <form
         v-else
@@ -360,7 +368,9 @@ async function save() {
         novalidate
         @submit.prevent="save"
       >
-        <UiAlert v-if="awaitingRead" class="border-status-warning/40 bg-status-warning-surface text-status-warning-foreground">
+        <UiAlert v-if="awaitingRead" :variant="readFailed ? 'destructive' : 'default'"
+          :role="readFailed ? 'alert' : 'status'"
+          :class="!readFailed && 'border-status-warning/40 bg-status-warning-surface text-status-warning-foreground'">
           <UiAlertTitle>菜单配置已提交，未确认</UiAlertTitle>
           <UiAlertDescription class="text-inherit">{{
             readFailed ? '重新读取失败，请稍后重试。' : '请重新读取菜单，并核对最终配置。'
@@ -385,6 +395,7 @@ async function save() {
               maxlength="255"
               :required="field.required"
               :disabled="pending || awaitingRead"
+              :placeholder="field.placeholder"
               :readonly="mode === 'edit' && field.key === 'permission'"
               :aria-invalid="Boolean((submitted || touched[field.key]) && errors[field.key])"
               :aria-describedby="
@@ -410,6 +421,8 @@ async function save() {
               aria-label="菜单类型"
               class="flex gap-6"
               :disabled="pending || awaitingRead"
+              :aria-invalid="Boolean(submitted && errors.type)"
+              :aria-describedby="submitted && errors.type ? 'menu-type-error' : undefined"
             >
               <label
                 v-for="option in [
@@ -419,11 +432,15 @@ async function save() {
                 ]"
                 :key="option.value"
                 class="flex items-center gap-2 text-sm"
+                :title="option.value === 'F' && node?.children.length ? '请先处理子菜单，再改为操作类型' : undefined"
                 ><UiRadioGroupItem :value="option.value"
                   :disabled="option.value === 'F' && Boolean(node?.children.length)" />{{ option.label }}</label
               >
             </UiRadioGroup>
-            <UiFieldError v-if="submitted && errors.type" class="text-xs text-destructive">
+            <p v-if="mode === 'edit' && node?.children.length" class="text-xs text-muted-foreground">
+              请先处理子菜单，再改为操作类型。
+            </p>
+            <UiFieldError v-if="submitted && errors.type" id="menu-type-error">
               {{ errors.type }}
             </UiFieldError></UiField
           >
@@ -435,13 +452,15 @@ async function save() {
               aria-label="菜单状态"
               class="flex gap-6"
               :disabled="pending || awaitingRead"
+              :aria-invalid="Boolean(submitted && errors.status)"
+              :aria-describedby="submitted && errors.status ? 'menu-status-error' : undefined"
               ><label class="flex items-center gap-2 text-sm"
                 ><UiRadioGroupItem value="1" />启用</label
               ><label class="flex items-center gap-2 text-sm"
                 ><UiRadioGroupItem value="0" />停用</label
               ></UiRadioGroup
             >
-            <UiFieldError v-if="submitted && errors.status" class="text-xs text-destructive">
+            <UiFieldError v-if="submitted && errors.status" id="menu-status-error">
               {{ errors.status }}
             </UiFieldError></UiField
           >
@@ -453,53 +472,59 @@ async function save() {
               inputmode="numeric"
               :disabled="pending || awaitingRead"
               :aria-invalid="Boolean((submitted || touched.order) && errors.order)"
+              :aria-describedby="(submitted || touched.order) && errors.order ? 'menu-order-error' : undefined"
               @blur="touched.order = true"
             />
-            <UiFieldError v-if="(submitted || touched.order) && errors.order" class="text-xs text-destructive">
+            <UiFieldError v-if="(submitted || touched.order) && errors.order" id="menu-order-error">
               {{ errors.order }}
             </UiFieldError></UiField
           >
         </section>
-        <section v-for="group in [
-          { title: '路由配置', fields: routeFields },
-          { title: '仅保存元数据', fields: metadataFields },
-        ]" :key="group.title" class="space-y-4" :aria-label="group.title"
-          :class="group.fields === metadataFields ? 'rounded-lg bg-muted/50 p-4' : 'border-t border-border pt-5'">
-          <h3 class="text-sm font-medium">{{ group.title }}</h3>
-          <p v-if="group.fields === metadataFields" class="text-xs text-muted-foreground">
-            以下配置在当前控制台不生效。
-          </p>
-          <UiField v-for="field in group.fields" :key="field.key">
-            <UiFieldLabel :for="`menu-${field.key}`">{{ field.label }}<span v-if="field.required" aria-hidden="true"> *</span></UiFieldLabel>
-            <UiInput
-              :id="`menu-${field.key}`"
-              v-model="draft[field.key]"
-              maxlength="255"
-              :required="field.required"
-              :disabled="pending || awaitingRead"
-              :aria-invalid="Boolean((submitted || touched[field.key]) && errors[field.key])"
-              @blur="touched[field.key] = true"
-            />
-            <UiFieldError v-if="(submitted || touched[field.key]) && errors[field.key]" class="text-xs text-destructive">
-              {{ errors[field.key] }}
-            </UiFieldError>
-          </UiField>
-          <template v-if="group.fields === routeFields">
-            <fieldset class="space-y-3 rounded-lg border border-border p-4">
-              <legend class="px-1 text-sm font-medium">生效可见性开关</legend>
-              <label v-for="field in visibilityFlags" :key="field.key" class="flex items-start gap-3 text-sm">
-                <UiCheckbox v-model="draft[field.key]" class="mt-0.5 shrink-0" :disabled="pending || awaitingRead"
-                  :aria-label="field.label" :aria-describedby="`menu-${field.key}-hint`" />
-                <span>{{ field.label }}<span :id="`menu-${field.key}-hint`" class="mt-1 block text-xs text-muted-foreground">{{ field.detail }}</span></span>
+        <component
+          v-for="group in [
+            { title: '路由配置', fields: routeFields, element: 'section' },
+            { title: '仅保存元数据（当前不生效）', fields: metadataFields, element: 'details' },
+          ]"
+          :is="group.element"
+          :key="group.title"
+          :class="group.element === 'details' ? 'rounded-lg bg-muted/50 p-4' : 'border-t border-border pt-5'"
+        >
+          <summary v-if="group.element === 'details'" class="cursor-pointer text-sm font-medium">{{ group.title }}</summary>
+          <h3 v-else class="text-sm font-medium">{{ group.title }}</h3>
+          <div class="mt-4 space-y-4">
+            <UiField v-for="field in group.fields" :key="field.key">
+              <UiFieldLabel :for="`menu-${field.key}`">{{ field.label }}<span v-if="field.required" aria-hidden="true"> *</span></UiFieldLabel>
+              <UiInput
+                :id="`menu-${field.key}`"
+                v-model="draft[field.key]"
+                maxlength="255"
+                :required="field.required"
+                :disabled="pending || awaitingRead"
+                :aria-invalid="Boolean((submitted || touched[field.key]) && errors[field.key])"
+                :aria-describedby="(submitted || touched[field.key]) && errors[field.key] ? `menu-${field.key}-error` : undefined"
+                @blur="touched[field.key] = true"
+              />
+              <UiFieldError v-if="(submitted || touched[field.key]) && errors[field.key]" :id="`menu-${field.key}-error`">
+                {{ errors[field.key] }}
+              </UiFieldError>
+            </UiField>
+            <template v-if="group.fields === routeFields">
+              <fieldset class="space-y-3 rounded-lg border border-border p-4">
+                <legend class="px-1 text-sm font-medium">生效可见性开关</legend>
+                <label v-for="field in visibilityFlags" :key="field.key" class="flex items-start gap-3 text-sm">
+                  <UiCheckbox v-model="draft[field.key]" class="mt-0.5 shrink-0" :disabled="pending || awaitingRead"
+                    :aria-label="field.label" :aria-describedby="`menu-${field.key}-hint`" />
+                  <span>{{ field.label }}<span :id="`menu-${field.key}-hint`" class="mt-1 block text-xs text-muted-foreground">{{ field.detail }}</span></span>
+                </label>
+              </fieldset>
+            </template>
+            <template v-else>
+              <label v-for="field in metadataFlags" :key="field.key" class="flex items-center gap-3 text-sm">
+                <UiCheckbox v-model="draft[field.key]" :disabled="pending || awaitingRead" />{{ field.label }}
               </label>
-            </fieldset>
-          </template>
-          <template v-else>
-            <label v-for="field in metadataFlags" :key="field.key" class="flex items-center gap-3 text-sm">
-              <UiCheckbox v-model="draft[field.key]" :disabled="pending || awaitingRead" />{{ field.label }}
-            </label>
-          </template>
-        </section>
+            </template>
+          </div>
+        </component>
         <div class="border-t border-border pt-5">
           <UiField
             ><UiFieldLabel for="menu-remark">备注</UiFieldLabel
@@ -508,11 +533,16 @@ async function save() {
               v-model="draft.remark"
               maxlength="255"
               :disabled="pending || awaitingRead"
-          /></UiField>
+              :aria-invalid="Boolean((submitted || touched.remark) && errors.remark)"
+              :aria-describedby="(submitted || touched.remark) && errors.remark ? 'menu-remark-error' : undefined"
+              @blur="touched.remark = true"
+            />
+            <UiFieldError v-if="(submitted || touched.remark) && errors.remark" id="menu-remark-error">{{ errors.remark }}</UiFieldError>
+          </UiField>
         </div>
       </form>
       <UiAlert v-if="requestFailure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">
-        <UiAlertDescription><p>{{ requestFailure }}</p><p>填写内容已保留。</p></UiAlertDescription>
+        <UiAlertDescription><span class="block">{{ requestFailure }}</span><span class="block">填写内容已保留。</span></UiAlertDescription>
       </UiAlert>
       <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border">
         <UiButton variant="outline" :disabled="pending" @click="close">{{

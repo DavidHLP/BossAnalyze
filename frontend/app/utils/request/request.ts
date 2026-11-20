@@ -5,14 +5,17 @@ import type { Request, RequestFailure } from '@/utils/request/request.d'
 
 const owners = new WeakMap<object, SessionOwner>()
 
+function missingBody(data: unknown) {
+  return data == null || (typeof data === 'string' && !data.trim())
+}
+
 export function requestFailure(status: number | undefined, data: unknown, message?: string): RequestFailure {
   const body = data && typeof data === 'object' && 'message' in data ? data.message : undefined
   const businessRejection = data && typeof data === 'object' && 'code' in data &&
     typeof data.code === 'number' && data.code !== 200
-  const empty = data == null || (typeof data === 'string' && !data.trim())
   const resultUnknown = status === undefined || (!businessRejection && (
     status === 408 || status === 502 || status === 504 ||
-    (empty && (status < 400 || status >= 500))
+    (missingBody(data) && (status < 400 || status >= 500))
   ))
   return {
     code: status ?? 500,
@@ -49,7 +52,7 @@ service.interceptors.request.use(
     ];
     const isPublicPath = publicPaths.some(path => config.url?.endsWith(path));
 
-    const owner = requestSessionOwner()
+    const owner = requestSessionOwner(!isPublicPath && !['get', 'head', 'options'].includes(config.method ?? 'get'))
     const token = owner.token
     owners.set(config, owner)
 
@@ -73,14 +76,15 @@ service.interceptors.request.use(
 // 响应拦截器
 service.interceptors.response.use(
   (response) => {
-    if (response.status === 200 && !requestFailure(200, response.data).resultUnknown) {
+    if (response.status === 200 && !missingBody(response.data)) {
       return response.data?.data ?? (response.data as Request<unknown>)
     }
     return Promise.reject(requestFailure(response.status, response.data))
   },
   (error) => {
+    if (!error.config) return Promise.reject(error)
     const isLogout = error.config?.url?.endsWith('/api/auth/logout')
-    const owner = error.config && owners.get(error.config)
+    const owner = owners.get(error.config)
     if (!isLogout && error.response?.status === 401 && owner?.token &&
         error.config.headers?.Authorization === `Bearer ${owner.token}` && ownsSession(owner)) {
       localStorage.removeItem('token')

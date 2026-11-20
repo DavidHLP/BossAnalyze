@@ -9,11 +9,12 @@ export function mutationBusinessCode(value: unknown) {
 }
 
 export function requireMutationSuccess(value: unknown) {
-  if (code(value) === 200) return
+  const status = code(value)
+  if (status === 200) return
   // Keep only the status from a rejected business envelope, never its message.
   throw Object.assign(new Error('Management write failed'), {
-    code: code(value),
-    resultUnknown: code(value) === undefined,
+    code: status,
+    resultUnknown: status === undefined,
   })
 }
 
@@ -23,6 +24,11 @@ export function mutationResultUnknown(value: unknown) {
 
 export function permissionDenied(value: unknown) {
   return code(value) === 403 || mutationBusinessCode(value) === 403
+}
+
+export function checkReadAccess<T>(value: T): T {
+  if (permissionDenied(value)) throw value
+  return value
 }
 
 export const sessionChangedMessage = '会话已变更。请刷新页面后继续，当前页面的修改无法提交。'
