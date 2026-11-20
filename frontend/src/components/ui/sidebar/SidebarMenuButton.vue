@@ -34,10 +34,11 @@ const delegatedProps = reactiveOmit(props, 'tooltip')
         <slot />
       </SidebarMenuButtonChild>
     </TooltipTrigger>
+    <!-- A mounted tooltip can consume Escape even when hidden. -->
     <TooltipContent
+      v-if="state === 'collapsed' && !isMobile"
       side="right"
       align="center"
-      :hidden="state !== 'collapsed' || isMobile"
     >
       <template v-if="typeof tooltip === 'string'">
         {{ tooltip }}

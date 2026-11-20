@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SidebarProps } from '.'
 import { cn } from 'cn'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { SheetContent } from '@/components/ui/sheet'
 import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
 import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
@@ -17,7 +17,8 @@ const props = withDefaults(defineProps<SidebarProps>(), {
   collapsible: 'offcanvas',
 })
 
-const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+const emit = defineEmits<{ openAutoFocus: [Event]; closeAutoFocus: [Event] }>()
+const { isMobile, state } = useSidebar()
 </script>
 
 <template>
@@ -30,26 +31,26 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
     <slot />
   </div>
 
-  <Sheet v-else-if="isMobile" :open="openMobile" v-bind="$attrs" @update:open="setOpenMobile">
-    <SheetContent
-      data-sidebar="sidebar"
-      data-slot="sidebar"
-      data-mobile="true"
-      :side="side"
-      class="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0"
-      :style="{
-        '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
-      }"
-    >
-      <SheetHeader class="sr-only">
-        <SheetTitle>控制台导航</SheetTitle>
-        <SheetDescription>从导航打开工作台和已授权功能。</SheetDescription>
-      </SheetHeader>
-      <div class="flex h-full w-full flex-col">
-        <slot />
-      </div>
-    </SheetContent>
-  </Sheet>
+  <SheetContent
+    v-else-if="isMobile"
+    data-sidebar="sidebar"
+    data-slot="sidebar"
+    data-mobile="true"
+    :side="side"
+    class="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0"
+    :style="{ '--sidebar-width': SIDEBAR_WIDTH_MOBILE }"
+    v-bind="$attrs"
+    @open-auto-focus="emit('openAutoFocus', $event)"
+    @close-auto-focus="emit('closeAutoFocus', $event)"
+  >
+    <SheetHeader class="sr-only">
+      <SheetTitle>控制台导航</SheetTitle>
+      <SheetDescription>从导航打开工作台和已授权功能。</SheetDescription>
+    </SheetHeader>
+    <div class="flex h-full w-full flex-col">
+      <slot />
+    </div>
+  </SheetContent>
 
   <div
     v-else

@@ -4,7 +4,7 @@ Vue 3、Vue Router、Vite 和 shadcn-vue。界面布局与业务状态依据 [Pe
 
 ## 本地运行
 
-在 `frontend/` 中使用 Node.js 22.12+ 和 pnpm 11.24.0：
+在 `frontend/` 中使用 Node.js 22.13+ 和 pnpm 11.24.0：
 
 ```sh
 pnpm install --frozen-lockfile
@@ -25,4 +25,5 @@ pnpm start
 生产入口读取 `dist/`。`HOST` 和 `PORT` 默认分别为 `127.0.0.1` 和 `5020`。
 开发和生产都在原路径代理 `/api/**`。AI v1/v2 走 8081，其余走 8080。
 `BOSS_TRUSTED_PROXY_IPS` 可配置可信代理的准确 IP 列表。只有匹配的直接代理可提供单个合法的转发地址。
+生产入口为 HTML 导航提供页面回退，包括带点的 `/console/*` 路径。缺失的 `/assets/*` 返回 404，现有静态文件支持单段字节范围请求。
 外置反向代理部署需要为前端页面启用 HTML 路由回退，并将 `/api/**` 交给保留来源 IP 清理规则的 API 代理。

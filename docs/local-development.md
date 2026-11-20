@@ -7,7 +7,7 @@ backend mismatch and verification boundary before removing the existing UI.
 ## Requirements
 
 - Java 17 and Maven 3.9.6 or newer.
-- Node.js 22.12+, pnpm 11.24.0, and the checked-in `frontend/pnpm-lock.yaml`.
+- Node.js 22.13+, pnpm 11.24.0, and the checked-in `frontend/pnpm-lock.yaml`.
 - MySQL 8 with separate `blog_data` and `boss_data` databases, Redis, and MongoDB.
 - Python 3.12–3.14 and uv for `ai-service/`; the current local build was verified with Python 3.13.15 and uv 0.9.9.
 - RustFS for S3 object storage and either a real SMTP provider or the explicit local Mailpit capture profile.
@@ -67,7 +67,7 @@ pnpm build
 HOST=127.0.0.1 PORT=5020 pnpm start
 ```
 
-Deploy `dist/`, the frontend server entry point, and its runtime dependencies together.
+Deploy `dist/`, the frontend `server/` directory, and its runtime dependencies together.
 See [the frontend README](../frontend/README.md) for route fallback and proxy settings.
 
 ## Local Profile Boundaries

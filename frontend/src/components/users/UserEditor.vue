@@ -63,14 +63,17 @@ function error(field: string) {
 }
 
 watch(
-  () => props.open,
-  (open) => {
+  [() => props.open, () => props.mode],
+  ([open, mode], [wasOpen]) => {
     if (open) {
       Object.assign(draft, userDraft(props.user))
       initial.value = JSON.stringify(draft)
       submitted.value = false
       failure.value = ''
       Object.keys(touched).forEach((key) => delete touched[key])
+      if (wasOpen && mode === 'edit') {
+        void nextTick(() => document.getElementById('user-name')?.focus())
+      }
     } else {
       cancelDiscard(false)
       draft.password = ''
@@ -390,7 +393,8 @@ async function save() {
       <UiAlert v-if="failure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">
         <UiAlertDescription><span class="block">{{ failure }}</span><span class="block">填写内容已保留。</span></UiAlertDescription>
       </UiAlert>
-      <UiSheetFooter class="shrink-0 flex-row justify-end border-t-[0.5px] border-border">
+      <UiSheetFooter class="shrink-0 flex-row flex-wrap justify-end border-t-[0.5px] border-border">
+        <slot v-if="mode === 'view'" name="detail-actions" />
         <UiButton variant="outline" :disabled="saving" @click="close">{{
           mode === 'view' ? '关闭' : '取消'
         }}</UiButton>

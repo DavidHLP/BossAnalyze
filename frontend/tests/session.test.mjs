@@ -293,11 +293,27 @@ test('navigation-hidden nodes remain authorized while whole hidden nodes are rem
 })
 
 
+test('menu-protected destinations require authorization for the exact pathname', async () => {
+  const { authorizeRoute } = await import('../src/router/guard.ts')
+  const { session } = await sessionFixture()
+  for (const path of ['/console/roles', '/console/USERS', '/Console/users', '/console/users/']) {
+    const destination = { path, fullPath: path, meta: { access: 'menu' } }
+    assert.deepEqual(await authorizeRoute(session, destination), {
+      name: 'system-error', params: { code: '403' }, replace: true,
+    })
+  }
+  assert.equal(await authorizeRoute(session, {
+    path: '/console/users',
+    fullPath: '/console/users?name=fixture#list',
+    meta: { access: 'menu' },
+  }), true)
+})
+
 test('protected routes fail closed during transient restoration and retain credentials for retry', async () => {
   const { authorizeRoute } = await import('../src/router/guard.ts')
   for (const path of ['/console/users', '/recruitment']) {
     const { session, storage, api } = await sessionFixture()
-    const target = { path, fullPath: path + '?edit=1#form' }
+    const target = { path, fullPath: path + '?edit=1#form', meta: { access: path === '/recruitment' ? 'session' : 'menu' } }
     api.failure = { code: 503 }
     const failure = await authorizeRoute(session, target)
     assert.equal(failure.params.code, '503')
@@ -318,7 +334,9 @@ test('stale restoration failures and successes use the newer session on protecte
       const { session, storage, api } = await sessionFixture()
       const pending = Promise.withResolvers()
       api.pending = pending.promise
-      const oldNavigation = authorizeRoute(session, { path, fullPath: path })
+      const oldNavigation = authorizeRoute(session, {
+        path, fullPath: path, meta: { access: path === '/recruitment' ? 'session' : 'menu' },
+      })
       api.pending = null
       await session.signIn('fixture@example.invalid', 'synthetic')
       if (code) pending.reject({ code })

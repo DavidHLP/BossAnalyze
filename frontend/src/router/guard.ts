@@ -3,7 +3,7 @@ import type { useSession } from '../composables/useSession'
 import { findMenu, loginLocation, safeReturnPath } from '../lib/session.ts'
 
 type Session = Pick<ReturnType<typeof useSession>, 'state' | 'restore'>
-type Destination = Pick<RouteLocationNormalized, 'fullPath' | 'path'>
+type Destination = Pick<RouteLocationNormalized, 'fullPath' | 'path' | 'meta'>
 
 export async function authorizeRoute(session: Session, to: Destination): Promise<RouteLocationRaw | true> {
   try {
@@ -15,7 +15,7 @@ export async function authorizeRoute(session: Session, to: Destination): Promise
     const redirect = safeReturnPath(to.fullPath) ?? '/console'
     return { name: 'system-error', params: { code: '503' }, query: { redirect }, replace: true }
   }
-  if (to.path.startsWith('/console/') && !findMenu(session.state.value.menus, to.path)) {
+  if (to.meta.access === 'menu' && !findMenu(session.state.value.menus, to.path)) {
     return { name: 'system-error', params: { code: '403' }, replace: true }
   }
   return true

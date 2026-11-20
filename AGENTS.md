@@ -8,7 +8,7 @@
 
 ## Build, Test, and Development Commands
 
-Use Java 17, Maven 3.9.6+, Node.js 22.12+, and pnpm 11.24.0.
+Use Java 17, Maven 3.9.6+, Node.js 22.13+, and pnpm 11.24.0.
 
 From the repository root:
 
