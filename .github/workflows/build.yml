@@ -58,7 +58,7 @@ jobs:
         run: pnpm type-check
       - name: Run frontend tests
         run: pnpm test
-      - name: Build production server
+      - name: Build production frontend
         run: pnpm build
 
   python:

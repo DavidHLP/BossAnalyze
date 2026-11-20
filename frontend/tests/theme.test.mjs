@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyTheme, resolveTheme } from '../src/lib/theme.ts'
+import { runInNewContext } from 'node:vm'
+import { DARK_THEME_QUERY, resolveTheme, THEME_STORAGE_KEY, themeHeadScript } from '../src/lib/theme.ts'
 
 test('an explicit theme overrides the operating system preference', () => {
   assert.equal(resolveTheme('light', true), 'light')
@@ -14,7 +15,7 @@ test('missing or invalid stored themes follow the operating system', () => {
   }
 })
 
-test('theme application sets the root class and native control scheme', () => {
+test('the head script synchronously applies the same theme before Vue mounts', () => {
   for (const stored of ['light', 'dark', 'invalid', null, undefined]) {
     for (const prefersDark of [true, false]) {
       const root = {
@@ -26,7 +27,20 @@ test('theme application sets the root class and native control scheme', () => {
           },
         },
       }
-      applyTheme(resolveTheme(stored ?? null, prefersDark), root)
+      runInNewContext(themeHeadScript, {
+        document: { documentElement: root },
+        localStorage: {
+          getItem(key) {
+            assert.equal(key, THEME_STORAGE_KEY)
+            if (stored === undefined) throw new Error('Storage denied')
+            return stored
+          },
+        },
+        matchMedia(query) {
+          assert.equal(query, DARK_THEME_QUERY)
+          return { matches: prefersDark }
+        },
+      })
       const expected = resolveTheme(stored ?? null, prefersDark)
       assert.equal(root.classes.has('dark'), expected === 'dark')
       assert.equal(root.style.colorScheme, expected)
