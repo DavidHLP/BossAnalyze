@@ -3,7 +3,8 @@ import type { HTMLAttributes, Ref } from 'vue'
 import { defaultDocument, useEventListener, useMediaQuery, useVModel } from '@vueuse/core'
 import { cn } from 'cn'
 import { TooltipProvider } from 'reka-ui'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { Sheet } from '@/components/ui/sheet'
 import { shouldToggleSidebar } from '@/lib/sidebar-shortcut'
 import { provideSidebarContext, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_MOBILE_BREAKPOINT, SIDEBAR_WIDTH, SIDEBAR_WIDTH_ICON } from './utils'
 
@@ -22,6 +23,9 @@ const emits = defineEmits<{
 
 const isMobile = useMediaQuery(`(max-width: ${SIDEBAR_MOBILE_BREAKPOINT - 1}px)`)
 const openMobile = ref(false)
+watch(isMobile, (mobile) => {
+  if (!mobile) openMobile.value = false
+})
 
 const open = useVModel(props, 'open', emits, {
   defaultValue: props.defaultOpen ?? false,
@@ -77,7 +81,9 @@ provideSidebarContext({
       :class="cn('group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full', props.class)"
       v-bind="$attrs"
     >
-      <slot />
+      <Sheet v-model:open="openMobile">
+        <slot />
+      </Sheet>
     </div>
   </TooltipProvider>
 </template>

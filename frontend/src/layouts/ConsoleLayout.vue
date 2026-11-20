@@ -28,6 +28,13 @@ const breadcrumbs = computed(() => {
 })
 
 const main = ref<HTMLElement | null>(null)
+let sidebarPath = ''
+function restoreNavigationFocus(event: Event) {
+  if (route.path === sidebarPath) return
+  event.preventDefault()
+  main.value?.focus()
+}
+
 watch(() => route.path, async () => {
   await nextTick()
   main.value?.focus()
@@ -41,7 +48,7 @@ watch(() => route.path, async () => {
       class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded focus:bg-background focus:p-3"
       @click.prevent="main?.focus()"
     >跳过导航</a>
-    <AppSidebar />
+    <AppSidebar @open-auto-focus="sidebarPath = route.path" @close-auto-focus="restoreNavigationFocus" />
     <UiSidebarInset class="min-w-0">
       <header class="flex h-14 shrink-0 items-center gap-2 border-b px-4 sm:gap-3 md:px-6">
         <UiSidebarTrigger class="-ml-1" title="切换侧栏（⌘B / Ctrl+B）" />

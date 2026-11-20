@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { useMediaQuery } from '@vueuse/core'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { Add01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons'
+import { Add01Icon, ArrowRight01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { getUserManageInfo } from '@/api/user/user'
 import { getRoleList } from '@/api/role/role'
 import { userPage, userPageNumber, userRoles } from '@/lib/users'
@@ -20,6 +21,8 @@ const owner = session.capture()
 const sessionChanged = computed(() => !session.owns(owner))
 const route = useRoute()
 const router = useRouter()
+const mobile = useMediaQuery('(width < 640px)')
+const filtersExpanded = ref(false)
 const queryRole = Number(route.query.roleId)
 const filters = reactive({
   name: typeof route.query.name === 'string' ? route.query.name.trim().slice(0, 50) : '',
@@ -60,6 +63,9 @@ const roleRestricted = ref(false)
 const rolesUnavailable = computed(
   () => rolePending.value || roleFailed.value || !roles.value.length,
 )
+const editingUnavailable = computed(
+  () => pending.value || rolesUnavailable.value || restricted.value || sessionChanged.value,
+)
 const filtered = computed(() => Object.values(applied.value).some((value) => value !== undefined))
 const notice = ref('')
 const editorOpen = ref(false)
@@ -71,9 +77,17 @@ const deleting = ref(false)
 const listTitle = ref<HTMLElement | null>(null)
 let sheetTrigger: HTMLElement | null = null
 let deleteTrigger: HTMLElement | null = null
+let deleteAfterDetails: ManagedUser | null = null
 
 function restoreSheetFocus(event: Event) {
-  restoreActionFocus(event, sheetTrigger, listTitle.value)
+  if (deleteAfterDetails && canDelete(deleteAfterDetails)) {
+    event.preventDefault()
+    deleteTrigger = sheetTrigger
+    deletion.value = deleteAfterDetails
+  } else {
+    restoreActionFocus(event, sheetTrigger, listTitle.value)
+  }
+  deleteAfterDetails = null
   sheetTrigger = null
 }
 function restoreDeleteFocus(event: Event) {
@@ -142,6 +156,10 @@ function refreshRoles() {
 }
 function search() {
   if (pending.value || sessionChanged.value) return
+  if (mobile.value && filtersExpanded.value) {
+    filtersExpanded.value = false
+    void nextTick(() => document.getElementById('users-filter-toggle')?.focus())
+  }
   applied.value = userFilters()
   page.value = 1
   notice.value = ''
@@ -168,15 +186,23 @@ function isCurrentUser(user: ManagedUser) {
   return Boolean(user.email && user.email === session.state.value.user?.email)
 }
 function openEditor(event: Event, mode: 'view' | 'create' | 'edit', user: ManagedUser | null = null) {
-  if (mode !== 'view' && (sessionChanged.value || pending.value || rolesUnavailable.value || restricted.value)) return
-  sheetTrigger = event.currentTarget as HTMLElement
+  if (mode !== 'view' && editingUnavailable.value) return
+  if (!editorOpen.value) sheetTrigger = event.currentTarget as HTMLElement
 
   selected.value = user
   editorMode.value = mode
   editorOpen.value = true
 }
+function canDelete(user: ManagedUser) {
+  return !pending.value && !sessionChanged.value && !isCurrentUser(user)
+}
 function confirmDelete(event: Event, user: ManagedUser) {
-  if (pending.value || sessionChanged.value || isCurrentUser(user)) return
+  if (!canDelete(user)) return
+  if (editorOpen.value) {
+    deleteAfterDetails = user
+    editorOpen.value = false
+    return
+  }
   deleteTrigger = event.currentTarget as HTMLElement
   deletion.value = user
 }
@@ -211,7 +237,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
         <h1 id="users-title" class="text-2xl font-semibold tracking-tight sm:text-3xl">用户管理</h1>
         <p class="text-sm text-muted-foreground">管理账号、角色与访问状态。</p>
       </div>
-      <UiButton :disabled="pending || rolesUnavailable || restricted || sessionChanged" @click="openEditor($event, 'create')"
+      <UiButton :disabled="editingUnavailable" @click="openEditor($event, 'create')"
         ><HugeiconsIcon
           :icon="Add01Icon"
           class="size-4"
@@ -237,12 +263,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
     </UiAlert>
 
     <form
-      class="flex min-w-0 flex-wrap items-end gap-x-6 gap-y-4 rounded-lg border border-border bg-card p-4"
+      class="flex min-w-0 flex-wrap items-end gap-2 sm:gap-x-6 sm:gap-y-4 sm:rounded-lg sm:border sm:border-border sm:bg-card sm:p-4"
       aria-label="用户筛选"
       @submit.prevent="search"
     >
-      <UiField class="w-full sm:w-56"
-        ><UiFieldLabel for="users-search">姓名</UiFieldLabel
+      <UiField class="min-w-0 flex-1 sm:w-56 sm:flex-none"
+        ><UiFieldLabel for="users-search" class="sr-only sm:not-sr-only">姓名</UiFieldLabel
         ><UiInput
           id="users-search"
           v-model="filters.name"
@@ -250,45 +276,60 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
           :disabled="pending"
           maxlength="50"
       /></UiField>
-      <UiField class="min-w-0 w-full sm:max-w-md sm:min-w-48 sm:w-auto"
-        ><UiFieldLabel as="span">角色</UiFieldLabel
-        ><RolePicker
-          v-model="filters.roleId"
-          :roles="roles"
-          label="筛选角色"
-          allow-all
-          :disabled="pending || rolesUnavailable"
-      /></UiField>
-      <UiField class="w-full sm:w-auto"
-        ><UiFieldLabel as="span">状态</UiFieldLabel
-        ><UiRadioGroup
-          v-model="filters.status"
-          aria-label="筛选状态"
-          class="flex min-h-8 flex-wrap gap-4"
-          :disabled="pending"
-          ><label
-            v-for="option in [
-              { value: 'all', label: '全部' },
-              { value: '1', label: '启用' },
-              { value: '0', label: '停用' },
-            ]"
-            :key="option.value"
-            class="flex cursor-pointer items-center gap-2 text-sm"
-            ><UiRadioGroupItem :value="option.value" />{{ option.label }}</label
-          ></UiRadioGroup
-        ></UiField
+      <UiButton
+        v-if="mobile"
+        id="users-filter-toggle"
+        type="button"
+        variant="outline"
+        :aria-expanded="filtersExpanded"
+        aria-controls="users-extra-filters"
+        @click="filtersExpanded = !filtersExpanded"
+      >筛选</UiButton>
+      <div
+        v-show="!mobile || filtersExpanded"
+        id="users-extra-filters"
+        class="flex w-full flex-wrap items-end gap-4 rounded-lg border border-border bg-card p-3 sm:contents"
       >
-      <div class="flex gap-2">
-        <UiButton type="submit" variant="secondary" :aria-disabled="pending || sessionChanged"
-          ><HugeiconsIcon
-            :icon="Search01Icon"
-            class="size-4"
-            data-icon="inline-start"
-            aria-hidden="true"
-          />查询</UiButton
-        ><UiButton variant="outline" type="button" :disabled="pending" @click="reset"
-          >重置</UiButton
+        <UiField class="min-w-0 w-full sm:max-w-md sm:min-w-48 sm:w-auto"
+          ><UiFieldLabel as="span">角色</UiFieldLabel
+          ><RolePicker
+            v-model="filters.roleId"
+            :roles="roles"
+            label="筛选角色"
+            allow-all
+            :disabled="pending || rolesUnavailable"
+        /></UiField>
+        <UiField class="w-full sm:w-auto"
+          ><UiFieldLabel as="span">状态</UiFieldLabel
+          ><UiRadioGroup
+            v-model="filters.status"
+            aria-label="筛选状态"
+            class="flex min-h-8 flex-wrap gap-4"
+            :disabled="pending"
+            ><label
+              v-for="option in [
+                { value: 'all', label: '全部' },
+                { value: '1', label: '启用' },
+                { value: '0', label: '停用' },
+              ]"
+              :key="option.value"
+              class="flex cursor-pointer items-center gap-2 text-sm"
+              ><UiRadioGroupItem :value="option.value" />{{ option.label }}</label
+            ></UiRadioGroup
+          ></UiField
         >
+        <div class="flex gap-2">
+          <UiButton type="submit" variant="secondary" :aria-disabled="pending || sessionChanged"
+            ><HugeiconsIcon
+              :icon="Search01Icon"
+              class="size-4"
+              data-icon="inline-start"
+              aria-hidden="true"
+            />查询</UiButton
+          ><UiButton variant="outline" type="button" :disabled="pending" @click="reset"
+            >重置</UiButton
+          >
+        </div>
       </div>
     </form>
 
@@ -358,6 +399,29 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
           >新增用户</UiButton
         >
       </div>
+      <ul v-else-if="mobile" aria-label="用户账户" class="divide-y divide-border">
+        <li v-for="user in users" :key="user.id">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            class="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+            @click="openEditor($event, 'view', user)"
+          >
+            <UiAvatar class="size-8 shrink-0">
+              <UiAvatarFallback>{{ user.name.slice(0, 1) || '?' }}</UiAvatarFallback>
+            </UiAvatar>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium">{{ user.name || '未命名用户' }}</span>
+              <span class="block truncate text-xs text-muted-foreground">{{ user.email || '未填写邮箱' }}</span>
+            </span>
+            <StatusBadge
+              class="shrink-0"
+              :tone="user.status === 1 ? 'success' : user.status === 0 ? 'warning' : 'neutral'"
+            >{{ user.status === 1 ? '启用' : user.status === 0 ? '停用' : '未知' }}</StatusBadge>
+            <HugeiconsIcon :icon="ArrowRight01Icon" class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </button>
+        </li>
+      </ul>
       <UiTable v-else>
         <UiTableCaption class="sr-only">用户账户、角色、状态与操作</UiTableCaption>
         <UiTableHeader
@@ -424,7 +488,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
                   variant="ghost"
                   size="sm"
                   :aria-label="`编辑${user.name || user.id}`"
-                  :aria-disabled="pending || rolesUnavailable || sessionChanged"
+                  :aria-disabled="editingUnavailable"
                   @click="openEditor($event, 'edit', user)"
                   >编辑</UiButton
                 ><span :title="isCurrentUser(user) ? '无法删除自己的账号' : undefined">
@@ -434,7 +498,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
                     class="text-destructive hover:text-destructive aria-disabled:opacity-50 aria-disabled:cursor-not-allowed"
                     :aria-label="`删除${user.name || user.id}`"
                     :aria-describedby="isCurrentUser(user) ? `self-user-${user.id}` : undefined"
-                    :aria-disabled="pending || sessionChanged || isCurrentUser(user)"
+                    :aria-disabled="!canDelete(user)"
                     @click="confirmDelete($event, user)"
                     >删除</UiButton
                   >
@@ -461,7 +525,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
             ><UiRadioGroupItem :value="String(count)" />{{ count }} 条/页</label
           ></UiRadioGroup
         >
-        <div class="flex items-center gap-3">
+        <div class="flex min-w-0 flex-wrap items-center gap-3">
           <span class="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground"
             >第 {{ page }} / {{ Math.max(1, Math.ceil(total / size)) }} 页</span
           ><UiPagination
@@ -469,7 +533,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
             :total="total"
             :items-per-page="size"
             :disabled="pending"
-            :sibling-count="1"
+            :sibling-count="mobile ? 0 : 1"
             aria-label="用户列表分页"
             class="w-auto"
             @update:page="changePage"
@@ -502,7 +566,19 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
       @saved="saved"
       @retry-roles="refreshRoles"
       @close-auto-focus="restoreSheetFocus"
-    />
+    >
+      <template v-if="mobile && selected" #detail-actions>
+        <UiButton :disabled="editingUnavailable" @click="openEditor($event, 'edit', selected)">编辑</UiButton>
+        <UiButton
+          variant="outline"
+          class="text-destructive hover:text-destructive"
+          :aria-disabled="!canDelete(selected)"
+          :aria-describedby="isCurrentUser(selected) ? 'mobile-self-user' : undefined"
+          @click="confirmDelete($event, selected)"
+        >删除</UiButton>
+        <span v-if="isCurrentUser(selected)" id="mobile-self-user" class="sr-only">无法删除自己的账号</span>
+      </template>
+    </UserEditor>
     <DeleteUserDialog
       :user="deletion"
       :session-changed="sessionChanged"

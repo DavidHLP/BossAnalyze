@@ -4,7 +4,7 @@
 [![Spring Boot 3.4.5](https://img.shields.io/badge/Spring%20Boot-3.4.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring Cloud 4.2.1](https://img.shields.io/badge/Spring%20Cloud-4.2.1-6DB33F?logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
 [![Vue.js 3](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
-[![Node.js >= 22.12.0](https://img.shields.io/badge/Node.js->=22.12.0-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Node.js >= 22.13.0](https://img.shields.io/badge/Node.js->=22.13.0-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Apache Spark 4.0.0](https://img.shields.io/badge/Apache%20Spark-4.0.0-E25A1C?logo=apachespark&logoColor=white)](https://spark.apache.org/)
 [![Scala 2.13](https://img.shields.io/badge/Scala-2.13-DC322F?logo=scala&logoColor=white)](https://www.scala-lang.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9.6-C71A36?logo=apachemaven&logoColor=white)](https://maven.apache.org/)

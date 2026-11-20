@@ -139,6 +139,7 @@ test('create and edit introductions respect the existing 255-character column wi
 
 test('a stale list response or error cannot reinstate a deleted row after rereading', async () => {
   const vue = await import('vue')
+  const { useMediaQuery } = await import('@vueuse/core')
   const ts = await import('typescript')
   const usersLib = await import('../src/lib/users.ts')
   const mutations = await import('../src/lib/rbac-mutations.ts')
@@ -153,7 +154,7 @@ test('a stale list response or error cannot reinstate a deleted row after reread
     return { users, total, pending, failed, restricted, loadUsers, deleted, changeSize, size }
   }`)
   const page = mount({
-    ...vue, ...usersLib, ...mutations,
+    ...vue, ...usersLib, ...mutations, useMediaQuery,
     definePageMeta() {}, useSession: () => session, useRoute: () => ({ query: {} }),
     useRouter: () => ({ replace() {} }), onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {},
     withSessionOwner: (_owner, call) => call(),

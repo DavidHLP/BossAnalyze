@@ -3,15 +3,24 @@ import { useSession } from '@/composables/useSession'
 import { authorizeRoute } from './guard'
 import ConsoleLayout from '@/layouts/ConsoleLayout.vue'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    access?: 'session' | 'menu'
+    title?: string
+  }
+}
+
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  sensitive: true,
+  strict: true,
   routes: [
     { path: '/', redirect: '/console' },
     { path: '/login', component: () => import('../pages/login.vue'), meta: { title: '登录' } },
     {
-      path: '/console', component: ConsoleLayout, meta: { requiresSession: true },
+      path: '/console', component: ConsoleLayout, meta: { access: 'menu' },
       children: [
-        { path: '', component: () => import('../pages/console/index.vue'), meta: { title: '工作台' } },
+        { path: '', component: () => import('../pages/console/index.vue'), meta: { title: '工作台', access: 'session' } },
         { path: 'dashboard', component: () => import('../pages/console/dashboard.vue'), meta: { title: '数据看板' } },
         { path: 'users', component: () => import('../pages/console/users.vue'), meta: { title: '用户管理' } },
         { path: 'roles', component: () => import('../pages/console/roles.vue'), meta: { title: '角色管理' } },
@@ -22,7 +31,7 @@ export const router = createRouter({
       ],
     },
     {
-      path: '/recruitment', component: ConsoleLayout, meta: { requiresSession: true },
+      path: '/recruitment', component: ConsoleLayout, meta: { access: 'session' },
       children: [{ path: '', component: () => import('../pages/recruitment.vue'), meta: { title: '招聘数据分析' } }],
     },
     { path: '/system-error/:code(403|503)', name: 'system-error', component: () => import('../pages/SystemError.vue') },
@@ -30,7 +39,7 @@ export const router = createRouter({
   ],
 })
 
-router.beforeEach(to => to.meta.requiresSession ? authorizeRoute(useSession(router), to) : true)
+router.beforeEach(to => to.meta.access ? authorizeRoute(useSession(router), to) : true)
 
 router.afterEach((to, _from, failure) => {
   if (!failure) document.title = to.meta.title ? `${to.meta.title} · BossAnalyze` : 'BossAnalyze'
