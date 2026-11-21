@@ -27,3 +27,10 @@ pnpm start
 `BOSS_TRUSTED_PROXY_IPS` 可配置可信代理的准确 IP 列表。只有匹配的直接代理可提供单个合法的转发地址。
 生产入口为 HTML 导航提供页面回退，包括带点的 `/console/*` 路径。缺失的 `/assets/*` 返回 404，现有静态文件支持单段字节范围请求。
 外置反向代理部署需要为前端页面启用 HTML 路由回退，并将 `/api/**` 交给保留来源 IP 清理规则的 API 代理。
+
+## Penpot 05–07 页面
+
+- `/register` 使用现有邮箱注册接口。验证码发送需要 SMTP 配置。
+- `/resumes` 提供本人简历列表、编辑及版本历史。默认关闭私有图片素材接口。只有在后端已对图片查看和地址查询执行对象所有者校验的环境，才设置 `VITE_RESUME_PRIVATE_IMAGES=true`。
+- 如需外部导出，在构建前配置经过批准的 HTTPS `VITE_EXPORT_URL`。浏览器展示目标地址，用户确认后才发送当前简历正文和导出参数。
+- `/console/logs` 使用数据看板访问权限。手动触发另外要求 `logs.analysis.trigger`，成功回执表示已启动后台分析。

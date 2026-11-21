@@ -68,33 +68,19 @@ export async function getAccessLogStats(): Promise<AccessLogStats> {
 /**
  * 获取热力图数据
  */
-export async function getHeatMapData(): Promise<any> {
-  try {
-    const response = await request({
-      url: '/api/v1/system/logs/heatmap',
-      method: 'get'
-    });
-    return response || {};
-  } catch (error) {
-    console.error('获取热力图数据出错:', error);
-    return {};
-  }
+export function getHeatMapData() {
+  return request.get<unknown, unknown>('/api/v1/system/logs/heatmap')
 }
 
 /**
  * 获取IP统计数据
  */
-export async function getIpStatistics(): Promise<any> {
-  try {
-    const response = await request({
-      url: '/api/v1/system/logs/ip-statistics',
-      method: 'get'
-    });
-    return response || {};
-  } catch (error) {
-    console.error('获取IP统计数据出错:', error);
-    return {};
-  }
+export function getIpStatistics() {
+  return request.get<unknown, unknown>('/api/v1/system/logs/ip-statistics')
+}
+
+export function getCompleteLogStats() {
+  return request.get<unknown, unknown>('/api/v1/system/logs/stats')
 }
 
 /**
@@ -132,17 +118,9 @@ export async function getBrowserStatistics(): Promise<any> {
 /**
  * 手动触发日志分析
  */
-export async function triggerLogAnalysis(): Promise<string> {
-  try {
-    const response = await request<string>({
-      url: '/api/v1/system/logs/analysis/trigger',
-      method: 'post'
-    });
-    return (response as any) || '分析任务已触发';
-  } catch (error) {
-    console.error('触发日志分析出错:', error);
-    return '触发分析任务失败';
-  }
+export async function triggerLogAnalysis() {
+  const receipt = await request.post<unknown, unknown>('/api/v1/system/logs/analysis/trigger')
+  if (typeof receipt !== 'string' || !receipt.trim()) throw new Error('Missing log analysis receipt')
 }
 
 /**

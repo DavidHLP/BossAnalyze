@@ -14,6 +14,7 @@ const route = useRoute()
 const { state, isMobile, setOpen, setOpenMobile } = useSidebar()
 const collapsed = computed(() => state.value === 'collapsed' && !isMobile.value)
 const current = computed(() => props.item.path === route.path)
+const selected = computed(() => current.value || (props.item.path === '/resumes' && route.path.startsWith('/resumes/')))
 const active = computed(() => Boolean(findMenu([props.item], route.path)))
 const title = computed(() => props.item.title.trim() || '未命名功能')
 const open = ref(active.value)
@@ -84,7 +85,7 @@ async function revealGroup() {
     </UiSidebarMenuItem>
   </UiCollapsible>
   <UiSidebarMenuItem v-else-if="item.path">
-    <UiSidebarMenuButton as-child :tooltip="title" :is-active="current" class="h-9 text-sm">
+    <UiSidebarMenuButton as-child :tooltip="title" :is-active="selected" class="h-9 text-sm">
       <RouterLink
         :to="item.path"
         :aria-current="current ? 'page' : undefined"

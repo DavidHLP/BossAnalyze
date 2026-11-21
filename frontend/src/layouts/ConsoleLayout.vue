@@ -4,7 +4,7 @@ import { RouterView, useRoute } from 'vue-router'
 import { useSession } from '@/composables/useSession'
 import AppSidebar from '@/components/AppSidebar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
-import type { MenuItem } from '@/lib/session'
+import { isResumePath, type MenuItem } from '@/lib/session'
 
 const route = useRoute()
 const { state: session } = useSession()
@@ -23,6 +23,14 @@ provide('consoleMenuTrail', trail)
 const breadcrumbs = computed(() => {
   if (route.path === '/console') return [{ title: '工作台', path: '/console' }]
   if (route.path === '/recruitment') return [{ title: '招聘数据分析', path: '/recruitment' }]
+  if (isResumePath(route.path)) {
+    const root = { title: '我的简历', path: '/resumes' }
+    return route.path === root.path ? [root] : [root, { title: route.meta.title ?? '简历', path: route.path }]
+  }
+  if (route.path === '/console/logs') return [
+    { title: '数据看板', path: '/console/dashboard' },
+    { title: '扩展日志分析', path: route.path },
+  ]
   if (!trail.value.length) return [{ title: '未命名功能', path: route.path }]
   return trail.value.map(({ title, path }) => ({ title: title.trim() || '未命名功能', path }))
 })
@@ -80,7 +88,9 @@ watch(() => route.path, async () => {
         aria-label="主内容"
         class="flex flex-1 flex-col gap-6 p-4 md:p-8"
       >
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <component :is="Component" :key="isResumePath(route.path) ? route.path : undefined" />
+        </RouterView>
       </main>
     </UiSidebarInset>
   </UiSidebarProvider>

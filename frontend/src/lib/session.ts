@@ -152,11 +152,20 @@ export function navigationMenus(items: MenuItem[]): MenuItem[] {
   }))
 }
 
+export function isResumePath(path: string) {
+  return /^\/resumes(?:\/[A-Za-z0-9_-]+\/(?:edit|versions))?$/.test(path)
+}
+
+export function menuAccessPath(path: string) {
+  return path === '/console/logs' ? '/console/dashboard' : path
+}
+
 export function safeReturnPath(value: unknown) {
   if (typeof value !== 'string' || !value.startsWith('/') || /[\\\s]|%(?:2f|5c)/i.test(value)) return null
   const url = new URL(value, 'https://bossanalyze.invalid')
   if (url.origin !== 'https://bossanalyze.invalid') return null
-  if (url.pathname !== '/recruitment' && url.pathname !== '/console' && !url.pathname.startsWith('/console/')) return null
+  if (url.pathname !== '/recruitment' && url.pathname !== '/console' &&
+      !url.pathname.startsWith('/console/') && !isResumePath(url.pathname)) return null
   return `${url.pathname}${url.search}${url.hash}`
 }
 
@@ -168,7 +177,7 @@ export function loginDestination(value: unknown, menus: MenuItem[]) {
   const fullPath = safeReturnPath(value)
   const path = fullPath ? new URL(fullPath, 'https://bossanalyze.invalid').pathname : null
   if (!fullPath || !path) return '/console'
-  return path === '/recruitment' || path === '/console' || findMenu(menus, path) ? fullPath : '/console'
+  return path === '/recruitment' || path === '/console' || isResumePath(path) || findMenu(menus, menuAccessPath(path)) ? fullPath : '/console'
 }
 
 export function loginFailure(error: unknown) {
