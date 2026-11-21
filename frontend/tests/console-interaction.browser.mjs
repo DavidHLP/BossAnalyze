@@ -267,7 +267,7 @@ test('disabled roles cannot be assigned by pointer or keyboard and historical ro
   await picker.press('ArrowDown')
   await picker.press('Enter')
   await editor.getByText('初始密码', { exact: false }).first().click()
-  assert.ok(!(await picker.inputValue()).includes('历史数据查看员'))
+  await page.waitForFunction(input => !input.value.includes('历史数据查看员'), await picker.elementHandle())
   await editor.getByRole('button', { name: '关闭用户面板' }).click()
 
   await page.getByRole('button', { name: '编辑陈晓' }).click()
@@ -287,6 +287,87 @@ test('disabled roles cannot be assigned by pointer or keyboard and historical ro
   const row = page.getByRole('row', { name: /陈晓/ })
   await row.getByRole('cell', { name: '数据分析员', exact: true }).waitFor()
   await page.close()
+})
+
+test('role search Enter only selects a role and explicit creation submits once', async (t) => {
+  const page = await browser.newPage({ viewport: desktop })
+  t.after(() => page.close())
+  const createUrl = origin + '/api/user/addUser'
+  const createdRoles = []
+  page.on('request', (request) => {
+    if (request.url() === createUrl) createdRoles.push(request.postDataJSON().roleId)
+  })
+  await logIn(page, undefined, undefined, '/console/users')
+
+  const editor = page.getByRole('dialog')
+  const picker = editor.getByRole('combobox', { name: '用户角色' })
+  const create = editor.getByRole('button', { name: '创建用户', exact: true })
+  const auditor = page.getByRole('option', { name: '访问审计员', exact: true })
+  const analyst = page.getByRole('option', { name: '数据分析员', exact: true })
+  async function openDraft(name, email) {
+    await page.getByRole('button', { name: '新增用户', exact: true }).first().click()
+    await editor.getByRole('textbox', { name: '姓名', exact: true }).fill(name)
+    await editor.getByRole('textbox', { name: '邮箱', exact: true }).fill(email)
+    await editor.locator('input[type=password]').fill('synthetic-password')
+    await picker.click()
+    await auditor.click()
+  }
+  async function pressSearchEnter(scenario) {
+    const request = page.waitForRequest(createUrl, { timeout: 500 }).catch((error) => {
+      if (error.name !== 'TimeoutError') throw error
+      return null
+    })
+    await page.keyboard.press('Enter')
+    assert.equal((await request)?.postDataJSON().roleId, undefined, scenario)
+  }
+  async function dismissSearch() {
+    await picker.press('Escape')
+    await page.waitForFunction(input => input.value === '访问审计员', await picker.elementHandle())
+  }
+
+  await openDraft('键盘角色验收', 'role-enter-keyboard@bossanalyze.invalid')
+  const disabled = page.getByRole('option', { name: /历史数据查看员/ })
+  await picker.fill('历史数据查看员')
+  await disabled.waitFor()
+  assert.equal(await disabled.isDisabled(), true)
+  await picker.press('ArrowDown')
+  await pressSearchEnter('Enter with only a disabled option')
+  await dismissSearch()
+
+  await picker.fill('没有匹配的角色xyz')
+  await page.getByText('未找到角色', { exact: true }).waitFor()
+  await picker.press('ArrowDown')
+  await pressSearchEnter('Enter with no matches')
+  await dismissSearch()
+
+  await picker.fill('数据分析员')
+  await analyst.waitFor()
+  await picker.press('ArrowDown')
+  await picker.selectText()
+  const ime = await page.context().newCDPSession(page)
+  await ime.send('Input.imeSetComposition', { text: '数据', selectionStart: 2, selectionEnd: 2 })
+  await pressSearchEnter('Enter during Chinese IME composition')
+  assert.equal(await picker.getAttribute('aria-expanded'), 'true')
+  await ime.send('Input.insertText', { text: '数据分析员' })
+  await analyst.waitFor()
+  await picker.press('ArrowDown')
+  await pressSearchEnter('Enter with a highlighted enabled option')
+  await analyst.waitFor({ state: 'hidden' })
+  assert.equal(await picker.inputValue(), '数据分析员')
+
+  await create.focus()
+  await page.keyboard.press('Enter')
+  await editor.waitFor({ state: 'hidden' })
+  await page.getByRole('row', { name: /键盘角色验收/ })
+    .getByRole('cell', { name: '数据分析员', exact: true }).waitFor()
+  assert.deepEqual(createdRoles, [3])
+
+  await openDraft('点击角色验收', 'role-enter-click@bossanalyze.invalid')
+  await create.click()
+  await editor.waitFor({ state: 'hidden' })
+  await page.getByRole('row', { name: /点击角色验收/ })
+    .getByRole('cell', { name: '访问审计员', exact: true }).waitFor()
+  assert.deepEqual(createdRoles, [3, 2])
 })
 
 test('authorized placeholder is labeled, titled, and reachable directly', async () => {
