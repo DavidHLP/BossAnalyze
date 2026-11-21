@@ -134,6 +134,12 @@ async function loadUsers() {
 function refreshUsers() {
   if (!pending.value) void loadUsers()
 }
+async function listedEmailInUse(email: string, userId?: number) {
+  const matches = (user: ManagedUser) => user.id !== userId && user.email === email
+  if (!owner || !session.owns(owner) || !users.value.some(matches)) return false
+  await loadUsers()
+  return session.owns(owner) && !failed.value && users.value.some(matches)
+}
 async function loadRoles() {
   if (!owner || !session.owns(owner)) return
   rolePending.value = true
@@ -141,7 +147,9 @@ async function loadRoles() {
   roleRestricted.value = false
   try {
     const result = userRoles(checkReadAccess(await withSessionOwner(owner, getRoleList)))
-    if (session.owns(owner)) roles.value = result
+    if (!session.owns(owner)) return
+    roles.value = result
+    return result
   } catch (error) {
     if (!session.owns(owner)) return
     roles.value = []
@@ -151,8 +159,8 @@ async function loadRoles() {
     rolePending.value = false
   }
 }
-function refreshRoles() {
-  if (!rolePending.value) void loadRoles()
+async function refreshRoles() {
+  if (!rolePending.value) return loadRoles()
 }
 function search() {
   if (pending.value || sessionChanged.value) return
@@ -559,12 +567,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
       v-model:open="editorOpen"
       :mode="editorMode"
       :user="selected"
+      :listed-email-in-use="listedEmailInUse"
       :roles="roles"
       :roles-unavailable="rolesUnavailable"
       :role-pending="rolePending"
       :role-restricted="roleRestricted"
       @saved="saved"
-      @retry-roles="refreshRoles"
+      :reload-roles="refreshRoles"
       @close-auto-focus="restoreSheetFocus"
     >
       <template v-if="mobile && selected" #detail-actions>

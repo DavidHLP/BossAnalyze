@@ -5,9 +5,11 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { Add01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { deleteRole, getRoleList, getUserRole } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
-import { checkReadAccess, listPage, listSize, listStatus, permissionDenied, restoreActionFocus, roleDeleteError, sessionChangedMessage } from '@/lib/rbac-mutations'
+import { getUserManageInfo } from '@/api/user/user'
+import { checkReadAccess, listPage, listSize, listStatus, mutationError, permissionDenied, restoreActionFocus, sessionChangedMessage } from '@/lib/rbac-mutations'
 import { currentRoleId, isDefaultRole, managedRoles, permissionTree, roleWriteSucceeded } from '@/lib/roles'
-import { withSessionOwner } from '@/lib/session'
+import { findMenu, withSessionOwner } from '@/lib/session'
+import { userPage } from '@/lib/users'
 import type { ManagedRole, PermissionNode } from '@/lib/roles'
 import { useSession } from '@/composables/useSession'
 import RolePanel from '@/components/roles/RolePanel.vue'
@@ -69,6 +71,7 @@ const awaitingRead = reactive(new Set<number>())
 const deletion = shallowRef<ManagedRole | null>(null)
 const deleting = ref(false)
 const deleteFailure = ref('')
+const roleInUse = ref(false)
 const listTitle = ref<HTMLElement | null>(null)
 let sheetTrigger: HTMLElement | null = null
 let deleteTrigger: HTMLElement | null = null
@@ -214,7 +217,19 @@ function confirmDelete(event: Event, role: ManagedRole) {
   deleteTrigger = event.currentTarget as HTMLElement
   deletion.value = role
   deleteFailure.value = ''
+  roleInUse.value = false
 }
+
+async function hasLinkedUsers(roleId: number) {
+  if (!owner || !session.owns(owner) || !findMenu(session.state.value.menus, '/console/users')) return false
+  try {
+    const response = await withSessionOwner(owner, () => getUserManageInfo(1, 1, { roleId }))
+    return session.owns(owner) && userPage(response).users.some(user => user.roleId === roleId)
+  } catch {
+    return false
+  }
+}
+
 async function remove() {
   if (
     !owner || !session.owns(owner) || !deletion.value ||
@@ -228,7 +243,13 @@ async function remove() {
   const id = deletion.value.id
   deleting.value = true
   deleteFailure.value = ''
+  roleInUse.value = false
   try {
+    if (await hasLinkedUsers(id)) {
+      roleInUse.value = true
+      return
+    }
+    if (!session.owns(owner)) return
     roleWriteSucceeded(await withSessionOwner(owner, () => deleteRole(id)))
     if (!session.owns(owner)) return
     deleteTrigger = null
@@ -236,7 +257,7 @@ async function remove() {
     notice.value = '角色已删除'
     await loadRoles()
   } catch (error) {
-    if (session.owns(owner)) deleteFailure.value = roleDeleteError(error)
+    if (session.owns(owner)) deleteFailure.value = mutationError(error, '删除')
   } finally {
     deleting.value = false
   }
@@ -581,8 +602,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
           ></UiDialogHeader
         >
         <p class="text-xs text-muted-foreground">角色 ID <span class="font-mono tabular-nums">{{ deletion?.id }}</span></p>
-        <UiAlert v-if="sessionChanged || deleteFailure" variant="destructive" role="alert">
-          <UiAlertDescription>{{ sessionChanged ? sessionChangedMessage : deleteFailure }}</UiAlertDescription>
+        <UiAlert v-if="sessionChanged || roleInUse || deleteFailure" variant="destructive" role="alert">
+          <UiAlertDescription>{{ sessionChanged ? sessionChangedMessage : roleInUse
+            ? '该角色仍有用户使用。请先重新分配关联用户的角色，再删除此角色。' : deleteFailure }}</UiAlertDescription>
+          <UiButton v-if="roleInUse && !sessionChanged" as-child variant="outline" size="sm" class="mt-2 justify-self-start">
+            <RouterLink :to="{ path: '/console/users', query: { roleId: deletion?.id } }">查看关联用户</RouterLink>
+          </UiButton>
         </UiAlert>
         <UiDialogFooter
           ><UiButton variant="outline" :disabled="deleting" @click="deletion = null">取消</UiButton

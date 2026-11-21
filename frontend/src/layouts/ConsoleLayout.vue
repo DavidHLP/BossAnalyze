@@ -40,12 +40,14 @@ let sidebarPath = ''
 function restoreNavigationFocus(event: Event) {
   if (route.path === sidebarPath) return
   event.preventDefault()
-  main.value?.focus()
+  main.value?.focus({ preventScroll: true })
 }
 
 watch(() => route.path, async () => {
   await nextTick()
-  main.value?.focus()
+  const anchor = route.hash && document.getElementById(route.hash.slice(1))
+  if (anchor && anchor.contains(document.activeElement)) return
+  main.value?.focus({ preventScroll: true })
 }, { immediate: true })
 </script>
 

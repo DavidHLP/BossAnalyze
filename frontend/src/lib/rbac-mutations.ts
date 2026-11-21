@@ -47,14 +47,6 @@ export function mutationError(value: unknown, action: '保存' | '删除', confl
   return `${action}失败，请核对当前记录或稍后重试。`
 }
 
-export function roleDeleteError(value: unknown) {
-  const conflict = '该角色可能仍有关联用户，请重新分配这些用户的角色后重试。'
-  // The role endpoint can wrap a foreign-key rejection in its generic server error.
-  return code(value) === 500 && !mutationResultUnknown(value)
-    ? `删除失败。${conflict}`
-    : mutationError(value, '删除', conflict)
-}
-
 export function restoreActionFocus(event: Event, trigger: HTMLElement | null, fallback: HTMLElement | null) {
   event.preventDefault()
   void requestAnimationFrame(() => {

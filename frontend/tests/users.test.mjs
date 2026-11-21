@@ -94,18 +94,23 @@ test('business failures in HTTP 200 responses cannot show a successful mutation'
 test('user save errors provide safe actions for HTTP and business failures', () => {
   for (const [failure, message] of [
     [{ code: 403 }, /联系管理员/],
-    [{ code: 409, data: { code: 1001 } }, /邮箱已存在/],
+    [{ code: 409, data: { code: 1001 } }, /邮箱已被其他账号使用/],
+    [{ code: 409 }, /数据发生冲突/],
     [{ code: 400, data: { code: 1007 } }, /参数未通过校验/],
     [{ code: 503 }, /服务暂不可用/],
     [new Error('internal stack trace'), /核对当前记录/],
   ]) {
-    assert.match(userSaveError({ ...failure, message: 'internal stack trace' }), message)
-    assert.doesNotMatch(userSaveError(failure), /internal stack trace/)
+    assert.match(userSaveError({ ...failure, message: 'internal stack trace' }).message, message)
+    assert.doesNotMatch(userSaveError(failure).message, /internal stack trace/)
   }
   assert.throws(
     () => userWriteSucceeded({ code: 1001, message: 'internal stack trace' }),
-    (error) => /^邮箱已存在/.test(userSaveError(error)) && !error.message.includes('stack trace'),
+    (error) => userSaveError(error).field === 'email' && !error.message.includes('stack trace'),
   )
+  assert.equal(userSaveError({ code: 400 }, true).field, 'email')
+  assert.equal(userSaveError({ code: 400, message: '邮箱已占用' }).field, null)
+  assert.equal(userSaveError({ code: 500 }, true).field, null)
+  assert.equal(userSaveError({ code: 403 }, true).field, null)
 })
 
 test('only the confirmation-password business code identifies an incorrect operator password', () => {

@@ -1,12 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useSession } from '@/composables/useSession'
 import { authorizeRoute } from './guard'
+import { consoleScrollBehavior } from './scroll'
 import ConsoleLayout from '@/layouts/ConsoleLayout.vue'
+import { findMenu } from '@/lib/session'
 
 declare module 'vue-router' {
   interface RouteMeta {
     access?: 'session' | 'menu'
     title?: string
+    placeholder?: true
   }
 }
 
@@ -14,6 +17,7 @@ export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   sensitive: true,
   strict: true,
+  scrollBehavior: consoleScrollBehavior,
   routes: [
     { path: '/', redirect: '/console' },
     { path: '/login', component: () => import('../pages/login.vue'), meta: { title: '登录' } },
@@ -29,7 +33,7 @@ export const router = createRouter({
         { path: 'menus', component: () => import('../pages/console/menus.vue'), meta: { title: '菜单管理' } },
         { path: 'settings', component: () => import('../pages/console/settings.vue'), meta: { title: '系统设置' } },
         { path: 'profile', component: () => import('../pages/console/profile.vue'), meta: { title: '个人中心' } },
-        { path: ':slug(.*)*', component: () => import('../pages/console/AuthorizedPlaceholder.vue'), meta: { title: '控制台' } },
+        { path: ':slug(.*)*', component: () => import('../pages/console/AuthorizedPlaceholder.vue'), meta: { placeholder: true } },
       ],
     },
     {
@@ -52,5 +56,10 @@ export const router = createRouter({
 router.beforeEach(to => to.meta.access ? authorizeRoute(useSession(router), to) : true)
 
 router.afterEach((to, _from, failure) => {
-  if (!failure) document.title = to.meta.title ? `${to.meta.title} · BossAnalyze` : 'BossAnalyze'
+  if (failure) return
+  const menuTitle = to.meta.access === 'menu'
+    ? findMenu(useSession(router).state.value.menus, to.path)?.title.trim()
+    : undefined
+  const title = menuTitle || to.meta.title || (to.meta.placeholder ? '未命名功能' : '')
+  document.title = title ? `${title} · BossAnalyze` : 'BossAnalyze'
 })
