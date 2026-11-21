@@ -48,26 +48,37 @@ function move(event: KeyboardEvent, rowIndex: number, columnIndex: number) {
         <UiButton size="sm" :variant="mode === 'hours' ? 'secondary' : 'outline'" :aria-pressed="mode === 'hours'" @click="mode = 'hours'">小时热力</UiButton>
         <UiButton size="sm" :variant="mode === 'minutes' ? 'secondary' : 'outline'" :aria-pressed="mode === 'minutes'" @click="mode = 'minutes'">分钟热力</UiButton>
       </div>
-      <select v-if="mode === 'minutes' && minuteHours.length" v-model="minuteHour" aria-label="选择分钟热力的小时" class="max-w-full border bg-background px-2 py-1 text-sm">
+      <select v-if="mode === 'minutes' && minuteHours.length" v-model="minuteHour" aria-label="选择分钟热力的小时" class="min-h-9 max-w-full rounded-md border bg-background px-2 text-sm">
         <option v-for="hour in minuteHours" :key="hour" :value="hour">{{ hour }} 时</option>
       </select>
       <span v-if="mode === 'hours'" class="text-xs text-muted-foreground">最近 7 个有记录日期</span>
     </div>
     <p v-if="!rows.length" role="status" class="text-sm text-muted-foreground">当前粒度没有可展示的缓存数据。</p>
     <template v-else>
-      <div tabindex="0" role="region" aria-label="可横向滚动的访问热力表" class="max-w-full overflow-auto">
+      <label class="flex flex-col gap-1 text-sm sm:hidden">
+        选择热力图时段
+        <select v-model="selected" class="min-h-9 w-full rounded-md border bg-background px-2">
+          <optgroup v-for="row in rows" :key="row" :label="row">
+            <option v-for="column in axis" :key="column" :value="key(row, column)">
+              {{ description(key(row, column)) }}
+            </option>
+          </optgroup>
+        </select>
+      </label>
+      <p id="heatmap-scroll-hint" class="text-xs text-muted-foreground sm:hidden">左右滑动查看更多时间</p>
+      <div tabindex="0" role="region" aria-label="可横向滚动的访问热力表" aria-describedby="heatmap-scroll-hint" class="max-w-full overflow-auto scroll-ps-30">
         <table class="w-max border-separate border-spacing-1 text-xs tabular-nums">
           <caption class="sr-only">访问时间热力图，使用方向键浏览时间桶</caption>
           <thead><tr>
-            <th scope="col" class="px-1 text-left font-medium">{{ mode === 'hours' ? '日期' : '时段' }}</th>
+            <th scope="col" class="sticky left-0 z-10 bg-card px-1 text-left font-medium">{{ mode === 'hours' ? '日期' : '时段' }}</th>
             <th v-for="column in axis" :key="column" scope="col" class="font-normal text-muted-foreground">{{ column }}</th>
           </tr></thead>
           <tbody><tr v-for="(row, ri) in rows" :key="row">
-            <th scope="row" class="whitespace-nowrap px-1 text-left font-normal">{{ row }}</th>
+            <th scope="row" class="sticky left-0 z-10 bg-card whitespace-nowrap px-1 text-left font-normal">{{ row }}</th>
             <td v-for="(column, ci) in axis" :key="column">
               <button type="button" :data-row="ri" :data-col="ci" :tabindex="selected === key(row, column) ? 0 : -1"
                 :title="description(key(row, column))" :aria-label="description(key(row, column))"
-                class="block size-5 border focus-visible:outline-2 focus-visible:outline-offset-1 sm:size-6"
+                class="block size-6 border focus-visible:outline-2 focus-visible:outline-offset-1"
                 :class="tones[heatLevel(cells.get(key(row, column)))]"
                 @focus="selected = key(row, column)" @click="selected = key(row, column)" @keydown="move($event, ri, ci)" />
             </td>
