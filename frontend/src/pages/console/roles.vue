@@ -257,7 +257,10 @@ async function remove() {
     notice.value = '角色已删除'
     await loadRoles()
   } catch (error) {
-    if (session.owns(owner)) deleteFailure.value = mutationError(error, '删除')
+    const linked = !permissionDenied(error) && await hasLinkedUsers(id)
+    if (!session.owns(owner)) return
+    if (linked) roleInUse.value = true
+    else deleteFailure.value = mutationError(error, '删除')
   } finally {
     deleting.value = false
   }

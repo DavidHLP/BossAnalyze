@@ -58,9 +58,10 @@ const title = computed(() =>
   props.mode === 'view' ? '用户详情' : creating.value ? '新增用户' : '编辑用户',
 )
 const originalRole = computed(() => props.roles.find(role => role.id === props.user?.roleId))
+const assigningRole = computed(() => creating.value || draft.roleId !== props.user?.roleId)
 const errors = computed(() => {
   const result = userErrors(draft, creating.value)
-  if (draft.roleId !== null) {
+  if (assigningRole.value && draft.roleId !== null) {
     const assignmentError = roleAssignmentError(props.roles.find(role => role.id === draft.roleId))
     if (assignmentError) result.roleId = assignmentError
   }
@@ -168,15 +169,15 @@ async function save() {
     emit('saved', self)
   } catch (error) {
     if (!session.owns(owner)) return
-    const canCheck = userSaveValidationRejected(error)
-    const emailInUse = canCheck && await props.listedEmailInUse(payload.email, userId)
+    let rejection = userSaveError(error)
+    const canCheck = !rejection.field && userSaveValidationRejected(error)
+    if (canCheck && await props.listedEmailInUse(payload.email, userId)) rejection = userSaveError(error, true)
     if (!session.owns(owner)) return
-    const rejection = userSaveError(error, emailInUse)
     if (rejection.field) {
       rejectedField = rejection.field
       emailError.value = rejection.message
     } else {
-      const roles = canCheck ? await props.reloadRoles() : undefined
+      const roles = canCheck && assigningRole.value ? await props.reloadRoles() : undefined
       if (!session.owns(owner)) return
       if (roles && roleAssignmentError(roles.find(role => role.id === payload.roleId))) {
         rejectedField = 'roleId'
@@ -377,7 +378,7 @@ async function save() {
             :described-by="error('roleId') ? 'user-role-error' : undefined"
           />
           <p v-if="originalRole?.status === 0" class="text-xs text-muted-foreground">
-            原角色：{{ originalRole.roleName }}（停用）。请重新指派启用角色。
+            原角色：{{ originalRole.roleName }}（停用）。可保留现有关联，或改派启用角色。
           </p>
           <UiFieldError v-if="error('roleId')" id="user-role-error" class="text-xs text-destructive">
             {{ error('roleId') }}

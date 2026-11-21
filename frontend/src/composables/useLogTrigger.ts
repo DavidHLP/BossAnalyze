@@ -2,6 +2,7 @@ import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { permissionDenied } from '@/lib/rbac-mutations'
 
 const cooldownMs = 30_000
+const receiptChanged = 'bossanalyze:log-trigger-changed'
 
 type Attempt = {
   status: 'pending' | 'accepted' | 'unconfirmed'
@@ -34,9 +35,11 @@ export function useLogTrigger(account: string | null) {
     now.value = Date.now()
     attempt.value = read()
   }
-  function save(storageKey: string, next: Attempt) {
-    localStorage.setItem(storageKey, JSON.stringify(next))
-    sync()
+  function save(storageKey: string, next: Attempt | null) {
+    if (next) localStorage.setItem(storageKey, JSON.stringify(next))
+    else localStorage.removeItem(storageKey)
+    // The storage event only reaches other documents.
+    window.dispatchEvent(new Event(receiptChanged))
   }
   function storageChanged(event: StorageEvent) {
     if (event.storageArea === localStorage && (event.key === key || event.key === null)) sync()
@@ -45,6 +48,7 @@ export function useLogTrigger(account: string | null) {
   onMounted(() => {
     sync()
     window.addEventListener('storage', storageChanged)
+    window.addEventListener(receiptChanged, sync)
     timer = setInterval(() => { now.value = Date.now() }, 250)
     if (key && navigator.locks && attempt.value?.status === 'pending') {
       // A reload can lose the response. Only an abandoned attempt is still pending once we hold the lock.
@@ -58,6 +62,7 @@ export function useLogTrigger(account: string | null) {
   })
   onUnmounted(() => {
     window.removeEventListener('storage', storageChanged)
+    window.removeEventListener(receiptChanged, sync)
     clearInterval(timer)
   })
 
@@ -73,7 +78,7 @@ export function useLogTrigger(account: string | null) {
           await send()
         } catch (cause) {
           if (permissionDenied(cause)) {
-            localStorage.removeItem(key)
+            save(key, null)
             error.value = '当前账号缺少手动触发权限。'
           } else {
             save(key, { status: 'unconfirmed', until: Date.now() + cooldownMs })

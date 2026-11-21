@@ -181,6 +181,10 @@ test('management errors prioritize field and role evidence from authorized reads
 
   const rolePage = await browser.newPage({ viewport: desktop })
   await logIn(rolePage, undefined, undefined, '/console/roles')
+  await rolePage.route('**/api/user/getUserManageInfo', route =>
+    route.fulfill({ json: { code: 200, data: { content: [], totalElements: 0 } } }), { times: 1 })
+  await rolePage.route('**/api/auth/deleteRole', route =>
+    route.fulfill({ status: 500, json: { code: 500 } }))
   await rolePage.getByRole('button', { name: '删除访问审计员', exact: true }).click()
   const remove = rolePage.getByRole('dialog')
   await remove.getByRole('button', { name: '删除角色', exact: true }).click()
@@ -234,7 +238,17 @@ test('disabled roles cannot be assigned by pointer or keyboard and historical ro
     await route.fulfill({ response, json: body })
   })
   page.on('response', (response) => {
-    if (response.url().includes('/api/user/updateUser') && response.ok()) reassigned = true
+    if (response.url().includes('/api/user/updateUser') && response.ok() &&
+        response.request().postDataJSON().roleId !== 6) reassigned = true
+  })
+  await page.route('**/api/user/updateUser', async route => {
+    const update = route.request().postDataJSON()
+    if (update.roleId === 6) {
+      assert.equal(update.introduction, '保留原角色并更新资料')
+      await route.fulfill({ json: { code: 200 } })
+    } else {
+      await route.continue()
+    }
   })
   await logIn(page, undefined, undefined, '/console/users')
   await page.getByRole('button', { name: '新增用户', exact: true }).first().click()
@@ -259,6 +273,10 @@ test('disabled roles cannot be assigned by pointer or keyboard and historical ro
   await page.getByRole('button', { name: '编辑陈晓' }).click()
   await editor.getByText(/原角色.*历史数据查看员.*停用/).waitFor()
   assert.match(await picker.inputValue(), /历史数据查看员/)
+  await editor.getByRole('textbox', { name: '个人简介' }).fill('保留原角色并更新资料')
+  await editor.getByRole('button', { name: '保存更改' }).click()
+  await editor.waitFor({ state: 'hidden', timeout: 2500 })
+  await page.getByRole('button', { name: '编辑陈晓' }).click()
   await picker.click()
   await picker.fill('数据分析员')
   await page.getByRole('option', { name: '数据分析员', exact: true }).click()

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { RiArrowLeftLine, RiHistoryLine, RiImageLine, RiSaveLine } from '@remixicon/vue'
 import { changeResumeVersion, getResume, resumeHistory, type ResumeCommit, type ResumeRecord } from '@/api/resume/resume'
@@ -41,6 +41,7 @@ const imageRequests = new Map<string, symbol>()
 const canUseImages = import.meta.env.VITE_RESUME_PRIVATE_IMAGES === 'true' ||
   (import.meta.env.DEV && import.meta.env.VITE_BOSS_MOCK_PREVIEW === '1')
 const dirty = computed(() => !!record.value && markdown.value !== (record.value.content ?? ''))
+const headUnavailable = computed(() => Boolean(record.value?.headCommit && !head.value))
 const restored = computed(() => !!head.value && (head.value.content ?? '') !== (record.value?.content ?? ''))
 const hasDraft = computed(() => dirty.value || !!message.value.trim())
 const canSave = computed(() => hasDraft.value || restored.value)
@@ -190,8 +191,10 @@ function insert(before: string, after = '', defaultText = '') {
   replaceSelection(input, start, end, before + content + after, left, left + content.length)
 }
 
-function insertAsset(name: string) {
+async function insertAsset(name: string) {
   if (pendingAction.value) return
+  mode.value = 'edit'
+  await nextTick()
   const input = selection()
   if (!input) return
   const start = input.selectionStart
@@ -319,13 +322,13 @@ onUnmounted(() => {
     </header>
 
     <UiDialog v-model:open="checkOpen">
-      <UiAlert v-if="loadError || writeError" variant="destructive" role="alert">
+      <UiAlert v-if="loadError || writeError || headUnavailable" variant="destructive" role="alert">
         <UiAlertDescription class="flex flex-wrap items-center gap-2">
-          {{ writeError || loadError }}
+          {{ writeError || loadError || '暂时无法核对当前版本。重新读取会保留编辑中的正文和备注。' }}
           <DialogTrigger v-if="checkOffered" as-child>
             <UiButton variant="outline" size="sm">核对最新版本</UiButton>
           </DialogTrigger>
-          <UiButton v-if="loadError || writeLocked" variant="outline" size="sm" :disabled="pendingAction !== null" @click="load(!record)">重新读取</UiButton>
+          <UiButton v-if="loadError || writeLocked || headUnavailable" variant="outline" size="sm" :disabled="pending || pendingAction !== null" @click="load(!record)">重新读取</UiButton>
         </UiAlertDescription>
       </UiAlert>
       <UiDialogContent class="sm:max-w-xl">

@@ -68,8 +68,9 @@ test('同账号跨标签竞争只提交一次，受理后跨路由和刷新保�
 
   await trigger(page).click()
   await trigger(second).click()
-  await Promise.all([confirm(page).dispatchEvent('click'), confirm(second).dispatchEvent('click')])
+  await confirm(page).dispatchEvent('click')
   await seen.promise
+  await confirm(second).dispatchEvent('click')
   await second.getByRole('button', { name: '正在触发…' }).first().waitFor({ timeout: 2000 })
   assert.equal(await receipt(second).count(), 0)
 

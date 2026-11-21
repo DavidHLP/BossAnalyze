@@ -151,7 +151,11 @@ export function userSaveValidationRejected(value: unknown) {
 }
 
 export function userSaveError(value: unknown, emailInUse = false) {
-  if (!permissionDenied(value) && (userSaveCode(value) === 1001 || (emailInUse && userSaveValidationRejected(value)))) {
+  const businessCode = mutationBusinessCode(value) ??
+    (record(value) && value.resultUnknown === false ? value.code : undefined)
+  // For user writes, a duplicate key in the business envelope identifies the unique email.
+  if (!permissionDenied(value) && (userSaveCode(value) === 1001 ||
+    businessCode === 409 || (emailInUse && userSaveValidationRejected(value)))) {
     return { field: 'email' as const, message: '邮箱已被其他账号使用，请更换邮箱。' }
   }
   return { field: null, message: mutationError(value, '保存') }

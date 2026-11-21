@@ -95,6 +95,7 @@ test('user save errors provide safe actions for HTTP and business failures', () 
   for (const [failure, message] of [
     [{ code: 403 }, /联系管理员/],
     [{ code: 409, data: { code: 1001 } }, /邮箱已被其他账号使用/],
+    [{ code: 409, data: { code: 409 } }, /邮箱已被其他账号使用/],
     [{ code: 409 }, /数据发生冲突/],
     [{ code: 400, data: { code: 1007 } }, /参数未通过校验/],
     [{ code: 503 }, /服务暂不可用/],
@@ -107,6 +108,7 @@ test('user save errors provide safe actions for HTTP and business failures', () 
     () => userWriteSucceeded({ code: 1001, message: 'internal stack trace' }),
     (error) => userSaveError(error).field === 'email' && !error.message.includes('stack trace'),
   )
+  assert.throws(() => userWriteSucceeded({ code: 409 }), error => userSaveError(error).field === 'email')
   assert.equal(userSaveError({ code: 400 }, true).field, 'email')
   assert.equal(userSaveError({ code: 400, message: '邮箱已占用' }).field, null)
   assert.equal(userSaveError({ code: 500 }, true).field, null)

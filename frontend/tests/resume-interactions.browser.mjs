@@ -84,10 +84,11 @@ for (const activation of ['desktop pointer', 'desktop keyboard', 'mobile viewpor
   })
 }
 
-test('inserting an image from the toolbar keeps the insertion in the native undo history', async t => {
-  const { page, body, resume } = await editor(t)
+test('inserting an image from mobile preview returns to the editor and preserves native undo', async t => {
+  const { page, body, resume } = await editor(t, { mobile: true })
   await body.press('End')
-  await page.getByRole('button', { name: '插入图片', exact: true }).click()
+  await page.getByRole('button', { name: '预览', exact: true }).click()
+  await page.getByRole('button', { name: '图片素材', exact: true }).click()
   const assets = page.getByRole('dialog', { name: '图片素材管理' })
   const name = 'undo-' + randomUUID().slice(0, 8) + '.png'
   await assets.getByLabel('拖放或选择图片').setInputFiles({
@@ -113,8 +114,14 @@ test('a popped stash can be committed after refresh while HEAD still points to V
   await body.waitFor()
   assert.equal(await body.inputValue(), recovered)
 
+  await page.route('**' + resource + '/version/recent?**', route =>
+    route.fulfill({ status: 503, json: { code: 503 } }), { times: 1 })
   await page.reload()
   await body.waitFor()
+  assert.equal(await body.inputValue(), recovered)
+  const save = page.getByRole('button', { name: '保存并提交' })
+  assert.equal(await save.isDisabled(), true)
+  await page.getByRole('button', { name: '重新读取', exact: true }).click({ timeout: 2500 })
   assert.equal(await body.inputValue(), recovered)
   const workspace = await api('GET', resource)
   assert.equal(workspace.content, recovered)
@@ -122,7 +129,6 @@ test('a popped stash can be committed after refresh while HEAD still points to V
   assert.equal(workspace.stashStack.length, 0)
   await page.getByText('已恢复到工作区，尚未提交').waitFor()
   await page.getByText('HEAD ' + resume.headCommit.slice(0, 8)).waitFor()
-  const save = page.getByRole('button', { name: '保存并提交' })
   assert.equal(await save.isEnabled(), true)
   assert.equal(await page.getByRole('textbox', { name: '提交备注' }).inputValue(), '')
   await shot(page, 'stash-recovered-after-refresh')
