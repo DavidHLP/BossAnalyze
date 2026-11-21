@@ -90,6 +90,33 @@ for (const delay of ['immediate', 'delayed']) {
   })
 }
 
+test('fresh mobile workbench keeps visible content anchored while role details load', async (t) => {
+  const page = await browser.newPage({ viewport: mobile, hasTouch: true, isMobile: true })
+  const response = Promise.withResolvers()
+  t.after(async () => {
+    response.resolve()
+    await page.close()
+  })
+  await logIn(page, undefined, undefined, '/console/dashboard')
+  await page.route('**/api/auth/getUserRole', async route => {
+    await response.promise
+    await route.continue()
+  })
+  await page.goto(origin + '/console')
+  await page.getByRole('region', { name: '日志访问概览' }).locator('time').waitFor()
+  const shortcuts = page.getByRole('heading', { name: '授权快捷入口' })
+  await shortcuts.waitFor()
+  await page.evaluate(() => scrollTo(0, 480))
+  assert.equal(await paintedScroll(page), 480)
+  const before = await shortcuts.boundingBox()
+  response.resolve()
+  await page.getByText('演示管理员', { exact: true }).first().waitFor()
+  await paintedScroll(page)
+  const after = await shortcuts.boundingBox()
+  assert.ok(before && after && Math.abs(before.y - after.y) <= 2,
+    `visible shortcuts shifted from ${before?.y} to ${after?.y}`)
+})
+
 test('mobile history keeps the logs reading position as the snapshot arrives', async () => {
   const page = await browser.newPage({ viewport: mobile, hasTouch: true, isMobile: true })
   const response = Promise.withResolvers()
@@ -244,6 +271,13 @@ test('mobile navigation focuses main, restores history, and preserves anchors an
   await filters.waitForURL(origin + '/console/users?name=%E9%99%88')
   assert.notEqual(await filters.evaluate(() => document.activeElement.id), 'main-content')
   await filters.getByRole('row', { name: /陈晓/ }).waitFor()
+  const roleFilter = filters.getByRole('combobox', { name: '筛选角色' })
+  await name.fill('周')
+  await name.press('Tab')
+  assert.equal(await roleFilter.evaluate(input => document.activeElement === input), true)
+  assert.equal(await roleFilter.getAttribute('aria-expanded'), 'false')
+  await filters.keyboard.press('Enter')
+  await filters.waitForURL(url => url.searchParams.get('name') === '周', { timeout: 3000 })
   await filters.close()
 })
 
@@ -484,24 +518,29 @@ test('role search Enter only selects a role and explicit creation submits once',
   await pressSearchEnter('Enter during Chinese IME composition')
   assert.equal(await picker.getAttribute('aria-expanded'), 'true')
   await ime.send('Input.insertText', { text: '数据分析员' })
+  await dismissSearch()
+
+  await picker.fill('数据分析员')
   await analyst.waitFor()
   await picker.press('ArrowDown')
+  await page.waitForFunction(id => document.activeElement?.getAttribute('aria-activedescendant') === id,
+    await analyst.getAttribute('id'))
   await pressSearchEnter('Enter with a highlighted enabled option')
   await analyst.waitFor({ state: 'hidden' })
   assert.equal(await picker.inputValue(), '数据分析员')
 
   await create.focus()
+  const keyboardSave = page.waitForResponse(createUrl)
   await page.keyboard.press('Enter')
+  assert.equal((await keyboardSave).status(), 200)
   await editor.waitFor({ state: 'hidden' })
-  await page.getByRole('row', { name: /键盘角色验收/ })
-    .getByRole('cell', { name: '数据分析员', exact: true }).waitFor()
   assert.deepEqual(createdRoles, [3])
 
   await openDraft('点击角色验收', 'role-enter-click@bossanalyze.invalid')
+  const pointerSave = page.waitForResponse(createUrl)
   await create.click()
+  assert.equal((await pointerSave).status(), 200)
   await editor.waitFor({ state: 'hidden' })
-  await page.getByRole('row', { name: /点击角色验收/ })
-    .getByRole('cell', { name: '访问审计员', exact: true }).waitFor()
   assert.deepEqual(createdRoles, [3, 2])
 })
 

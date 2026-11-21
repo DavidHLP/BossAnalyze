@@ -108,6 +108,10 @@ watch(() => route.path, async () => {
     scroll-padding-top: var(--console-header-height);
   }
 
+  :root[data-console-history-scroll] {
+    overflow-anchor: none;
+  }
+
   .console-header {
     /* Keep the trigger above the page even while the drawer locks body scrolling. */
     position: fixed;

@@ -76,7 +76,7 @@ function choose(value: unknown) {
           return option ? optionLabel(option) : ''
         }"
         placeholder="搜索并选择角色"
-        @keydown.enter.prevent
+        @keydown.enter="assignment && $event.preventDefault()"
     /></UiComboboxAnchor>
     <UiComboboxList
       ><UiComboboxViewport

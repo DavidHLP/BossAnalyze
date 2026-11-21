@@ -1,6 +1,24 @@
 import type { RouterScrollBehavior } from 'vue-router'
 
 let cancelRestoration: (() => void) | undefined
+let releaseHistoryAnchor: (() => void) | undefined
+const scrollInputEvents = ['pointerdown', 'touchmove', 'wheel', 'keydown']
+
+function preserveHistoryPosition() {
+  const root = document.documentElement
+  const input = new AbortController()
+  // Late content should not move the saved position before the user takes over scrolling.
+  root.setAttribute('data-console-history-scroll', '')
+  const release = () => {
+    root.removeAttribute('data-console-history-scroll')
+    input.abort()
+    releaseHistoryAnchor = undefined
+  }
+  releaseHistoryAnchor = release
+  for (const event of scrollInputEvents) {
+    window.addEventListener(event, release, { signal: input.signal, passive: true })
+  }
+}
 
 function restorePosition(position: { left: number; top: number }) {
   const canReachPosition = () => {
@@ -26,7 +44,7 @@ function restorePosition(position: { left: number; top: number }) {
     }
     const cancel = () => finish(false)
     cancelRestoration = cancel
-    for (const event of ['pointerdown', 'wheel', 'keydown']) {
+    for (const event of scrollInputEvents) {
       window.addEventListener(event, cancel, { signal: input.signal, passive: true })
     }
     observer.observe(document.body)
@@ -36,7 +54,11 @@ function restorePosition(position: { left: number; top: number }) {
 export const consoleScrollBehavior: RouterScrollBehavior = (to, from, savedPosition) => {
   if (!savedPosition && to.path === from.path && to.hash === from.hash) return false
   cancelRestoration?.()
-  if (savedPosition) return restorePosition(savedPosition)
+  releaseHistoryAnchor?.()
+  if (savedPosition) {
+    if (to.path === '/console' || to.path === '/console/logs') preserveHistoryPosition()
+    return restorePosition(savedPosition)
+  }
   const anchor = to.hash && document.getElementById(to.hash.slice(1))
   if (anchor) {
     const margin = Number.parseFloat(getComputedStyle(anchor).scrollMarginTop) || 0
