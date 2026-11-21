@@ -5,6 +5,16 @@ import type { CountRow } from '@/lib/dashboard'
 
 const props = defineProps<{ hours: CountRow[] }>()
 const rows = computed(() => props.hours.slice(-24))
+const days = computed(() => {
+  const groups = new Map<string, CountRow[]>()
+  for (const row of rows.value) {
+    const day = row.label.slice(0, 10)
+    const hours = groups.get(day)
+    if (hours) hours.push(row)
+    else groups.set(day, [row])
+  }
+  return [...groups]
+})
 const peak = computed(() => peakVisits(rows.value))
 const yTicks = computed(() => {
   if (!peak.value) return [0]
@@ -79,6 +89,20 @@ function moveSelection(event: KeyboardEvent, index: number) {
     </UiCardHeader>
     <UiCardContent>
       <template v-if="active">
+        <label class="mb-4 flex flex-col gap-1 text-sm sm:hidden">
+          选择趋势时段
+          <select
+            :value="active.label"
+            class="min-h-9 w-full rounded-md border bg-background px-2"
+            @change="selected = ($event.target as HTMLSelectElement).value"
+          >
+            <optgroup v-for="[day, hours] in days" :key="day" :label="day">
+              <option v-for="row in hours" :key="row.label" :value="row.label">
+                {{ row.label.slice(11) }}:00 · {{ number.format(row.count) }} 次访问
+              </option>
+            </optgroup>
+          </select>
+        </label>
         <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3">
           <div
             class="flex flex-col text-right font-mono text-[0.6875rem] tabular-nums text-muted-foreground"
