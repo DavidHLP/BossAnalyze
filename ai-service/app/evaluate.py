@@ -1,4 +1,4 @@
-"""Offline, read-only evaluation. Never calls a provider or changes quality approval."""
+"""Offline, read-only evaluation. Never calls a provider or changes runtime approval."""
 import argparse
 import json
 import re
@@ -12,6 +12,9 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError, 
 
 from .jev import unique_object
 from .schemas import Evidence
+
+
+AI_ACCEPTANCE_LIMIT = "AI acceptance is not independent human truth"
 
 
 class Record(BaseModel):
@@ -201,12 +204,15 @@ def metrics(gold, predictions):
                 rankingAgreement=ratio(counts["rankingCorrect"], counts["rankingPairs"]))
 
 
-def evaluate(gold, predicted, development, min_samples, min_ranking):
-    if min_samples < 1 or not 0 <= min_ranking <= 1:
+def evaluate(gold, predicted, development, min_samples, min_ranking, *, acceptance="human"):
+    if min_samples < 1 or not 0 <= min_ranking <= 1 or acceptance not in {"human", "ai"}:
         raise ValueError("invalid evaluation policy")
+    review_statuses = {"human": "reviewed"}
+    if acceptance == "ai":
+        review_statuses["ai"] = "ai_reviewed"
     for g in gold:
-        if (g.split != "test" or g.reviewStatus != "reviewed" or not g.reviewer.strip()
-                or g.annotationOrigin != "human" or not g.subgroup.strip() or not g.unknown
+        if (g.split != "test" or g.reviewStatus != review_statuses.get(g.annotationOrigin)
+                or not g.reviewer.strip() or not g.subgroup.strip() or not g.unknown
                 or g.dataOrigin not in {"real_public", "real_authorized", "synthetic"}):
             raise ValueError("unreviewed or missing annotations")
     all_sources = [*gold, *development]
@@ -242,12 +248,20 @@ def evaluate(gold, predicted, development, min_samples, min_ranking):
                       and predictions[g.id].coreRequirements is not None]
         precision = metrics(comparable, predictions)["coreSelection"]["precision"]
         checks.append(None if precision is None else precision >= .95)
-    eligible = (len(gold) >= min_samples and all(g.dataOrigin != "synthetic" for g in gold)
+    eligible = (len(gold) >= min_samples
+                and (acceptance == "ai" or all(g.dataOrigin != "synthetic" for g in gold))
                 and all(r["counts"]["samples"] >= min_samples for r in groups.values()))
     status = "fail" if False in checks else "unverifiable" if None in checks or not eligible else "pass"
-    return dict(status=status, samples=len(gold), developmentSamples=len(development), metrics=overall,
-                subgroups=groups, policy=dict(minSamplesPerGroup=min_samples, minRankingAgreement=min_ranking),
-                qualityApproval="unverifiable", reason="offline metrics do not authorize deployment or writeback")
+    result = dict(status=status, samples=len(gold), developmentSamples=len(development), metrics=overall,
+                  subgroups=groups, policy=dict(minSamplesPerGroup=min_samples, minRankingAgreement=min_ranking),
+                  qualityApproval="unverifiable", reason="offline metrics do not authorize deployment or writeback")
+    if acceptance == "ai":
+        origins = {g.annotationOrigin for g in gold}
+        result.update(acceptance=acceptance, labelSource="mixed" if len(origins) > 1 else next(iter(origins), None),
+                      reason=f"{AI_ACCEPTANCE_LIMIT}. {result['reason']}")
+        if status == "pass":
+            result["qualityApproval"] = "ai_accepted"
+    return result
 
 
 def main():
@@ -257,13 +271,18 @@ def main():
     parser.add_argument("--development", required=True, help="Complete training/calibration source manifest JSONL")
     parser.add_argument("--min-samples", required=True, type=int)
     parser.add_argument("--min-ranking-agreement", required=True, type=float)
+    parser.add_argument("--acceptance", choices=("human", "ai"), default="human")
     args = parser.parse_args()
     try:
         result = evaluate(load(args.gold, Gold), load(args.predictions, Prediction),
-                          load(args.development, Record), args.min_samples, args.min_ranking_agreement)
+                          load(args.development, Record), args.min_samples, args.min_ranking_agreement,
+                          acceptance=args.acceptance)
     except (OSError, ValueError, TypeError, KeyError, ValidationError):
         result = dict(status="unverifiable", samples=0, qualityApproval="unverifiable",
                       reason="invalid, unreviewed, incomplete or leaking input")
+        if args.acceptance == "ai":
+            result.update(acceptance=args.acceptance, labelSource=None,
+                          reason=f"{AI_ACCEPTANCE_LIMIT}. {result['reason']}")
     print(json.dumps(result, ensure_ascii=False, allow_nan=False))
     return {"pass": 0, "fail": 1, "unverifiable": 2}[result["status"]]
 
