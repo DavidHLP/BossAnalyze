@@ -2,6 +2,17 @@
 
 范围：参考 get_jobs 的浏览器列表与详情响应设计，独立实现 BOSS 只读采样；不投递、聊天、发送简历、调用模型或写业务数据库。代码与离线检查已经落地，完整登录态 CLI 采集尚未验收。
 
+## AI 离线验收
+
+Issue #46 采用 AI 离线验收。JUnit 使用合成列表卡片、详情 JSON 和 SSR HTML，并以 Mockito 模拟 Playwright 的页面及请求事件。验收过程不访问 BOSS，不使用 Cookie 或会话，不启动浏览器或服务。
+
+- 列表卡片触发详情 JSON 请求，导出保留 `rawJd` 原文及换行、`sourceUrl`、`sourceJobId`、`samplingListUrl`、`identity`、`revision` 和 `samplingSource`。导出仅含白名单字段，招聘者信息、跟踪参数和完整响应均不落盘。
+- 可读详情页未发出详情 JSON 请求时，`parseSsr` 从职位描述区域提取正文，导出 `detailComplete=true` 和 SSR 来源。身份不匹配或不受信任的重定向不能生成成功样本。
+- 首条详情请求遇到 `verification_required`、`auth_required`，或在请求期间取消、关闭窗口，运行返回退出码 2。导出只保留一条完整诊断记录，标注文件为空，无部分样本。测试验证采样器关闭仍打开的自有页面，并释放自有浏览器和 Playwright 驱动。
+- 重复使用输出路径会被拒绝，原样本和标注文件内容保持不变。成功样本的标注状态为 `pending`，样本 `rawBenefits` 和标注 `benefits` 均为 `null`。
+
+真实 BOSS 列表、详情和导出链路，以及真实福利字段均未验证。福利继续保留为 `null`。
+
 ## 已执行
 
 - 整合后的 Java 17 commons/crawler verify：53 项通过，失败、错误、跳过均为 0。日志 `/tmp/boss-sampling-postfix-integrated-verify.log`。

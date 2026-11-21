@@ -1,14 +1,20 @@
 package com.david.hlp.crawler.sample;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import com.microsoft.playwright.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -122,6 +128,7 @@ class RecruitmentSamplerTest {
         when(response.status()).thenReturn(200);
         capture.received(response);
         assertEquals("redirect_rejected", capture.failure);
+        assertNull(capture.result);
         verify(response, never()).text();
         when(response.status()).thenReturn(429);
         capture.received(response);
@@ -145,9 +152,15 @@ class RecruitmentSamplerTest {
         }
         assertEquals(PosixFilePermissions.fromString("rwx------"), Files.getPosixFilePermissions(directory));
         assertEquals(PosixFilePermissions.fromString("rw-------"), Files.getPosixFilePermissions(directory.resolve("samples.jsonl")));
-        assertEquals(3, Files.readAllLines(directory.resolve("samples.jsonl")).size());
-        assertEquals(2, Files.readAllLines(directory.resolve("labels.jsonl")).size());
-        assertThrows(Exception.class, () -> new RecruitmentSampler.PrivateOutput(directory));
+        Path samples = directory.resolve("samples.jsonl");
+        Path labels = directory.resolve("labels.jsonl");
+        assertEquals(3, Files.readAllLines(samples).size());
+        assertEquals(2, Files.readAllLines(labels).size());
+        byte[] originalSamples = Files.readAllBytes(samples);
+        byte[] originalLabels = Files.readAllBytes(labels);
+        assertThrows(FileAlreadyExistsException.class, () -> new RecruitmentSampler.PrivateOutput(directory));
+        assertArrayEquals(originalSamples, Files.readAllBytes(samples));
+        assertArrayEquals(originalLabels, Files.readAllBytes(labels));
     }
 
     @Test void cookieFilesAreExplicitPrivateBossOnlyAndErrorsDoNotLeakValues() throws Exception {
@@ -210,6 +223,164 @@ class RecruitmentSamplerTest {
             assertNotNull(input);
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    private Locator listCard(Page page) {
+        Locator cards = page.locator("li.job-card-box, li.job-card-wrapper");
+        Locator card = mock(Locator.class), links = mock(Locator.class), body = mock(Locator.class);
+        when(cards.count()).thenReturn(1);
+        when(cards.nth(0)).thenReturn(card);
+        when(card.locator("a[href*='/job_detail/']")).thenReturn(links);
+        when(links.count()).thenReturn(1);
+        when(links.nth(0)).thenReturn(links);
+        when(links.getAttribute("href")).thenReturn("/job_detail/synthetic_001.html?lid=DO_NOT_LOG");
+        when(card.locator(".job-card-body")).thenReturn(body);
+        when(body.count()).thenReturn(1);
+        return body;
+    }
+
+    private Request detailRequest() {
+        Request request = mock(Request.class);
+        when(request.url()).thenReturn(API);
+        when(request.method()).thenReturn("GET");
+        return request;
+    }
+
+    private Response detailResponse(Request request, int status) {
+        Response response = mock(Response.class);
+        when(response.request()).thenReturn(request);
+        when(response.url()).thenReturn(API);
+        when(response.status()).thenReturn(status);
+        return response;
+    }
+
+    private void assertPendingLabel(Path directory, JsonNode sample) throws Exception {
+        var labels = Files.readAllLines(directory.resolve("labels.jsonl"));
+        assertEquals(1, labels.size());
+        var label = DetailParser.JSON.readTree(labels.get(0));
+        assertEquals("pending", label.path("status").asText());
+        assertTrue(label.path("benefits").isNull());
+        assertTrue(sample.path("facts").path("rawBenefits").isNull());
+        for (String key : List.of("identity", "revision", "splitGroup", "split")) {
+            assertEquals(sample.get(key), label.get(key), key);
+        }
+    }
+
+    @Test void listCardJsonResponseExportsOnlyWhitelistedSampleAndPendingLabel() throws Exception {
+        String list = "https://www.zhipin.com/web/geek/jobs?query=Java";
+        Page page = page(list);
+        Locator body = listCard(page);
+        var capture = new BossResponseCapture();
+        Request request = detailRequest();
+        Response response = detailResponse(request, 200);
+        when(response.headerValue("content-type")).thenReturn("application/json;charset=utf-8");
+        when(response.text()).thenReturn(fixture());
+        doAnswer(call -> {
+            capture.started(request);
+            capture.received(response);
+            return null;
+        }).when(body).click();
+
+        var options = options(list, "list-json", temp.resolve("cancel"));
+        try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
+            assertEquals(0, RecruitmentSampler.collect(page, capture, options, output));
+        }
+        var actions = inOrder(page, body);
+        actions.verify(page).navigate(eq(list), any(Page.NavigateOptions.class));
+        actions.verify(body).click();
+        verify(page, times(1)).navigate(anyString(), any(Page.NavigateOptions.class));
+        verify(page, never()).content();
+        verify(response).text();
+
+        var rows = Files.readAllLines(options.output().resolve("samples.jsonl"));
+        assertEquals(2, rows.size());
+        var sample = DetailParser.JSON.readTree(rows.get(0));
+        var summary = DetailParser.JSON.readTree(rows.get(1));
+        assertEquals("run_status", summary.path("recordType").asText());
+        assertEquals("limit_reached", summary.path("status").asText());
+        assertEquals("ok", sample.path("status").asText());
+        assertTrue(sample.path("detailComplete").booleanValue());
+        assertEquals("合成岗位（不是线上数据）。\n职责：Java 17；Unicode 😀。\n要求：保留原文与换行。",
+                sample.path("facts").path("rawJd").asText());
+        assertEquals("BOSS", sample.path("platform").asText());
+        assertEquals(URL, sample.path("sourceUrl").asText());
+        assertEquals("synthetic_001", sample.path("sourceJobId").asText());
+        assertEquals(list, sample.path("samplingListUrl").asText());
+        assertEquals(DetailParser.hash("BOSS:" + URL), sample.path("identity").asText());
+        assertEquals(DetailParser.hash(sample.path("facts").toString()), sample.path("revision").asText());
+        assertEquals("boss_browser_detail_response", sample.path("samplingSource").asText());
+        assertPendingLabel(options.output(), sample);
+        String exported = String.join("\n", rows) + Files.readString(options.output().resolve("labels.jsonl"));
+        for (String forbidden : List.of("zpData", "postDescription", "bossInfo", "encryptUserId", "securityId",
+                "NEVER_EXPORT", "DO_NOT_LOG", "NOT_WELFARE")) {
+            assertFalse(exported.contains(forbidden), forbidden);
+        }
+    }
+
+    private void assertDiagnosticOnly(Path directory, String status) throws Exception {
+        String exported = Files.readString(directory.resolve("samples.jsonl"));
+        assertTrue(exported.endsWith("\n"));
+        var rows = exported.lines().toList();
+        assertEquals(1, rows.size());
+        var diagnostic = DetailParser.JSON.readTree(rows.get(0));
+        assertEquals(status, diagnostic.path("status").asText());
+        assertEquals(DetailParser.JSON.getNodeFactory().booleanNode(false), diagnostic.get("detailComplete"));
+        for (String field : List.of("facts", "detailData", "revision", "samplingSource")) {
+            assertFalse(diagnostic.has(field), field);
+        }
+        assertEquals(0, Files.size(directory.resolve("labels.jsonl")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"verification_required", "auth_required", "cancelled", "window_closed"})
+    void inFlightDetailStopsWithoutPartialSamplesOrLabelsAndClosesOwnedResources(String status) throws Exception {
+        var options = options(URL, "stop-" + status, temp.resolve("cancel"));
+        Playwright driver = mock(Playwright.class);
+        BrowserType chromium = mock(BrowserType.class);
+        Browser browser = mock(Browser.class);
+        BrowserContext context = mock(BrowserContext.class);
+        Page page = page(URL);
+        when(driver.chromium()).thenReturn(chromium);
+        when(chromium.launch(any(BrowserType.LaunchOptions.class))).thenReturn(browser);
+        when(browser.newContext()).thenReturn(context);
+        when(context.newPage()).thenReturn(page);
+        doAnswer(call -> {
+            Request request = detailRequest();
+            ArgumentCaptor<Consumer<Request>> started = ArgumentCaptor.captor();
+            verify(page).onRequest(started.capture());
+            started.getValue().accept(request);
+            switch (status) {
+                case "verification_required", "auth_required" -> {
+                    Response response = detailResponse(request, status.equals("auth_required") ? 401 : 429);
+                    when(request.response()).thenReturn(response);
+                    ArgumentCaptor<Consumer<Response>> observed = ArgumentCaptor.captor();
+                    ArgumentCaptor<Consumer<Request>> finished = ArgumentCaptor.captor();
+                    verify(page).onResponse(observed.capture());
+                    verify(page).onRequestFinished(finished.capture());
+                    observed.getValue().accept(response);
+                    finished.getValue().accept(request);
+                    verify(response, never()).text();
+                }
+                case "cancelled" -> Files.createFile(options.cancel());
+                case "window_closed" -> when(page.isClosed()).thenReturn(true);
+                default -> throw new AssertionError(status);
+            }
+            return null;
+        }).when(page).navigate(eq(URL), any(Page.NavigateOptions.class));
+
+        try (var factory = mockStatic(Playwright.class)) {
+            factory.when(() -> Playwright.create(any(Playwright.CreateOptions.class))).thenReturn(driver);
+            assertEquals(2, RecruitmentSampler.run(options));
+        }
+        verify(context, never()).addCookies(anyList());
+        verify(page, never()).content();
+        boolean windowClosed = status.equals("window_closed");
+        var cleanup = inOrder(page, browser, driver);
+        if (!windowClosed) cleanup.verify(page).close();
+        else verify(page, never()).close();
+        cleanup.verify(browser).close();
+        cleanup.verify(driver).close();
+        assertDiagnosticOnly(options.output(), status);
     }
 
     @Test void anonymousDetailNavigatesDirectlyButListStillStartsManualLogin() throws Exception {
@@ -345,10 +516,16 @@ class RecruitmentSamplerTest {
         when(page.content()).thenReturn(ssr());
         doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
         var options = options(URL, "ssr", temp.resolve("cancel"));
+        var capture = new BossResponseCapture();
         try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
-            assertEquals(0, RecruitmentSampler.collect(page, new BossResponseCapture(), options, output));
+            assertEquals(0, RecruitmentSampler.collect(page, capture, options, output));
         }
+        verify(page).content();
+        assertFalse(capture.detailRequested);
         var sample = DetailParser.JSON.readTree(Files.readString(options.output().resolve("samples.jsonl")));
+        assertEquals("ok", sample.path("status").asText());
+        assertTrue(sample.path("detailComplete").booleanValue());
+        assertEquals(URL, sample.path("sourceUrl").asText());
         assertEquals("boss_browser_detail_ssr", sample.path("samplingSource").asText());
         assertEquals("开发者 🧪", sample.path("facts").path("title").asText());
         assertEquals("第一行 Java 17\n第二行 Unicode 🧪\n第三行", sample.path("facts").path("rawJd").asText());
@@ -357,7 +534,7 @@ class RecruitmentSamplerTest {
         assertTrue(sample.path("detailData").path("jobTags").isNull());
         assertFalse(sample.toString().contains("NOT_WELFARE"));
         assertFalse(sample.toString().contains("COMPANY_DESCRIPTION_NOT_JD"));
-        assertTrue(Files.readString(options.output().resolve("labels.jsonl")).contains("pending"));
+        assertPendingLabel(options.output(), sample);
     }
 
     @Test void ssrRejectsEmptyJdWrongOriginIdentityAndLoginVerificationShells() throws Exception {
@@ -372,13 +549,7 @@ class RecruitmentSamplerTest {
     @Test void firstCardNavigationFallbackReadsSsrOnlyAfterNoJson() throws Exception {
         String list = "https://www.zhipin.com/web/geek/jobs";
         Page page = page(list);
-        Locator cards = mock(Locator.class), card = mock(Locator.class), links = mock(Locator.class), body = mock(Locator.class);
-        when(page.locator("li.job-card-box, li.job-card-wrapper")).thenReturn(cards);
-        when(cards.count()).thenReturn(1); when(cards.nth(0)).thenReturn(card);
-        when(card.locator("a[href*='/job_detail/']")).thenReturn(links);
-        when(links.count()).thenReturn(1); when(links.nth(0)).thenReturn(links);
-        when(links.getAttribute("href")).thenReturn("/job_detail/synthetic_001.html");
-        when(card.locator(".job-card-body")).thenReturn(body); when(body.count()).thenReturn(1);
+        Locator body = listCard(page);
         doAnswer(call -> { when(page.url()).thenReturn(call.getArgument(0)); return null; })
                 .when(page).navigate(anyString(), any(Page.NavigateOptions.class));
         doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
@@ -397,9 +568,15 @@ class RecruitmentSamplerTest {
 
     @Test void rejectedJsonIsNeverRescuedByReadableSsr() throws Exception {
         Page page = page(URL);
+        when(page.content()).thenReturn(ssr());
         var capture = new BossResponseCapture();
+        Request request = detailRequest();
+        Response response = detailResponse(request, 200);
+        when(response.headerValue("content-type")).thenReturn("application/json");
+        when(response.text()).thenReturn(fixture().replace("synthetic_001", "wrong"));
         doAnswer(call -> {
-            capture.accept(1, fixture().replace("synthetic_001", "wrong"));
+            capture.started(request);
+            capture.received(response);
             return null;
         }).when(page).navigate(eq(URL), any(Page.NavigateOptions.class));
         doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
@@ -408,7 +585,7 @@ class RecruitmentSamplerTest {
             assertEquals(2, RecruitmentSampler.collect(page, capture, options, output));
         }
         verify(page, never()).content();
-        assertTrue(Files.readString(options.output().resolve("samples.jsonl")).contains("identity_mismatch"));
+        assertDiagnosticOnly(options.output(), "identity_mismatch");
     }
 
     @Test void jsonArrivingDuringSsrReadCannotBeMaskedByDom() throws Exception {
@@ -470,14 +647,19 @@ class RecruitmentSamplerTest {
             }
             doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
             var options = options(URL, "boundary-" + boundary, temp.resolve("cancel"));
+            String diagnostic = null;
             try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
                 if (List.of("foreign", "login", "verify").contains(boundary)) {
                     String status = boundary.equals("foreign") ? "redirect_rejected" : boundary.equals("login") ? "auth_required" : "verification_required";
                     assertEquals(status, assertThrows(RecruitmentSampler.Stop.class,
                             () -> RecruitmentSampler.collect(page, new BossResponseCapture(), options, output)).status);
                     verify(page, never()).content();
-                } else assertEquals(2, RecruitmentSampler.collect(page, new BossResponseCapture(), options, output));
+                } else {
+                    assertEquals(2, RecruitmentSampler.collect(page, new BossResponseCapture(), options, output));
+                    diagnostic = boundary.equals("empty") ? "missing_detail" : "identity_mismatch";
+                }
             }
+            if (diagnostic != null) assertDiagnosticOnly(options.output(), diagnostic);
             assertFalse(Files.readString(options.output().resolve("samples.jsonl")).contains("\"status\":\"ok\""));
             assertEquals("", Files.readString(options.output().resolve("labels.jsonl")));
         }
