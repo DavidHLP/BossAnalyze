@@ -71,15 +71,18 @@ onMounted(load)
     <header class="space-y-2">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <h1 id="dashboard-title" class="text-3xl font-semibold tracking-tight">数据看板</h1>
-        <UiButton :aria-disabled="pending" @click="refresh">
-          <HugeiconsIcon
-            :icon="RefreshIcon"
-            class="size-4"
-            :class="{ 'motion-safe:animate-spin': pending }"
-            aria-hidden="true"
-          />
-          {{ pending ? '正在读取…' : '刷新快照' }}
-        </UiButton>
+        <div class="flex flex-wrap gap-2">
+          <UiButton as-child variant="outline"><RouterLink to="/console/logs">扩展日志分析</RouterLink></UiButton>
+          <UiButton :aria-disabled="pending" @click="refresh">
+            <HugeiconsIcon
+              :icon="RefreshIcon"
+              :class="{ 'motion-safe:animate-spin': pending }"
+              data-icon="inline-start"
+              aria-hidden="true"
+            />
+            {{ pending ? '正在读取…' : '刷新快照' }}
+          </UiButton>
+        </div>
       </div>
       <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <p v-if="snapshot" class="flex flex-wrap items-center gap-x-2 gap-y-1">

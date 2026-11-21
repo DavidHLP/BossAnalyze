@@ -17,10 +17,12 @@ export const router = createRouter({
   routes: [
     { path: '/', redirect: '/console' },
     { path: '/login', component: () => import('../pages/login.vue'), meta: { title: '登录' } },
+    { path: '/register', component: () => import('../pages/register.vue'), meta: { title: '注册' } },
     {
       path: '/console', component: ConsoleLayout, meta: { access: 'menu' },
       children: [
         { path: '', component: () => import('../pages/console/index.vue'), meta: { title: '工作台', access: 'session' } },
+        { path: 'logs', component: () => import('../pages/console/logs.vue'), meta: { title: '扩展日志分析' } },
         { path: 'dashboard', component: () => import('../pages/console/dashboard.vue'), meta: { title: '数据看板' } },
         { path: 'users', component: () => import('../pages/console/users.vue'), meta: { title: '用户管理' } },
         { path: 'roles', component: () => import('../pages/console/roles.vue'), meta: { title: '角色管理' } },
@@ -33,6 +35,14 @@ export const router = createRouter({
     {
       path: '/recruitment', component: ConsoleLayout, meta: { access: 'session' },
       children: [{ path: '', component: () => import('../pages/recruitment.vue'), meta: { title: '招聘数据分析' } }],
+    },
+    {
+      path: '/resumes', component: ConsoleLayout, meta: { access: 'session' },
+      children: [
+        { path: '', component: () => import('../pages/resumes/index.vue'), meta: { title: '我的简历' } },
+        { path: ':id([A-Za-z0-9_-]+)/edit', component: () => import('../pages/resumes/edit.vue'), meta: { title: '编辑简历' } },
+        { path: ':id([A-Za-z0-9_-]+)/versions', component: () => import('../pages/resumes/versions.vue'), meta: { title: '版本历史' } },
+      ],
     },
     { path: '/system-error/:code(403|503)', name: 'system-error', component: () => import('../pages/SystemError.vue') },
     { path: '/:pathMatch(.*)*', component: () => import('../pages/SystemError.vue'), meta: { title: '页面不存在' } },

@@ -1,5 +1,5 @@
 import request from '@/utils/request/request'
-import type { Token, Permissions, Role, UserBaseInfo } from '@/api/auth/auth.d'
+import type { Token, Role, UserBaseInfo } from '@/api/auth/auth.d'
 
 export const login = (data: { email: string; password: string }): Promise<Token> =>
   request({
@@ -14,7 +14,7 @@ export const logout = (): Promise<void> =>
     method: 'POST',
   })
 
-export const getUserPrivateInformation = (): Promise<Array<Permissions>> =>
+export const getUserPrivateInformation = (): Promise<string[]> =>
   request({
     url: '/api/auth/getUserPrivateInformation',
     method: 'GET',

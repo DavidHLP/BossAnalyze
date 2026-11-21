@@ -6,7 +6,7 @@ import NavMain from './NavMain.vue'
 import NavUser from './NavUser.vue'
 import type { SidebarProps } from '@/components/ui/sidebar'
 import { useSidebar } from '@/components/ui/sidebar'
-import { navigationMenus, type MenuItem } from '@/lib/session'
+import { findMenu, navigationMenus, type MenuItem } from '@/lib/session'
 
 const props = withDefaults(defineProps<SidebarProps>(), { collapsible: 'icon' })
 const { state: session } = useSession()
@@ -14,6 +14,7 @@ const { setOpenMobile } = useSidebar()
 const workspace: MenuItem[] = [
   { path: '/console', title: '工作台', children: [] },
   { path: '/recruitment', title: '招聘数据分析', icon: 'ChartHistogramIcon', children: [] },
+  { path: '/resumes', title: '我的简历', children: [] },
 ]
 const menus = computed(() => {
   const seen = new Set(workspace.map((item) => item.path))
@@ -26,7 +27,14 @@ const menus = computed(() => {
       return item.path || children.length ? [{ ...item, children }] : []
     })
   }
-  return uniqueMenus(navigationMenus(session.value.menus))
+  const allowed = navigationMenus(session.value.menus)
+  const logsAllowed = Boolean(findMenu(allowed, '/console/dashboard'))
+  if (!logsAllowed) seen.add('/console/logs')
+  const unique = uniqueMenus(allowed)
+  if (logsAllowed && !seen.has('/console/logs')) unique.push({
+    path: '/console/logs', title: '扩展日志分析', icon: 'ChartHistogramIcon', children: [],
+  })
+  return unique
 })
 </script>
 

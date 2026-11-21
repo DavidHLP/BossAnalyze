@@ -10,15 +10,16 @@ import {
 import type { MenuItem, SessionOwner } from '@/lib/session'
 
 interface Session {
-  user: { name: string; email: string } | null
+  user: { id?: number; name: string; email: string } | null
   menus: MenuItem[]
+  permissions: string[]
   invalidated?: boolean
   ready: boolean
 }
 
 let loadedOwner: SessionOwner | null = null
 
-const state = ref<Session>({ user: null, menus: [], ready: false })
+const state = ref<Session>({ user: null, menus: [], permissions: [], ready: false })
 
 export function useSession(router = useRouter()) {
 
@@ -36,7 +37,7 @@ export function useSession(router = useRouter()) {
   function clear() {
     advanceSession()
     loadedOwner = null
-    state.value = { user: null, menus: [], ready: false, invalidated: true }
+    state.value = { user: null, menus: [], permissions: [], ready: false, invalidated: true }
     for (const key of ['token', 'token_timestamp', 'cachedRoutes']) localStorage.removeItem(key)
     sessionStorage.removeItem('token_timestamp')
   }
@@ -48,7 +49,7 @@ export function useSession(router = useRouter()) {
       return false
     }
     if (state.value.ready && loadedOwner && ownsSession(loadedOwner)) return true
-    state.value = { user: null, menus: [], ready: false }
+    state.value = { user: null, menus: [], permissions: [], ready: false }
     let result
     try {
       result = await withSessionOwner(owner, () => Promise.all([
@@ -69,10 +70,12 @@ export function useSession(router = useRouter()) {
     }
     state.value = {
       user: {
+        ...(typeof user.id === 'number' ? { id: user.id } : {}),
         name: typeof user.name === 'string' ? user.name : user.email,
         email: user.email,
       },
       menus: menuTree(routes, permissions),
+      permissions: [...permissions],
       ready: true,
     }
     loadedOwner = owner
