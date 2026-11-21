@@ -80,10 +80,10 @@ export async function deleteResume(id: string) {
   requireMutationSuccess(await request.delete(resource(id)))
 }
 
-export async function resumeHistory(id: string, recent = false, range?: { fromCommit: string; toCommit: string }) {
+export async function resumeHistory(id: string, recent: boolean | number = false, range?: { fromCommit: string; toCommit: string }) {
   const version = resource(id) + '/version/'
   const data = await request.get<unknown, unknown>(version + (range ? 'diff' : recent ? 'recent' : 'history'), {
-    params: range ?? (recent ? { limit: 10 } : undefined),
+    params: range ?? (recent ? { limit: recent === true ? 10 : recent } : undefined),
   })
   if (!Array.isArray(data) || data.some(item => !item || typeof item.id !== 'string' ||
     (item.content != null && typeof item.content !== 'string'))) {

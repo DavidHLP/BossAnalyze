@@ -17,8 +17,8 @@ const actions: Record<Action, { title: string; description: string; destructive?
   branch: { title: '新建分支', description: '新分支将从当前 HEAD 建立。' },
   switch: { title: '切换分支', description: '工作区内容将更新为目标分支的最新快照。' },
   merge: { title: '合并分支', description: '使用源分支快照创建双父提交并更新目标指针。系统不会自动合并正文冲突。' },
-  stash: { title: '储藏内容', description: '暂存下方内容，不创建版本提交。' },
-  'stash/pop': { title: '弹出最新储藏', description: '将从储藏栈移除最新快照，并把内容带回编辑器。' },
+  stash: { title: '新增储藏', description: '下方已填入当前工作区正文。可在储藏前编辑，储藏不会创建版本提交。' },
+  'stash/pop': { title: '弹出最新储藏', description: '将从储藏栈移除最新快照并恢复到工作区。HEAD 会保留当前版本，直至你提交恢复后的正文。' },
   checkout: { title: '检出历史快照', description: '此操作会用所选快照替换当前工作区内容。' },
   reset: { title: '重置分支', description: '将当前分支指针和工作区回退至所选提交。后续历史可能不再出现在当前分支。', destructive: true },
   revert: { title: '创建回滚提交', description: '用所选提交的第一父快照创建一个新提交，保留原有历史。' },
@@ -297,7 +297,7 @@ async function submit() {
         <div class="flex flex-col gap-2">
           <h2 class="font-medium">储藏栈</h2>
           <p class="text-sm text-muted-foreground">已储藏 {{ stashCount }} 项</p>
-          <UiButton variant="outline" :disabled="Boolean(busy) || writeLocked" @click="open('stash', $event)">储藏内容</UiButton>
+          <UiButton variant="outline" :disabled="Boolean(busy) || writeLocked" @click="open('stash', $event)">新增储藏</UiButton>
           <UiButton variant="outline" :disabled="Boolean(busy) || !stashCount || writeLocked" @click="open('stash/pop', $event)">弹出最新储藏</UiButton>
         </div>
       </aside>
