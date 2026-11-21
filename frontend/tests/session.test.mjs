@@ -471,7 +471,7 @@ test('a storage change freezes the displayed draft and requests while reload is 
 
 test('request classification separates network, timeout and absent write bodies from explicit rejection', async () => {
   const { requestFailure } = await import('../src/utils/request/request.ts')
-  const { checkReadAccess, mutationResultUnknown, mutationError, requireMutationSuccess, roleDeleteError } =
+  const { checkReadAccess, mutationResultUnknown, mutationError, requireMutationSuccess } =
     await import('../src/lib/rbac-mutations.ts')
   for (const failure of [
     requestFailure(undefined, undefined, 'Network Error'),
@@ -485,7 +485,8 @@ test('request classification separates network, timeout and absent write bodies 
   assert.throws(() => requireMutationSuccess({ code: 403 }), error => !mutationResultUnknown(error))
   assert.throws(() => checkReadAccess({ code: 403 }), { code: 403 })
   assert.match(mutationError({ code: 400, data: { code: 404 } }, '删除'), /目标已不存在/)
-  assert.match(roleDeleteError({ code: 500 }), /关联用户/)
+  assert.match(mutationError({ code: 500, message: '数据库关联用户错误' }, '删除'), /服务暂不可用/)
+  assert.doesNotMatch(mutationError({ code: 500, message: '数据库关联用户错误' }, '删除'), /关联用户/)
 })
 
 test('the synchronous Axios interceptor sends the owned bearer and ignores an older generation’s 401', async () => {

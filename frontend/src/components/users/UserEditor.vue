@@ -7,7 +7,7 @@ import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { withSessionOwner } from '@/lib/session'
 import { sessionChangedMessage } from '@/lib/rbac-mutations'
 import { addUser, updateUser } from '@/api/user/user'
-import { userDraft, userErrors, userPayload, userSaveError, userWriteSucceeded } from '@/lib/users'
+import { roleAssignmentError, userDraft, userErrors, userPayload, userSaveError, userSaveValidationRejected, userWriteSucceeded } from '@/lib/users'
 import type { ManagedUser, UserRole } from '@/lib/users'
 import { useSession } from '@/composables/useSession'
 import RolePicker from './RolePicker.vue'
@@ -16,16 +16,17 @@ const props = defineProps<{
   open: boolean
   mode: 'view' | 'create' | 'edit'
   user: ManagedUser | null
+  listedEmailInUse: (email: string, userId?: number) => Promise<boolean>
   roles: UserRole[]
   rolesUnavailable: boolean
   rolePending: boolean
   roleRestricted: boolean
+  reloadRoles: () => Promise<UserRole[] | undefined>
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
   closeAutoFocus: [event: Event]
   saved: [self: boolean]
-  retryRoles: []
 }>()
 const mobile = useMediaQuery('(width < 640px)')
 const session = useSession()
@@ -36,6 +37,8 @@ const draft = reactive(userDraft())
 const initial = ref('')
 const saving = ref(false)
 const failure = ref('')
+const emailError = ref<string>()
+watch(() => draft.email, () => { emailError.value = undefined })
 const submitted = ref(false)
 const touched = reactive<Record<string, boolean>>({})
 const discardOpen = ref(false)
@@ -54,12 +57,22 @@ const creating = computed(() => props.mode === 'create')
 const title = computed(() =>
   props.mode === 'view' ? '用户详情' : creating.value ? '新增用户' : '编辑用户',
 )
-const errors = computed(() => userErrors(draft, creating.value))
+const originalRole = computed(() => props.roles.find(role => role.id === props.user?.roleId))
+const assigningRole = computed(() => creating.value || draft.roleId !== props.user?.roleId)
+const errors = computed(() => {
+  const result = userErrors(draft, creating.value)
+  if (assigningRole.value && draft.roleId !== null) {
+    const assignmentError = roleAssignmentError(props.roles.find(role => role.id === draft.roleId))
+    if (assignmentError) result.roleId = assignmentError
+  }
+  return result
+})
 const dirty = computed(
   () => props.open && props.mode !== 'view' && JSON.stringify(draft) !== initial.value,
 )
 function error(field: string) {
-  return submitted.value || touched[field] ? errors.value[field] : undefined
+  const local = submitted.value || touched[field] ? errors.value[field] : undefined
+  return local ?? (field === 'email' ? emailError.value : undefined)
 }
 
 watch(
@@ -70,6 +83,7 @@ watch(
       initial.value = JSON.stringify(draft)
       submitted.value = false
       failure.value = ''
+      emailError.value = undefined
       Object.keys(touched).forEach((key) => delete touched[key])
       if (wasOpen && mode === 'edit') {
         void nextTick(() => document.getElementById('user-name')?.focus())
@@ -123,26 +137,29 @@ const beforeUnload = (event: BeforeUnloadEvent) => {
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 
+async function focusError(field: string) {
+  await nextTick()
+  const selector = field === 'roleId'
+    ? '#user-role input:not(:disabled), #user-role button:not(:disabled)'
+    : field === 'status'
+      ? '#user-status button'
+      : `#user-${field}`
+  document.querySelector<HTMLElement>(selector)?.focus()
+}
+
 async function save() {
   if (!owner || !session.owns(owner) || discardOpen.value || saving.value || props.mode === 'view' || props.rolesUnavailable) return
   submitted.value = true
   const firstError = Object.keys(errors.value)[0]
-  if (firstError) {
-    await nextTick()
-    const selector =
-      firstError === 'roleId'
-        ? '#user-role input, #user-role button'
-        : firstError === 'status'
-          ? '#user-status button'
-          : `#user-${firstError}`
-    document.querySelector<HTMLElement>(selector)?.focus()
-    return
-  }
+  if (firstError) return focusError(firstError)
+  const userId = creating.value ? undefined : props.user?.id
+  const payload = userPayload(draft, userId)
   const self = !creating.value && props.user?.email === session.state.value.user?.email
+  let rejectedField: 'email' | 'roleId' | undefined
   saving.value = true
   failure.value = ''
+  emailError.value = undefined
   try {
-    const payload = userPayload(draft, creating.value ? undefined : props.user?.id)
     userWriteSucceeded(await withSessionOwner(owner, () =>
       creating.value ? addUser(payload) : updateUser(payload),
     ))
@@ -151,10 +168,27 @@ async function save() {
     initial.value = JSON.stringify(draft)
     emit('saved', self)
   } catch (error) {
-    failure.value = userSaveError(error)
+    if (!session.owns(owner)) return
+    let rejection = userSaveError(error)
+    const canCheck = !rejection.field && userSaveValidationRejected(error)
+    if (canCheck && await props.listedEmailInUse(payload.email, userId)) rejection = userSaveError(error, true)
+    if (!session.owns(owner)) return
+    if (rejection.field) {
+      rejectedField = rejection.field
+      emailError.value = rejection.message
+    } else {
+      const roles = canCheck && assigningRole.value ? await props.reloadRoles() : undefined
+      if (!session.owns(owner)) return
+      if (roles && roleAssignmentError(roles.find(role => role.id === payload.roleId))) {
+        rejectedField = 'roleId'
+      } else {
+        failure.value = rejection.message
+      }
+    }
   } finally {
     saving.value = false
   }
+  if (rejectedField) await focusError(rejectedField)
 }
 </script>
 
@@ -240,6 +274,10 @@ async function save() {
                 {{ user.status === 1 ? '启用' : user.status === 0 ? '停用' : '未知' }}
               </StatusBadge>
             </dd>
+            <dd v-else-if="item.label === '角色'" class="break-words font-medium">
+              {{ item.value }}
+              <StatusBadge v-if="originalRole?.status === 0" tone="warning">停用</StatusBadge>
+            </dd>
             <dd v-else class="break-words whitespace-pre-wrap font-medium"
               :class="{ 'font-mono tabular-nums': 'mono' in item && item.mono }">{{ item.value || '—' }}</dd>
           </div>
@@ -266,7 +304,7 @@ async function save() {
             variant="outline"
             class="mt-2"
             :aria-disabled="rolePending || sessionChanged"
-            @click="!rolePending && !sessionChanged && emit('retryRoles')"
+            @click="!rolePending && !sessionChanged && reloadRoles()"
             >重新读取角色</UiButton
           ></UiAlert
         >
@@ -333,11 +371,15 @@ async function save() {
             v-model="draft.roleId"
             :roles="roles"
             label="用户角色"
+            assignment
             :disabled="saving || rolesUnavailable"
             required
             :invalid="Boolean(error('roleId'))"
             :described-by="error('roleId') ? 'user-role-error' : undefined"
           />
+          <p v-if="originalRole?.status === 0" class="text-xs text-muted-foreground">
+            原角色：{{ originalRole.roleName }}（停用）。可保留现有关联，或改派启用角色。
+          </p>
           <UiFieldError v-if="error('roleId')" id="user-role-error" class="text-xs text-destructive">
             {{ error('roleId') }}
           </UiFieldError></UiField

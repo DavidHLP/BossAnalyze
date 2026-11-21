@@ -10,10 +10,6 @@ import LoginForm from '@/components/LoginForm.vue'
         <UiAlertDescription>注册成功，请使用新账号登录。</UiAlertDescription>
       </UiAlert>
       <LoginForm />
-      <p class="text-center text-sm text-muted-foreground">
-        没有账号？
-        <RouterLink class="font-medium text-foreground underline underline-offset-4" :to="{ path: '/register', query: { redirect: $route.query.redirect } }">注册账号</RouterLink>
-      </p>
     </div>
   </AuthLayout>
 </template>

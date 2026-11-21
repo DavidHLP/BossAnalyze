@@ -7,6 +7,7 @@ const props = defineProps<{
   label: string
   id?: string
   allowAll?: boolean
+  assignment?: boolean
   disabled?: boolean
   required?: boolean
   invalid?: boolean
@@ -14,18 +15,22 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: number | null] }>()
 const options = computed(() => [
-  ...(props.allowAll ? [{ value: 'all', label: '全部角色', inactive: false }] : []),
+  ...(props.allowAll ? [{ value: 'all', label: '全部角色', statusLabel: '', disabled: false }] : []),
   ...props.roles.map((role) => ({
     value: String(role.id),
     label: role.roleName,
-    inactive: role.status === 0,
+    statusLabel: role.status === 0 ? (props.assignment ? '停用，无法指派' : '停用')
+      : props.assignment && role.status !== 1 ? '状态未知，无法指派' : '',
+    disabled: props.assignment && role.status !== 1,
   })),
 ])
 const optionLabel = (option: (typeof options.value)[number]) =>
-  option.label + (option.inactive ? '（停用）' : '')
+  option.label + (option.statusLabel ? `（${option.statusLabel}）` : '')
 const value = computed(() => (props.modelValue === null ? 'all' : String(props.modelValue)))
 function choose(value: unknown) {
-  if (typeof value === 'string') emit('update:modelValue', value === 'all' ? null : Number(value))
+  const option = options.value.find((item) => item.value === value)
+  if (option && !option.disabled)
+    emit('update:modelValue', option.value === 'all' ? null : Number(option.value))
 }
 </script>
 
@@ -46,10 +51,11 @@ function choose(value: unknown) {
       v-for="option in options"
       :key="option.value"
       class="flex min-w-0 cursor-pointer items-center gap-2 break-all text-sm"
+      :class="{ 'cursor-not-allowed text-muted-foreground': option.disabled }"
     >
-      <UiRadioGroupItem :value="option.value" class="shrink-0" />
+      <UiRadioGroupItem :value="option.value" :disabled="option.disabled" class="shrink-0" />
       <span>{{ option.label }}</span>
-      <StatusBadge v-if="option.inactive" tone="warning" class="shrink-0">停用</StatusBadge>
+      <StatusBadge v-if="option.statusLabel" tone="warning" class="shrink-0">{{ option.statusLabel }}</StatusBadge>
     </label>
   </UiRadioGroup>
   <UiCombobox
@@ -78,10 +84,12 @@ function choose(value: unknown) {
           v-for="option in options"
           :key="option.value"
           :value="option.value"
+          :disabled="option.disabled"
+          :aria-disabled="option.disabled || undefined"
           :text-value="optionLabel(option)"
         >
           <span class="min-w-0 break-all">{{ option.label }}</span>
-          <StatusBadge v-if="option.inactive" tone="warning" class="shrink-0">停用</StatusBadge>
+          <StatusBadge v-if="option.statusLabel" tone="warning" class="shrink-0">{{ option.statusLabel }}</StatusBadge>
         </UiComboboxItem></UiComboboxViewport
       ></UiComboboxList
     >

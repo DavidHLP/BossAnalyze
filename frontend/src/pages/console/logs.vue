@@ -1,29 +1,52 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowReactive } from 'vue'
+import { computed, onMounted, ref, shallowReactive } from 'vue'
 import { RiPlayLine, RiRefreshLine } from '@remixicon/vue'
 import { getCompleteLogStats, getDashboardStats, getHeatMapData, getIpStatistics, triggerLogAnalysis } from '@/api/log/accesslog'
 import LogHeatmap from '@/components/dashboard/LogHeatmap.vue'
+import { useLogTrigger } from '@/composables/useLogTrigger'
 import { useSession } from '@/composables/useSession'
 import { heatBuckets, ipDistribution, logTotals, weekdayAverages, weekdayDistribution } from '@/lib/log-analysis'
 import { permissionDenied } from '@/lib/rbac-mutations'
+import { withSessionOwner } from '@/lib/session'
 
 const session = useSession()
-const allowed = computed(() => session.state.value.permissions.includes('logs.analysis.trigger'))
+const owner = session.capture()
+const user = session.state.value.user
+const account = user?.id != null ? `id:${user.id}` : user?.email ? `email:${user.email.toLowerCase()}` : null
+const allowed = computed(() => session.owns(owner) && session.state.value.permissions.includes('logs.analysis.trigger'))
+const trigger = useLogTrigger(account)
+const starting = computed(() => trigger.status.value === 'pending')
+const remaining = trigger.remaining
+const receipt = computed(() => trigger.status.value === 'accepted')
+const unconfirmed = computed(() => trigger.status.value === 'unconfirmed')
+const startError = trigger.error
 
-function logResource<T>(read: () => Promise<T>) {
-  const state = shallowReactive<{ data: T | null; loading: boolean; error: string }>({ data: null, loading: false, error: '' })
+function logResource<T>(read: () => Promise<T | null>, version?: (value: T) => string) {
+  const state = shallowReactive<{
+    data: T | null
+    loading: boolean
+    error: string
+    result: 'updated' | 'unchanged' | 'empty' | null
+  }>({ data: null, loading: false, error: '', result: null })
   async function load() {
-    if (state.loading) return
-    const owner = session.capture()
+    if (state.loading || !session.owns(owner)) return
     state.loading = true
     state.error = ''
     try {
-      const result = await read()
-      if (session.owns(owner)) state.data = result
+      const result = await withSessionOwner(owner, read).catch(cause => {
+        if (cause && typeof cause === 'object' && 'code' in cause && cause.code === 204) return null
+        throw cause
+      })
+      if (!session.owns(owner)) return
+      const previousVersion = state.data && version?.(state.data)
+      state.result = result === null ? 'empty'
+        : previousVersion && version?.(result) === previousVersion ? 'unchanged' : 'updated'
+      state.data = result
     } catch (cause) {
       if (session.owns(owner)) {
         const forbidden = permissionDenied(cause)
         if (forbidden) state.data = null
+        state.result = null
         state.error = forbidden ? '当前账号缺少日志读取权限。' : '日志服务暂时不可用，请重试读取。'
       }
     } finally {
@@ -36,7 +59,7 @@ function logResource<T>(read: () => Promise<T>) {
 const { state: snapshot, load: readSnapshot } = logResource(async () => {
   const data = await getDashboardStats()
   return data === null ? null : weekdayDistribution(data)
-})
+}, data => data.time)
 const { state: totals, load: readTotals } = logResource(async () => logTotals(await getCompleteLogStats()))
 const { state: heat, load: readHeat } = logResource(async () => heatBuckets(await getHeatMapData()))
 const { state: geo, load: readGeo } = logResource(async () => ipDistribution(await getIpStatistics()))
@@ -48,11 +71,18 @@ const averages = computed(() => weekdayAverages(heat.data?.hours ?? []))
 const number = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 })
 const display = (value: number | null | undefined) => value == null ? '—' : number.format(value)
 const weekdayMax = computed(() => Math.max(1, ...(snapshot.data?.days.map(day => day.count ?? 0) ?? [])))
+const readStatus = computed(() => {
+  if (refreshPending.value) return '正在读取日志缓存…'
+  if (snapshot.result === 'unchanged') return '已检查，暂无新快照'
+  if (snapshot.result === 'updated') return '已读取日志快照'
+  if (snapshot.result === 'empty') return '暂无可用的日志快照'
+  return ''
+})
 const metrics = computed(() => [
-  { name: '快照总访问量', value: display(totals.data?.visits), note: '快照累计访问次数' },
-  { name: '独立 IP 数', value: display(totals.data?.ips), note: '按来源 IP 去重' },
-  { name: '热力峰值时段', value: peak.value?.label ?? '—', note: peak.value ? display(peak.value.count) + ' 次访问' : '全快照峰值小时' },
-  { name: '覆盖地理区域', value: geo.data?.records.length ? display(geo.data.known) : '—', note: '已知国家 / 地区' },
+  { source: totals, name: '快照总访问量', value: display(totals.data?.visits), note: '快照累计访问次数' },
+  { source: totals, name: '独立 IP 数', value: display(totals.data?.ips), note: '按来源 IP 去重' },
+  { source: heat, name: '热力峰值时段', value: peak.value?.label ?? '—', note: peak.value ? display(peak.value.count) + ' 次访问' : '全快照峰值小时' },
+  { source: geo, name: '覆盖地理区域', value: geo.data?.records.length ? display(geo.data.known) : '—', note: '已知国家 / 地区' },
 ])
 const groups = computed(() => [
   { name: '国家 / 地区', items: geo.data?.countries ?? [] },
@@ -68,53 +98,15 @@ function refresh() {
 }
 
 const confirmation = ref(false)
-const starting = ref(false)
-const startError = ref('')
-const receipt = ref(false)
-const remaining = ref(0)
-let active = true
-let cooldownUntil = 0
-let timer: ReturnType<typeof setInterval> | undefined
-
-function tick() {
-  remaining.value = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
-  if (!remaining.value) clearInterval(timer)
-}
-function cooldown() {
-  cooldownUntil = Date.now() + 30_000
-  tick()
-  timer = setInterval(tick, 250)
-}
-async function start() {
-  if (!allowed.value || starting.value || remaining.value) return
-  const owner = session.capture()
-  starting.value = true
-  receipt.value = false
-  startError.value = ''
-  try {
-    await triggerLogAnalysis()
-    if (active && session.owns(owner)) {
-      confirmation.value = false
-      receipt.value = true
-      cooldown()
-    }
-  } catch (cause) {
-    if (!active || !session.owns(owner)) return
-    confirmation.value = false
-    if (permissionDenied(cause)) startError.value = '当前账号缺少手动触发权限。'
-    else {
-      startError.value = '启动结果未确认。请稍后刷新缓存，避免重复触发。'
-      cooldown()
-    }
-  } finally {
-    starting.value = false
-  }
+function start() {
+  if (!confirmation.value || !allowed.value || !session.owns(owner)) return
+  confirmation.value = false
+  void trigger.start(
+    () => allowed.value && session.owns(owner),
+    () => withSessionOwner(owner, triggerLogAnalysis),
+  )
 }
 onMounted(refresh)
-onUnmounted(() => {
-  active = false
-  clearInterval(timer)
-})
 </script>
 
 <template>
@@ -129,30 +121,39 @@ onUnmounted(() => {
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <UiButton variant="outline" :disabled="refreshPending" @click="refresh"><RiRefreshLine data-icon="inline-start" />刷新缓存</UiButton>
-        <UiButton :disabled="!allowed || starting || remaining > 0" @click="confirmation = true">
+        <UiButton variant="outline" :disabled="refreshPending" @click="refresh"><RiRefreshLine data-icon="inline-start" />{{ refreshPending ? '正在读取…' : '刷新缓存' }}</UiButton>
+        <UiButton :disabled="!allowed || !trigger.available || remaining > 0" @click="confirmation = true">
           <RiPlayLine data-icon="inline-start" />
-          {{ remaining ? `冷却中 · ${remaining}s` : '手动触发日志分析' }}
+          {{ starting ? '正在触发…' : remaining ? `冷却中 · ${remaining}s` : '手动触发日志分析' }}
         </UiButton>
         <span v-if="!allowed" class="text-xs text-muted-foreground">缺少触发权限</span>
+        <span v-else-if="!trigger.available" class="text-xs text-muted-foreground">当前浏览器环境无法在标签页间安全触发。</span>
       </div>
     </header>
 
-    <UiAlert v-if="receipt" role="status"><UiAlertTitle>后台分析任务已启动</UiAlertTitle><UiAlertDescription>请稍后刷新缓存查看最新快照。</UiAlertDescription></UiAlert>
+    <UiAlert v-if="allowed && receipt" role="status"><UiAlertTitle>后台分析任务已受理</UiAlertTitle><UiAlertDescription>请稍后刷新缓存查看最新快照。</UiAlertDescription></UiAlert>
+    <UiAlert v-else-if="allowed && starting" role="status"><UiAlertDescription>正在等待后台受理回执。</UiAlertDescription></UiAlert>
+    <UiAlert v-else-if="allowed && unconfirmed" role="alert" variant="destructive"><UiAlertDescription>启动结果未确认。请稍后刷新缓存，避免重复触发。</UiAlertDescription></UiAlert>
     <UiAlert v-if="startError" role="alert" variant="destructive"><UiAlertDescription>{{ startError }}</UiAlertDescription></UiAlert>
     <UiAlert v-if="totals.error" role="alert" variant="destructive">
       <UiAlertTitle>访问概览暂不可用</UiAlertTitle>
       <UiAlertDescription class="flex flex-wrap items-center gap-2">{{ totals.error }}<UiButton variant="outline" size="sm" @click="readTotals">重试读取概览</UiButton></UiAlertDescription>
     </UiAlert>
 
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="快照指标">
-      <UiCard v-for="metric in metrics" :key="metric.name" class="min-w-0 gap-2 py-4">
-        <UiCardHeader><h2 class="text-sm font-medium text-muted-foreground">{{ metric.name }}</h2></UiCardHeader>
-        <UiCardContent class="flex flex-col gap-2">
-          <p class="break-words text-xl font-semibold tabular-nums">{{ metric.value }}</p><p class="text-xs text-muted-foreground">{{ metric.note }}</p>
-        </UiCardContent>
-      </UiCard>
-    </div>
+    <section aria-label="快照指标" class="space-y-2">
+      <p role="status" class="text-sm text-muted-foreground">{{ readStatus }}</p>
+      <p v-if="totals.result === 'empty' && snapshot.result !== 'empty'" class="text-sm text-muted-foreground">暂无访问概览缓存。</p>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" :aria-busy="refreshPending">
+        <UiCard v-for="metric in metrics" :key="metric.name" class="min-w-0 gap-2 py-4">
+          <UiCardHeader><h2 class="text-sm font-medium text-muted-foreground">{{ metric.name }}</h2></UiCardHeader>
+          <UiCardContent class="flex flex-col gap-2">
+            <UiSkeleton v-if="metric.source.loading && !metric.source.data && metric.source.result === null" class="h-7 w-24 motion-reduce:animate-none" />
+            <p v-else class="break-words text-xl font-semibold tabular-nums">{{ metric.value }}</p>
+            <p class="text-xs text-muted-foreground">{{ metric.note }}</p>
+          </UiCardContent>
+        </UiCard>
+      </div>
+    </section>
 
     <UiCard class="min-w-0">
       <UiCardHeader><h2 class="text-lg font-semibold">访问时间热力图</h2><UiCardDescription>按服务端小时或分钟查看访问集中时段。</UiCardDescription></UiCardHeader>
@@ -160,6 +161,7 @@ onUnmounted(() => {
         <UiAlert v-if="heat.error" role="alert" variant="destructive"><UiAlertDescription class="flex flex-wrap items-center gap-2">{{ heat.error }}<UiButton variant="outline" size="sm" @click="readHeat">重试读取热力图</UiButton></UiAlertDescription></UiAlert>
         <LogHeatmap v-if="heat.data" :buckets="heat.data" />
         <UiSkeleton v-else-if="heat.loading" class="h-40" role="status" aria-label="正在读取热力图" />
+        <p v-else-if="heat.result === 'empty'" class="text-sm text-muted-foreground">暂无热力图缓存。</p>
       </UiCardContent>
     </UiCard>
 
@@ -193,7 +195,7 @@ onUnmounted(() => {
             </UiTable>
           </div>
         </div>
-        <p v-else-if="geo.data" role="status" class="text-sm text-muted-foreground">当前分项没有可展示的缓存数据。</p>
+        <p v-else-if="geo.data || geo.result === 'empty'" role="status" class="text-sm text-muted-foreground">当前分项没有可展示的缓存数据。</p>
         <UiSkeleton v-else-if="geo.loading" class="h-32" role="status" aria-label="正在读取 IP 分布" />
       </UiCardContent>
     </UiCard>
@@ -215,17 +217,17 @@ onUnmounted(() => {
             <div><dt class="text-muted-foreground">周末日均</dt><dd class="mt-1 font-semibold tabular-nums">{{ display(averages.weekends) }}</dd></div>
           </dl>
         </template>
-        <p v-else-if="!snapshot.error" role="status" class="text-sm text-muted-foreground">尚未生成快照。生成后可刷新读取。</p>
+        <p v-else-if="snapshot.result === 'empty'" role="status" class="text-sm text-muted-foreground">尚未生成快照。生成后可刷新读取。</p>
         <p class="text-xs text-muted-foreground">日志快照不包含响应状态码和耗时。无法定位的 IP 显示为未知。</p>
       </UiCardContent>
     </UiCard>
 
-    <UiDialog :open="confirmation" @update:open="!starting && (confirmation = $event)">
-      <UiDialogContent @interact-outside.prevent @escape-key-down="starting && $event.preventDefault()">
+    <UiDialog :open="confirmation" @update:open="confirmation = $event">
+      <UiDialogContent @interact-outside.prevent>
         <UiDialogHeader><UiDialogTitle>手动触发日志分析？</UiDialogTitle><UiDialogDescription>这会在后台启动 Spark 日志重算。请稍后刷新缓存查看结果。</UiDialogDescription></UiDialogHeader>
         <UiDialogFooter>
-          <UiButton variant="outline" :disabled="starting" @click="confirmation = false">取消</UiButton>
-          <UiButton :disabled="starting || !allowed || remaining > 0" @click="start">{{ starting ? '正在触发…' : '确认触发' }}</UiButton>
+          <UiButton variant="outline" @click="confirmation = false">取消</UiButton>
+          <UiButton :disabled="!allowed || remaining > 0" @click="start">确认触发</UiButton>
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>

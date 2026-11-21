@@ -1,4 +1,4 @@
-import { mutationBusinessCode, mutationError } from './rbac-mutations.ts'
+import { mutationBusinessCode, mutationError, mutationResultUnknown, permissionDenied } from './rbac-mutations.ts'
 
 export { requireMutationSuccess as userWriteSucceeded } from './rbac-mutations.ts'
 
@@ -89,6 +89,13 @@ export function userRoles(value: unknown): UserRole[] {
   })
 }
 
+export function roleAssignmentError(role: UserRole | undefined) {
+  if (role?.status === 1) return
+  return role?.status === 0
+    ? '该角色已停用，请选择启用的角色。'
+    : '该角色无法指派，请选择启用的角色。'
+}
+
 export function userDraft(user?: ManagedUser | null): UserDraft {
   return {
     name: user?.name ?? '',
@@ -133,8 +140,25 @@ export function userPayload(draft: UserDraft, userId?: number) {
   }
 }
 
-export function userSaveError(value: unknown) {
-  return mutationError(value, '保存', '邮箱已存在或与现有账号冲突，请核对邮箱后重试。')
+function userSaveCode(value: unknown) {
+  return mutationBusinessCode(value) ?? (record(value) ? value.code : undefined)
+}
+
+export function userSaveValidationRejected(value: unknown) {
+  const code = userSaveCode(value)
+  return !permissionDenied(value) && !mutationResultUnknown(value) &&
+    (code === 400 || code === 409 || code === 1007 || code === 1008)
+}
+
+export function userSaveError(value: unknown, emailInUse = false) {
+  const businessCode = mutationBusinessCode(value) ??
+    (record(value) && value.resultUnknown === false ? value.code : undefined)
+  // For user writes, a duplicate key in the business envelope identifies the unique email.
+  if (!permissionDenied(value) && (userSaveCode(value) === 1001 ||
+    businessCode === 409 || (emailInUse && userSaveValidationRejected(value)))) {
+    return { field: 'email' as const, message: '邮箱已被其他账号使用，请更换邮箱。' }
+  }
+  return { field: null, message: mutationError(value, '保存') }
 }
 
 export function userDeleteError(value: unknown) {
