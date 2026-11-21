@@ -7,7 +7,8 @@
 | 命令 | 结果 |
 | --- | --- |
 | `mvn -f backend/pom.xml -pl crawler -am package -B -DskipTests` | 退出 0，`BUILD SUCCESS`。Reactor 包含父项目、commons、crawler |
-| `mvn -f backend/pom.xml -pl crawler -am test -B` | 退出 0，`BUILD SUCCESS`。commons 18 项、crawler 55 项，失败、错误和跳过均为 0 |
+| `mvn -f backend/pom.xml -pl crawler -am test -B`（集成分支 `d8945cda41fa4a1e29084a1234becea750eb9fa9`） | 退出 0，`BUILD SUCCESS`。commons 18 项、crawler 60 项（含 sampler 24 项），失败、错误和跳过均为 0。工作树首次记录为 55 项，早于 sampler 测试提交 `bdeeedc`，不作最终证据 |
+| `cd ai-service && /path/to/venv/bin/python -m pytest -q`（同一集成提交） | 退出 0，264 项通过，含 `tests/test_evaluate.py` 68 项 |
 | `sha256sum -c backend/target/release-evidence/crawler.sha256` | 退出 0，候选 JAR `OK` |
 | `git diff --check`、`git diff --cached --check` | 退出 0，无输出 |
 

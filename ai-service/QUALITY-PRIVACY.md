@@ -50,7 +50,7 @@ uv run --frozen python -m app.evaluate \
 - 观测以每条 prediction 对应的完整操作为单位：延迟从操作开始到成功/失败终态，包含重试和等待；成本来自可审计实际计费记录，包含该操作失败尝试与重试费用。失败样本继续纳入同一总体；跨记录共享请求费用只能在有可靠归属、无重复计费时分配，否则保留 null。无法可靠获得完整观测时不补零，也不删除该样本。runner 不采样时钟、不请求账单、不生成这些观测。
 - development：所有训练、提示调优、阈值校准来源的 `id, groupId, source` manifest，必传，确实没有开发集可给空文件并由审核者确认。检测 test 与 development 的 id/groupId、规范化内容和相似度 >=0.9 的近重复，同时拒绝测试集自身重复组。不保证检测所有语义改写/泄漏；人工分组及完整 manifest 仍是前提，不能只提交部分开发来源。
 
-汇总包含 overall/subgroups 的样本及分母、两类 tp/predicted/gold/precision/recall、候选召回、原文证据一致性（含候选）、unknown 覆盖/一致性、排序 pair agreement，以及核心选择、成本与延迟。`cost` 包含 `totalUsd`（精确求和字符串或 null）、`knownSamples`、`coverage`；`latency` 包含 `p95Ms`（毫秒数或 null）、`knownSamples`、`coverage`、`percentileMethod="nearest-rank"`。仅整体/该子组 N>0 且全部样本均有相应观测时输出聚合，否则聚合为 null；coverage 为 knownSamples/N，空总体为 null。p95 是该总体延迟排序后第 ceil(0.95*N) 个值，不使用已知子集替代完整总体。不回显原文。零分母用 null；缺样本或无排序/阳性等不可判断情形为 unverifiable；已观察指标失败为 fail。无效/pending/泄漏输入拒绝，accepted samples=0，不报告虚构质量分数。
+汇总包含 overall/subgroups 的样本及分母、两类 tp/predicted/gold/precision/recall、候选召回、原文证据一致性（含候选）、unknown 覆盖/一致性、排序 pair agreement，以及核心选择、成本与延迟。`cost` 包含 `totalUsd`（精确求和字符串或 null）、`knownSamples`、`coverage`；`latency` 包含 `p95Ms`（毫秒数或 null）、`knownSamples`、`coverage`、`percentileMethod="nearest-rank"`。仅整体/该子组 N>0 且全部样本均有相应观测时输出聚合，否则聚合为 null；coverage 为 knownSamples/N，空总体为 null。p95 是该总体延迟排序后第 ceil(0.95*N) 个值，不使用已知子集替代完整总体。不回显原文。零分母用 null；人工模式下的 synthetic 集、缺样本或无排序/阳性等不可判断情形为 unverifiable；AI 模式将 synthetic 集纳入通过判定；已观察指标失败为 fail。无效/pending/泄漏输入拒绝，accepted samples=0，不报告虚构质量分数。
 
 退出码 pass=0、fail=1、unverifiable=2。AI 模式通过时报告 `qualityApproval="ai_accepted"`，其余情况为 `unverifiable`。离线报告不授予 `AI_QUALITY_APPROVED`，生产身份和部署验收须分别完成。历史 JSONL 无新增字段仍可加载。缺新标注、完整成本/延迟观测或可比较核心阳性时为 unverifiable；已知指标失败仍优先为 fail。单测来源元数据、标签和遥测均为模拟，不能作为真实人工 gold、成本、延迟或领域质量通过率。
 

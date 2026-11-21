@@ -647,14 +647,19 @@ class RecruitmentSamplerTest {
             }
             doAnswer(call -> { Thread.sleep(100); return null; }).when(page).waitForTimeout(100);
             var options = options(URL, "boundary-" + boundary, temp.resolve("cancel"));
+            String diagnostic = null;
             try (var output = new RecruitmentSampler.PrivateOutput(options.output())) {
                 if (List.of("foreign", "login", "verify").contains(boundary)) {
                     String status = boundary.equals("foreign") ? "redirect_rejected" : boundary.equals("login") ? "auth_required" : "verification_required";
                     assertEquals(status, assertThrows(RecruitmentSampler.Stop.class,
                             () -> RecruitmentSampler.collect(page, new BossResponseCapture(), options, output)).status);
                     verify(page, never()).content();
-                } else assertEquals(2, RecruitmentSampler.collect(page, new BossResponseCapture(), options, output));
+                } else {
+                    assertEquals(2, RecruitmentSampler.collect(page, new BossResponseCapture(), options, output));
+                    diagnostic = boundary.equals("empty") ? "missing_detail" : "identity_mismatch";
+                }
             }
+            if (diagnostic != null) assertDiagnosticOnly(options.output(), diagnostic);
             assertFalse(Files.readString(options.output().resolve("samples.jsonl")).contains("\"status\":\"ok\""));
             assertEquals("", Files.readString(options.output().resolve("labels.jsonl")));
         }

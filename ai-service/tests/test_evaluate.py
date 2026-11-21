@@ -106,11 +106,13 @@ def test_no_comparable_ranking_or_zero_denominators_are_unverifiable():
 
 @pytest.mark.parametrize("acceptance", ["human", "ai"])
 def test_sample_sets_unknown_keys_and_ranking_ids_must_match(acceptance):
-    for field, value in (("id", "other"), ("unknown", {}), ("ranking", ["unexpected"]),
-                         ("model", "fallback")):
+    for field, value, message in (("id", "other", "prediction sample mismatch"),
+                                  ("unknown", {}, "incompatible predictions"),
+                                  ("ranking", ["unexpected"], "unexpected ranking ids"),
+                                  ("model", "fallback", "incompatible predictions")):
         g, p = complete_sample(annotation_origin=acceptance)
         p[field] = value
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=message):
             run(g, p, acceptance=acceptance)
 
 
@@ -179,6 +181,33 @@ def test_gate_status_with_simulated_provenance_is_not_quality_approval():
     assert run(g, p)["status"] == "pass"
     assert run(g, p)["qualityApproval"] == "unverifiable"
     assert evaluate([Gold.model_validate(g)], [Prediction.model_validate(p)], [], 2, 1)["status"] == "unverifiable"
+
+
+def test_cli_human_mode_report_keeps_legacy_shape(tmp_path, monkeypatch, capsys):
+    from app.evaluate import main
+
+    g, p = complete_sample()
+    g["dataOrigin"] = "real_public"
+    gold, predictions, development = (tmp_path / name for name in
+                                      ("gold.jsonl", "predictions.jsonl", "development.jsonl"))
+    gold.write_text(json.dumps(g))
+    predictions.write_text(json.dumps(p))
+    development.write_text("")
+    monkeypatch.setattr("sys.argv", ["evaluate", "--gold", str(gold), "--predictions", str(predictions),
+                                     "--development", str(development), "--min-samples", "1",
+                                     "--min-ranking-agreement", "1"])
+    assert main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "pass"
+    assert "acceptance" not in result and "labelSource" not in result
+    assert result["qualityApproval"] == "unverifiable"
+
+    p["candidates"] = []
+    predictions.write_text(json.dumps(p))
+    assert main() == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "fail"
+    assert "acceptance" not in result and "labelSource" not in result
 
 
 def complete_sample(*, annotation_origin="human"):
