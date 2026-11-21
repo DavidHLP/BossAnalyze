@@ -59,8 +59,8 @@ watch(() => route.path, async () => {
       @click.prevent="main?.focus()"
     >跳过导航</a>
     <AppSidebar @open-auto-focus="sidebarPath = route.path" @close-auto-focus="restoreNavigationFocus" />
-    <UiSidebarInset class="min-w-0">
-      <header class="flex h-14 shrink-0 items-center gap-2 border-b px-4 sm:gap-3 md:px-6">
+    <UiSidebarInset class="min-w-0 max-md:pt-(--console-header-height)">
+      <header class="console-header flex h-(--console-header-height) shrink-0 items-center gap-2 border-b px-4 sm:gap-3 md:px-6">
         <UiSidebarTrigger class="-ml-1" title="切换侧栏（⌘B / Ctrl+B）" />
         <UiSeparator orientation="vertical" class="mr-2 data-[orientation=vertical]:h-4" />
         <UiBreadcrumb class="min-w-0 flex-1">
@@ -97,3 +97,24 @@ watch(() => route.path, async () => {
     </UiSidebarInset>
   </UiSidebarProvider>
 </template>
+
+<style>
+:root:has(.console-header) {
+  --console-header-height: calc(var(--spacing) * 14);
+}
+
+@media (width < 48rem) {
+  :root:has(.console-header) {
+    scroll-padding-top: var(--console-header-height);
+  }
+
+  .console-header {
+    /* Keep the trigger above the page even while the drawer locks body scrolling. */
+    position: fixed;
+    top: 0;
+    inset-inline: 0;
+    z-index: 20;
+    background-color: var(--background);
+  }
+}
+</style>

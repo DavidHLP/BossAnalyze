@@ -110,7 +110,8 @@ onMounted(refresh)
 </script>
 
 <template>
-  <section class="flex min-w-0 flex-col gap-5" aria-labelledby="logs-title">
+  <!-- Snapshot sections can resize independently after the router restores history. -->
+  <section class="flex min-w-0 flex-col gap-5 max-md:[overflow-anchor:none]" aria-labelledby="logs-title">
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div class="flex flex-col gap-2">
         <h1 id="logs-title" class="text-3xl font-semibold tracking-tight">扩展日志分析</h1>

@@ -39,6 +39,126 @@ async function registered(page) {
 async function screenshot(page, name) {
   if (screenshots) await page.screenshot({ path: join(screenshots, name + '.png'), animations: 'disabled' })
 }
+
+function paintedScroll(page) {
+  return page.evaluate(() => new Promise(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve(scrollY)))
+  }))
+}
+
+for (const delay of ['immediate', 'delayed']) {
+  test(`mobile history keeps the workbench reading position after ${delay} responses`, async () => {
+    const page = await browser.newPage({ viewport: mobile, hasTouch: true, isMobile: true })
+    const welcome = page.getByRole('heading', { name: /欢迎回来/ })
+    const overview = page.getByRole('region', { name: '日志访问概览' })
+    const loaded = async () => {
+      await overview.locator('time').waitFor()
+      await page.getByText('演示管理员', { exact: true }).first().waitFor()
+    }
+    const role = '**/api/auth/getUserRole'
+    const response = Promise.withResolvers()
+    try {
+      await logIn(page)
+      await loaded()
+      await page.evaluate(() => scrollTo(0, 220))
+      const previous = await paintedScroll(page)
+      assert.equal(previous, 220)
+      await overview.getByRole('link', { name: '进入数据看板' }).tap()
+      await page.waitForURL(origin + '/console/dashboard')
+      await page.getByRole('heading', { name: '数据看板', exact: true }).waitFor()
+
+      if (delay === 'delayed') {
+        await page.route(role, async route => {
+          await response.promise
+          await route.continue()
+        })
+      }
+      await page.goBack()
+      await welcome.waitFor()
+      if (delay === 'delayed') {
+        await overview.locator('time').waitFor()
+        await page.waitForFunction(y => scrollY === y, previous)
+        response.resolve()
+      }
+      await loaded()
+      const restored = await paintedScroll(page)
+      assert.ok(Math.abs(restored - previous) <= 2, `workbench scroll ${previous} → ${restored}`)
+    } finally {
+      response.resolve()
+      await page.close()
+    }
+  })
+}
+
+test('mobile history keeps the logs reading position as the snapshot arrives', async () => {
+  const page = await browser.newPage({ viewport: mobile, hasTouch: true, isMobile: true })
+  const response = Promise.withResolvers()
+  const ready = page.getByRole('button', { name: '刷新缓存' })
+  try {
+    await logIn(page, undefined, undefined, '/console/logs')
+    await ready.waitFor()
+    await page.evaluate(() => scrollTo(0, 600))
+    const previous = await paintedScroll(page)
+    assert.equal(previous, 600)
+    await page.keyboard.press('Control+b')
+    await page.getByRole('dialog').getByRole('link', { name: '工作台', exact: true }).tap()
+    await page.waitForURL(origin + '/console')
+
+    await page.route('**/api/v1/system/logs/dashboard/stats', async route => {
+      await response.promise
+      await route.continue()
+    })
+    await page.goBack()
+    await page.waitForURL(origin + '/console/logs')
+    await page.waitForFunction(y => scrollY === y, previous)
+    response.resolve()
+    await ready.waitFor()
+    const restored = await paintedScroll(page)
+    assert.ok(Math.abs(restored - previous) <= 2, `logs scroll ${previous} → ${restored}`)
+  } finally {
+    response.resolve()
+    await page.close()
+  }
+})
+
+test('the mobile sidebar remains tappable at depth in both themes and returns focus on close', async () => {
+  const page = await browser.newPage({ viewport: mobile, hasTouch: true, isMobile: true })
+  const trigger = page.getByRole('button', { name: '切换侧栏', exact: true })
+  const drawer = page.getByRole('dialog', { name: '控制台导航' })
+  try {
+    await logIn(page, undefined, undefined, '/console/logs')
+    await page.getByRole('heading', { name: '访问时间热力图' }).waitFor()
+    await page.getByRole('button', { name: '刷新缓存' }).waitFor()
+    for (const colorScheme of ['light', 'dark']) {
+      const depth = await page.evaluate(dark => {
+        const target = dark ? document.documentElement.scrollHeight - innerHeight : 700
+        scrollTo(0, target)
+        return target
+      }, colorScheme === 'dark')
+      assert.equal(await paintedScroll(page), depth)
+      await page.emulateMedia({ colorScheme })
+      const box = await trigger.boundingBox()
+      assert.ok(box && box.y >= 0 && box.y + box.height < mobile.height,
+        `sidebar trigger is outside the viewport at scrollY=${depth} in ${colorScheme} mode`)
+      await page.waitForFunction(dark => document.documentElement.classList.contains('dark') === dark,
+        colorScheme === 'dark')
+      const background = await trigger.evaluate(button => {
+        const header = button.closest('header')
+        return getComputedStyle(header).backgroundColor === getComputedStyle(document.body).backgroundColor
+      })
+      assert.ok(background, `opaque sidebar header in ${colorScheme} mode`)
+      await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2)
+      await drawer.waitFor()
+      await drawer.getByRole('button', { name: '关闭', exact: true }).tap()
+      await drawer.waitFor({ state: 'hidden' })
+      await page.waitForFunction(() => document.activeElement?.textContent?.trim() === '切换侧栏')
+      assert.equal(await paintedScroll(page), depth)
+    }
+  } finally {
+    await page.close()
+  }
+})
+
 test('mobile navigation focuses main, restores history, and preserves anchors and filters', async () => {
   const page = await browser.newPage({ viewport: mobile, hasTouch: true, isMobile: true })
   const atTopWithMainFocused = () => page.waitForFunction(
@@ -89,20 +209,35 @@ test('mobile navigation focuses main, restores history, and preserves anchors an
   await page.goBack()
   await page.waitForURL(origin + '/console/logs')
   await page.waitForFunction(y => Math.abs(scrollY - y) <= 2, oldScroll, { timeout: 6000 })
+  await page.getByRole('button', { name: '刷新缓存' }).waitFor()
+  const restored = await paintedScroll(page)
+  assert.ok(Math.abs(restored - oldScroll) <= 2, `logs scroll ${oldScroll} → ${restored}`)
   assert.equal(await page.evaluate(() => document.activeElement.id), 'main-content')
 
+  const anchorBelowHeader = id => page.waitForFunction(id => {
+    const target = document.getElementById(id)
+    const header = document.querySelector('header:has([data-sidebar="trigger"])')
+    if (!target || !header) return false
+    const { top } = target.getBoundingClientRect()
+    return scrollY > 0 && top >= header.getBoundingClientRect().bottom && top < innerHeight
+  }, id)
   await page.goto(origin + '/console/settings#appearance')
-  await page.waitForFunction(() => {
-    const target = document.getElementById('appearance')
-    return scrollY > 0 && target && target.getBoundingClientRect().top < innerHeight
-  })
+  await anchorBelowHeader('appearance')
   await page.getByRole('link', { name: '服务状态' }).click()
   await page.waitForURL(origin + '/console/settings#service-status')
   await page.waitForFunction(() => document.activeElement.id === 'service-status')
+  await anchorBelowHeader('service-status')
   await page.close()
 
   const filters = await browser.newPage({ viewport: desktop })
   await logIn(filters, undefined, undefined, '/console/users')
+  await filters.getByRole('row', { name: /陈晓/ }).waitFor()
+  const desktopTrigger = filters.getByRole('banner').getByRole('button', { name: '切换侧栏', exact: true })
+  const top = await desktopTrigger.boundingBox()
+  await filters.evaluate(() => scrollTo(0, 100))
+  assert.equal(await paintedScroll(filters), 100)
+  assert.equal((await desktopTrigger.boundingBox()).y, top.y - 100)
+  await filters.evaluate(() => scrollTo(0, 0))
   const name = filters.getByRole('textbox', { name: /姓名/ })
   await name.fill('陈')
   await name.press('Enter')

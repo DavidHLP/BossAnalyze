@@ -39,8 +39,9 @@ export const consoleScrollBehavior: RouterScrollBehavior = (to, from, savedPosit
   if (savedPosition) return restorePosition(savedPosition)
   const anchor = to.hash && document.getElementById(to.hash.slice(1))
   if (anchor) {
-    const top = Number.parseFloat(getComputedStyle(anchor).scrollMarginTop) || 0
-    return { el: anchor, top }
+    const margin = Number.parseFloat(getComputedStyle(anchor).scrollMarginTop) || 0
+    const padding = Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0
+    return { el: anchor, top: margin + padding }
   }
   return to.path === from.path ? false : { left: 0, top: 0 }
 }

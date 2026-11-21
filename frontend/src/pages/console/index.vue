@@ -97,7 +97,8 @@ onMounted(loadOverview)
 </script>
 
 <template>
-  <section class="flex min-w-0 flex-col gap-5" aria-labelledby="workbench-title">
+  <!-- The role badge and metrics load independently after the router restores history. -->
+  <section class="flex min-w-0 flex-col gap-5 max-md:[overflow-anchor:none]" aria-labelledby="workbench-title">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div class="min-w-0 space-y-2">
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
