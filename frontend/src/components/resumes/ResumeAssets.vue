@@ -6,6 +6,19 @@ import { deleteResumeAsset, resumeAssetAvailable, uploadResumeAsset } from '@/ap
 const props = defineProps<{ userId?: number; enabled: boolean; assets: string[]; images: Record<string, string> }>()
 const emit = defineEmits<{ uploaded: [name: string]; removed: [name: string]; insert: [name: string] }>()
 const open = defineModel<boolean>('open', { required: true })
+let insertOnClose: string | null = null
+
+function selectAsset(name: string) {
+  insertOnClose = name
+  open.value = false
+}
+
+function returnToEditor(event: Event) {
+  if (insertOnClose === null) return
+  event.preventDefault()
+  emit('insert', insertOnClose)
+  insertOnClose = null
+}
 const mobile = useMediaQuery('(max-width: 767px)')
 const busy = ref('')
 const error = ref('')
@@ -54,7 +67,7 @@ async function remove() {
 
 <template>
   <UiSheet :open="open" @update:open="!busy && (open = $event)">
-    <UiSheetContent :side="mobile ? 'bottom' : 'right'" class="max-h-[85dvh] w-full overflow-auto sm:max-w-md" @interact-outside.prevent @escape-key-down="busy && $event.preventDefault()">
+    <UiSheetContent :side="mobile ? 'bottom' : 'right'" class="max-h-[85dvh] w-full overflow-auto sm:max-w-md" @interact-outside.prevent @escape-key-down="busy && $event.preventDefault()" @close-auto-focus="returnToEditor">
       <UiSheetHeader>
         <UiSheetTitle>图片素材管理</UiSheetTitle>
         <UiSheetDescription>上传图片并插入当前简历的光标位置。</UiSheetDescription>
@@ -76,7 +89,7 @@ async function remove() {
               <li v-for="asset in assets" :key="asset" class="flex min-w-0 flex-wrap items-center gap-2 p-2">
                 <img v-if="images[asset]" :src="images[asset]" alt="" class="size-10 object-cover" />
                 <span class="min-w-24 flex-1 break-all text-sm">{{ asset }}</span>
-                <UiButton variant="outline" size="sm" :disabled="Boolean(busy)" @click="emit('insert', asset)">插入光标</UiButton>
+                <UiButton variant="outline" size="sm" :disabled="Boolean(busy)" @click="selectAsset(asset)">插入光标</UiButton>
                 <UiButton variant="ghost" size="sm" :disabled="Boolean(busy)" @click="deletion = asset">删除</UiButton>
               </li>
             </ul>
