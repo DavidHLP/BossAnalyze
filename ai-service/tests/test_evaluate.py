@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 
 import pytest
@@ -17,8 +18,9 @@ def sample():
     return gold, prediction
 
 
-def run(g, p, development=()):
-    return evaluate([Gold.model_validate(g)], [Prediction.model_validate(p)], list(development), 1, 1)
+def run(g, p, development=(), *, acceptance="human"):
+    return evaluate([Gold.model_validate(g)], [Prediction.model_validate(p)], list(development), 1, 1,
+                    acceptance=acceptance)
 
 
 def test_perfect_synthetic_metrics_never_approve_quality():
@@ -102,13 +104,14 @@ def test_no_comparable_ranking_or_zero_denominators_are_unverifiable():
     assert result["metrics"]["rankingAgreement"] is None
 
 
-def test_sample_sets_unknown_keys_and_ranking_ids_must_match():
+@pytest.mark.parametrize("acceptance", ["human", "ai"])
+def test_sample_sets_unknown_keys_and_ranking_ids_must_match(acceptance):
     for field, value in (("id", "other"), ("unknown", {}), ("ranking", ["unexpected"]),
                          ("model", "fallback")):
-        g, p = sample()
+        g, p = complete_sample(annotation_origin=acceptance)
         p[field] = value
         with pytest.raises(ValueError):
-            run(g, p)
+            run(g, p, acceptance=acceptance)
 
 
 def test_near_duplicate_not_just_exact_text_is_rejected():
@@ -128,13 +131,49 @@ def test_cli_missing_gold_returns_safe_unverifiable(tmp_path, monkeypatch, capsy
                                    "--development", str(empty), "--min-samples", "100",
                                    "--min-ranking-agreement", "0.9"])
     assert main() == 2
-    import json
     result = json.loads(capsys.readouterr().out)
     assert result["status"] == "unverifiable" and result["samples"] == 0
 
 
+def test_cli_ai_reviewed_synthetic_gold_requires_ai_acceptance(tmp_path, monkeypatch, capsys):
+    from app.evaluate import main
+
+    g, p = complete_sample(annotation_origin="ai")
+    gold = tmp_path / "gold.jsonl"
+    predictions = tmp_path / "predictions.jsonl"
+    development = tmp_path / "development.jsonl"
+    gold.write_text(json.dumps(g))
+    predictions.write_text(json.dumps(p))
+    development.write_text("")
+    args = ["evaluate", "--gold", str(gold), "--predictions", str(predictions),
+            "--development", str(development), "--min-samples", "1", "--min-ranking-agreement", "1"]
+    monkeypatch.setattr("sys.argv", args)
+    assert main() == 2
+    assert capsys.readouterr().out == (
+        '{"status": "unverifiable", "samples": 0, "qualityApproval": "unverifiable",'
+        ' "reason": "invalid, unreviewed, incomplete or leaking input"}\n'
+    )
+
+    monkeypatch.setattr("sys.argv", [*args, "--acceptance", "ai"])
+    assert main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "pass"
+    assert result["acceptance"] == result["labelSource"] == "ai"
+    assert result["qualityApproval"] == "ai_accepted"
+    assert "not independent human truth" in result["reason"]
+
+    development.write_text(json.dumps(dict(id="dev", groupId="dev-group", source=g["source"])))
+    assert main() == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == result["qualityApproval"] == "unverifiable"
+    assert result["samples"] == 0
+    assert result["acceptance"] == "ai" and result["labelSource"] is None
+    assert "leaking input" in result["reason"]
+
+
 def test_gate_status_with_simulated_provenance_is_not_quality_approval():
     g, p = complete_sample()
+    assert run(g, p)["status"] == "unverifiable"
     # Unit-only metadata simulation, not a reviewed public-data artifact.
     g["dataOrigin"] = "real_public"
     assert run(g, p)["status"] == "pass"
@@ -142,16 +181,53 @@ def test_gate_status_with_simulated_provenance_is_not_quality_approval():
     assert evaluate([Gold.model_validate(g)], [Prediction.model_validate(p)], [], 2, 1)["status"] == "unverifiable"
 
 
-def complete_sample():
+def complete_sample(*, annotation_origin="human"):
     g, p = sample()
     # Entirely simulated labels, provenance and telemetry for runner contract tests.
+    if annotation_origin == "ai":
+        g.update(annotationOrigin="ai", reviewStatus="ai_reviewed")
     g["coreRequirements"] = deepcopy(g["requirements"])
     p.update(coreRequirements=deepcopy(p["requirements"]), latencyMs=0, costUsd="0")
     return g, p
 
 
+@pytest.mark.parametrize("field,value", [("reviewStatus", "reviewed"), ("reviewer", " "),
+                                        ("annotationOrigin", "human"), ("annotationOrigin", "jev")])
+def test_ai_acceptance_rejects_inconsistent_label_provenance(field, value):
+    g, p = complete_sample(annotation_origin="ai")
+    g[field] = value
+    with pytest.raises(ValueError, match="unreviewed or missing annotations"):
+        run(g, p, acceptance="ai")
+
+
+def test_ai_acceptance_reports_actual_label_source():
+    g, p = complete_sample()
+    result = run(g, p, acceptance="ai")
+    assert result["status"] == "pass"
+    assert result["labelSource"] == "human"
+
+    gold, predictions = population(2)
+    gold[1].update(annotationOrigin="ai", reviewStatus="ai_reviewed")
+    result = run_population(gold, predictions, acceptance="ai")
+    assert result["status"] == "pass"
+    assert result["labelSource"] == "mixed"
+
+    gold[1]["subgroup"] = "other"
+    result = run_population(gold, predictions, min_samples=2, acceptance="ai")
+    assert result["status"] == result["qualityApproval"] == "unverifiable"
+
+
+@pytest.mark.parametrize("field,metric", [("candidates", "candidateRecall"), ("ranking", "rankingAgreement")])
+def test_ai_acceptance_fails_on_metric_thresholds(field, metric):
+    g, p = complete_sample(annotation_origin="ai")
+    p[field] = [] if field == "candidates" else list(reversed(p[field]))
+    result = run(g, p, acceptance="ai")
+    assert result["metrics"][metric] == 0
+    assert result["status"] == "fail"
+    assert result["qualityApproval"] == "unverifiable"
+
+
 def test_old_jsonl_loads_but_missing_observations_cannot_pass(tmp_path):
-    import json
     g, p = sample()
     g["dataOrigin"] = "real_public"  # Simulated provenance only.
     for name, row, schema in [("gold", g, Gold), ("prediction", p, Prediction)]:
@@ -166,19 +242,23 @@ def test_old_jsonl_loads_but_missing_observations_cannot_pass(tmp_path):
     assert m["latency"] == dict(p95Ms=None, knownSamples=0, coverage=0, percentileMethod="nearest-rank")
 
 
-def test_core_wrong_selection_and_missing_prediction_are_distinct():
-    g, p = complete_sample()
+@pytest.mark.parametrize("acceptance", ["human", "ai"])
+def test_core_wrong_selection_and_missing_prediction_are_distinct(acceptance):
+    g, p = complete_sample(annotation_origin=acceptance)
+    if acceptance == "human":
+        g["dataOrigin"] = "real_public"
     second = dict(sourcePath="/jobDescription", start=7, end=9, text="五险")
     g["requirements"].append(second)
     p["requirements"].append(second)
     p["coreRequirements"] = [second]
-    result = run(g, p)
+    result = run(g, p, acceptance=acceptance)
     assert result["status"] == "fail"
+    assert result["qualityApproval"] == "unverifiable"
     assert result["metrics"]["coreSelection"] == dict(tp=0, predicted=1, gold=1, precision=0, recall=0)
     p["coreRequirements"] = None
-    assert run(g, p)["status"] == "unverifiable"
+    assert run(g, p, acceptance=acceptance)["status"] == "unverifiable"
     p["coreRequirements"] = []
-    m = run(g, p)["metrics"]["coreSelection"]
+    m = run(g, p, acceptance=acceptance)["metrics"]["coreSelection"]
     assert m["recall"] == 0 and m["precision"] is None
 
 
@@ -245,9 +325,10 @@ def population(size):
     return gold, predictions
 
 
-def run_population(gold, predictions):
+def run_population(gold, predictions, *, min_samples=1, acceptance="human"):
     return evaluate([Gold.model_validate(g) for g in gold],
-                    [Prediction.model_validate(p) for p in predictions], [], 1, 1)
+                    [Prediction.model_validate(p) for p in predictions], [], min_samples, 1,
+                    acceptance=acceptance)
 
 
 @pytest.mark.parametrize("size,p95", [(1, 1), (20, 19), (21, 20)])
@@ -306,7 +387,6 @@ def test_exact_cost_does_not_use_default_decimal_precision():
 
 @pytest.mark.parametrize("case,exit_code", [("complete", 0), ("old", 2), ("wrong", 1), ("invalid", 2)])
 def test_cli_complete_old_failure_and_invalid_telemetry(case, exit_code, tmp_path, monkeypatch, capsys):
-    import json
     from app.evaluate import main
     g, p = sample() if case == "old" else complete_sample()
     g["dataOrigin"] = "real_public"  # Unit-only provenance simulation, never a real human gold set.
@@ -325,16 +405,19 @@ def test_cli_complete_old_failure_and_invalid_telemetry(case, exit_code, tmp_pat
     assert result["qualityApproval"] == "unverifiable"
 
 
+@pytest.mark.parametrize("acceptance", ["human", "ai"])
 @pytest.mark.parametrize("side,field", [("gold", "coreRequirements"), ("prediction", "coreRequirements"),
                                        ("prediction", "latencyMs"), ("prediction", "costUsd")])
-def test_each_missing_observation_blocks_otherwise_passing_report(side, field):
-    g, p = complete_sample()
-    g["dataOrigin"] = "real_public"  # Simulated metadata only.
-    assert run(g, p)["status"] == "pass"
+def test_each_missing_observation_blocks_otherwise_passing_report(side, field, acceptance):
+    g, p = complete_sample(annotation_origin=acceptance)
+    if acceptance == "human":
+        g["dataOrigin"] = "real_public"  # Simulated metadata only.
+    assert run(g, p, acceptance=acceptance)["status"] == "pass"
     (g if side == "gold" else p)[field] = None
-    assert run(g, p)["status"] == "unverifiable"
+    result = run(g, p, acceptance=acceptance)
+    assert result["status"] == result["qualityApproval"] == "unverifiable"
     p["ranking"].reverse()
-    assert run(g, p)["status"] == "fail"
+    assert run(g, p, acceptance=acceptance)["status"] == "fail"
 
 
 @pytest.mark.parametrize("side", ["gold", "prediction"])
