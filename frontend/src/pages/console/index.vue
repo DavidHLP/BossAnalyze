@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { ArrowRight01Icon, Clock01Icon, RefreshIcon } from '@hugeicons/core-free-icons'
 import { getUserRole, getUserPrivateInformation } from '@/api/auth/auth'
@@ -13,7 +13,13 @@ import { accessSnapshot, roleStatus, settingsFailure } from '@/lib/settings'
 
 type State = 'loading' | 'ready' | 'error' | 'forbidden'
 const { state: session } = useSession()
-const shortcuts = computed(() => menuShortcuts(session.value.menus))
+const router = useRouter()
+const shortcuts = computed(() => menuShortcuts(session.value.menus)
+  .filter(({ path }) => path !== '/console/profile' && !router.resolve({ path }).meta.placeholder))
+const workspace = [
+  { path: '/resumes', title: '我的简历' },
+  { path: '/recruitment', title: '招聘分析', icon: 'ChartHistogramIcon' },
+]
 const canViewDashboard = computed(() =>
   Boolean(findMenu(session.value.menus, '/console/dashboard')),
 )
@@ -31,7 +37,6 @@ const shortcutDescriptions: Record<string, string> = {
   '/console/roles': '维护角色与访问授权',
   '/console/menus': '维护菜单与路由配置',
   '/console/settings': '查看账户入口和服务状态',
-  '/console/profile': '查看基本资料与访问权限',
 }
 const metrics = computed(() => {
   const data = snapshot.value
@@ -103,7 +108,6 @@ onMounted(loadOverview)
             {{ access.name }}
           </UiBadge>
         </div>
-        <p class="text-sm text-muted-foreground">查看受保护 API 访问快照，并前往已授权的管理页面。</p>
       </div>
       <UiButton :aria-disabled="pending" @click="refresh">
         <HugeiconsIcon
@@ -116,7 +120,17 @@ onMounted(loadOverview)
       </UiButton>
     </header>
 
+    <nav aria-label="工作空间" class="grid grid-cols-2 gap-3 sm:w-fit">
+      <UiButton v-for="item in workspace" :key="item.path" variant="outline" class="justify-start bg-card" as-child>
+        <RouterLink :to="item.path">
+          <HugeiconsIcon :icon="menuIcon(item.path, item.icon)" class="size-4" aria-hidden="true" />
+          {{ item.title }}
+        </RouterLink>
+      </UiButton>
+    </nav>
+
     <UiCard
+      v-if="canViewDashboard"
       class="min-w-0 gap-3 py-4"
       role="region"
       aria-labelledby="overview-title"
@@ -124,7 +138,7 @@ onMounted(loadOverview)
     >
       <UiCardHeader class="flex flex-wrap items-center justify-between gap-3">
         <h2 id="overview-title" class="text-lg font-semibold">日志访问概览</h2>
-        <div v-if="canViewDashboard" class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
           <UiButton variant="outline" size="sm" :aria-disabled="statsState === 'loading'" @click="refreshStats">
             <HugeiconsIcon :icon="RefreshIcon" class="size-4" aria-hidden="true" />
             刷新概览
@@ -138,7 +152,7 @@ onMounted(loadOverview)
         </div>
       </UiCardHeader>
       <UiCardContent>
-        <p v-if="!canViewDashboard || statsState === 'forbidden'" role="status" class="border-t pt-4 text-sm text-muted-foreground">
+        <p v-if="statsState === 'forbidden'" role="status" class="border-t pt-4 text-sm text-muted-foreground">
           当前账号无权读取日志概览，请联系管理员确认权限。
         </p>
         <UiAlert v-else-if="statsState === 'error'" variant="destructive" role="alert">
@@ -189,12 +203,9 @@ onMounted(loadOverview)
       </UiCardContent>
     </UiCard>
 
-    <section class="min-w-0 space-y-3" aria-labelledby="shortcuts-title">
-      <div class="space-y-1">
-        <h2 id="shortcuts-title" class="text-lg font-semibold">授权快捷入口</h2>
-        <p class="text-xs text-muted-foreground">按侧栏可见的授权叶节点展示。</p>
-      </div>
-      <div v-if="shortcuts.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <section v-if="shortcuts.length" class="min-w-0 space-y-3" aria-labelledby="shortcuts-title">
+      <h2 id="shortcuts-title" class="text-lg font-semibold">授权快捷入口</h2>
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <UiButton
           v-for="item in shortcuts"
           :key="item.path"
@@ -215,12 +226,6 @@ onMounted(loadOverview)
             </span>
             <HugeiconsIcon :icon="ArrowRight01Icon" class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </RouterLink>
-        </UiButton>
-      </div>
-      <div v-else class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-card p-4">
-        <p role="status" class="text-sm text-muted-foreground">尚未分配管理功能，如需访问请联系管理员。</p>
-        <UiButton variant="outline" size="sm" as-child>
-          <RouterLink to="/recruitment">查看招聘分析</RouterLink>
         </UiButton>
       </div>
     </section>
