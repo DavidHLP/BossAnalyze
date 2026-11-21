@@ -3,12 +3,12 @@
 ## Project Structure & Module Organization
 
 - `backend/` is the Java 17 Maven reactor: `commons` holds shared models/utilities, `api` handles authentication and business APIs, `crawler` collects recruitment data and integrates AI, and `analytics` runs Spark analysis. Modules use `src/main/java`, `src/main/resources`, and `src/test/java`.
-- `frontend/` is the Nuxt 4/Vue 3 TypeScript application. Routes live in `app/pages`, reusable UI in `app/components`, HTTP wrappers in `app/api`, and shared logic in `app/lib` and `app/composables`. Assets live in `app/assets` and `public`; tests and fixtures live in `tests/`.
+- `frontend/` is the Vite/Vue 3 TypeScript application. Routes live in `src/router` and `src/pages`, reusable UI in `src/components`, HTTP wrappers in `src/api`, and shared logic in `src/lib` and `src/composables`. The same-origin API proxy lives in `server/`.
 - `tools/credential-contract-tests/` contains isolated Java credential tests. `database/` holds SQL snapshots; `docs/` contains API contracts, local setup, and directory migration notes.
 
 ## Build, Test, and Development Commands
 
-Use Java 17, Maven 3.9.6+, Node.js 22.12+, and pnpm 11.24.0.
+Use Java 17, Maven 3.9.6+, Node.js 22.13+, and pnpm 11.24.0.
 
 From the repository root:
 
@@ -28,7 +28,7 @@ pnpm test
 pnpm build
 ```
 
-See `docs/local-development.md` for backend JAR startup and infrastructure prerequisites. Production requires the Nuxt `.output/` Node server for API proxies.
+See `docs/local-development.md` for backend JAR startup and infrastructure prerequisites. Production serves the Vite build and same-origin API through `pnpm start`.
 
 ## Coding Style & Naming Conventions
 

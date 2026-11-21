@@ -11,7 +11,7 @@ import {
   menuDeleteReason,
   menuDeleteReasons,
   menuWriteSucceeded,
-} from '../app/lib/menus.ts'
+} from '../src/lib/menus.ts'
 
 const raw = JSON.parse(await readFile(new URL('./fixtures/menus.json', import.meta.url)))
 const tree = managedMenus(raw)
@@ -104,10 +104,10 @@ test('menu edits retain stored permission and nullable historical role metadata'
 test('delete keeps the leave guard active during the second preflight and locks unknown writes', async () => {
   const vue = await import('vue')
   const ts = await import('typescript')
-  const menus = await import('../app/lib/menus.ts')
-  const roles = await import('../app/lib/roles.ts')
-  const mutations = await import('../app/lib/rbac-mutations.ts')
-  const source = await readFile(new URL('../app/pages/console/menus.vue', import.meta.url), 'utf8')
+  const menus = await import('../src/lib/menus.ts')
+  const roles = await import('../src/lib/roles.ts')
+  const mutations = await import('../src/lib/rbac-mutations.ts')
+  const source = await readFile(new URL('../src/pages/console/menus.vue', import.meta.url), 'utf8')
   const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
     .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
   const { outputText } = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } })

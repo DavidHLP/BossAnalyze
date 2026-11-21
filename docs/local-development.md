@@ -7,7 +7,7 @@ backend mismatch and verification boundary before removing the existing UI.
 ## Requirements
 
 - Java 17 and Maven 3.9.6 or newer.
-- Node.js 22.12+, pnpm 11.24.0, and the checked-in `frontend/pnpm-lock.yaml`.
+- Node.js 22.13+, pnpm 11.24.0, and the checked-in `frontend/pnpm-lock.yaml`.
 - MySQL 8 with separate `blog_data` and `boss_data` databases, Redis, and MongoDB.
 - Python 3.12–3.14 and uv for `ai-service/`; the current local build was verified with Python 3.13.15 and uv 0.9.9.
 - RustFS for S3 object storage and either a real SMTP provider or the explicit local Mailpit capture profile.
@@ -52,21 +52,23 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-The frontend uses Nuxt 4 + shadcn-vue, with login, console management, dashboards and
-read-only recruitment analytics. Remaining business routes use explicit rebuild placeholders.
-Preserved API wrappers and their required types/request client now live under `frontend/app/`.
-Nitro routes `/api/v1/boss/**` to Spark on 8082, `/api/v1/ai/**` to the crawler on 8081,
-and other `/api/**` requests to the main API on 8080, retaining the `/api` prefix.
-These proxies run in development and in the production Node server. `pnpm type-check`,
-`pnpm test` and `pnpm build` verify the frontend foundation. To run the production build:
+The frontend uses Vue 3, Vite and shadcn-vue. The development server runs on
+`127.0.0.1:5020`. Both development and production serve `/api` on the same origin.
+The proxy sends `/api/v1/ai/**` and `/api/v2/ai/**` to the crawler on 8081.
+It sends other `/api/**` requests to the main API on 8080. The main API owns the
+analytics gateway.
+
+To build and serve the production version:
 
 ```sh
+pnpm type-check
+pnpm test
+pnpm build
 HOST=127.0.0.1 PORT=5020 pnpm start
 ```
 
-Deploy the Nuxt `.output/` Node server; static hosting of `.output/public/` alone does not
-provide the proxies. See `frontend/README.md` for the preserved browser-only request semantics
-and legacy `VITE_` export configuration.
+Deploy `dist/`, the frontend `server/` directory, and its runtime dependencies together.
+See [the frontend README](../frontend/README.md) for route fallback and proxy settings.
 
 ## Local Profile Boundaries
 

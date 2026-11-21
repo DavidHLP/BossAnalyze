@@ -1,0 +1,117 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useMediaQuery } from '@vueuse/core'
+import { analysisStatusLabels, analysisStatusTones, safeSourceUrl } from '@/lib/recruitment'
+import type { JobSample } from '@/lib/recruitment'
+const props = defineProps<{ job: JobSample | null }>()
+const emit = defineEmits<{ close: []; closeAutoFocus: [event: Event] }>()
+const mobile = useMediaQuery('(width < 640px)')
+const companyUrl = computed(() => safeSourceUrl(props.job?.companyUrl ?? null))
+const jobUrl = computed(() => safeSourceUrl(props.job?.jobUrl ?? null))
+const fields = computed(() =>
+  props.job
+    ? [
+        { label: '职位 ID', value: props.job.positionId },
+        { label: '城市', value: props.job.cityName },
+        { label: '原始薪资', value: props.job.salary },
+        { label: '统计薪资值（K）', value: props.job.salaryValue },
+        { label: '学历要求', value: props.job.degree },
+        { label: '学历等级', value: props.job.degreeValue },
+        { label: '经验要求', value: props.job.experience },
+        { label: '经验折算值', value: props.job.experienceValue },
+        { label: '公司规模', value: props.job.companySize },
+        { label: '融资阶段', value: props.job.financingStage },
+      ]
+    : [],
+)
+</script>
+<template>
+  <UiSheet
+    :open="Boolean(job)"
+    @update:open="
+      (value) => {
+        if (!value) emit('close')
+      }
+    "
+    ><UiSheetContent
+      :side="mobile ? 'bottom' : 'right'"
+      class="w-full! sm:max-w-[600px]! data-[side=bottom]:h-[80dvh]! data-[side=bottom]:rounded-t-xl"
+      @close-auto-focus="emit('closeAutoFocus', $event)"
+    >
+      <UiSheetHeader class="shrink-0 border-b-[0.5px] border-border pr-14"
+        ><UiSheetTitle class="break-words">{{ job?.positionName || '职位详情' }}</UiSheetTitle
+        ><UiSheetDescription class="break-words">{{
+          job?.companyName || '未提供公司名称'
+        }}</UiSheetDescription></UiSheetHeader
+      >
+      <div v-if="job" class="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
+        <dl class="grid grid-cols-2 gap-5 text-sm">
+          <div v-for="field in fields" :key="field.label">
+            <dt class="text-xs text-muted-foreground">{{ field.label }}</dt>
+            <dd class="mt-1.5 break-all"
+              :class="{ 'font-mono tabular-nums': typeof field.value === 'number' }">{{ field.value ?? '—' }}</dd>
+          </div>
+          <div class="col-span-2">
+            <dt class="text-xs text-muted-foreground">地址</dt>
+            <dd class="mt-1.5 whitespace-pre-wrap break-all">{{ job.address || '—' }}</dd>
+          </div>
+        </dl>
+        <section class="space-y-2 text-sm" aria-label="分析来源">
+          <StatusBadge :tone="analysisStatusTones[job.analysisStatus]">
+            {{ analysisStatusLabels[job.analysisStatus] }}
+          </StatusBadge>
+          <p class="break-all text-muted-foreground">
+            模型 {{ job.analysisModel || '未知' }} · 版本 {{ job.analysisVersion || '未知' }}
+          </p>
+          <p
+            v-if="!['complete', 'no_evidence', 'unparsed'].includes(job.analysisStatus)"
+            class="rounded-md border border-status-warning-foreground/25 bg-status-warning-surface px-3 py-2 text-status-warning-foreground"
+          >
+            以下保留已有内容，未经当前来源的成功分析确认。
+          </p>
+        </section>
+        <section class="space-y-3">
+          <h3 class="text-sm font-medium">职位福利</h3>
+          <div v-if="job.employeeBenefits.length" class="flex flex-wrap gap-2">
+            <UiBadge
+              v-for="(item, index) in job.employeeBenefits"
+              :key="index"
+              variant="secondary"
+              class="max-w-full whitespace-normal break-all bg-muted text-muted-foreground"
+              >{{ item }}</UiBadge
+            >
+          </div>
+          <p v-else class="text-sm text-muted-foreground">暂无可用福利信息。</p>
+        </section>
+        <section class="space-y-3">
+          <h3 class="text-sm font-medium">工作要求</h3>
+          <ul v-if="job.jobRequirements.length" class="list-disc space-y-2 pl-4 text-sm leading-6">
+            <li
+              v-for="(item, index) in job.jobRequirements"
+              :key="index"
+              class="whitespace-pre-wrap break-all"
+            >
+              {{ item }}
+            </li>
+          </ul>
+          <p v-else class="text-sm text-muted-foreground">暂无可用工作要求。</p>
+        </section>
+      </div>
+      <UiSheetFooter class="shrink-0 flex-row flex-wrap justify-end border-t pb-[max(1rem,env(safe-area-inset-bottom))]"
+        ><UiButton variant="outline" @click="emit('close')">关闭</UiButton
+        ><UiButton v-if="companyUrl" variant="outline" as-child
+          ><a
+            :href="companyUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            >公司来源</a
+          ></UiButton
+        ><UiButton v-if="jobUrl" as-child
+          ><a :href="jobUrl" target="_blank" rel="noopener noreferrer"
+            >职位来源</a
+          ></UiButton
+        ></UiSheetFooter
+      >
+    </UiSheetContent></UiSheet
+  >
+</template>

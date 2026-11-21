@@ -17,7 +17,7 @@ import {
   safeSourceUrl,
   scatterData,
   scatterTicks,
-} from '../app/lib/recruitment.ts'
+} from '../src/lib/recruitment.ts'
 const fixture = JSON.parse(await readFile(new URL('./fixtures/recruitment.json', import.meta.url)))
 const jobs = jobSamples(fixture.jobs)
 

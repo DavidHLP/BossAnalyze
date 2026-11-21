@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
-import { DARK_THEME_QUERY, resolveTheme, THEME_STORAGE_KEY, themeHeadScript } from '../app/lib/theme.ts'
+import { DARK_THEME_QUERY, resolveTheme, THEME_STORAGE_KEY, themeHeadScript } from '../src/lib/theme.ts'
 
 test('an explicit theme overrides the operating system preference', () => {
   assert.equal(resolveTheme('light', true), 'light')

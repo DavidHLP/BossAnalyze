@@ -5,7 +5,7 @@ import {
   accessSnapshot,
   healthSnapshot,
   settingsFailure,
-} from '../app/lib/settings.ts'
+} from '../src/lib/settings.ts'
 
 test('settings account data excludes credentials and private unneeded fields', () => {
   assert.deepEqual(

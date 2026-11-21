@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { AxiosError } from 'axios'
-import { dashboardSnapshot, peakVisits, visitShare } from '../app/lib/dashboard.ts'
-import request from '../app/utils/request/request.ts'
+import { dashboardSnapshot, peakVisits, visitShare } from '../src/lib/dashboard.ts'
+import request from '../src/utils/request/request.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/dashboard.json', import.meta.url)))
 
@@ -99,15 +99,15 @@ test('malformed snapshots and invalid counts fail instead of implying no data', 
 
 // Resolve the Nuxt alias for Node while executing the actual API wrapper.
 const source = (
-  await readFile(new URL('../app/api/log/accesslog.ts', import.meta.url), 'utf8')
+  await readFile(new URL('../src/api/log/accesslog.ts', import.meta.url), 'utf8')
 )
   .replace(
     "'@/utils/request/request'",
-    JSON.stringify(new URL('../app/utils/request/request.ts', import.meta.url).href),
+    JSON.stringify(new URL('../src/utils/request/request.ts', import.meta.url).href),
   )
   .replace(
     "'@/lib/settings'",
-    JSON.stringify(new URL('../app/lib/settings.ts', import.meta.url).href),
+    JSON.stringify(new URL('../src/lib/settings.ts', import.meta.url).href),
   )
 const temporary = await mkdtemp(join(tmpdir(), 'bossanalyze-dashboard-test-'))
 await writeFile(join(temporary, 'package.json'), '{"type":"module"}')
@@ -197,7 +197,7 @@ test('peak uses the supplied snapshot buckets and shares keep a zero denominator
 })
 
 test('snapshot timestamps share an explicit timezone policy without inventing server timezone', async () => {
-  const { snapshotTime } = await import('../app/lib/dashboard.ts')
+  const { snapshotTime } = await import('../src/lib/dashboard.ts')
   assert.equal(snapshotTime('2026-10-30T16:00:00'), '2026-10-30 16:00:00（服务端时间，时区未提供）')
   assert.equal(snapshotTime('2026-10-30T16:00:00+08:00'), '2026-10-30 08:00:00.000Z（UTC）')
   assert.equal(snapshotTime('2026-10-30T16:00:00+0800'), '2026-10-30 08:00:00.000Z（UTC）')

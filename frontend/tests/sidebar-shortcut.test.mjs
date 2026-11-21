@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { shouldToggleSidebar } from '../app/lib/sidebar-shortcut.ts'
+import { shouldToggleSidebar } from '../src/lib/sidebar-shortcut.ts'
 
 const ctrlB = {
   key: 'b',

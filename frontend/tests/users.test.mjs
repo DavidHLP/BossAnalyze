@@ -11,7 +11,7 @@ import {
   userSaveError,
   userDeleteError,
   userWriteSucceeded,
-} from '../app/lib/users.ts'
+} from '../src/lib/users.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/users.json', import.meta.url)))
 
@@ -139,10 +139,11 @@ test('create and edit introductions respect the existing 255-character column wi
 
 test('a stale list response or error cannot reinstate a deleted row after rereading', async () => {
   const vue = await import('vue')
+  const { useMediaQuery } = await import('@vueuse/core')
   const ts = await import('typescript')
-  const usersLib = await import('../app/lib/users.ts')
-  const mutations = await import('../app/lib/rbac-mutations.ts')
-  const source = await readFile(new URL('../app/pages/console/users.vue', import.meta.url), 'utf8')
+  const usersLib = await import('../src/lib/users.ts')
+  const mutations = await import('../src/lib/rbac-mutations.ts')
+  const source = await readFile(new URL('../src/pages/console/users.vue', import.meta.url), 'utf8')
   const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
     .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
   const { outputText } = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } })
@@ -153,7 +154,7 @@ test('a stale list response or error cannot reinstate a deleted row after reread
     return { users, total, pending, failed, restricted, loadUsers, deleted, changeSize, size }
   }`)
   const page = mount({
-    ...vue, ...usersLib, ...mutations,
+    ...vue, ...usersLib, ...mutations, useMediaQuery,
     definePageMeta() {}, useSession: () => session, useRoute: () => ({ query: {} }),
     useRouter: () => ({ replace() {} }), onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {},
     withSessionOwner: (_owner, call) => call(),

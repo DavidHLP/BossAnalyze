@@ -9,7 +9,7 @@ import {
   menuShortcuts,
   sessionFailure,
   validSession,
-} from '../app/lib/session.ts'
+} from '../src/lib/session.ts'
 
 const node = (path, permission = '', extra = {}) => ({
   path,
@@ -164,7 +164,7 @@ test('workbench cannot expose hidden, disabled or ungranted entries after sessio
 async function scriptRuntime(file, bindings, exports) {
   const { readFile } = await import('node:fs/promises')
   const ts = await import('typescript')
-  let source = await readFile(new URL(`../app/${file}`, import.meta.url), 'utf8')
+  let source = await readFile(new URL(`../src/${file}`, import.meta.url), 'utf8')
   if (file.endsWith('.vue')) source = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   source = source.replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
     .replaceAll('import.meta.client', 'true').replaceAll('import.meta.server', 'false')
@@ -175,14 +175,10 @@ async function scriptRuntime(file, bindings, exports) {
 
 async function sessionFixture() {
   const vue = await import('vue')
-  const { createRequire } = await import('node:module')
-  const require = createRequire(import.meta.url)
-  const nuxtRequire = createRequire(require.resolve('nuxt/package.json'))
-  const { createRouter, createMemoryHistory } = await import(nuxtRequire.resolve('vue-router'))
+  const { createRouter, createMemoryHistory } = await import('vue-router')
   const router = createRouter({ history: createMemoryHistory(), routes: ['/console/users', '/console/roles', '/console/menus', '/login'].map(path => ({ path, component: {} })) })
   await router.push('/console/users')
   const storage = new Map([['token', 'synthetic'], ['token_timestamp', String(Date.now())]])
-  const states = new Map()
   const api = { failure: null, logoutCalls: 0, logoutFailure: false }
   const localStorage = {
     getItem: key => storage.get(key) ?? null,
@@ -193,11 +189,11 @@ async function sessionFixture() {
     'advanceSession', 'bindDocumentSession', 'loginLocation', 'menuTree', 'ownsSession', 'requestSessionOwner',
     'sessionOwner', 'validSession', 'withSessionOwner',
   ])
-  const { requireMutationSuccess } = await import('../app/lib/rbac-mutations.ts')
+  const { requireMutationSuccess } = await import('../src/lib/rbac-mutations.ts')
   const { useSession } = await scriptRuntime('composables/useSession.ts', {
     ...sessionLib,
     requireMutationSuccess,
-    useState: (key, init) => { if (!states.has(key)) states.set(key, vue.ref(init())); return states.get(key) },
+    ref: vue.ref,
     useRouter: () => router,
     localStorage,
     sessionStorage: { removeItem() {} },
@@ -244,14 +240,14 @@ test('all production editor guards preserve session and draft on cancel, then co
     const { vue, router, session, useSession, storage } = fixture
     await session.restore()
     const panelProps = vue.reactive({ open: true, ...props })
-    const helper = await import(`../app/lib/${library}.ts`)
+    const helper = await import(`../src/lib/${library}.ts`)
     let guard
     const panel = await scriptRuntime(`components/${file}`, {
       ...vue, ...helper, ...fixture.sessionLib, useSession, useMediaQuery: () => vue.ref(false),
       defineProps: () => panelProps,
       defineEmits: () => (event, value) => { if (event === 'update:open') panelProps.open = value },
       onBeforeRouteLeave: callback => { guard = callback }, onMounted() {}, onUnmounted() {},
-      navigateTo: target => router.push(target),
+      useRouter: () => router,
     }, ['draft', 'cancelDiscard', 'discard', 'discardOpen'])
     panel.draft[draftName] = 'unsaved fixture'
     const remove = router.beforeEach(guard)
@@ -281,7 +277,7 @@ test('forced permission refresh bypasses dirty guard and clears session before n
 })
 
 test('navigation-hidden nodes remain authorized while whole hidden nodes are removed', async () => {
-  const { navigationMenus, loginLocation } = await import('../app/lib/session.ts')
+  const { navigationMenus, loginLocation } = await import('../src/lib/session.ts')
   const menus = menuTree([
     node('/console/users', '', { meta: { metaHidden: true, metaIcon: 'UserGroupIcon' } }),
     node('/console/roles', '', { meta: { hidden: true } }),
@@ -297,45 +293,55 @@ test('navigation-hidden nodes remain authorized while whole hidden nodes are rem
 })
 
 
-test('both real route middlewares block transient restoration and retry without dropping credentials', async () => {
-  const sessionLib = await import('../app/lib/session.ts')
-  for (const file of ['middleware/auth.ts', 'middleware/signed-in.ts']) {
-    const { session, useSession, storage, api } = await sessionFixture()
-    const { defaultExport: guard } = await scriptRuntime(file, {
-      ...sessionLib, useSession, defineNuxtRouteMiddleware: fn => fn,
-      navigateTo: target => target, createError: error => error,
-      abortNavigation: error => { throw error },
-    }, ['defaultExport'])
+test('menu-protected destinations require authorization for the exact pathname', async () => {
+  const { authorizeRoute } = await import('../src/router/guard.ts')
+  const { session } = await sessionFixture()
+  for (const path of ['/console/roles', '/console/USERS', '/Console/users', '/console/users/']) {
+    const destination = { path, fullPath: path, meta: { access: 'menu' } }
+    assert.deepEqual(await authorizeRoute(session, destination), {
+      name: 'system-error', params: { code: '403' }, replace: true,
+    })
+  }
+  assert.equal(await authorizeRoute(session, {
+    path: '/console/users',
+    fullPath: '/console/users?name=fixture#list',
+    meta: { access: 'menu' },
+  }), true)
+})
+
+test('protected routes fail closed during transient restoration and retain credentials for retry', async () => {
+  const { authorizeRoute } = await import('../src/router/guard.ts')
+  for (const path of ['/console/users', '/recruitment']) {
+    const { session, storage, api } = await sessionFixture()
+    const target = { path, fullPath: path + '?edit=1#form', meta: { access: path === '/recruitment' ? 'session' : 'menu' } }
     api.failure = { code: 503 }
-    const target = { path: '/console/users', fullPath: '/console/users?edit=1#form' }
-    await assert.rejects(guard(target), error => error.statusCode === 503 && error.data.redirect === target.fullPath)
+    const failure = await authorizeRoute(session, target)
+    assert.equal(failure.params.code, '503')
+    assert.equal(failure.query.redirect, target.fullPath)
     assert.equal(storage.get('token'), 'synthetic')
     assert.deepEqual(session.state.value.menus, [])
     api.failure = null
-    assert.equal(await guard(target), undefined)
+    assert.equal(await authorizeRoute(session, target), true)
     storage.delete('token')
-    assert.equal((await guard(target)).query.redirect, target.fullPath)
+    assert.equal((await authorizeRoute(session, target)).query.redirect, target.fullPath)
   }
 })
 
-test('stale restoration failures and successes use the new session in both route guards', async () => {
-  const sessionLib = await import('../app/lib/session.ts')
-  for (const file of ['middleware/auth.ts', 'middleware/signed-in.ts']) {
+test('stale restoration failures and successes use the newer session on protected routes', async () => {
+  const { authorizeRoute } = await import('../src/router/guard.ts')
+  for (const path of ['/console/users', '/recruitment']) {
     for (const code of [401, 503, null]) {
-      const { session, useSession, storage, api } = await sessionFixture()
-      const { defaultExport: guard } = await scriptRuntime(file, {
-        ...sessionLib, useSession, defineNuxtRouteMiddleware: fn => fn,
-        navigateTo: target => target, createError: error => error,
-        abortNavigation: error => { throw error },
-      }, ['defaultExport'])
+      const { session, storage, api } = await sessionFixture()
       const pending = Promise.withResolvers()
       api.pending = pending.promise
-      const oldNavigation = guard({ path: '/console/users', fullPath: '/console/users' })
+      const oldNavigation = authorizeRoute(session, {
+        path, fullPath: path, meta: { access: path === '/recruitment' ? 'session' : 'menu' },
+      })
       api.pending = null
       await session.signIn('fixture@example.invalid', 'synthetic')
       if (code) pending.reject({ code })
       else pending.resolve([])
-      assert.equal(await oldNavigation, undefined)
+      assert.equal(await oldNavigation, true)
       assert.equal(storage.get('token'), 'synthetic-login')
       assert.equal(session.state.value.ready, true)
       assert.ok(findMenu(session.state.value.menus, '/console/users'))
@@ -344,7 +350,7 @@ test('stale restoration failures and successes use the new session in both route
 })
 
 test('menu icons accept only installed names and retain path/default fallbacks', async () => {
-  const { menuIcon } = await import('../app/lib/menu-icons.ts')
+  const { menuIcon } = await import('../src/lib/menu-icons.ts')
   const { ShieldUserIcon, UserGroupIcon, File01Icon } = await import('@hugeicons/core-free-icons')
   assert.equal(menuIcon('/console/users', 'ShieldUserIcon'), ShieldUserIcon)
   assert.equal(menuIcon('/console/users', '<script>'), UserGroupIcon)
@@ -377,49 +383,23 @@ test('a completed old logout cannot clear a newly signed-in session', async () =
   assert.equal(session.state.value.ready, true)
 })
 
-test('retry from the global error page reruns guards even at the current URL', async () => {
+test('retry navigates to the original destination and repeats the route guard', async () => {
   const { vue, router } = await sessionFixture()
   const redirect = '/console/users?edit=1#form'
-  await router.replace(redirect)
-  const outage = { statusCode: 503, data: { sessionRestore: true, redirect } }
-  const denied = { statusCode: 403 }
-  const activeError = vue.ref(outage)
+  router.addRoute({ path: '/system-error/:code', component: {} })
+  await router.replace('/system-error/503')
   let guardCalls = 0
-  let failure = outage
-  router.onError(() => {})
-  router.beforeEach(() => {
-    guardCalls++
-    if (failure) throw failure
-  })
-
-  const { leaveError } = await scriptRuntime('error.vue', {
+  router.beforeEach(() => { guardCalls++; return true })
+  const { retry } = await scriptRuntime('pages/SystemError.vue', {
     ...vue,
-    defineProps: () => ({ error: activeError.value }),
+    useRoute: () => ({ params: { code: '503' }, query: { redirect } }),
     useRouter: () => router,
-    useNuxtApp: () => ({ runWithContext: fn => fn() }),
-    useError: () => activeError,
-    useHead: () => {},
-    isNuxtError: cause => Boolean(cause?.statusCode),
-    clearError: async (options) => {
-      if (options?.redirect) await router.replace(options.redirect)
-      activeError.value = undefined
-    },
-  }, ['leaveError'])
-
-  await leaveError(redirect)
+    document: { title: '' },
+    safeReturnPath: (await import('../src/lib/session.ts')).safeReturnPath,
+  }, ['retry'])
+  await retry()
   assert.equal(guardCalls, 1)
-  assert.deepEqual(activeError.value, outage)
-
-  failure = denied
-  await leaveError(redirect)
-  assert.equal(guardCalls, 2)
-  assert.deepEqual(activeError.value, denied)
-
-  failure = null
-  await leaveError(redirect)
-  assert.equal(guardCalls, 3)
   assert.equal(router.currentRoute.value.fullPath, redirect)
-  assert.equal(activeError.value, undefined)
 })
 
 test('forced logout only clears the initiating session even when navigation is delayed', async () => {
@@ -458,15 +438,15 @@ test('a storage change freezes the displayed draft and requests while reload is 
     removeEventListener: events.removeEventListener.bind(events),
     location: { reload: () => { reloads++ } },
   }
-  const { defaultExport: install } = await scriptRuntime('plugins/session.client.ts', {
-    window, localStorage, useSession, useRouter: () => router, defineNuxtPlugin: callback => callback,
-  }, ['defaultExport'])
-  install({ vueApp: { onUnmount() {} } })
-  const users = await import('../app/lib/users.ts')
+  const { listenToSessionEvents } = await scriptRuntime('composables/session-events.ts', {
+    window, localStorage,
+  }, ['listenToSessionEvents'])
+  listenToSessionEvents(session, router)
+  const users = await import('../src/lib/users.ts')
   const draftProps = vue.reactive({ open: false, mode: 'create', rolesUnavailable: false })
   let writes = 0
   const panel = await scriptRuntime('components/users/UserEditor.vue', {
-    ...vue, ...users, ...sessionLib, useSession, defineProps: () => draftProps,
+    ...vue, ...users, ...sessionLib, useSession, useRouter: () => router, defineProps: () => draftProps,
     defineEmits: () => () => {}, useMediaQuery: () => vue.ref(false), onBeforeRouteLeave() {},
     onMounted() {}, onUnmounted() {}, addUser: async () => { writes++ },
   }, ['draft', 'save', 'sessionChanged'])
@@ -490,9 +470,9 @@ test('a storage change freezes the displayed draft and requests while reload is 
 })
 
 test('request classification separates network, timeout and absent write bodies from explicit rejection', async () => {
-  const { requestFailure } = await import('../app/utils/request/request.ts')
+  const { requestFailure } = await import('../src/utils/request/request.ts')
   const { checkReadAccess, mutationResultUnknown, mutationError, requireMutationSuccess, roleDeleteError } =
-    await import('../app/lib/rbac-mutations.ts')
+    await import('../src/lib/rbac-mutations.ts')
   for (const failure of [
     requestFailure(undefined, undefined, 'Network Error'),
     requestFailure(undefined, undefined, 'timeout of 5000ms exceeded'),
@@ -551,12 +531,12 @@ test('the synchronous Axios interceptor sends the owned bearer and ignores an ol
 })
 
 async function panelRuntime(fixture, file, props, bindings, exports) {
-  const { vue, sessionLib, useSession } = fixture
+  const { vue, sessionLib, useSession, router } = fixture
   const events = []
   const panelProps = vue.reactive({ open: false, ...props })
-  const mutationLib = await import('../app/lib/rbac-mutations.ts')
+  const mutationLib = await import('../src/lib/rbac-mutations.ts')
   const panel = await scriptRuntime(`components/${file}.vue`, {
-    ...vue, ...sessionLib, ...mutationLib, useSession,
+    ...vue, ...sessionLib, ...mutationLib, useSession, useRouter: () => router,
     defineProps: () => panelProps, useMediaQuery: () => vue.ref(false),
     defineEmits: () => (...event) => {
       events.push(event)
@@ -571,7 +551,7 @@ async function panelRuntime(fixture, file, props, bindings, exports) {
 }
 
 test('an uncertain grant keeps its selection locked and forces reauthentication for the current role', async () => {
-  const roles = await import('../app/lib/roles.ts')
+  const roles = await import('../src/lib/roles.ts')
   const tree = roles.permissionTree([{ id: 10, permission: 'fixture.write' }])
   const role = { id: 1, roleName: 'Fixture', status: 1, remark: '', routerIds: [], permissions: [] }
   for (const actorRoleId of [1, 2]) {
@@ -598,8 +578,8 @@ test('an uncertain grant keeps its selection locked and forces reauthentication 
 })
 
 test('menu save only applies the unknown-result lock after dispatching the write', async () => {
-  const menus = await import('../app/lib/menus.ts')
-  const roles = await import('../app/lib/roles.ts')
+  const menus = await import('../src/lib/menus.ts')
+  const roles = await import('../src/lib/roles.ts')
   const fixture = await sessionFixture()
   await fixture.session.restore()
   let dependencyFails = true

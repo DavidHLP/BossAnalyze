@@ -16,7 +16,7 @@ import {
   selectionPermissions,
   togglePermission,
   unrepresentedGrants,
-} from '../app/lib/roles.ts'
+} from '../src/lib/roles.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/roles.json', import.meta.url)))
 const tree = permissionTree(fixture.routers)

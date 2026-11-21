@@ -4,7 +4,7 @@
 [![Spring Boot 3.4.5](https://img.shields.io/badge/Spring%20Boot-3.4.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring Cloud 4.2.1](https://img.shields.io/badge/Spring%20Cloud-4.2.1-6DB33F?logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
 [![Vue.js 3](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
-[![Node.js >= 22.12.0](https://img.shields.io/badge/Node.js->=22.12.0-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Node.js >= 22.13.0](https://img.shields.io/badge/Node.js->=22.13.0-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Apache Spark 4.0.0](https://img.shields.io/badge/Apache%20Spark-4.0.0-E25A1C?logo=apachespark&logoColor=white)](https://spark.apache.org/)
 [![Scala 2.13](https://img.shields.io/badge/Scala-2.13-DC322F?logo=scala&logoColor=white)](https://www.scala-lang.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9.6-C71A36?logo=apachemaven&logoColor=white)](https://maven.apache.org/)
@@ -15,13 +15,9 @@ For local startup and connectivity checks, see [Local Development](docs/local-de
 Current local acceptance and remaining external gates are recorded in the
 [non-BOSS delivery report](docs/operations/non-boss-delivery-20261109.md).
 
-The frontend is being rebuilt on Nuxt 4 and shadcn-vue preset `a2lQlAlu` with pointer
-styles enabled. The API layer lives under `frontend/app/`; login, the console, management
-pages, dashboards and read-only recruitment analytics are implemented. Resume editing and
-other unbuilt routes remain outside the current UI. The screenshots below document the
-previous frontend. See the [API handoff](docs/frontend-api/README.md)
-and [frontend README](frontend/README.md) for the current state. Backend services and stored data
-are unchanged by this frontend work.
+The frontend uses Vue 3, Vite and the shadcn-vue preset `a6NRqzdI`.
+It includes login, the workbench, dashboards, recruitment analytics and permissions
+management. For setup and routes, see the [frontend README](frontend/README.md).
 
 ## 📌 目录
 
@@ -82,7 +78,7 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 
 | 技术栈 | 说明 |
 | --- | --- |
-| Nuxt 4 / Vue 3 | 页面路由、开发服务和生产 Node 服务 |
+| Vue 3 / Vue Router / Vite | 页面路由、开发服务和前端构建 |
 | TypeScript | 类型检查 |
 | shadcn-vue / Reka UI | 界面组件 |
 | Tailwind CSS 4 | 样式与主题 |
@@ -107,8 +103,8 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 │   ├── crawler/                 # 招聘数据采集与 AI 处理
 │   └── analytics/               # 招聘和访问日志分析
 ├── ai-service/                  # Python FastAPI / CommandCode Jev
-├── frontend/                    # Nuxt 4 + shadcn-vue
-│   ├── app/
+├── frontend/                    # Vite + shadcn-vue
+│   ├── src/
 │   │   ├── api/                 # HTTP 请求封装与类型
 │   │   ├── pages/               # 页面路由
 │   │   ├── layouts/             # 页面框架
@@ -116,9 +112,9 @@ BossAnalyze 是一个基于微服务架构的 BOSS 直聘招聘数据分析与�
 │   │   ├── composables/         # 会话等组合逻辑
 │   │   ├── lib/                 # 共享数据处理逻辑
 │   │   └── utils/               # 请求客户端等工具
-│   ├── public/                  # 静态资源
+│   ├── server/                  # 生产静态服务与同源 API 代理
 │   ├── tests/                   # 隔离测试及 fixtures
-│   └── nuxt.config.ts           # Nuxt 与代理配置
+│   └── vite.config.ts           # Vite 与开发代理配置
 ├── database/                    # SQL 初始化快照，禁止用于覆盖现有数据
 ├── docs/
 │   ├── frontend-api/            # 历史 API 契约快照与交接说明
@@ -151,7 +147,7 @@ pnpm build
 
 ## 🖼️ 项目展示
 
-以下截图保留旧版界面供参考，不代表当前 Nuxt 页面或完整功能验收。
+以下截图记录旧版界面。
 
 ### 用户认证
 

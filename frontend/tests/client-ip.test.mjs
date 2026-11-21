@@ -17,41 +17,13 @@ test('entry overwrites forged forwarding headers, preserves authentication', () 
   assert.deepEqual(headers, { authorization: 'Bearer synthetic', 'x-boss-client-ip': '127.0.0.1' })
 })
 
-test('Nitro request hook sanitizes headers before the routeRules proxy', async () => {
-  const previous = globalThis.defineNitroPlugin
-  let hook
-  globalThis.defineNitroPlugin = (plugin) => plugin
-  try {
-    const { default: plugin } = await import('../server/plugins/client-ip.ts')
-    plugin({ hooks: { hook(name, handler) {
-      assert.equal(name, 'request')
-      hook = handler
-    } } })
-  } finally {
-    if (previous === undefined) delete globalThis.defineNitroPlugin
-    else globalThis.defineNitroPlugin = previous
-  }
-  assert.equal(typeof hook, 'function')
-  const headers = {
-    authorization: 'Bearer synthetic',
-    'x-boss-client-ip': '8.8.8.8',
-    'x-forwarded-for': '8.8.8.8',
-  }
-  await hook({ node: { req: { headers, socket: { remoteAddress: '192.0.2.1' } } } })
-  assert.deepEqual(headers, {
-    authorization: 'Bearer synthetic',
-    'x-boss-client-ip': '192.0.2.1',
-  })
-})
-
-test('v2 AI proxy retains crawler destination and existing request sanitization', async () => {
-  const { readFile } = await import('node:fs/promises')
-  const config = await readFile(new URL('../nuxt.config.ts', import.meta.url), 'utf8')
-  assert.match(
-    config,
-    /'\/api\/v2\/ai\/\*\*': \{ proxy: 'http:\/\/127\.0\.0\.1:8081\/api\/v2\/ai\/\*\*' \}/,
-  )
-  assert.match(config, /'\/api\/v1\/ai\/\*\*':/)
-  const matches = await readFile(new URL('../app/api/ai/matches.ts', import.meta.url), 'utf8')
-  assert.match(matches, /request\.post\('\/api\/v2\/ai\/matches', input, \{ timeout: 40000 \}\)/)
+test('Vite and production proxy preserve backend routing and the request trust boundary', async () => {
+  const { apiPort } = await import('../server/api-proxy.ts')
+  assert.equal(apiPort('/api/auth/login'), 8080)
+  assert.equal(apiPort('/api/v1/system/logs/dashboard/stats'), 8080)
+  assert.equal(apiPort('/api/v1/ai/matches'), 8081)
+  assert.equal(apiPort('/api/v2/ai/matches?x=1'), 8081)
+  assert.equal(apiPort('/api/v2/air'), 8080)
+  assert.equal(apiPort('/console/dashboard'), null)
+  assert.equal(apiPort('/_nuxt/api/hint'), null)
 })
