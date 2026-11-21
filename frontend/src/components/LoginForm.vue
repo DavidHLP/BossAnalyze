@@ -2,8 +2,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '@/composables/useSession'
-import { AlertCircleIcon, ViewIcon, ViewOffIcon } from '@hugeicons/core-free-icons'
+import { AlertCircleIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/vue'
+import AuthPasswordInput from '@/components/AuthPasswordInput.vue'
 import { loginDestination, loginFailure } from '@/lib/session'
 
 const session = useSession()
@@ -11,7 +12,6 @@ const route = useRoute()
 const router = useRouter()
 const email = ref('')
 const password = ref('')
-const showPassword = ref(false)
 const action = ref<'login' | 'restore' | null>(null)
 const pending = computed(() => action.value !== null)
 const error = ref('')
@@ -69,7 +69,7 @@ async function submit() {
   <section class="flex flex-col gap-7" aria-labelledby="login-title">
     <div class="flex flex-col gap-2">
       <h1 id="login-title" class="text-3xl font-semibold tracking-tight">登录你的账号</h1>
-      <p class="text-sm text-muted-foreground">使用系统分配的邮箱和密码登录。</p>
+      <p class="text-sm text-muted-foreground">使用邮箱和密码登录。</p>
     </div>
 
     <form :aria-busy="pending" @submit.prevent="submit">
@@ -92,33 +92,16 @@ async function submit() {
         </UiField>
         <UiField>
           <UiFieldLabel for="password" class="text-sm">密码</UiFieldLabel>
-          <div class="relative">
-            <UiInput
-              id="password"
-              v-model="password"
-              name="password"
-              :type="showPassword ? 'text' : 'password'"
-              autocomplete="current-password"
-              :aria-describedby="error ? 'login-error' : undefined"
-              placeholder="请输入密码"
-              class="pr-10"
-              required
-              :readonly="pending"
-              :aria-disabled="pending"
-            />
-            <UiButton
-              type="button"
-              variant="ghost"
-              size="icon"
-              class="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground aria-disabled:opacity-50"
-              :aria-label="showPassword ? '隐藏密码' : '显示密码'"
-              :aria-disabled="pending"
-              aria-controls="password"
-              @click="!pending && (showPassword = !showPassword)"
-            >
-              <HugeiconsIcon :icon="showPassword ? ViewOffIcon : ViewIcon" aria-hidden="true" />
-            </UiButton>
-          </div>
+          <AuthPasswordInput
+            id="password"
+            v-model="password"
+            name="password"
+            autocomplete="current-password"
+            :aria-describedby="error ? 'login-error' : undefined"
+            placeholder="请输入密码"
+            required
+            :pending="pending"
+          />
         </UiField>
         <p
           v-if="error"
@@ -147,6 +130,10 @@ async function submit() {
         <UiButton type="submit" size="lg" class="w-full aria-disabled:opacity-50" :aria-disabled="pending">
           {{ action === 'login' ? '正在登录…' : '登录' }}
         </UiButton>
+        <p class="text-center text-sm text-muted-foreground">
+          没有账号？
+          <RouterLink class="font-medium text-foreground underline underline-offset-4" :to="{ path: '/register', query: { redirect: route.query.redirect } }">注册账号</RouterLink>
+        </p>
       </UiFieldGroup>
     </form>
 
@@ -163,6 +150,6 @@ async function submit() {
       </UiButton>
     </div>
 
-    <p class="text-center text-sm text-muted-foreground">需要账号或访问权限？请联系系统管理员。</p>
+    <p class="text-center text-sm text-muted-foreground">如需系统分配账号或调整访问权限，请联系系统管理员。</p>
   </section>
 </template>
