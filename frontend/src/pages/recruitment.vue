@@ -70,6 +70,7 @@ const sourcesUnavailable = computed(() =>
 )
 const rankingLimit = ref('10')
 const selected = shallowRef<JobSample | null>(null)
+const sampleView = ref('chart')
 const formError = ref('')
 const formFeedback = useTemplateRef<HTMLElement>('formFeedback')
 const cityFeedback = useTemplateRef<HTMLElement>('cityFeedback')
@@ -269,7 +270,7 @@ function showJob(job: JobSample, event: MouseEvent) {
 function restoreSheetFocus(event: Event) {
   if (sheetTrigger?.isConnected) {
     event.preventDefault()
-    sheetTrigger.focus()
+    sheetTrigger.focus({ preventScroll: true })
   }
   sheetTrigger = null
 }
@@ -281,8 +282,8 @@ function resetDraft() {
   formError.value = ''
 }
 
-function resetAndRun() {
-  if (draftPending.value) return
+function clearAndQuery() {
+  if (queryPending.value || restoring.value) return
   resetDraft()
   analysisTitle.value?.focus()
   const filter = { ...draft }
@@ -353,11 +354,12 @@ onMounted(async () => {
         <UiCollapsibleContent>
           <div class="grid grid-cols-2 items-start gap-3 @2xl:grid-cols-4 @5xl:grid-cols-[1fr_1.18fr_.76fr_.76fr_auto_auto]">
             <UiField class="min-w-0 gap-1.5">
-              <UiFieldLabel for="recruit-city">城市</UiFieldLabel>
+              <UiFieldLabel id="recruit-city-label" for="recruit-city">城市</UiFieldLabel>
               <OptionPicker
                 id="recruit-city"
                 :model-value="draft.city"
                 :options="cityOptions"
+                search-label="搜索城市"
                 :disabled="cityPending || queryPending || restoring"
                 described-by="recruit-city-status"
                 @update:model-value="changeDraftCity"
@@ -379,11 +381,12 @@ onMounted(async () => {
             </UiField>
 
             <UiField class="min-w-0 gap-1.5">
-              <UiFieldLabel for="recruit-position">职位</UiFieldLabel>
+              <UiFieldLabel id="recruit-position-label" for="recruit-position">职位</UiFieldLabel>
               <OptionPicker
                 id="recruit-position"
                 v-model="draft.position"
                 :options="positionOptions"
+                search-label="搜索职位"
                 :disabled="positionPending || queryPending || restoring"
                 described-by="recruit-position-status"
               />
@@ -433,7 +436,7 @@ onMounted(async () => {
               <UiButton
                 type="button" variant="outline" :aria-disabled="queryPending || restoring"
                 class="aria-disabled:opacity-50" @click="resetDraft"
-              >重置</UiButton>
+              >重置草稿</UiButton>
             </div>
             <p id="recruit-axis-help" class="col-span-2 text-xs leading-5 text-muted-foreground @5xl:col-span-1 @5xl:pt-[22px]">
               两轴须不同<span class="hidden @5xl:block">另可选经验折算值</span>
@@ -452,7 +455,7 @@ onMounted(async () => {
         <RiErrorWarningLine class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
         <p class="min-w-0 break-words">
           <strong>草稿尚未应用。</strong>
-          {{ queryFailed ? '上次条件' : '当前结果' }} {{ conditionScope(applied) }} · {{ axesScope(applied) }}。
+          {{ queryFailed ? '上次查询条件' : '图表和明细仍按已应用条件显示' }}（{{ conditionScope(applied) }} · {{ axesScope(applied) }}）。
           草稿 {{ conditionScope(draft) }} · {{ axesScope(draft) }}。
           {{ queryFailed ? '可重试上次条件，或按当前草稿查询。' : '点击「开始分析」刷新结果。' }}
         </p>
@@ -484,9 +487,14 @@ onMounted(async () => {
           <RiLineChartLine class="size-4 shrink-0 text-accent-data-foreground" aria-hidden="true" />
           {{ applied ? `${axesScope(applied)}分布` : '职位样本分析' }}
         </h2>
-        <p v-if="applied" class="mt-1 break-words text-xs text-muted-foreground">
-          {{ queryFailed ? '上次查询条件' : '已应用' }} {{ conditionScope(applied) }}
-        </p>
+        <div v-if="applied" class="mt-1 flex flex-wrap items-center gap-x-3">
+          <p class="min-w-0 break-words text-xs text-muted-foreground">
+            {{ queryFailed ? '上次查询条件' : '已应用' }} {{ conditionScope(applied) }}
+          </p>
+          <UiButton type="button" variant="outline" size="sm" :aria-disabled="queryPending || restoring"
+            class="aria-disabled:opacity-50" @click="clearAndQuery"
+          >清除并重新查询</UiButton>
+        </div>
       </header>
       <div v-if="jobsState === 'idle'" role="status" class="space-y-2 px-4 py-8 text-center">
         <h3 class="text-sm font-medium">选择条件，开始查询</h3>
@@ -516,115 +524,158 @@ onMounted(async () => {
       <div v-else-if="!jobs.length" role="status" class="space-y-2 px-4 py-8 text-center">
         <h3 class="text-sm font-medium">暂无匹配的职位样本</h3>
         <p class="text-sm text-muted-foreground">当前条件没有返回所选维度均有效的样本，可调整城市、职位或分析维度。</p>
-        <UiButton variant="outline" :aria-disabled="draftPending" class="aria-disabled:opacity-50" @click="resetAndRun">
-          重置并重新分析
-        </UiButton>
       </div>
-      <ScatterPlot v-else-if="applied" :jobs="jobs" :x="applied.x" :y="applied.y" />
+      <template v-else-if="applied">
+        <UiRadioGroup
+          v-if="mobile"
+          v-model="sampleView"
+          aria-label="样本视图"
+          class="mx-4 my-3 w-auto grid-cols-2 gap-0.5 rounded-md border bg-muted p-0.5"
+        >
+          <label
+            v-for="view in [{ value: 'chart', label: '图表' }, { value: 'details', label: '明细' }]"
+            :key="view.value"
+            class="flex min-h-9 cursor-pointer items-center justify-center rounded-sm text-sm text-muted-foreground has-[[data-state=checked]]:bg-background has-[[data-state=checked]]:text-foreground has-[[data-state=checked]]:font-medium has-focus-visible:ring-2 has-focus-visible:ring-ring"
+          ><UiRadioGroupItem :value="view.value" :aria-label="view.label" class="sr-only" />{{ view.label }}</label>
+        </UiRadioGroup>
+        <ScatterPlot
+          v-show="!mobile || sampleView === 'chart'"
+          :jobs="jobs" :x="applied.x" :y="applied.y"
+        />
+      </template>
     </section>
 
-    <details v-if="summary && jobs.length && applied" :open="!mobile" class="min-w-0 rounded-lg border bg-card">
-      <summary class="cursor-pointer px-4 py-3 text-sm font-semibold sm:hidden">
-        职位样本明细 · {{ number.format(jobs.length) }} 条
-      </summary>
-      <section class="space-y-2.5 p-4" aria-labelledby="job-samples-title">
-        <header>
-          <h2 id="job-samples-title" class="text-base font-semibold">职位样本明细</h2>
-          <p class="mt-1 break-words text-xs text-muted-foreground">
-            已应用 {{ conditionScope(applied) }} · 同名及相同分类码可重复
-          </p>
-        </header>
-        <div
-          :key="`${page}:${size}`"
-          class="max-h-50 overflow-auto [&_[data-slot=table-container]]:overflow-visible"
-          role="region" aria-label="当前页职位样本" tabindex="0"
-        >
-          <UiTable class="text-xs">
-            <UiTableCaption class="sr-only">招聘职位样本及薪资、学历和经验要求</UiTableCaption>
-            <UiTableHeader class="sticky top-0 z-10 bg-muted">
-              <UiTableRow>
-                <UiTableHead class="h-7">职位名称</UiTableHead>
-                <UiTableHead class="hidden h-7 @3xl:table-cell">公司名称</UiTableHead>
-                <UiTableHead class="hidden h-7 @xl:table-cell">城市</UiTableHead>
-                <UiTableHead class="h-7">薪资 / 折算</UiTableHead>
-                <UiTableHead class="hidden h-7 @2xl:table-cell">学历</UiTableHead>
-                <UiTableHead class="hidden h-7 @3xl:table-cell">经验</UiTableHead>
-                <UiTableHead class="hidden h-7 @2xl:table-cell">AI 分析来源</UiTableHead>
-                <UiTableHead class="h-7 text-center">操作</UiTableHead>
-              </UiTableRow>
-            </UiTableHeader>
-            <UiTableBody>
-              <UiTableRow v-for="job in visible" :key="job.key">
-                <UiTableCell class="max-w-48 py-1 whitespace-normal">
-                  <UiButton
-                    variant="link"
-                    class="h-auto justify-start py-0 px-0 text-start text-xs font-medium whitespace-normal [overflow-wrap:anywhere] text-accent-data-foreground underline underline-offset-2"
-                    @click="showJob(job, $event)"
-                  >{{ job.positionName || '未提供职位名称' }}</UiButton>
-                  <p class="mt-1 [overflow-wrap:anywhere] text-muted-foreground @3xl:hidden">{{ job.companyName || '未提供公司名称' }}</p>
-                  <p class="mt-1 [overflow-wrap:anywhere] text-muted-foreground @xl:hidden">{{ job.cityName || '—' }}</p>
-                  <StatusBadge :tone="analysisStatusTones[job.analysisStatus]" class="mt-1 max-w-full whitespace-normal @2xl:hidden">
-                    {{ analysisStatusLabels[job.analysisStatus] }}
-                  </StatusBadge>
-                </UiTableCell>
-                <UiTableCell class="hidden max-w-32 py-1 whitespace-normal [overflow-wrap:anywhere] @3xl:table-cell">{{ job.companyName || '—' }}</UiTableCell>
-                <UiTableCell class="hidden max-w-20 py-1 whitespace-normal [overflow-wrap:anywhere] @xl:table-cell">{{ job.cityName || '—' }}</UiTableCell>
-                <UiTableCell class="max-w-28 py-1 whitespace-normal [overflow-wrap:anywhere] font-mono tabular-nums">
-                  {{ formatSampleSalary(job.salary) }}
-                  <p v-if="job.salaryValue != null" class="text-[11px] text-muted-foreground">{{ number.format(job.salaryValue) }} K</p>
-                </UiTableCell>
-                <UiTableCell class="hidden py-1 @2xl:table-cell">{{ job.degree || '—' }}</UiTableCell>
-                <UiTableCell class="hidden py-1 @3xl:table-cell">{{ job.experience || '—' }}</UiTableCell>
-                <UiTableCell class="hidden py-1 @2xl:table-cell">
-                  <StatusBadge :tone="analysisStatusTones[job.analysisStatus]">{{ analysisStatusLabels[job.analysisStatus] }}</StatusBadge>
-                </UiTableCell>
-                <UiTableCell class="py-1 text-center">
-                  <UiButton
-                    variant="outline" size="sm" class="h-6 px-2 text-xs"
-                    :aria-label="`查看${job.positionName || '职位'}详情`"
-                    @click="showJob(job, $event)"
-                  >详情</UiButton>
-                </UiTableCell>
-              </UiTableRow>
-            </UiTableBody>
-          </UiTable>
-        </div>
+    <section
+      v-if="summary && jobs.length && applied"
+      v-show="!mobile || sampleView === 'details'"
+      class="min-w-0 space-y-2.5 rounded-lg border bg-card p-4"
+      aria-labelledby="job-samples-title"
+    >
+      <header>
+        <h2 id="job-samples-title" class="text-base font-semibold">职位样本明细</h2>
+        <p class="mt-1 break-words text-xs text-muted-foreground">
+          已应用 {{ conditionScope(applied) }} · 同名及相同分类码可重复
+        </p>
+      </header>
+      <ul v-if="mobile" role="list" aria-label="当前页职位样本" class="divide-y rounded-md border">
+        <li v-for="job in visible" :key="job.key">
+          <UiButton
+            type="button"
+            variant="ghost"
+            aria-haspopup="dialog"
+            class="h-auto w-full min-w-0 justify-between gap-3 rounded-md px-3 py-2.5 text-start whitespace-normal focus-visible:relative"
+            @click="showJob(job, $event)"
+          >
+            <span class="min-w-0 space-y-1">
+              <span class="block font-medium [overflow-wrap:anywhere]">{{ job.positionName || '未提供职位名称' }}</span>
+              <span class="block text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                {{ job.companyName || '未提供公司名称' }} · {{ job.cityName || '—' }}
+              </span>
+              <StatusBadge :tone="analysisStatusTones[job.analysisStatus]" class="max-w-full whitespace-normal">
+                {{ analysisStatusLabels[job.analysisStatus] }}
+              </StatusBadge>
+            </span>
+            <span class="flex min-w-0 max-w-2/5 items-center gap-2">
+              <span class="min-w-0 text-end font-mono text-xs tabular-nums [overflow-wrap:anywhere]">
+                {{ formatSampleSalary(job.salary) }}
+                <span v-if="job.salaryValue != null" class="block text-muted-foreground">{{ number.format(job.salaryValue) }} K</span>
+              </span>
+              <RiArrowRightSLine aria-hidden="true" class="size-4 shrink-0 text-muted-foreground" />
+            </span>
+          </UiButton>
+        </li>
+      </ul>
+      <div
+        v-else
+        :key="`${page}:${size}`"
+        class="max-h-50 overflow-auto [&_[data-slot=table-container]]:overflow-visible"
+        role="region" aria-label="当前页职位样本" tabindex="0"
+      >
+        <UiTable class="text-xs">
+          <UiTableCaption class="sr-only">招聘职位样本及薪资、学历和经验要求</UiTableCaption>
+          <UiTableHeader class="sticky top-0 z-10 bg-muted">
+            <UiTableRow>
+              <UiTableHead class="h-7">职位名称</UiTableHead>
+              <UiTableHead class="hidden h-7 @3xl:table-cell">公司名称</UiTableHead>
+              <UiTableHead class="hidden h-7 @xl:table-cell">城市</UiTableHead>
+              <UiTableHead class="h-7">薪资 / 折算</UiTableHead>
+              <UiTableHead class="hidden h-7 @2xl:table-cell">学历</UiTableHead>
+              <UiTableHead class="hidden h-7 @3xl:table-cell">经验</UiTableHead>
+              <UiTableHead class="hidden h-7 @2xl:table-cell">AI 分析来源</UiTableHead>
+              <UiTableHead class="h-7 text-center">操作</UiTableHead>
+            </UiTableRow>
+          </UiTableHeader>
+          <UiTableBody>
+            <UiTableRow v-for="job in visible" :key="job.key">
+              <UiTableCell class="max-w-48 py-1 whitespace-normal">
+                <UiButton
+                  variant="link"
+                  class="h-auto justify-start py-0 px-0 text-start text-xs font-medium whitespace-normal [overflow-wrap:anywhere] text-accent-data-foreground underline underline-offset-2"
+                  @click="showJob(job, $event)"
+                >{{ job.positionName || '未提供职位名称' }}</UiButton>
+                <p class="mt-1 [overflow-wrap:anywhere] text-muted-foreground @3xl:hidden">{{ job.companyName || '未提供公司名称' }}</p>
+                <p class="mt-1 [overflow-wrap:anywhere] text-muted-foreground @xl:hidden">{{ job.cityName || '—' }}</p>
+                <StatusBadge :tone="analysisStatusTones[job.analysisStatus]" class="mt-1 max-w-full whitespace-normal @2xl:hidden">
+                  {{ analysisStatusLabels[job.analysisStatus] }}
+                </StatusBadge>
+              </UiTableCell>
+              <UiTableCell class="hidden max-w-32 py-1 whitespace-normal [overflow-wrap:anywhere] @3xl:table-cell">{{ job.companyName || '—' }}</UiTableCell>
+              <UiTableCell class="hidden max-w-20 py-1 whitespace-normal [overflow-wrap:anywhere] @xl:table-cell">{{ job.cityName || '—' }}</UiTableCell>
+              <UiTableCell class="max-w-28 py-1 whitespace-normal [overflow-wrap:anywhere] font-mono tabular-nums">
+                {{ formatSampleSalary(job.salary) }}
+                <p v-if="job.salaryValue != null" class="text-[11px] text-muted-foreground">{{ number.format(job.salaryValue) }} K</p>
+              </UiTableCell>
+              <UiTableCell class="hidden py-1 @2xl:table-cell">{{ job.degree || '—' }}</UiTableCell>
+              <UiTableCell class="hidden py-1 @3xl:table-cell">{{ job.experience || '—' }}</UiTableCell>
+              <UiTableCell class="hidden py-1 @2xl:table-cell">
+                <StatusBadge :tone="analysisStatusTones[job.analysisStatus]">{{ analysisStatusLabels[job.analysisStatus] }}</StatusBadge>
+              </UiTableCell>
+              <UiTableCell class="py-1 text-center">
+                <UiButton
+                  variant="outline" size="sm" class="h-6 px-2 text-xs"
+                  :aria-label="`查看${job.positionName || '职位'}详情`"
+                  @click="showJob(job, $event)"
+                >详情</UiButton>
+              </UiTableCell>
+            </UiTableRow>
+          </UiTableBody>
+        </UiTable>
+      </div>
 
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <span class="font-mono text-xs tabular-nums text-muted-foreground" aria-live="polite">
-            {{ number.format((page - 1) * size + 1) }}–{{ number.format(Math.min(page * size, jobs.length)) }} / {{ number.format(jobs.length) }} 条
-          </span>
-          <div class="flex min-w-0 flex-wrap items-center gap-3">
-            <UiRadioGroup
-              :model-value="size" aria-label="样本每页条数"
-              class="inline-flex w-auto gap-0.5 rounded-md border bg-muted p-0.5"
-              @update:model-value="changeSize"
-            >
-              <label
-                v-for="count in samplePageSizes" :key="count"
-                class="cursor-pointer rounded-sm px-2.5 py-1 font-mono text-xs tabular-nums has-[[data-state=checked]]:bg-background has-focus-visible:ring-2 has-focus-visible:ring-ring"
-              ><UiRadioGroupItem :value="count" :aria-label="String(count)" class="sr-only" />{{ count }}</label>
-            </UiRadioGroup>
-            <UiPagination
-              v-model:page="page" :items-per-page="size" :total="jobs.length" :sibling-count="1"
-              class="w-auto max-w-full" aria-label="样本分页"
-            >
-              <UiPaginationContent v-slot="{ items }" class="flex-wrap">
-                <UiPaginationPrevious size="icon-sm" aria-label="上一页"><RiArrowLeftSLine aria-hidden="true" /></UiPaginationPrevious>
-                <template v-for="(item, index) in items" :key="index">
-                  <UiPaginationItem
-                    v-if="item.type === 'page'" :value="item.value" :is-active="item.value === page"
-                    :aria-label="`第 ${item.value} 页`" :aria-current="item.value === page ? 'page' : undefined" size="icon-sm"
-                  >{{ item.value }}</UiPaginationItem>
-                  <UiPaginationEllipsis v-else />
-                </template>
-                <UiPaginationNext size="icon-sm" aria-label="下一页"><RiArrowRightSLine aria-hidden="true" /></UiPaginationNext>
-              </UiPaginationContent>
-            </UiPagination>
-          </div>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="font-mono text-xs tabular-nums text-muted-foreground" aria-live="polite">
+          {{ number.format((page - 1) * size + 1) }}–{{ number.format(Math.min(page * size, jobs.length)) }} / {{ number.format(jobs.length) }} 条
+        </span>
+        <div class="flex min-w-0 flex-wrap items-center gap-3">
+          <UiRadioGroup
+            :model-value="size" aria-label="样本每页条数"
+            class="inline-flex w-auto gap-0.5 rounded-md border bg-muted p-0.5"
+            @update:model-value="changeSize"
+          >
+            <label
+              v-for="count in samplePageSizes" :key="count"
+              class="cursor-pointer rounded-sm px-2.5 py-1 font-mono text-xs tabular-nums has-[[data-state=checked]]:bg-background has-focus-visible:ring-2 has-focus-visible:ring-ring"
+            ><UiRadioGroupItem :value="count" :aria-label="String(count)" class="sr-only" />{{ count }}</label>
+          </UiRadioGroup>
+          <UiPagination
+            v-model:page="page" :items-per-page="size" :total="jobs.length" :sibling-count="1"
+            class="w-auto max-w-full" aria-label="样本分页"
+          >
+            <UiPaginationContent v-slot="{ items }" class="flex-wrap">
+              <UiPaginationPrevious size="icon-sm" aria-label="上一页"><RiArrowLeftSLine aria-hidden="true" /></UiPaginationPrevious>
+              <template v-for="(item, index) in items" :key="index">
+                <UiPaginationItem
+                  v-if="item.type === 'page'" :value="item.value" :is-active="item.value === page"
+                  :aria-label="`第 ${item.value} 页`" :aria-current="item.value === page ? 'page' : undefined" size="icon-sm"
+                >{{ item.value }}</UiPaginationItem>
+                <UiPaginationEllipsis v-else />
+              </template>
+              <UiPaginationNext size="icon-sm" aria-label="下一页"><RiArrowRightSLine aria-hidden="true" /></UiPaginationNext>
+            </UiPaginationContent>
+          </UiPagination>
         </div>
-      </section>
-    </details>
+      </div>
+    </section>
 
     <section
       class="min-w-0 space-y-2.5 rounded-lg border bg-card p-4"
