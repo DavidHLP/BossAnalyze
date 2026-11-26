@@ -19,6 +19,7 @@ import {
 } from '@/lib/menus'
 import type { MenuRecord } from '@/lib/menus'
 import { useSession } from '@/composables/useSession'
+import { registerDirtyDraft } from '@/composables/session-events'
 
 const props = defineProps<{
   open: boolean
@@ -146,8 +147,15 @@ function beforeUnload(event: BeforeUnloadEvent) {
     event.returnValue = ''
   }
 }
-onMounted(() => window.addEventListener('beforeunload', beforeUnload))
-onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
+let unregisterDraft: (() => void) | undefined
+onMounted(() => {
+  unregisterDraft = registerDirtyDraft('menu-panel', () => dirty.value)
+  window.addEventListener('beforeunload', beforeUnload)
+})
+onUnmounted(() => {
+  unregisterDraft?.()
+  window.removeEventListener('beforeunload', beforeUnload)
+})
 async function reread() {
   if (!owner || !session.owns(owner) || pending.value) return
   pending.value = true

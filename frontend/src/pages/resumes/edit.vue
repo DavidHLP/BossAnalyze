@@ -5,6 +5,7 @@ import { RiArrowLeftLine, RiHistoryLine, RiImageLine, RiSaveLine } from '@remixi
 import { changeResumeVersion, getResume, resumeHistory, type ResumeCommit, type ResumeRecord } from '@/api/resume/resume'
 import { ownsResumeAsset, readResumeAsset } from '@/api/resume/assets'
 import { useSession } from '@/composables/useSession'
+import { registerDirtyDraft } from '@/composables/session-events'
 import {
   assetMarkdown, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime, shortCommit, type ResumeDraft,
 } from '@/lib/resumes'
@@ -15,6 +16,7 @@ import ResumePreview from '@/components/resumes/ResumePreview.vue'
 
 const route = useRoute()
 const session = useSession()
+const { crossTabChanged } = session
 const userId = computed(() => session.state.value.user?.id)
 const id = computed(() => String(route.params.id))
 const record = shallowRef<ResumeRecord | null>(null)
@@ -25,6 +27,7 @@ const loadError = ref('')
 const feedback = ref('')
 const writeError = ref('')
 const writeLocked = ref(false)
+const submissionLocked = computed(() => writeLocked.value || crossTabChanged.value !== null)
 const checkOffered = ref(false)
 const checkOpen = ref(false)
 const checkPending = ref(false)
@@ -267,10 +270,11 @@ async function insertAsset(name: string) {
 }
 
 async function write(action: 'save' | 'stash') {
+  const owner = draftOwner
+  if (!owner || !session.owns(owner)) return
   if (!(action === 'save' ? canSave.value : dirty.value) || localDraft.value || pendingAction.value || writeLocked.value) return
   const key = id.value
   const content = markdown.value
-  const owner = session.capture()
   pendingAction.value = action
   feedback.value = writeError.value = ''
   checkOffered.value = false
@@ -353,11 +357,14 @@ function beforeUnload(event: BeforeUnloadEvent) {
 onBeforeRouteLeave(blockNavigation)
 onBeforeRouteUpdate((to, from) => to.params.id === from.params.id || blockNavigation())
 watch(id, () => { record.value = null; void load(true) })
+let unregisterDraft: (() => void) | undefined
 onMounted(() => {
+  unregisterDraft = registerDirtyDraft('resume-editor', () => hasDraft.value || localDraft.value !== null)
   void load(true)
   window.addEventListener('beforeunload', beforeUnload)
 })
 onUnmounted(() => {
+  unregisterDraft?.()
   leaveDecision?.(false)
   loadRevision++
   checkRevision++
@@ -379,11 +386,11 @@ onUnmounted(() => {
         </div>
       </div>
       <div v-if="record" class="flex flex-wrap items-center gap-2">
-        <UiButton variant="outline" :disabled="!dirty || Boolean(pendingAction) || writeLocked" @click="write('stash')">储藏</UiButton>
+        <UiButton variant="outline" :disabled="!dirty || Boolean(pendingAction) || submissionLocked" @click="write('stash')">储藏</UiButton>
         <UiButton as-child variant="outline"><RouterLink :to="'/resumes/' + id + '/versions'"><RiHistoryLine data-icon="inline-start" />版本历史</RouterLink></UiButton>
         <UiButton variant="outline" :disabled="Boolean(pendingAction)" @click="assetsOpen = true"><RiImageLine data-icon="inline-start" />图片素材</UiButton>
         <UiButton variant="outline" @click="exportOpen = true">导出简历</UiButton>
-        <UiButton :disabled="!canSave || Boolean(pendingAction) || writeLocked" @click="write('save')"><RiSaveLine data-icon="inline-start" />{{ pendingAction === 'save' ? '正在提交…' : '保存并提交' }}</UiButton>
+        <UiButton :disabled="!canSave || Boolean(pendingAction) || submissionLocked" @click="write('save')"><RiSaveLine data-icon="inline-start" />{{ pendingAction === 'save' ? '正在提交…' : '保存并提交' }}</UiButton>
       </div>
     </header>
 
@@ -430,12 +437,12 @@ onUnmounted(() => {
           <UiDialogTitle>丢弃未保存的更改？</UiDialogTitle>
           <UiDialogDescription>
             丢弃后，重新打开时会读取服务器上的工作区正文，本次改动和备注将丢失。
-            <template v-if="dirty && !writeLocked">你也可以先储藏正文，备注会留在编辑页。</template>
+            <template v-if="dirty && !submissionLocked">你也可以先储藏正文，备注会留在编辑页。</template>
           </UiDialogDescription>
         </UiDialogHeader>
         <UiDialogFooter>
           <UiButton variant="outline" @click="finishNavigation(false)">继续编辑</UiButton>
-          <UiButton v-if="dirty && !writeLocked" variant="outline" @click="stashFromLeave">储藏正文</UiButton>
+          <UiButton v-if="dirty && !submissionLocked" variant="outline" @click="stashFromLeave">储藏正文</UiButton>
           <UiButton variant="destructive" @click="finishNavigation(true)">丢弃更改</UiButton>
         </UiDialogFooter>
       </UiDialogContent>

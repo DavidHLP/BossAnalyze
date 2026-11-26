@@ -32,6 +32,7 @@ export function checkReadAccess<T>(value: T): T {
 }
 
 export const sessionChangedMessage = '会话已变更。请刷新页面后继续，当前页面的修改无法提交。'
+export const navigationRefreshFailure = '变更已生效，但当前侧栏未能自动刷新，可稍后刷新或重新登录'
 export const unknownWriteMessage = '请求可能已提交，请先刷新列表核对实际状态'
 
 export function mutationError(value: unknown, action: '保存' | '删除', conflict?: string) {

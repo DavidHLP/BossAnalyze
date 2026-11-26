@@ -10,6 +10,7 @@ import { addUser, updateUser } from '@/api/user/user'
 import { roleAssignmentError, userDraft, userErrors, userPayload, userSaveError, userSaveValidationRejected, userWriteSucceeded } from '@/lib/users'
 import type { ManagedUser, UserRole } from '@/lib/users'
 import { useSession } from '@/composables/useSession'
+import { registerDirtyDraft } from '@/composables/session-events'
 import RolePicker from './RolePicker.vue'
 
 const props = defineProps<{
@@ -139,8 +140,15 @@ const beforeUnload = (event: BeforeUnloadEvent) => {
     event.returnValue = ''
   }
 }
-onMounted(() => window.addEventListener('beforeunload', beforeUnload))
-onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
+let unregisterDraft: (() => void) | undefined
+onMounted(() => {
+  unregisterDraft = registerDirtyDraft('user-editor', () => dirty.value)
+  window.addEventListener('beforeunload', beforeUnload)
+})
+onUnmounted(() => {
+  unregisterDraft?.()
+  window.removeEventListener('beforeunload', beforeUnload)
+})
 
 async function focusError(field: string) {
   await nextTick()
