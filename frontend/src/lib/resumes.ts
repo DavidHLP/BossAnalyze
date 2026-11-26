@@ -72,11 +72,25 @@ export function countDuplicateCommits(commits: { id: string }[]) {
   return commits.length - new Set(commits.map(commit => commit.id)).size
 }
 
+export type ResumeMathNode = {
+  display: boolean
+  tex: string
+  raw: string
+  start: number
+  end: number
+  bodyStart: number
+}
+
+export type ResumeMathRender = (tex: string, display: boolean) => string | null
+
+type ResumeMathToken = { kind: 'math' } & Omit<ResumeMathNode, 'display'>
+
 export type ResumeInline =
   | { kind: 'text' | 'strong' | 'em' | 'code'; text: string }
   | { kind: 'link'; text: string; href: string }
+  | ResumeMathToken
 
-type PreviewBlock =
+export type PreviewBlock =
   | { kind: 'heading'; level: 1 | 2 | 3; inline: ResumeInline[] }
   | { kind: 'text'; inline: ResumeInline[] }
   | { kind: 'code'; text: string }
@@ -84,6 +98,61 @@ type PreviewBlock =
   | { kind: 'table'; headers: ResumeInline[][]; rows: ResumeInline[][][] }
   | { kind: 'rule' }
   | { kind: 'asset'; text: string; fileName: string }
+  | ResumeMathToken
+
+function mathNode({ tex, raw, start, end, bodyStart }: ResumeMathToken, display: boolean): ResumeMathNode {
+  return { display, tex, raw, start, end, bodyStart }
+}
+
+function* inlineMathNodes(tokens: readonly ResumeInline[]): Generator<ResumeMathNode> {
+  for (const token of tokens) {
+    if (token.kind === 'math') yield mathNode(token, false)
+  }
+}
+
+function* mathNodes(blocks: readonly PreviewBlock[]): Generator<ResumeMathNode> {
+  for (const block of blocks) {
+    switch (block.kind) {
+      case 'math':
+        yield mathNode(block, true)
+        break
+      case 'heading':
+      case 'text':
+        yield* inlineMathNodes(block.inline)
+        break
+      case 'list':
+        for (const item of block.items) yield* inlineMathNodes(item)
+        break
+      case 'table':
+        for (const cell of block.headers) yield* inlineMathNodes(cell)
+        for (const row of block.rows) {
+          for (const cell of row) yield* inlineMathNodes(cell)
+        }
+        break
+    }
+  }
+}
+
+export function resumeHasMath(blocks: readonly PreviewBlock[]): boolean {
+  return !mathNodes(blocks).next().done
+}
+
+export function resumeMathNodes(blocks: readonly PreviewBlock[]): ResumeMathNode[] {
+  return [...mathNodes(blocks)]
+}
+
+export function offsetToPosition(source: string, offset: number): { line: number; column: number } {
+  const clamped = Math.min(source.length, Math.max(0, Math.trunc(offset) || 0))
+  let line = 1
+  let lineStart = 0
+  for (const match of source.matchAll(/\r\n?|\n/g)) {
+    const nextLineStart = match.index! + match[0].length
+    if (nextLineStart > clamped) break
+    line++
+    lineStart = nextLineStart
+  }
+  return { line, column: clamped - lineStart + 1 }
+}
 
 function markdownHref(value: string) {
   if (!/^(?:https?:\/\/|mailto:)/i.test(value) || /[\s\\]/.test(value)) return null
@@ -220,32 +289,46 @@ function escapeHtml(value: string) {
     .replaceAll('"', '&quot;').replaceAll("'", '&#39;')
 }
 
-function inlineHtml(tokens: ResumeInline[]) {
+function inlineHtml(tokens: ResumeInline[], renderMath?: ResumeMathRender) {
   return tokens.map(token => {
-    const text = escapeHtml(token.text)
-    if (token.kind === 'link') return '<a href="' + escapeHtml(token.href) + '" rel="noreferrer">' + text + '</a>'
-    if (token.kind === 'text') return text
-    return '<' + token.kind + '>' + text + '</' + token.kind + '>'
+    switch (token.kind) {
+      case 'text': return escapeHtml(token.text)
+      case 'strong': return '<strong>' + escapeHtml(token.text) + '</strong>'
+      case 'em': return '<em>' + escapeHtml(token.text) + '</em>'
+      case 'code': return '<code>' + escapeHtml(token.text) + '</code>'
+      case 'link':
+        return '<a href="' + escapeHtml(token.href) + '" rel="noreferrer">' + escapeHtml(token.text) + '</a>'
+      case 'math': {
+        const rendered = renderMath?.(token.tex, false)
+        return rendered ? '<span class="resume-math-inline">' + rendered + '</span>' : escapeHtml(token.raw)
+      }
+    }
   }).join('')
 }
 
-export function resumeHtml(title: string, markdown: string) {
-  const body = resumePreview(markdown).map(block => {
+export function resumeHtml(title: string, content: string | PreviewBlock[], renderMath?: ResumeMathRender): string {
+  const blocks = typeof content === 'string' ? resumePreview(content) : content
+  const renderInline = (tokens: ResumeInline[]) => inlineHtml(tokens, renderMath)
+  const body = blocks.map(block => {
     switch (block.kind) {
-      case 'heading': return '<h' + block.level + '>' + inlineHtml(block.inline) + '</h' + block.level + '>'
-      case 'text': return '<p>' + inlineHtml(block.inline) + '</p>'
+      case 'heading': return '<h' + block.level + '>' + renderInline(block.inline) + '</h' + block.level + '>'
+      case 'text': return '<p>' + renderInline(block.inline) + '</p>'
       case 'rule': return '<hr>'
       case 'asset': return '<p>' + escapeHtml(block.text || '图片素材') + ' · 本地导出未包含图片</p>'
       case 'code': return '<pre><code>' + escapeHtml(block.text) + '</code></pre>'
+      case 'math': {
+        const rendered = renderMath?.(block.tex, true)
+        return rendered ? '<div class="resume-math-block">' + rendered + '</div>' : '<pre><code>' + escapeHtml(block.raw) + '</code></pre>'
+      }
       case 'list': {
         const ordered = block.start !== null
         return (ordered ? '<ol start="' + block.start + '">' : '<ul>') +
-          block.items.map(item => '<li>' + inlineHtml(item) + '</li>').join('') + (ordered ? '</ol>' : '</ul>')
+          block.items.map(item => '<li>' + renderInline(item) + '</li>').join('') + (ordered ? '</ol>' : '</ul>')
       }
       case 'table':
-        return '<table><thead><tr>' + block.headers.map(cell => '<th scope="col">' + inlineHtml(cell) + '</th>').join('') +
+        return '<table><thead><tr>' + block.headers.map(cell => '<th scope="col">' + renderInline(cell) + '</th>').join('') +
           '</tr></thead><tbody>' + block.rows.map(row =>
-            '<tr>' + row.map(cell => '<td>' + inlineHtml(cell) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'
+            '<tr>' + row.map(cell => '<td>' + renderInline(cell) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'
     }
   }).join('\n')
 

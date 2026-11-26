@@ -29,7 +29,8 @@ const headings = ['h2', 'h3', 'h4']
           <tbody><tr v-for="(row, i) in block.rows" :key="i"><td v-for="(cell, j) in row" :key="j" class="border px-2 py-1"><ResumePreviewInline :tokens="cell" /></td></tr></tbody>
         </table>
       </div>
-      <p v-else><ResumePreviewInline :tokens="block.inline" /></p>
+      <p v-else-if="block.kind === 'text'"><ResumePreviewInline :tokens="block.inline" /></p>
+      <pre v-else><code>{{ block.raw }}</code></pre>
     </template>
   </article>
 </template>
