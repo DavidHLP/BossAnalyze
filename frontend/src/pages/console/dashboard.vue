@@ -13,7 +13,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { getDashboardStats } from '@/api/log/accesslog'
 import { settingsFailure } from '@/lib/settings'
-import { dashboardSnapshot, peakVisits, snapshotScope, snapshotTime, visitShare } from '@/lib/dashboard'
+import { dashboardSnapshot, formatPercentage, peakVisits, snapshotScope, snapshotTime, visitShare } from '@/lib/dashboard'
 import type { DashboardSnapshot } from '@/lib/dashboard'
 import DistributionCard from '@/components/dashboard/DistributionCard.vue'
 import VisitChart from '@/components/dashboard/VisitChart.vue'
@@ -169,6 +169,14 @@ onMounted(load)
           note="占比以该组所示请求次数为分母。"
           :rows="snapshot.methods"
         />
+        <DistributionCard
+          v-if="snapshot.countries.length"
+          title="国家 / 地区分布"
+          :icon="Globe02Icon"
+          note="占比以快照总访问量为分母。"
+          :rows="snapshot.countries"
+          :total-visits="snapshot.visits"
+        />
       </div>
 
       <UiCard class="min-w-0 gap-2 py-3">
@@ -198,7 +206,7 @@ onMounted(load)
                   {{ number.format(row.count) }}
                 </UiTableCell>
                 <UiTableCell class="py-1 text-xs text-right font-mono tabular-nums text-muted-foreground">
-                  {{ visitShare(row.count, snapshot.visits).toFixed(1) }}%
+                  {{ formatPercentage(visitShare(row.count, snapshot.visits)) }}
                 </UiTableCell>
               </UiTableRow>
             </UiTableBody>

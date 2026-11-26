@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { visitShare } from '@/lib/dashboard'
+import { formatPercentage, visitShare } from '@/lib/dashboard'
 import type { CountRow } from '@/lib/dashboard'
 
 const props = defineProps<{
@@ -9,8 +9,9 @@ const props = defineProps<{
   icon: InstanceType<typeof HugeiconsIcon>['$props']['icon']
   rows: CountRow[]
   note: string
+  totalVisits?: number
 }>()
-const total = computed(() => props.rows.reduce((sum, row) => sum + row.count, 0))
+const total = computed(() => props.totalVisits ?? props.rows.reduce((sum, row) => sum + row.count, 0))
 const number = new Intl.NumberFormat('zh-CN')
 </script>
 
@@ -27,21 +28,22 @@ const number = new Intl.NumberFormat('zh-CN')
         <li
           v-for="(row, index) in rows"
           :key="row.label"
-          class="grid min-w-0 grid-cols-[minmax(4.5rem,1fr)_minmax(0,4fr)_4rem] items-center gap-2 text-xs"
-          :title="`${number.format(row.count)} 次访问`"
+          class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-1 text-xs"
         >
-          <span class="break-words font-medium">{{ row.label || '未知' }}</span>
-          <div class="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+          <div class="min-w-0 break-words">
+            <span class="font-medium">{{ row.label || '未知' }}</span>
+            <p v-if="row.detail" class="text-muted-foreground">{{ row.detail }}</p>
+          </div>
+          <span class="text-right font-mono tabular-nums">
+            {{ number.format(row.count) }} 次 · {{ formatPercentage(visitShare(row.count, total)) }}
+          </span>
+          <div class="col-span-full h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
             <div
               class="h-full rounded-full"
               :class="index === 0 ? 'bg-accent-data' : 'bg-accent-data/75'"
-              :style="{ width: `${visitShare(row.count, total)}%` }"
+              :style="{ width: `${visitShare(row.count, total) ?? 0}%` }"
             />
           </div>
-          <span class="text-right font-mono tabular-nums">
-            <span class="sr-only">{{ number.format(row.count) }} 次访问，占比</span>
-            {{ visitShare(row.count, total).toFixed(1) }}%
-          </span>
         </li>
       </ul>
       <p v-else class="py-5 text-center text-sm text-muted-foreground">暂无{{ title }}数据</p>

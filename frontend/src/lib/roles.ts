@@ -205,11 +205,12 @@ export function roleDraft(role?: ManagedRole | null): RoleDraft {
     remark: role?.remark ?? '',
   }
 }
-export function roleErrors(draft: RoleDraft) {
+export function roleErrors(draft: RoleDraft, role?: ManagedRole | null) {
   const errors: Record<string, string> = {}
   if (!draft.roleName.trim() || draft.roleName.trim().length > 255)
     errors.roleName = '请输入 1–255 个字符的角色名称'
   if (!['0', '1'].includes(draft.status)) errors.status = '请选择角色状态'
+  if (isDefaultRole(role) && draft.status === '0') errors.status = '系统默认角色不可停用'
   if (draft.remark.length > 255) errors.remark = '备注不能超过 255 个字符'
   return errors
 }
@@ -218,7 +219,7 @@ export function isDefaultRole(role?: ManagedRole | null) {
 }
 export function rolePayload(draft: RoleDraft, role?: ManagedRole | null) {
   if (
-    Object.keys(roleErrors(draft)).length ||
+    Object.keys(roleErrors(draft, role)).length ||
     (isDefaultRole(role) && draft.roleName.trim() !== role?.roleName)
   )
     throw new Error('Invalid role form')

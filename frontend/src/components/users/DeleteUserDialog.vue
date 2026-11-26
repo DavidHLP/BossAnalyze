@@ -1,13 +1,26 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import { withSessionOwner } from '@/lib/session'
-import { sessionChangedMessage } from '@/lib/rbac-mutations'
+import { mutationResultUnknown, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
 import { deleteUser } from '@/api/user/user'
 import { userDeleteError, userWriteSucceeded } from '@/lib/users'
 import type { ManagedUser } from '@/lib/users'
 import { useSession } from '@/composables/useSession'
-const props = defineProps<{ user: ManagedUser | null; sessionChanged: boolean }>()
-const emit = defineEmits<{ close: []; deleted: []; pending: [boolean]; closeAutoFocus: [Event] }>()
+const props = defineProps<{
+  user: ManagedUser | null
+  sessionChanged: boolean
+  writeUnconfirmed: boolean
+  listPending: boolean
+  listFailed: boolean
+}>()
+const emit = defineEmits<{
+  close: []
+  deleted: []
+  pending: [boolean]
+  closeAutoFocus: [Event]
+  writeUnconfirmed: []
+  refreshList: []
+}>()
 const session = useSession()
 const owner = session.capture()
 const password = ref('')
@@ -25,7 +38,7 @@ function close() {
 }
 async function remove() {
   const user = props.user
-  if (!owner || !session.owns(owner) || props.sessionChanged || pending.value || !user ||
+  if (!owner || !session.owns(owner) || props.sessionChanged || pending.value || props.writeUnconfirmed || !user ||
       !password.value || user.email === session.state.value.user?.email) return
   pending.value = true
   emit('pending', true)
@@ -36,7 +49,11 @@ async function remove() {
     password.value = ''
     emit('deleted')
   } catch (error) {
-    if (session.owns(owner)) failure.value = userDeleteError(error)
+    if (!session.owns(owner)) return
+    if (mutationResultUnknown(error)) {
+      password.value = ''
+      emit('writeUnconfirmed')
+    } else failure.value = userDeleteError(error)
   } finally {
     pending.value = false
     emit('pending', false)
@@ -59,7 +76,7 @@ async function remove() {
   >
     <UiDialogContent
       :show-close-button="false"
-      class="top-[38.2%]! sm:max-w-[400px]!"
+      class="sm:max-w-[400px]"
       @pointer-down-outside.prevent
       @interact-outside.prevent
       @close-auto-focus="emit('closeAutoFocus', $event)"
@@ -91,7 +108,7 @@ async function remove() {
             v-model="password"
             type="password"
             autocomplete="current-password"
-            :disabled="pending"
+            :disabled="pending || writeUnconfirmed"
             required
             :aria-describedby="failure ? 'delete-user-error' : undefined"
         /></UiField>
@@ -99,13 +116,19 @@ async function remove() {
           <UiAlertDescription>{{ failure }}</UiAlertDescription>
         </UiAlert>
       </form>
+      <UiAlert v-if="writeUnconfirmed" role="alert">
+        <UiAlertTitle>结果未确认</UiAlertTitle>
+        <UiAlertDescription>{{ unknownWriteMessage }}{{ listFailed ? '。列表读取失败，请重试。' : '' }}</UiAlertDescription>
+        <UiButton type="button" variant="outline" size="sm" class="mt-2"
+          :disabled="pending || listPending || sessionChanged" @click="emit('refreshList')">刷新列表核对</UiButton>
+      </UiAlert>
       <UiDialogFooter
         ><UiButton variant="outline" :disabled="pending" @click="close">取消</UiButton
         ><UiButton
           variant="destructive"
           form="delete-user-form"
           type="submit"
-          :aria-disabled="pending || sessionChanged || !password"
+          :aria-disabled="pending || sessionChanged || writeUnconfirmed || !password"
           >{{ pending ? '正在删除…' : '删除用户' }}</UiButton
         ></UiDialogFooter
       >

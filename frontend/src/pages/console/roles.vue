@@ -6,7 +6,7 @@ import { Add01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons
 import { deleteRole, getRoleList, getUserRole } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
 import { getUserManageInfo } from '@/api/user/user'
-import { checkReadAccess, listPage, listSize, listStatus, mutationError, permissionDenied, restoreActionFocus, sessionChangedMessage } from '@/lib/rbac-mutations'
+import { checkReadAccess, listPage, listSize, listStatus, mutationError, mutationResultUnknown, permissionDenied, restoreActionFocus, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
 import { currentRoleId, isDefaultRole, managedRoles, permissionTree, roleWriteSucceeded } from '@/lib/roles'
 import { findMenu, withSessionOwner } from '@/lib/session'
 import { userPage } from '@/lib/users'
@@ -62,7 +62,9 @@ const filtered = computed(() =>
 const visible = computed(() =>
   filtered.value.slice((page.value - 1) * size.value, page.value * size.value),
 )
-const locked = computed(() => pending.value || actorPending.value || actorId.value === null || restricted.value || sessionChanged.value)
+const unconfirmedWrite = ref<'self' | 'other' | null>(null)
+const locked = computed(() => pending.value || actorPending.value || actorId.value === null ||
+  restricted.value || sessionChanged.value || unconfirmedWrite.value !== null)
 const treeUnavailable = computed(() => treePending.value || treeFailed.value)
 const open = ref(false)
 const mode = ref<'view' | 'create' | 'edit' | 'grant'>('view')
@@ -94,24 +96,41 @@ function beforeUnload(event: BeforeUnloadEvent) {
 function clampPage() {
   page.value = Math.min(page.value, Math.max(1, Math.ceil(filtered.value.length / size.value)))
 }
-function refreshRoles() {
-  if (!pending.value) void loadRoles()
+async function refreshRoles() {
+  if (!owner || pending.value || deleting.value || !session.owns(owner)) return
+  if (!(await loadRoles()) || !session.owns(owner) || !unconfirmedWrite.value) return
+  const self = unconfirmedWrite.value === 'self'
+  open.value = false
+  deletion.value = null
+  unconfirmedWrite.value = null
+  if (self) {
+    await session.signOut(true, null, undefined, owner)
+    return
+  }
+  notice.value = '已刷新角色列表，请核对实际状态。'
 }
-async function loadRoles() {
-  if (!owner || !session.owns(owner)) return
+function lockWrite(self = false) {
+  unconfirmedWrite.value = self ? 'self' : 'other'
+  notice.value = ''
+  createdName.value = ''
+}
+async function loadRoles(): Promise<boolean> {
+  if (!owner || !session.owns(owner)) return false
   pending.value = true
   failed.value = false
   restricted.value = false
   try {
     const result = managedRoles(checkReadAccess(await withSessionOwner(owner, getRoleList)))
-    if (!session.owns(owner)) return
+    if (!session.owns(owner)) return false
     roles.value = result
     clampPage()
+    return true
   } catch (error) {
-    if (!session.owns(owner)) return
+    if (!session.owns(owner)) return false
     roles.value = []
     failed.value = true
     restricted.value = permissionDenied(error)
+    return false
   } finally {
     pending.value = false
   }
@@ -257,6 +276,11 @@ async function remove() {
     notice.value = '角色已删除'
     await loadRoles()
   } catch (error) {
+    if (!session.owns(owner)) return
+    if (mutationResultUnknown(error)) {
+      lockWrite()
+      return
+    }
     const linked = !permissionDenied(error) && await hasLinkedUsers(id)
     if (!session.owns(owner)) return
     if (linked) roleInUse.value = true
@@ -292,6 +316,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
     </header>
     <UiAlert v-if="sessionChanged" variant="destructive" role="alert">
       <UiAlertDescription>{{ sessionChangedMessage }}</UiAlertDescription>
+    </UiAlert>
+    <UiAlert v-if="unconfirmedWrite && !open && !deletion" role="alert">
+      <UiAlertTitle>结果未确认</UiAlertTitle>
+      <UiAlertDescription>{{ unknownWriteMessage }}{{ failed ? '。列表读取失败，请重试。' : '' }}</UiAlertDescription>
+      <UiButton type="button" variant="outline" size="sm" class="mt-2"
+        :disabled="pending || sessionChanged" @click="refreshRoles">刷新列表核对</UiButton>
     </UiAlert>
     <UiAlert v-if="notice || createdRole" role="status">
       <UiAlertTitle>{{ notice || '角色已创建' }}</UiAlertTitle>
@@ -574,11 +604,16 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
       :actor-role-id="actorId"
       :locked="locked"
       :awaiting-read="Boolean(selected && awaitingRead.has(selected.id))"
+      :write-unconfirmed="unconfirmedWrite !== null"
+      :list-pending="pending"
+      :list-failed="failed"
       @saved="saved"
       @roles-read="readRoles"
       @retry-tree="refreshTree"
       @close-auto-focus="restoreSheetFocus"
       @unconfirmed="lockGrant"
+      @write-unconfirmed="lockWrite"
+      @refresh-list="refreshRoles"
     />
     <UiDialog
       :open="Boolean(deletion)"
@@ -589,7 +624,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
       "
       ><UiDialogContent
         :show-close-button="false"
-        class="top-[38.2%]! sm:max-w-[400px]!"
+        class="sm:max-w-[400px]"
         @pointer-down-outside.prevent
         @interact-outside.prevent
         @close-auto-focus="restoreDeleteFocus"
@@ -612,9 +647,15 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
             <RouterLink :to="{ path: '/console/users', query: { roleId: deletion?.id } }">查看关联用户</RouterLink>
           </UiButton>
         </UiAlert>
+        <UiAlert v-if="unconfirmedWrite" role="alert">
+          <UiAlertTitle>结果未确认</UiAlertTitle>
+          <UiAlertDescription>{{ unknownWriteMessage }}{{ failed ? '。列表读取失败，请重试。' : '' }}</UiAlertDescription>
+          <UiButton type="button" variant="outline" size="sm" class="mt-2"
+            :disabled="pending || deleting || sessionChanged" @click="refreshRoles">刷新列表核对</UiButton>
+        </UiAlert>
         <UiDialogFooter
           ><UiButton variant="outline" :disabled="deleting" @click="deletion = null">取消</UiButton
-          ><UiButton variant="destructive" :aria-disabled="deleting || sessionChanged" @click="remove">{{
+          ><UiButton variant="destructive" :aria-disabled="deleting || sessionChanged || Boolean(unconfirmedWrite)" @click="remove">{{
             deleting ? '正在删除…' : '删除角色'
           }}</UiButton></UiDialogFooter
         ></UiDialogContent
