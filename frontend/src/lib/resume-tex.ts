@@ -1,4 +1,7 @@
-import { offsetToPosition, resumeMathNodes, resumePreview, type PreviewBlock, type ResumeInline } from './resumes.ts'
+import {
+  markdownHref, offsetToPosition, resumeMathNodes, resumePreview,
+  type PreviewBlock, type ResumeInline,
+} from './resumes.ts'
 import { resumeTexTemplates, type ResumeTexTemplateId } from './resume-tex-templates.ts'
 
 export interface ResumeTexError {
@@ -45,6 +48,9 @@ const delimiters = new Set(raw`( ) [ ] < > | . \{ \} \langle \rangle \lbrace \rb
 \lvert \rvert \lVert \rVert \vert \Vert \| \lfloor \rfloor \lceil \rceil \uparrow \downarrow \updownarrow`.split(/\s+/))
 const escapedChars = new Set([...'{}$&#_% '])
 const textCommands = new Set(['textbackslash', 'textasciicircum', 'textasciitilde'])
+const scriptBoundaries = new Set([
+  '^', '_', '}', '&', raw`\\`, raw`\begin`, raw`\end`, raw`\left`, raw`\right`,
+])
 
 function normalizeNewlines(value: string): string {
   return value.replace(/\r\n?/g, '\n')
@@ -80,13 +86,15 @@ export function validateLatexMath(tex: string): string | null {
   return braces ? '公式包含未闭合的花括号。' : validateMathTokens(tokens)
 }
 
-type MathScope =
+type MathScope = { scripts: string } & (
   | { kind: 'group'; text: boolean; remaining: number }
   | { kind: 'delimiter' }
   | { kind: 'environment'; name: string }
+)
 
 function validateMathTokens(tokens: readonly string[]): string | null {
   const scopes: MathScope[] = []
+  const root = { scripts: '' }
   let index = 0
   function peek(): string {
     while (whitespace(tokens[index] ?? '')) index++
@@ -95,7 +103,7 @@ function validateMathTokens(tokens: readonly string[]): string | null {
   function openGroup(text: boolean, remaining = 0): boolean {
     if (peek() !== '{') return false
     index++
-    scopes.push({ kind: 'group', text, remaining })
+    scopes.push({ kind: 'group', text, remaining, scripts: '' })
     return true
   }
   function environmentName(): string {
@@ -107,11 +115,22 @@ function validateMathTokens(tokens: readonly string[]): string | null {
   }
 
   while (peek()) {
-    const token = tokens[index++]!
+    let token = tokens[index++]!
     const scope = scopes.at(-1)
+    const sequence = scope ?? root
     const text = scope?.kind === 'group' && scope.text
+    if (!text && (token === '^' || token === '_')) {
+      const script = token === '^' ? '上标' : '下标'
+      if (sequence.scripts.includes(token)) return `同一数学项不能重复使用${script}。`
+      sequence.scripts += token
+      token = peek()
+      if (!token || scriptBoundaries.has(token)) return `${script}缺少合法的数学项。`
+      index++
+    } else {
+      sequence.scripts = ''
+    }
     if (token === '{') {
-      scopes.push({ kind: 'group', text, remaining: 0 })
+      scopes.push({ kind: 'group', text, remaining: 0, scripts: '' })
       continue
     }
     if (token === '}') {
@@ -121,7 +140,7 @@ function validateMathTokens(tokens: readonly string[]): string | null {
       continue
     }
     if (!token.startsWith('\\')) {
-      if (text ? /[&#_^~]/.test(token) : !/^[A-Za-z0-9+*/=()[\]<>.,:;!?|_^'-]$/.test(token)) {
+      if (text ? /[&#_^~]/.test(token) : !/^[A-Za-z0-9+*/=()[\]<>.,:;!?|'-]$/.test(token)) {
         if (!text && token === '&' && scope?.kind === 'environment') continue
         return `公式${text ? '文本' : ''}中不允许字符 ${token}。`
       }
@@ -147,7 +166,7 @@ function validateMathTokens(tokens: readonly string[]): string | null {
         if (!environments.has(name)) return `不允许数学环境 ${name || token}。`
         if (command === 'begin') {
           if (name === 'aligned' && peek() === '[') return 'aligned 环境不接受可选参数。'
-          scopes.push({ kind: 'environment', name })
+          scopes.push({ kind: 'environment', name, scripts: '' })
         } else {
           if (scope?.kind !== 'environment' || scope.name !== name) return `数学环境 ${name} 未正确配对。`
           scopes.pop()
@@ -157,7 +176,7 @@ function validateMathTokens(tokens: readonly string[]): string | null {
       if (command === 'left' || command === 'right') {
         if (!delimiters.has(peek())) return `数学定界符 ${token} 缺少允许的符号。`
         index++
-        if (command === 'left') scopes.push({ kind: 'delimiter' })
+        if (command === 'left') scopes.push({ kind: 'delimiter', scripts: '' })
         else if (scope?.kind === 'delimiter') scopes.pop()
         else return raw`\right 缺少匹配的 \left。`
         continue
@@ -192,16 +211,9 @@ function inlineText(value: string): string {
 }
 
 function latexHref(value: string): string | null {
-  if (!/^(?:https?:\/\/|mailto:)/i.test(value) || /[\s\\\x00-\x1f\x7f]/.test(value)) return null
-  try {
-    const url = new URL(value)
-    if (url.username || url.password || !url.pathname) return null
-    return url.href.replace(/[{}^~%#&_$]/g, char => '{}^~'.includes(char)
-      ? raw`\%${char.charCodeAt(0).toString(16).toUpperCase()}`
-      : '\\' + char)
-  } catch {
-    return null
-  }
+  return markdownHref(value)?.replace(/[{}^~%#&_$]/g, char => '{}^~'.includes(char)
+    ? raw`\%${char.charCodeAt(0).toString(16).toUpperCase()}`
+    : '\\' + char) ?? null
 }
 
 function renderInline(tokens: readonly ResumeInline[]): string {
@@ -232,13 +244,14 @@ function renderCode(text: string): string {
 
 function renderTable(headers: ResumeInline[][], rows: ResumeInline[][][]): string {
   if (!headers.length) return ''
-  // Group cells so an inner math alignment cannot supply outer table separators.
-  const row = (cells: string[]) => cells.join(' & ') + raw` \tabularnewline`
+  // Keep nested alignments such as $\begin{aligned}a&=b\end{aligned}$ inside their longtable cell.
+  const row = (cells: string[]) =>
+    cells.map(cell => `{${cell}}`).join(' & ') + raw` \tabularnewline`
   const header = row(headers.map(cell => raw`\textbf{${renderInline(cell)}}`))
   const head = [raw`\toprule`, header, raw`\midrule`]
+  const body = rows.map(cells => row(headers.map((_, i) => renderInline(cells[i] ?? []))))
   return [raw`\begin{resumetable}{${headers.length}}`, ...head, raw`\endfirsthead`, ...head, raw`\endhead`,
-    raw`\bottomrule`, raw`\endlastfoot`, ...rows.map(cells => row(headers.map((_, i) => raw`{${renderInline(cells[i] ?? [])}}`))),
-    raw`\end{resumetable}`].join('\n')
+    raw`\bottomrule`, raw`\endlastfoot`, ...body, raw`\end{resumetable}`].join('\n')
 }
 
 const omittedAsset = '本地导出未包含图片'
@@ -311,11 +324,17 @@ export function resumeLatex(
   content: string | readonly PreviewBlock[],
   options?: { sourceMarkdown?: string; template?: ResumeTexTemplateId } | string,
 ): ResumeLatexResult {
-  const { sourceMarkdown, template = 'basic' } = typeof options === 'string'
-    ? { sourceMarkdown: options }
-    : options ?? {}
-  const blocks = typeof content === 'string' ? resumePreview(content) : content
-  const source = typeof content === 'string' ? content : sourceMarkdown ?? ''
+  const markdown = typeof content === 'string'
+  const input: { sourceMarkdown?: string; template?: string } | undefined =
+    typeof options === 'string'
+      ? (markdown ? { template: options } : { sourceMarkdown: options })
+      : options
+  const requestedTemplate = input?.template ?? 'basic'
+  const template = Object.hasOwn(resumeTexTemplates, requestedTemplate)
+    ? requestedTemplate as ResumeTexTemplateId
+    : 'basic'
+  const blocks = markdown ? resumePreview(content) : content
+  const source = markdown ? content : input?.sourceMarkdown ?? ''
   const errors: ResumeTexError[] = []
   for (const { tex: formula, start, end } of resumeMathNodes(blocks)) {
     const message = validateLatexMath(formula)

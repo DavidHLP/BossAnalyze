@@ -154,8 +154,8 @@ export function offsetToPosition(source: string, offset: number): { line: number
   return { line, column: clamped - lineStart + 1 }
 }
 
-function markdownHref(value: string) {
-  if (!/^(?:https?:\/\/|mailto:)/i.test(value) || /[\s\\]/.test(value)) return null
+export function markdownHref(value: string) {
+  if (!/^(?:https?:\/\/|mailto:)/i.test(value) || /[\s\\\x00-\x1f\x7f]/.test(value)) return null
   try {
     const url = new URL(value)
     return url.username || url.password || !url.pathname ? null : url.href
@@ -165,6 +165,9 @@ function markdownHref(value: string) {
 }
 
 type InlineSpan = { kind: 'code' | 'math'; start: number; end: number }
+const linkPattern = /(!?)\[([^\[\]]*)\]\(([^()\s]+)\)/g
+const emphasisPattern = /\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|(?<![\w_])_([^_]+)_(?![\w_])/
+const inlineTextPattern = new RegExp(`${emphasisPattern.source}|${linkPattern.source}`, 'g')
 
 function isEscaped(text: string, index: number) {
   let start = index
@@ -173,8 +176,13 @@ function isEscaped(text: string, index: number) {
 }
 
 function* inlineMathSpans(text: string, offset: number): Generator<InlineSpan> {
+  // Mask dollars in link destinations without changing the offsets into the original text.
+  const scan = text.replace(linkPattern, (literal, image, label, destination) =>
+    !image && destination.includes('$') && !literal.includes('`') && markdownHref(destination)
+      ? `[${label}](${destination.replaceAll('$', 'x')})`
+      : literal)
   let opener = -1
-  for (const match of text.matchAll(/\$+/g)) {
+  for (const match of scan.matchAll(/\$+/g)) {
     const start = match.index!
     const end = start + match[0].length
     if (end - start !== 1) {
@@ -204,9 +212,8 @@ function* inlineSpans(text: string): Generator<InlineSpan> {
 }
 
 function appendInlineText(tokens: ResumeInline[], text: string) {
-  const pattern = /\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|(?<![\w_])_([^_]+)_(?![\w_])|(!?)\[([^\[\]]*)\]\(([^()\s]+)\)/g
   let end = 0
-  for (const match of text.matchAll(pattern)) {
+  for (const match of text.matchAll(inlineTextPattern)) {
     const [literal, strong, alternateStrong, emphasis, alternateEmphasis, image, label, destination] = match
     const start = match.index!
     if (start > end) tokens.push({ kind: 'text', text: text.slice(end, start) })

@@ -123,6 +123,22 @@ test('academic changes page layout but exports a byte-identical body to modern',
   assert.equal(document(academic), document(modern))
 })
 
+test('Markdown accepts a template ID and AST accepts source text as the third argument', () => {
+  const source = '# 姓名\n\n[主页](https://example.com/)\n\n## 经历'
+  for (const template of ['basic', 'modern', 'academic']) {
+    const result = resumeLatex('标题', source, template)
+    assert.equal(result.effectiveTemplate, template)
+    assert.deepEqual(result, resumeLatex('标题', source, { template }))
+  }
+  for (const unknown of ['missing', '__proto__']) {
+    assert.deepEqual(resumeLatex('标题', source, unknown), resumeLatex('标题', source))
+  }
+  const invalid = '# 姓名\r\n\r\n中文 $x%$'
+  const result = resumeLatex('标题', resumePreview(invalid), invalid)
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.errors.map(({ line, column }) => [line, column]), [[3, 4]])
+})
+
 test('professional templates fall back to the unchanged basic document without a unique first H1', () => {
   const cases = [
     ['', /第一块.*H1/],
@@ -192,9 +208,12 @@ test('uses TeX-safe URL serialization and falls back to text for unapproved dest
   const links = [
     ['A&B', 'https://example.com/p_~^?a=$&b={x}%20#c'], ['邮件', 'mailto:me@example.com'],
     ['HTTP', 'http://example.com/p'], ['不允许#', 'javascript:void(0)'], ['纯文字', 'file:///tmp/test'],
+    ['有凭据', 'https://user:pass@example.com/'], ['含控制字符', 'https://example.com/\u0000'],
   ].map(([label, href]) => ({ kind: 'link', text: label, href }))
+  const escaped = tex`\href{https://example.com/p\_\%7E\%5E?a=\$\&b=\%7Bx\%7D\%20\#c}{A\&B}` +
+    tex`\href{mailto:me@example.com}{邮件}\href{http://example.com/p}{HTTP}不允许\#纯文字有凭据含控制字符`
   assert.equal(renderResumeLatexBlocks([{ kind: 'text', inline: links }]),
-    tex`\resumebody{\href{https://example.com/p\_\%7E\%5E?a=\$\&b=\%7Bx\%7D\%20\#c}{A\&B}\href{mailto:me@example.com}{邮件}\href{http://example.com/p}{HTTP}不允许\#纯文字}`)
+    tex`\resumebody{${escaped}}`)
 })
 
 test('writes asset placeholders and single-line sanitized comments without image commands', () => {
@@ -220,11 +239,11 @@ test('renders wrapping longtable columns with bold repeating headers and a final
   assert.ok(result.tex.includes(tex`\begin{longtable}{*{#1}{p{\dimexpr\linewidth/#1-2\tabcolsep\relax}}}`))
   assert.equal(renderResumeLatexBlocks(blocks), tex`\begin{resumetable}{2}
 \toprule
-\textbf{技能} & \textbf{水平} \tabularnewline
+{\textbf{技能}} & {\textbf{水平}} \tabularnewline
 \midrule
 \endfirsthead
 \toprule
-\textbf{技能} & \textbf{水平} \tabularnewline
+{\textbf{技能}} & {\textbf{水平}} \tabularnewline
 \midrule
 \endhead
 \bottomrule
@@ -281,6 +300,20 @@ test('rejects unknown commands, malformed arguments, crossed scopes, and misplac
     tex`{\begin{aligned}x}\end{aligned}`, tex`\begin{matrix}\left(x\end{matrix}\right)`, 'x\\',
   ]) {
     assert.notEqual(validateLatexMath(formula), null, formula)
+  }
+})
+
+test('LaTeX export rejects missing or repeated scripts on the same math atom', () => {
+  const rejected = ['x^', 'x_', 'x_1_2', 'x^a^b', 'x^_1', 'x^{y_}', 'x_1^{a}_2',
+    tex`\begin{matrix}x^&y\end{matrix}`, tex`\left(x_\right)`]
+  const result = resumeLatex('标题', rejected.map(formula => `$${formula}$`).join('\n'))
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.errors.map(error => error.formula), rejected)
+  assert.ok(result.errors.every(error => /上标|下标/.test(error.message)))
+
+  for (const formula of ['x_1^2', 'x^2_1', 'x_{1_2}', 'x^{}', 'x_1 y_2',
+    tex`x^\alpha_1`, tex`x^{\frac{a}{b}}_1`, tex`\begin{matrix}x_1 & y_2\\ z_3\end{matrix}`]) {
+    assert.equal(resumeLatex('标题', `$${formula}$`).ok, true, formula)
   }
 })
 

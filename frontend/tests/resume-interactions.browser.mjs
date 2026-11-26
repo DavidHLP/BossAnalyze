@@ -103,6 +103,47 @@ test('a rejected LaTeX download locates the formula in the mobile Markdown edito
 
 const katexChunk = /\/katex(?:-[^/?]+)?\.m?js(?:\?|$)/
 
+test('finishing a stash clears diagnostics and cancels HTML for the replaced draft', async t => {
+  const releaseStash = Promise.withResolvers()
+  const releaseKatex = Promise.withResolvers()
+  t.after(() => { releaseStash.resolve(); releaseKatex.resolve() })
+  const { page, body, resume, resource } = await editor(t)
+  await page.route('**' + resource + '/version/stash', async route => {
+    await releaseStash.promise
+    await route.continue()
+  })
+  await page.route(katexChunk, async route => {
+    await releaseKatex.promise
+    await route.continue()
+  })
+
+  const requested = page.waitForRequest(katexChunk)
+  await body.fill('# 储藏草稿\n\n中文 $x%$')
+  await requested
+  await page.getByRole('button', { name: '储藏', exact: true }).click()
+  await page.getByRole('button', { name: '导出简历' }).click()
+  const dialog = page.getByRole('dialog', { name: '导出简历' })
+  const locate = dialog.getByRole('button', { name: '定位到公式' })
+  const html = dialog.getByRole('button', { name: '下载 HTML' })
+  await dialog.getByRole('button', { name: '下载 LaTeX (.tex)', exact: true }).click()
+  await locate.waitFor()
+  await html.click()
+  assert.equal(await html.isDisabled(), true)
+
+  releaseStash.resolve()
+  await page.getByText('草稿已储藏，可在版本历史中取回。', { exact: true }).waitFor()
+  assert.equal(await dialog.isVisible(), true)
+  assert.equal(await locate.count(), 0)
+  assert.equal(await html.isEnabled(), true)
+
+  releaseKatex.resolve()
+  const downloaded = page.waitForEvent('download')
+  await html.click()
+  const exported = await readFile(await (await downloaded).path(), 'utf8')
+  assert.ok(exported.includes(`<h1>${resume.content.slice(2)}</h1>`))
+  assert.ok(!exported.includes('$x%$'))
+})
+
 test('local HTML and print wait for MathML and closing the dialog cancels the pending download', async t => {
   const release = Promise.withResolvers()
   t.after(() => release.resolve())

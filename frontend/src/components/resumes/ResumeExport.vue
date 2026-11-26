@@ -32,16 +32,25 @@ const complete = computed(() => resultUrl.value !== null)
 const domain = computed(() => destination?.startsWith('/') ? '本机 Mock 导出服务' : destination)
 let locateOnClose: ResumeRange | undefined
 
+function resetLocalExport() {
+  texErrors.value = []
+  texWarnings.value = []
+  htmlError.value = ''
+  sourceFallback.value = undefined
+  cancelHtml()
+}
+
 watch(open, () => {
   accepted.value = false
   error.value = ''
   resultUrl.value = null
-  htmlError.value = ''
-  sourceFallback.value = undefined
   texTemplate.value = 'basic'
-  texErrors.value = []
-  texWarnings.value = []
-  if (!open.value) cancelHtml()
+  resetLocalExport()
+}, { flush: 'sync' })
+
+watch(() => props.content, () => {
+  locateOnClose = undefined
+  resetLocalExport()
 }, { flush: 'sync' })
 
 function download(title: string, content: string, extension: 'html' | 'md' | 'tex', type: string) {
