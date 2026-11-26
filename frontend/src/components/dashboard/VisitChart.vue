@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useTemplateRef, watch } from 'vue'
-import { peakVisits, visitShare } from '@/lib/dashboard'
+import { formatPercentage, peakVisits, visitShare } from '@/lib/dashboard'
 import type { CountRow } from '@/lib/dashboard'
 
 const props = defineProps<{ hours: CountRow[] }>()
@@ -17,10 +17,11 @@ const days = computed(() => {
 })
 const peak = computed(() => peakVisits(rows.value))
 const yTicks = computed(() => {
-  if (!peak.value) return [0]
-  const intervals = Math.min(3, peak.value)
+  const max = peak.value
+  if (!max) return [0]
+  const intervals = Math.min(3, max)
   return Array.from({ length: intervals + 1 }, (_, index) =>
-    peak.value * (intervals - index) / intervals,
+    max * (intervals - index) / intervals,
   )
 })
 const detailColumns = computed(() => {
@@ -148,7 +149,7 @@ function moveSelection(event: KeyboardEvent, index: number) {
                     active.label === row.label ? 'bg-accent-data' : 'bg-accent-data/75',
                     { 'min-h-[3px]': row.count > 0 },
                   ]"
-                  :style="{ height: row.count ? `${visitShare(row.count, peak)}%` : '0px' }"
+                  :style="{ height: `${visitShare(row.count, peak) ?? 0}%` }"
                 />
                 <span v-if="active.label === row.label" aria-hidden="true" class="absolute -bottom-1 h-0.5 w-2/3 max-w-7 rounded-full bg-accent-data" />
               </button>
@@ -203,7 +204,7 @@ function moveSelection(event: KeyboardEvent, index: number) {
                     {{ number.format(row.count) }}
                   </UiTableCell>
                   <UiTableCell class="py-0.5 text-right font-mono text-xs tabular-nums">
-                    {{ visitShare(row.count, peak).toFixed(1) }}%
+                    {{ formatPercentage(visitShare(row.count, peak)) }}
                   </UiTableCell>
                 </UiTableRow>
               </UiTableBody>
