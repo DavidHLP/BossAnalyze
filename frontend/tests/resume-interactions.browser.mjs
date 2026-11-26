@@ -3,6 +3,7 @@
 //   mise exec node@26.7.0 -- pnpm exec node --test tests/resume-interactions.browser.mjs
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { after, before, test } from 'node:test'
 
@@ -16,12 +17,13 @@ before(async () => {
 })
 after(async () => { await browser?.close() })
 
-async function editor(t, { content = '# 已提交正文', mobile = false } = {}) {
+async function editor(t, { content = '# 已提交正文', mobile = false, colorScheme = 'light' } = {}) {
   const context = await browser.newContext({
     baseURL,
     viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
     isMobile: mobile,
     hasTouch: mobile,
+    colorScheme,
     reducedMotion: 'reduce',
   })
   t.after(() => context.close())
@@ -60,6 +62,131 @@ async function shot(page, name) {
     await page.screenshot({ path: resolve(process.env.RESUME_SCREENSHOTS, name + '.png') })
   }
 }
+
+test('a rejected LaTeX download locates the formula in the mobile Markdown editor', async t => {
+  const formula = '$x%$'
+  const prefix = '# 公式验收\r\n' + '用于滚动核验的正文\r\n'.repeat(40) + '中文😀 '
+  const { page, body, resume } = await editor(t, { content: prefix + formula, mobile: true, colorScheme: 'dark' })
+  await page.getByRole('button', { name: '预览', exact: true }).click()
+  const downloads = []
+  page.on('download', download => downloads.push(download.suggestedFilename()))
+  await page.getByRole('button', { name: '导出简历' }).click()
+  const dialog = page.getByRole('dialog', { name: '导出简历' })
+  await dialog.getByRole('button', { name: '下载 LaTeX (.tex)', exact: true }).click()
+  const diagnostic = dialog.getByText('第 42 行第 6 列', { exact: true })
+  await diagnostic.waitFor()
+  await dialog.getByText('x%', { exact: true }).waitFor()
+  await dialog.getByText(/未转义的 %/).waitFor()
+  assert.equal(await dialog.getByRole('button', { name: '下载 HTML' }).isEnabled(), true)
+  assert.equal(await dialog.getByRole('button', { name: '打印 / 另存为 PDF' }).isEnabled(), true)
+  await dialog.getByRole('button', { name: '下载 HTML' }).click()
+  await dialog.getByRole('alert').filter({ hasText: /公式无法渲染/ }).waitFor()
+
+  const markdown = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: '下载 Markdown' }).click()
+  await markdown
+  assert.deepEqual(downloads, [resume.title + '.md'])
+
+  await dialog.getByRole('button', { name: '定位到公式' }).click()
+  await dialog.waitFor({ state: 'hidden' })
+  await page.waitForFunction(() => document.activeElement?.id === 'resume-markdown')
+  const start = prefix.replaceAll('\r\n', '\n').length
+  assert.deepEqual(await body.evaluate(input => [input.selectionStart, input.selectionEnd,
+    input.value.slice(input.selectionStart, input.selectionEnd)]), [start, start + formula.length, formula])
+  assert.equal(await body.evaluate(input => {
+    const { top } = input.getBoundingClientRect()
+    const { paddingTop, lineHeight } = getComputedStyle(input)
+    const lineTop = top + parseFloat(paddingTop) + 41 * parseFloat(lineHeight) - input.scrollTop
+    return lineTop >= 0 && lineTop + parseFloat(lineHeight) <= window.innerHeight
+  }), true)
+})
+
+const katexChunk = /\/katex(?:-[^/?]+)?\.m?js(?:\?|$)/
+
+test('local HTML and print wait for MathML and closing the dialog cancels the pending download', async t => {
+  const release = Promise.withResolvers()
+  t.after(() => release.resolve())
+  const { page, body, resume } = await editor(t)
+  const requests = []
+  page.on('request', request => { if (katexChunk.test(request.url())) requests.push(request.url()) })
+  const openExport = page.getByRole('button', { name: '导出简历' })
+  const dialog = page.getByRole('dialog', { name: '导出简历' })
+  const html = dialog.getByRole('button', { name: '下载 HTML' })
+  const print = dialog.getByRole('button', { name: '打印 / 另存为 PDF' })
+  await openExport.click()
+  const plainDownload = page.waitForEvent('download')
+  await html.click()
+  assert.equal((await plainDownload).suggestedFilename(), resume.title + '.html')
+  assert.equal(await page.evaluate(() => performance.getEntriesByType('resource')
+    .some(entry => /\/katex(?:[-.]|\/)/.test(entry.name))), false)
+  assert.deepEqual(requests, [])
+  await dialog.getByRole('button', { name: '取消' }).click()
+
+  await page.route(katexChunk, async route => {
+    await release.promise
+    await route.continue()
+  })
+  const requested = page.waitForRequest(katexChunk)
+  await body.fill('速度 $a_1$\n\n$$E=mc^2$$\n\n![证书](asset:certificate.png)')
+  await requested
+  const downloads = []
+  page.on('download', download => downloads.push(download.suggestedFilename()))
+  await openExport.click()
+  await html.click()
+  assert.equal(await html.isDisabled(), true)
+  assert.equal(await print.isDisabled(), true)
+  await dialog.getByRole('button', { name: '取消' }).click()
+  await openExport.click()
+  assert.equal(await html.isEnabled(), true)
+  release.resolve()
+
+  const preview = page.getByRole('article', { name: '简历预览', includeHidden: true })
+  await preview.locator('math').nth(1).waitFor({ state: 'attached' })
+  const htmlDownload = page.waitForEvent('download')
+  await html.click()
+  const exportedHtml = await readFile(await (await htmlDownload).path(), 'utf8')
+  assert.equal((exportedHtml.match(/<math(?:\s|>)/g) ?? []).length, 2)
+  assert.deepEqual(downloads, [resume.title + '.html'])
+
+  await page.evaluate(() => {
+    document.addEventListener('load', event => {
+      const frame = event.target
+      if (!(frame instanceof HTMLIFrameElement) || frame.title !== '简历打印视图') return
+      frame.contentWindow.print = () => {
+        window.printedResume = frame.contentDocument.querySelectorAll('math').length
+        frame.contentWindow.dispatchEvent(new Event('afterprint'))
+      }
+    }, true)
+  })
+  await print.click()
+  await page.waitForFunction(() => window.printedResume === 2)
+  assert.equal(await page.locator('iframe[title="简历打印视图"]').count(), 0)
+
+  const texDownload = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: '下载 LaTeX (.tex)', exact: true }).click()
+  await dialog.getByRole('status').getByText(/本地导出未包含图片.*certificate\.png/).waitFor()
+  const tex = await texDownload
+  assert.equal(tex.suggestedFilename(), resume.title + '.tex')
+  assert.ok((await readFile(await tex.path(), 'utf8')).includes(String.raw`\resumebody{速度 \(a_1\)}`))
+})
+
+test('a failed math chunk allows an explicit HTML download with formula source', async t => {
+  const { page, body, resume } = await editor(t)
+  await page.route(katexChunk, route => route.abort())
+  await body.fill('速度 $a_1$')
+  await page.getByRole('button', { name: '导出简历' }).click()
+  const dialog = page.getByRole('dialog', { name: '导出简历' })
+  const downloads = []
+  page.on('download', download => downloads.push(download.suggestedFilename()))
+  await dialog.getByRole('button', { name: '下载 HTML' }).click()
+  await dialog.getByRole('alert').filter({ hasText: /公式渲染器加载失败.*重试/ }).waitFor()
+  const downloaded = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: '保留公式源码并继续' }).click()
+  const html = await readFile(await (await downloaded).path(), 'utf8')
+  assert.ok(html.includes('<p>速度 $a_1$</p>'))
+  assert.ok(!html.includes('<math'))
+  assert.deepEqual(downloads, [resume.title + '.html'])
+})
 
 for (const activation of ['desktop pointer', 'desktop keyboard', 'mobile viewport']) {
   test('native undo removes only toolbar bold with ' + activation, async t => {
