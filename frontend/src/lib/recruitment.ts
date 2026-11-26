@@ -303,9 +303,11 @@ export function scatterData(jobs: JobSample[], x: string, y: string) {
   const plotX = (value: number) => minX === maxX ? 330 : 60 + ((value - minX) / (maxX - minX)) * 540
   const plotY = (value: number) => minY === maxY ? 125 : 220 - ((value - minY) / (maxY - minY)) * 190
   // shortcut: render at most 1000 coordinate groups; use a canvas plot for larger interactive views.
+  const groupLimit = 1000
+  const plotted = Math.min(all.length, groupLimit)
   const points = Array.from(
-    { length: Math.min(all.length, 1000) },
-    (_, index) => all[Math.floor((index * all.length) / Math.min(all.length, 1000))]!,
+    { length: plotted },
+    (_, index) => all[Math.floor((index * all.length) / plotted)]!,
   ).map((point) => ({
     ...point,
     cx: plotX(point.x),
@@ -315,6 +317,7 @@ export function scatterData(jobs: JobSample[], x: string, y: string) {
     points,
     valid,
     groups: all.length,
+    groupLimit,
     allGroups: all,
     minX,
     maxX,

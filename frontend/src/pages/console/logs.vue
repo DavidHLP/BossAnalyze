@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowReactive } from 'vue'
+import { ComputerTerminal01Icon } from '@hugeicons/core-free-icons'
 import { RiPlayLine, RiRefreshLine } from '@remixicon/vue'
 import { getCompleteLogStats, getDashboardStats, getHeatMapData, getIpStatistics, triggerLogAnalysis } from '@/api/log/accesslog'
 import LogHeatmap from '@/components/dashboard/LogHeatmap.vue'
+import DistributionCard from '@/components/dashboard/DistributionCard.vue'
 import { useLogTrigger } from '@/composables/useLogTrigger'
 import { useSession } from '@/composables/useSession'
-import { heatBuckets, ipDistribution, logTotals, weekdayAverages, weekdayDistribution } from '@/lib/log-analysis'
+import { formatPercentage, httpMethodDistribution, visitShare } from '@/lib/dashboard'
+import { heatBuckets, ipDistribution, logReadStatus, logTotals, weekdayAverages, weekdayDistribution } from '@/lib/log-analysis'
+import type { LogReadResult } from '@/lib/log-analysis'
 import { permissionDenied } from '@/lib/rbac-mutations'
 import { withSessionOwner } from '@/lib/session'
 
@@ -26,7 +30,7 @@ function logResource<T>(read: () => Promise<T | null>, version?: (value: T) => s
     data: T | null
     loading: boolean
     error: string
-    result: 'updated' | 'unchanged' | 'empty' | null
+    result: LogReadResult
   }>({ data: null, loading: false, error: '', result: null })
   async function load() {
     if (state.loading || !session.owns(owner)) return
@@ -46,7 +50,7 @@ function logResource<T>(read: () => Promise<T | null>, version?: (value: T) => s
       if (session.owns(owner)) {
         const forbidden = permissionDenied(cause)
         if (forbidden) state.data = null
-        state.result = null
+        state.result = forbidden ? 'forbidden' : 'error'
         state.error = forbidden ? '当前账号缺少日志读取权限。' : '日志服务暂时不可用，请重试读取。'
       }
     } finally {
@@ -58,12 +62,16 @@ function logResource<T>(read: () => Promise<T | null>, version?: (value: T) => s
 
 const { state: snapshot, load: readSnapshot } = logResource(async () => {
   const data = await getDashboardStats()
-  return data === null ? null : weekdayDistribution(data)
+  return data === null ? null : {
+    ...weekdayDistribution(data),
+    methods: httpMethodDistribution(data.httpMethodStatistics),
+  }
 }, data => data.time)
 const { state: totals, load: readTotals } = logResource(async () => logTotals(await getCompleteLogStats()))
 const { state: heat, load: readHeat } = logResource(async () => heatBuckets(await getHeatMapData()))
 const { state: geo, load: readGeo } = logResource(async () => ipDistribution(await getIpStatistics()))
-const refreshPending = computed(() => [snapshot, totals, heat, geo].some(part => part.loading))
+const parts = [snapshot, totals, heat, geo]
+const refreshPending = computed(() => parts.some(part => part.loading))
 const peak = computed(() => heat.data?.hours.reduce<{ label: string; count: number } | null>(
   (highest, point) => !highest || point.count > highest.count ? point : highest, null,
 ))
@@ -71,13 +79,7 @@ const averages = computed(() => weekdayAverages(heat.data?.hours ?? []))
 const number = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 })
 const display = (value: number | null | undefined) => value == null ? '—' : number.format(value)
 const weekdayMax = computed(() => Math.max(1, ...(snapshot.data?.days.map(day => day.count ?? 0) ?? [])))
-const readStatus = computed(() => {
-  if (refreshPending.value) return '正在读取日志缓存…'
-  if (snapshot.result === 'unchanged') return '已检查，暂无新快照'
-  if (snapshot.result === 'updated') return '已读取日志快照'
-  if (snapshot.result === 'empty') return '暂无可用的日志快照'
-  return ''
-})
+const readStatus = computed(() => logReadStatus(parts))
 const metrics = computed(() => [
   { source: totals, name: '快照总访问量', value: display(totals.data?.visits), note: '快照累计访问次数' },
   { source: totals, name: '独立 IP 数', value: display(totals.data?.ips), note: '按来源 IP 去重' },
@@ -89,10 +91,6 @@ const groups = computed(() => [
   { name: '城市', items: geo.data?.cities ?? [] },
 ])
 const geoCount = computed(() => geo.data?.records.reduce((total, row) => total + row.count, 0) ?? 0)
-function share(count: number, total: number | null | undefined) {
-  if (total == null || total === 0) return '—'
-  return (count / total * 100).toFixed(1) + '%'
-}
 function refresh() {
   void Promise.all([readSnapshot(), readTotals(), readHeat(), readGeo()])
 }
@@ -173,9 +171,9 @@ onMounted(refresh)
           <section v-for="group in groups" :key="group.name" class="min-w-0">
             <h3 class="mb-3 text-sm font-semibold">{{ group.name }}</h3>
             <ul class="flex flex-col gap-2">
-              <li v-for="item in group.items.slice(0, 6)" :key="item.name" class="flex flex-col gap-1 text-sm">
-                <span class="flex items-center justify-between gap-2"><span>{{ item.name }}</span><span class="tabular-nums">{{ share(item.count, geoCount) }}</span></span>
-                <span class="h-1.5 bg-muted" aria-hidden="true"><span class="block h-full bg-chart-1" :style="{ width: geoCount ? item.count / geoCount * 100 + '%' : '0%' }" /></span>
+              <li v-for="item in group.items.slice(0, 6)" :key="item.key" class="flex flex-col gap-1 text-sm">
+                <span class="flex items-center justify-between gap-2"><span class="min-w-0 break-words">{{ item.name }}</span><span class="tabular-nums">{{ formatPercentage(visitShare(item.count, geoCount)) }}</span></span>
+                <span class="h-1.5 bg-muted" aria-hidden="true"><span class="block h-full bg-chart-1" :style="{ width: `${visitShare(item.count, geoCount) ?? 0}%` }" /></span>
               </li>
             </ul>
           </section>
@@ -183,13 +181,16 @@ onMounted(refresh)
             <h3 class="mb-3 text-sm font-semibold">高频访问 IP</h3>
             <UiTable>
               <UiTableCaption>占比以所读快照总访问量为分母。</UiTableCaption>
-              <UiTableHeader><UiTableRow><UiTableHead>IP 地址</UiTableHead><UiTableHead>国家 / 城市</UiTableHead><UiTableHead class="text-right">访问次数</UiTableHead><UiTableHead class="text-right">占比</UiTableHead></UiTableRow></UiTableHeader>
+              <UiTableHeader><UiTableRow><UiTableHead>IP 地址</UiTableHead><UiTableHead>地理位置</UiTableHead><UiTableHead class="text-right">访问次数</UiTableHead><UiTableHead class="text-right">占比</UiTableHead></UiTableRow></UiTableHeader>
               <UiTableBody>
                 <UiTableRow v-for="entry in geo.data.records.slice(0, 10)" :key="entry.ip">
-                  <UiTableCell class="font-mono text-xs">{{ entry.ip }}</UiTableCell>
-                  <UiTableCell>{{ entry.country }} / {{ entry.city }}</UiTableCell>
+                  <UiTableCell>
+                    <span class="font-mono text-xs">{{ entry.ip }}</span>
+                    <p v-if="entry.isLocal !== null" class="text-xs text-muted-foreground">{{ entry.isLocal ? '本地网络' : '非本地网络' }}</p>
+                  </UiTableCell>
+                  <UiTableCell>{{ [entry.country, entry.province, entry.city].filter(Boolean).join(' / ') }}</UiTableCell>
                   <UiTableCell class="text-right tabular-nums">{{ display(entry.count) }}</UiTableCell>
-                  <UiTableCell class="text-right tabular-nums">{{ share(entry.count, totals.data?.visits) }}</UiTableCell>
+                  <UiTableCell class="text-right tabular-nums">{{ formatPercentage(visitShare(entry.count, totals.data?.visits)) }}</UiTableCell>
                 </UiTableRow>
               </UiTableBody>
             </UiTable>
@@ -201,26 +202,42 @@ onMounted(refresh)
     </UiCard>
 
     <UiCard class="min-w-0">
-      <UiCardHeader><h2 class="text-lg font-semibold">星期访问规律</h2><UiCardDescription>工作日与周末日均仅按有记录的日期计算。</UiCardDescription></UiCardHeader>
+      <UiCardHeader><h2 class="text-lg font-semibold">星期访问规律</h2><UiCardDescription>小时均值为该星期几的累计访问次数除以 24。日均按热力图中有记录的日期计算。</UiCardDescription></UiCardHeader>
       <UiCardContent class="flex min-w-0 flex-col gap-4">
         <UiAlert v-if="snapshot.error" role="alert" variant="destructive"><UiAlertDescription class="flex flex-wrap items-center gap-2">{{ snapshot.error }}<UiButton variant="outline" size="sm" @click="readSnapshot">重试读取星期规律</UiButton></UiAlertDescription></UiAlert>
         <UiSkeleton v-if="snapshot.loading && !snapshot.data" class="h-36" role="status" aria-label="正在读取星期规律" />
-        <template v-else-if="snapshot.data">
-          <ul class="flex flex-col gap-2">
-            <li v-for="day in snapshot.data.days" :key="day.name" class="grid grid-cols-[2.5rem_minmax(0,1fr)_4.5rem] items-center gap-2 text-sm">
-              <span>{{ day.name }}</span><span class="h-2 bg-muted" aria-hidden="true"><span class="block h-full bg-chart-1" :style="{ width: (day.count ?? 0) / weekdayMax * 100 + '%' }" /></span>
-              <span class="text-right tabular-nums">{{ display(day.count) }}</span>
-            </li>
-          </ul>
-          <dl class="flex flex-wrap gap-5 border-t pt-4 text-sm">
-            <div><dt class="text-muted-foreground">工作日日均</dt><dd class="mt-1 font-semibold tabular-nums">{{ display(averages.workdays) }}</dd></div>
-            <div><dt class="text-muted-foreground">周末日均</dt><dd class="mt-1 font-semibold tabular-nums">{{ display(averages.weekends) }}</dd></div>
-          </dl>
-        </template>
+        <ul v-else-if="snapshot.data" class="flex flex-col gap-3">
+          <li v-for="day in snapshot.data.days" :key="day.name" class="grid gap-1 text-sm">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span class="font-medium">
+                {{ day.name }}
+                <span v-if="day.isWorkday || day.isWeekend" class="ml-1 text-xs text-muted-foreground">{{ day.isWeekend ? '周末' : '工作日' }}</span>
+              </span>
+              <span class="flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground">
+                <span>{{ display(day.count) }} 次访问</span>
+                <span>占比 {{ formatPercentage(day.percentage) }}</span>
+                <span>小时均值 {{ display(day.avgHourlyVisits) }}</span>
+              </span>
+            </div>
+            <span class="h-2 bg-muted" aria-hidden="true"><span class="block h-full bg-chart-1" :style="{ width: (day.count ?? 0) / weekdayMax * 100 + '%' }" /></span>
+          </li>
+        </ul>
         <p v-else-if="snapshot.result === 'empty'" role="status" class="text-sm text-muted-foreground">尚未生成快照。生成后可刷新读取。</p>
+        <dl v-if="heat.data" class="flex flex-wrap gap-5 border-t pt-4 text-sm">
+          <div><dt class="text-muted-foreground">工作日日均（有记录日）</dt><dd class="mt-1 font-semibold tabular-nums">{{ display(averages.workdays) }}</dd></div>
+          <div><dt class="text-muted-foreground">周末日均（有记录日）</dt><dd class="mt-1 font-semibold tabular-nums">{{ display(averages.weekends) }}</dd></div>
+        </dl>
         <p class="text-xs text-muted-foreground">日志快照不包含响应状态码和耗时。无法定位的 IP 显示为未知。</p>
       </UiCardContent>
     </UiCard>
+
+    <DistributionCard
+      v-if="snapshot.data?.methods.length"
+      title="HTTP 请求方法分布"
+      :icon="ComputerTerminal01Icon"
+      note="占比以该组所示请求次数为分母。"
+      :rows="snapshot.data.methods"
+    />
 
     <UiDialog :open="confirmation" @update:open="confirmation = $event">
       <UiDialogContent @interact-outside.prevent>

@@ -1,6 +1,7 @@
 export interface CountRow {
   label: string
   count: number
+  detail?: string
 }
 
 export interface DashboardSnapshot {
@@ -10,6 +11,7 @@ export interface DashboardSnapshot {
   hours: CountRow[]
   pages: CountRow[]
   browsers: CountRow[]
+  countries: CountRow[]
   methods: CountRow[]
 }
 
@@ -24,14 +26,29 @@ function count(value: unknown): number {
   return value
 }
 
-function distribution(value: unknown): CountRow[] {
+function distribution(
+  value: unknown,
+  row: (label: string, item: Record<string, unknown>) => CountRow =
+    (label, item) => ({ label, count: count(item.count) }),
+): CountRow[] {
   if (!object(value)) throw new Error('Invalid dashboard distribution')
   return Object.entries(value)
     .map(([label, item]) => {
       if (!object(item)) throw new Error('Invalid dashboard distribution item')
-      return { label, count: count(item.count) }
+      return row(label, item)
     })
     .sort((a, b) => b.count - a.count)
+}
+
+export function httpMethodDistribution(value: unknown) {
+  return distribution(object(value) ? value.methodStats ?? {} : {}, (label, item) => {
+    const detail = [
+      typeof item.description === 'string' ? item.description.trim() : '',
+      typeof item.isSafe === 'boolean' ? (item.isSafe ? '安全方法' : '非安全方法') : '',
+      typeof item.isIdempotent === 'boolean' ? (item.isIdempotent ? '幂等' : '非幂等') : '',
+    ].filter(Boolean).join(' · ')
+    return { label, count: count(item.count), ...(detail ? { detail } : {}) }
+  })
 }
 
 function validCalendarDate(value: string) {
@@ -39,9 +56,19 @@ function validCalendarDate(value: string) {
   return Number.isFinite(day.getTime()) && day.toISOString().split('T')[0] === value
 }
 
-function validSnapshotTime(value: string) {
-  const date = /^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}(?=[T\s]|$)/i.exec(value.trim())?.[0]
-  return date && validCalendarDate(date) && Number.isFinite(Date.parse(value))
+export function parseSnapshotTime(value: unknown) {
+  // Hutool's cached LocalDateTime is returned as epoch milliseconds by the gateway.
+  const generatedAt =
+    typeof value === 'number' && Number.isSafeInteger(value) && Number.isFinite(new Date(value).getTime())
+      ? new Date(value).toISOString()
+      : value
+  const date = typeof generatedAt === 'string'
+    ? /^(?:\d{4}|[+-]\d{6})-\d{2}-\d{2}(?=[T\s]|$)/i.exec(generatedAt.trim())?.[0]
+    : undefined
+  if (typeof generatedAt !== 'string' || !date || !validCalendarDate(date) || !Number.isFinite(Date.parse(generatedAt))) {
+    throw new Error('Invalid snapshot time')
+  }
+  return generatedAt
 }
 
 export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
@@ -49,16 +76,8 @@ export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
   if (!object(value) || !object(value.overview)) throw new Error('Invalid dashboard response')
   const visits = count(value.overview.totalVisits)
   const visitors = count(value.overview.uniqueVisitors)
-  // Hutool's cached LocalDateTime is returned as epoch milliseconds by the gateway.
-  const generatedAt =
-    typeof value.generatedAt === 'number' &&
-    Number.isSafeInteger(value.generatedAt) &&
-    Number.isFinite(new Date(value.generatedAt).getTime())
-      ? new Date(value.generatedAt).toISOString()
-      : value.generatedAt
+  const generatedAt = parseSnapshotTime(value.generatedAt)
   if (
-    typeof generatedAt !== 'string' ||
-    !validSnapshotTime(generatedAt) ||
     !object(value.heatMapData) ||
     !object(value.topPages) ||
     !Array.isArray(value.topPages.pages) ||
@@ -91,9 +110,11 @@ export function dashboardSnapshot(value: unknown): DashboardSnapshot | null {
     hours,
     pages,
     browsers: distribution(value.deviceStats.browsers ?? {}),
-    methods: distribution(
-      object(value.httpMethodStatistics) ? value.httpMethodStatistics.methodStats : {},
+    countries: distribution(
+      object(value.geoStats) ? value.geoStats.countryStats ?? {} : {},
+      (label, item) => ({ label, count: count(item.visits) }),
     ),
+    methods: httpMethodDistribution(value.httpMethodStatistics),
   }
 }
 
@@ -106,11 +127,15 @@ export function snapshotTime(value: string) {
 }
 
 export function peakVisits(hours: CountRow[]) {
-  return hours.reduce((peak, hour) => Math.max(peak, hour.count), 0)
+  return hours.length ? hours.reduce((peak, hour) => Math.max(peak, hour.count), 0) : null
 }
 
-export function visitShare(count: number, total: number) {
-  return total ? (count / total) * 100 : 0
+export function visitShare(count: number, total: number | null | undefined) {
+  return total ? (count / total) * 100 : null
+}
+
+export function formatPercentage(percentage: number | null) {
+  return percentage === null ? '—' : `${percentage.toFixed(1)}%`
 }
 
 export const snapshotScope = '统计配置日志目录中可解析的受保护 API 请求。非近 24 小时实时监控，无响应耗时或状态码。'

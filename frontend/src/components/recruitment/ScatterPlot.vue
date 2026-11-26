@@ -105,7 +105,8 @@ function pointKey(event: KeyboardEvent, index: number) {
         <span class="font-mono tabular-nums">{{ pointDescription(active) }}</span>
       </p>
       <p class="text-xs text-muted-foreground">
-        {{ number.format(plot.valid) }} 条有效样本 · {{ number.format(plot.groups) }} 组坐标
+        {{ number.format(plot.valid) }} 条有效样本 · 当前绘制 {{ number.format(plot.points.length) }} / {{ number.format(plot.groups) }} 组。
+        最多绘制 {{ number.format(plot.groupLimit) }} 组，完整分组见下方明细。
       </p>
     </div>
     <div ref="plotFrame" class="min-w-0">
