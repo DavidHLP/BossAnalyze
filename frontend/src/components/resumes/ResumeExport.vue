@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { FieldDescription, FieldTitle } from '@/components/ui/field'
 import { exportDestination, resumeExportResult, resumeHasMath, resumeHtml, resumePreview, type ResumeMathRender } from '@/lib/resumes'
 import { loadResumeMath } from '@/lib/resume-math'
-import { resumeLatex, type ResumeTexError } from '@/lib/resume-tex'
+import { inspectResumeTexTemplate, resumeLatex, type ResumeTexError } from '@/lib/resume-tex'
+import { resumeTexTemplates, type ResumeTexTemplateId } from '@/lib/resume-tex-templates'
 
 const props = defineProps<{ title: string; content: string }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -18,6 +20,11 @@ const htmlJob = ref<symbol>()
 const sourceFallback = ref<'html' | 'pdf'>()
 const printing = ref(false)
 const htmlBusy = computed(() => !!htmlJob.value || printing.value)
+const texTemplate = ref<ResumeTexTemplateId>('basic')
+const texBlocks = computed(() => resumePreview(props.content))
+const texInspection = computed(() => texTemplate.value === 'basic'
+  ? null
+  : inspectResumeTexTemplate(texBlocks.value, texTemplate.value))
 const texErrors = ref<ResumeTexError[]>([])
 const texWarnings = ref<string[]>([])
 const resultUrl = ref<string | null>(null)
@@ -31,6 +38,7 @@ watch(open, () => {
   resultUrl.value = null
   htmlError.value = ''
   sourceFallback.value = undefined
+  texTemplate.value = 'basic'
   texErrors.value = []
   texWarnings.value = []
   if (!open.value) cancelHtml()
@@ -50,10 +58,16 @@ function download(title: string, content: string, extension: 'html' | 'md' | 'te
 
 function downloadLatex() {
   const { title, content } = props
-  const result = resumeLatex(title, content)
+  const result = resumeLatex(title, texBlocks.value, { sourceMarkdown: content, template: texTemplate.value })
   texErrors.value = result.ok ? [] : result.errors
-  texWarnings.value = result.ok ? result.warnings : []
+  texWarnings.value = result.ok ? result.warnings.filter(warning => !texInspection.value?.warnings.includes(warning)) : []
   if (result.ok) download(title, result.tex, 'tex', 'text/x-tex;charset=utf-8')
+}
+
+async function useBasicTexTemplate() {
+  texTemplate.value = 'basic'
+  await nextTick()
+  document.getElementById('resume-tex-template-basic')?.focus()
 }
 
 function locateFormula({ start, end }: ResumeRange) {
@@ -188,8 +202,30 @@ async function submit() {
           <UiButton type="button" variant="outline" :disabled="htmlBusy" @click="exportHtml('pdf')">打印 / 另存为 PDF</UiButton>
           <UiButton type="button" variant="outline" :disabled="htmlBusy" @click="exportHtml('html')">下载 HTML</UiButton>
           <UiButton type="button" variant="outline" @click="download(title, content, 'md', 'text/markdown;charset=utf-8')">下载 Markdown</UiButton>
-          <UiButton type="button" variant="outline" @click="downloadLatex">下载 LaTeX (.tex)</UiButton>
         </div>
+        <UiField>
+          <FieldTitle id="resume-tex-template">LaTeX (.tex) 模板</FieldTitle>
+          <UiRadioGroup v-model="texTemplate" aria-labelledby="resume-tex-template" aria-describedby="resume-tex-template-description" class="flex flex-wrap gap-2">
+            <label v-for="template in resumeTexTemplates" :key="template.id" class="flex min-h-8 cursor-pointer items-center gap-2 rounded-md border px-2 text-sm">
+              <UiRadioGroupItem :id="`resume-tex-template-${template.id}`" :value="template.id" />
+              {{ template.label }}
+            </label>
+          </UiRadioGroup>
+          <div aria-live="polite" class="flex flex-col gap-2">
+            <FieldDescription id="resume-tex-template-description">{{ resumeTexTemplates[texTemplate].description }}</FieldDescription>
+            <UiAlert v-if="texInspection?.warnings.length" role="note">
+              <UiAlertDescription>
+                <ul class="flex list-disc flex-col gap-1 pl-4">
+                  <li v-for="warning in texInspection.warnings" :key="warning">{{ warning }}</li>
+                </ul>
+              </UiAlertDescription>
+            </UiAlert>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <UiButton v-if="texInspection?.fallbackToBasic" type="button" variant="outline" @click="useBasicTexTemplate">切换为基础模板</UiButton>
+            <UiButton type="button" variant="outline" @click="downloadLatex">下载 LaTeX (.tex)</UiButton>
+          </div>
+        </UiField>
         <p class="text-sm text-muted-foreground">.tex 仅供本地单向导出。请用本机 XeLaTeX 编译并禁用 --shell-escape。不含图片，无法回导版本库。</p>
         <div v-if="texWarnings.length" role="status">
           <ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">

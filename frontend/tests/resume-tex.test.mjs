@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { escapeLatexText, renderResumeLatexBlocks, resumeLatex, validateLatexMath } from '../src/lib/resume-tex.ts'
+import { escapeLatexText, inspectResumeTexTemplate, renderResumeLatexBlocks, resumeLatex, validateLatexMath } from '../src/lib/resume-tex.ts'
+import { resumePreview } from '../src/lib/resumes.ts'
 
 const tex = String.raw
 
@@ -73,6 +74,109 @@ test('exports a synchronous ctexart document with reusable semantic body', () =>
   }
   assert.ok(result.tex.endsWith(`${tex`\begin{document}`}\n${body}\n${tex`\end{document}`}\n`))
   assert.ok(resumeLatex('姓名', '# 姓名\r\n---').tex.includes(tex`\resumeheading{1}{姓名}` + '\n' + tex`\resumerule`))
+})
+
+test('modern exports a name and linked contact line with the shared semantic body', () => {
+  const source = '\n# 林 & Lee\n\n[主页](https://example.com/portfolio) · [邮箱](mailto:lee@example.com)\n\n## 经历\n\n### 工程师\n\n正文'
+  const result = resumeLatex('简历 & CV', source, { template: 'modern' })
+  assert.equal(result.ok, true)
+  assert.equal(result.effectiveTemplate, 'modern')
+  assert.deepEqual(result.warnings, [])
+  assert.ok(result.tex.includes(tex`\usepackage[margin=16mm]{geometry}`))
+  assert.ok(result.tex.includes(tex`\pagestyle{empty}`))
+  assert.ok(result.tex.includes(tex`\hypersetup{pdftitle={简历 \& CV}}`))
+  assert.ok(result.tex.includes(tex`\centering\LARGE\sffamily\bfseries`))
+  assert.ok(result.tex.includes(tex`\noindent\rule{\linewidth}{0.4pt}\par\nobreak`))
+  assert.ok(result.tex.includes(tex`\raggedright\normalsize\bfseries #2`))
+  assert.ok(result.tex.includes(tex`\begin{document}
+\resumename{林 \& Lee}
+\resumecontact{\href{https://example.com/portfolio}{主页} · \href{mailto:lee@example.com}{邮箱}}
+\resumeheading{2}{经历}
+\resumeheading{3}{工程师}
+\resumebody{正文}
+\end{document}`))
+})
+
+test('academic changes page layout but exports a byte-identical body to modern', () => {
+  const source = '# 林\n\n[主页](https://example.com/)\n\n## 成果\n\n### 论文\n\n| 研究 | 指标 |\n| --- | --- |\n| A | $x^2$ |\n\n- 一\n- 二'
+  const basic = resumeLatex('简历', source, { template: 'basic' })
+  assert.deepEqual(basic, resumeLatex('简历', source))
+  assert.equal(basic.effectiveTemplate, 'basic')
+  const modern = resumeLatex('简历', source, { template: 'modern' })
+  const academic = resumeLatex('简历', source, { template: 'academic' })
+  assert.equal(academic.ok, true)
+  assert.equal(academic.effectiveTemplate, 'academic')
+  assert.ok(academic.tex.includes(tex`\usepackage[margin=20mm]{geometry}`))
+  assert.ok(academic.tex.includes(tex`\pagestyle{plain}`))
+  assert.ok(academic.tex.includes(tex`\ctexset{subsection={beforeskip=1.6em`))
+  assert.ok(academic.tex.includes(tex`\subsection*{#2}\or\subsubsection*{#2}`))
+  for (const result of [modern, academic]) {
+    assert.ok(result.tex.startsWith(tex`\documentclass[UTF8,a4paper,11pt,fontset=fandol]{ctexart}` + '\n'))
+    assert.deepEqual(result.tex.split('\n').filter(line => line.startsWith(tex`\usepackage`) && !line.endsWith('{geometry}')),
+      basic.tex.split('\n').filter(line => line.startsWith(tex`\usepackage`) && !line.endsWith('{geometry}')))
+    assert.ok(result.tex.includes(tex`\newcommand{\resumename}[1]{\par{\centering`))
+    assert.ok(result.tex.includes(tex`\newcommand{\resumecontact}[1]{\par{\centering`))
+    assert.ok(result.tex.includes(tex`\begin{longtable}`))
+    assert.ok(result.tex.includes(tex`\begin{resumetable}{2}`))
+  }
+  const document = result => result.tex.slice(result.tex.indexOf(tex`\begin{document}`))
+  assert.equal(document(academic), document(modern))
+})
+
+test('professional templates fall back to the unchanged basic document without a unique first H1', () => {
+  const cases = [
+    ['', /第一块.*H1/],
+    ['正文\n\n## 经历', /第一块.*H1/],
+    ['---\n\n# 姓名\n\n## 经历', /第一块.*H1/],
+    ['#  \n\n## 经历', /第一块.*H1/],
+    ['# 姓名\n\n## 经历\n\n# 第二个姓名', /多个 H1/],
+  ]
+  for (const [source, reason] of cases) {
+    const basic = resumeLatex('简历', source)
+    assert.deepEqual(basic.warnings, [])
+    for (const template of ['modern', 'academic']) {
+      const result = resumeLatex('简历', source, { template })
+      assert.equal(result.ok, true)
+      assert.equal(result.effectiveTemplate, 'basic')
+      assert.equal(result.tex, basic.tex)
+      assert.equal(result.warnings.length, 1)
+      assert.match(result.warnings[0], reason)
+      assert.match(result.warnings[0], /基础模板/)
+      assert.deepEqual(inspectResumeTexTemplate(resumePreview(source), template), {
+        fallbackToBasic: true, warnings: result.warnings,
+      })
+    }
+  }
+})
+
+test('template preflight allows missing contact and H2, keeping later blocks in order', () => {
+  const noContact = '# 姓名\n\n## 经历\n\n项目正文'
+  const noSections = '# 姓名\n\n[主页](https://example.com/)\n\n- 第一项\n- 第二项'
+  for (const [source, reason] of [[noContact, /联系行/], [noSections, /H2.*原顺序/]]) {
+    const blocks = resumePreview(source)
+    assert.deepEqual(inspectResumeTexTemplate(blocks, 'basic'), { fallbackToBasic: false, warnings: [] })
+    for (const template of ['modern', 'academic']) {
+      const diagnosis = inspectResumeTexTemplate(blocks, template)
+      assert.equal(diagnosis.fallbackToBasic, false)
+      assert.equal(diagnosis.warnings.length, 1)
+      assert.match(diagnosis.warnings[0], reason)
+      const result = resumeLatex('简历', blocks, { template, sourceMarkdown: source })
+      assert.equal(result.ok, true)
+      assert.equal(result.effectiveTemplate, template)
+      assert.deepEqual(result.warnings, diagnosis.warnings)
+      if (source === noContact) {
+        assert.ok(result.tex.includes(tex`\resumename{姓名}
+\resumeheading{2}{经历}
+\resumebody{项目正文}`))
+      } else {
+        assert.ok(result.tex.includes(tex`\resumename{姓名}
+\resumecontact{\href{https://example.com/}{主页}}
+\begin{resumeitemize}
+\item {第一项}
+\item {第二项}`))
+      }
+    }
+  }
 })
 
 test('renders each code line as escaped text, including leading spaces, tabs and empty lines', () => {
@@ -204,7 +308,7 @@ y&=2\end{aligned}
   assert.ok(!result.tex.includes('\r'))
 })
 
-test('returns every invalid formula at its UTF-16 selection, including CRLF and Chinese prefixes', () => {
+test('all templates reject every unsafe formula at its UTF-16 selection, including CRLF and Chinese prefixes', () => {
   const source = '中文😀 $x%$\r\n第二行 $y$\r\n$$' + tex`\write18` + '$$\r\n四 $z&$'
   const blocks = [
     { kind: 'heading', level: 1, inline: mathInline('$x%$', 'x%') },
@@ -224,5 +328,14 @@ test('returns every invalid formula at its UTF-16 selection, including CRLF and 
   ])
   assert.match(result.errors[0].message, /\\%/)
   assert.match(result.errors[1].message, /危险/)
+  assert.match(result.errors[2].message, /不允许/)
+  const contactBlocks = [blocks[0], { kind: 'text', inline: blocks[1].items[0] }, ...blocks.slice(2)]
+  for (const template of ['basic', 'modern', 'academic']) {
+    assert.deepEqual(resumeLatex('标题', contactBlocks, { template, sourceMarkdown: source }), result)
+    assert.deepEqual(resumeLatex('标题', contactBlocks.slice(1), { template, sourceMarkdown: source }).errors, result.errors.slice(1))
+    const invalidContact = resumeLatex('标题', '# 姓名\r\n\r\n中文 $x%$\r\n\r\n## 经历', { template })
+    assert.equal(invalidContact.ok, false)
+    assert.deepEqual(invalidContact.errors.map(({ line, column, formula }) => [line, column, formula]), [[3, 4, 'x%']])
+  }
   assert.throws(() => renderResumeLatexBlocks(blocks), /\\%/)
 })
