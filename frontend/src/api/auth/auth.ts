@@ -62,29 +62,10 @@ export const deleteRole = (roleId: number): Promise<void> =>
     data: { id: roleId },
   })
 
-// 更新角色权限
-export const updateRolePermissions = (data: {
-  roleId: number
-  permissionIds: number[]
-}): Promise<void> =>
-  request({
-    url: '/api/auth/updateRolePermissions',
-    method: 'POST',
-    data,
-  })
-
 // 更新角色路由权限
 export const updateRoleRouters = (data: { roleId: number; routerIds: number[] }): Promise<void> =>
   request({
     url: '/api/auth/updateRoleRouters',
-    method: 'POST',
-    data,
-  })
-
-// 更新用户角色
-export const updateUserRole = (data: { userId: number; roleId: number }): Promise<void> =>
-  request({
-    url: '/api/auth/updateUserRole',
     method: 'POST',
     data,
   })

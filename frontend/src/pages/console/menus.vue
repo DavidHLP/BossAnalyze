@@ -572,7 +572,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
       "
       ><UiDialogContent
         :show-close-button="false"
-        class="top-[38.2%]! sm:max-w-[400px]!"
+        class="sm:max-w-[400px]"
         @pointer-down-outside.prevent
         @interact-outside.prevent
         @close-auto-focus="restoreDeleteFocus"

@@ -1,3 +1,5 @@
+import { consolePath } from './session.ts'
+
 export { requireMutationSuccess as menuWriteSucceeded } from './rbac-mutations.ts'
 
 export interface MenuRecord {
@@ -157,11 +159,31 @@ export function menuDraft(node?: MenuRecord | null): MenuDraft {
     hidden: node?.meta.hidden ?? false,
   }
 }
-export function menuErrors(draft: MenuDraft, nodes: MenuRecord[], current?: MenuRecord | null) {
+export function menuErrors(
+  draft: MenuDraft,
+  nodes: MenuRecord[],
+  current?: MenuRecord | null,
+  parent?: MenuRecord | null,
+) {
   const errors: Record<string, string> = {}
   const rows = menuRows(nodes)
   for (const key of ['title', 'name', 'path', 'permission'] as const)
     if (!draft[key].trim() || draft[key].trim().length > 255) errors[key] = '请输入 1–255 个字符'
+  if (draft.type !== 'F' && !errors.path) {
+    const ancestors: MenuRecord[] = []
+    let ancestor = current ? rows.find(({ node }) => node.id === current.pid)?.node : parent
+    while (ancestor) {
+      ancestors.push(ancestor)
+      const parentId = ancestor.pid
+      ancestor = rows.find(({ node }) => node.id === parentId)?.node
+    }
+    let base: string | null = '/console'
+    for (const node of ancestors.reverse()) {
+      if (base && node.path) base = consolePath(node.path, base)
+    }
+    if (!base || !consolePath(draft.path, base))
+      errors.path = '请输入有效的站内导航路径，路径不得含空白或指向保留地址。'
+  }
   for (const key of ['component', 'remark', 'redirect', 'icon'] as const)
     if (draft[key].length > 255) errors[key] = '不能超过 255 个字符'
   if (!['M', 'C', 'F'].includes(draft.type)) errors.type = '请选择菜单类型'
@@ -187,7 +209,7 @@ export function menuPayload(
   current: MenuRecord | null,
   parent: MenuRecord | null,
 ) {
-  if (Object.keys(menuErrors(draft, nodes, current)).length) throw new Error('Invalid menu form')
+  if (Object.keys(menuErrors(draft, nodes, current, parent)).length) throw new Error('Invalid menu form')
   if (
     !current &&
     parent &&

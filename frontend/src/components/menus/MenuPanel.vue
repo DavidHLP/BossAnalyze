@@ -64,7 +64,7 @@ const dirty = computed(
   () => props.open && props.mode !== 'view' && JSON.stringify(draft) !== initial.value,
 )
 const errors = computed<Record<string, string>>(() => ({
-  ...menuErrors(draft, props.tree, props.mode === 'edit' ? props.node : null),
+  ...menuErrors(draft, props.tree, props.mode === 'edit' ? props.node : null, props.parent),
   ...(props.mode === 'create' &&
   usedPermission.value &&
   usedPermission.value === draft.permission.trim()

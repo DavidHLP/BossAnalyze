@@ -5,7 +5,7 @@ import { useMediaQuery } from '@vueuse/core'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { withSessionOwner } from '@/lib/session'
-import { sessionChangedMessage } from '@/lib/rbac-mutations'
+import { mutationResultUnknown, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
 import { addUser, updateUser } from '@/api/user/user'
 import { roleAssignmentError, userDraft, userErrors, userPayload, userSaveError, userSaveValidationRejected, userWriteSucceeded } from '@/lib/users'
 import type { ManagedUser, UserRole } from '@/lib/users'
@@ -22,11 +22,16 @@ const props = defineProps<{
   rolePending: boolean
   roleRestricted: boolean
   reloadRoles: () => Promise<UserRole[] | undefined>
+  writeUnconfirmed: boolean
+  listPending: boolean
+  listFailed: boolean
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
   closeAutoFocus: [event: Event]
   saved: [self: boolean]
+  writeUnconfirmed: [self: boolean]
+  refreshList: []
 }>()
 const mobile = useMediaQuery('(width < 640px)')
 const session = useSession()
@@ -148,7 +153,8 @@ async function focusError(field: string) {
 }
 
 async function save() {
-  if (!owner || !session.owns(owner) || discardOpen.value || saving.value || props.mode === 'view' || props.rolesUnavailable) return
+  if (!owner || !session.owns(owner) || discardOpen.value || saving.value ||
+      props.mode === 'view' || props.rolesUnavailable || props.writeUnconfirmed) return
   submitted.value = true
   const firstError = Object.keys(errors.value)[0]
   if (firstError) return focusError(firstError)
@@ -169,6 +175,12 @@ async function save() {
     emit('saved', self)
   } catch (error) {
     if (!session.owns(owner)) return
+    if (mutationResultUnknown(error)) {
+      emit('writeUnconfirmed', self)
+      await nextTick()
+      document.getElementById('user-write-unconfirmed')?.focus()
+      return
+    }
     let rejection = userSaveError(error)
     const canCheck = !rejection.field && userSaveValidationRejected(error)
     if (canCheck && await props.listedEmailInUse(payload.email, userId)) rejection = userSaveError(error, true)
@@ -431,6 +443,12 @@ async function save() {
             {{ error('introduction') }}
           </UiFieldError></UiField
         >
+        <UiAlert v-if="writeUnconfirmed" id="user-write-unconfirmed" role="alert" tabindex="-1">
+          <UiAlertTitle>结果未确认</UiAlertTitle>
+          <UiAlertDescription>{{ unknownWriteMessage }}{{ listFailed ? '。列表读取失败，请重试。' : '' }}</UiAlertDescription>
+          <UiButton type="button" variant="outline" size="sm" class="mt-2"
+            :disabled="listPending || sessionChanged || saving" @click="emit('refreshList')">刷新列表核对</UiButton>
+        </UiAlert>
       </form>
       <UiAlert v-if="failure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">
         <UiAlertDescription><span class="block">{{ failure }}</span><span class="block">填写内容已保留。</span></UiAlertDescription>
@@ -444,7 +462,7 @@ async function save() {
           v-if="mode !== 'view'"
           type="submit"
           form="user-editor-form"
-          :aria-disabled="saving || rolesUnavailable || discardOpen || sessionChanged"
+          :aria-disabled="saving || rolesUnavailable || discardOpen || sessionChanged || writeUnconfirmed"
           >{{ saving ? '正在保存…' : creating ? '创建用户' : '保存更改' }}</UiButton
         >
       </UiSheetFooter>
