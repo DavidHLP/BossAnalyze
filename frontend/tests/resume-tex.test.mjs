@@ -4,6 +4,24 @@ import { escapeLatexText, renderResumeLatexBlocks, resumeLatex, validateLatexMat
 
 const tex = String.raw
 
+test('exports raw Markdown math while escaping Pandoc-guarded currency as text', () => {
+  const source = '报价 $100-$200，公式 $a_1$。\r\n\r\n$$\r\nE=mc^2\r\n$$'
+  const result = resumeLatex('标题', source)
+  assert.equal(result.ok, true)
+  assert.ok(result.tex.includes(tex`\resumebody{报价 \$100-\$200，公式 \(a_1\)。}
+\[
+E=mc^2
+\]`))
+
+  const invalid = source + '\r\n中文😀 $x%$'
+  const rejected = resumeLatex('标题', invalid)
+  assert.equal(rejected.ok, false)
+  assert.equal(rejected.errors.length, 1)
+  const [{ line, column, start, end, formula, message }] = rejected.errors
+  assert.deepEqual([line, column, invalid.slice(start, end), formula], [6, 6, '$x%$', 'x%'])
+  assert.match(message, /\\%/)
+})
+
 test('escapes each TeX text special once, leaving Chinese unchanged', () => {
   assert.equal(escapeLatexText(tex`简历\{}$&#^_%~`), tex`简历\textbackslash{}\{\}\$\&\#\^{}\_\%\textasciitilde{}`)
 })

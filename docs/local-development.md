@@ -105,10 +105,28 @@ To check actual log processing in an isolated environment, trigger analysis via
 An initial `204` means no analysis result has been cached yet.
 
 SMTP, object storage and optional external resume export require their own configuration.
-Local resume printing/PDF, HTML and Markdown export work without an export service.
+Local resume printing/PDF and HTML, Markdown, and LaTeX (`.tex`) downloads run in the browser.
 `VITE_RESUME_PRIVATE_IMAGES` stays off by default. Unavailable dashboard measurements
 have an explicit unavailable state. A successful HTTP response does not verify model
 quality or external delivery.
+
+Use `$...$` for inline resume math on a single line and `$$...$$` for display math,
+either on one line or with the `$$` delimiters on lines of their own. The Pandoc
+currency guard requires non-whitespace inside both inline delimiters and rules out
+an ASCII digit immediately after the closing `$`, so `$100-$200` stays plain text.
+Use `\$` for a literal dollar sign. Preview, standalone HTML and print load KaTeX
+on demand and use the same MathML output.
+
+LaTeX is a one-way local export. It substitutes text for private images and cannot
+be imported into resume version history. Compile it locally with XeLaTeX and the
+`ctex` package and Fandol fonts. Keep shell escape disabled.
+
+```sh
+xelatex -no-shell-escape -halt-on-error resume.tex
+```
+
+If LaTeX formula validation fails, use the line and column reported by the export
+dialog to jump to the formula in the Markdown editor.
 
 ## Offline geolocation and object storage
 
