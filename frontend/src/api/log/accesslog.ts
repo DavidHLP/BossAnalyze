@@ -1,6 +1,6 @@
 import request from '@/utils/request/request';
 import { degradedHealthResponse } from '@/lib/settings'
-import type { AccessLogStats, DashboardStats } from './accesslog.d';
+import type { DashboardStats } from './accesslog.d';
 
 /**
  * 获取仪表板统计数据（新接口）
@@ -21,51 +21,6 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
 }
 
 /**
- * 获取所有访问日志统计数据（兼容现有接口）
- */
-export async function getAccessLogStats(): Promise<AccessLogStats> {
-  try {
-    const response = await request<AccessLogStats>({
-      url: '/api/v1/system/logs/dashboard/stats',
-      method: 'get'
-    });
-
-    // 处理响应数据 - 适配新的DashboardStats格式
-    const statsData = response as any || {};
-
-    // 设置默认值，确保所有必需属性都有值
-    return {
-      heatmap: {
-        minute_heatmap: statsData.heatMapData?.minuteHeatmap || {},
-        hour_heatmap: statsData.heatMapData?.hourHeatmap || {}
-      },
-      ipStats: statsData.geoStats?.countryStats || {},
-      httpMethods: statsData.httpMethodStatistics?.methodStats || {},
-      weekdayStats: statsData.weekdayStatistics?.weekdayStats || {},
-      browserStats: statsData.deviceStats?.browsers || {},
-      totalVisits: statsData.overview?.totalVisits || 0,
-      uniqueIps: statsData.overview?.uniqueVisitors || 0,
-      avgResponseTime: statsData.performanceStats?.avgResponseTime || 0,
-      errorRate: statsData.overview?.errorRate || 0
-    };
-  } catch (error) {
-    console.error('获取访问日志统计出错:', error);
-    // 返回一个带有默认值的空数据对象，避免前端报错
-    return {
-      heatmap: { minute_heatmap: {}, hour_heatmap: {} },
-      ipStats: {},
-      httpMethods: {},
-      weekdayStats: {},
-      browserStats: {},
-      totalVisits: 0,
-      uniqueIps: 0,
-      avgResponseTime: 0,
-      errorRate: 0
-    };
-  }
-}
-
-/**
  * 获取热力图数据
  */
 export function getHeatMapData() {
@@ -81,38 +36,6 @@ export function getIpStatistics() {
 
 export function getCompleteLogStats() {
   return request.get<unknown, unknown>('/api/v1/system/logs/stats')
-}
-
-/**
- * 获取HTTP方法统计
- */
-export async function getHttpMethodStatistics(): Promise<any> {
-  try {
-    const response = await request({
-      url: '/api/v1/system/logs/http-methods',
-      method: 'get'
-    });
-    return response || {};
-  } catch (error) {
-    console.error('获取HTTP方法统计出错:', error);
-    return {};
-  }
-}
-
-/**
- * 获取浏览器统计
- */
-export async function getBrowserStatistics(): Promise<any> {
-  try {
-    const response = await request({
-      url: '/api/v1/system/logs/browser-usage',
-      method: 'get'
-    });
-    return response || {};
-  } catch (error) {
-    console.error('获取浏览器统计出错:', error);
-    return {};
-  }
 }
 
 /**

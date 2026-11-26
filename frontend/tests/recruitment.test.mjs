@@ -157,6 +157,7 @@ test('scatter aggregation preserves zero coordinates and all valid sample counts
   const plot = scatterData([...jobs, jobs[0]], 'salary_value', 'degree_value')
   assert.equal(plot.valid, 3)
   assert.equal(plot.groups, 2)
+  assert.equal(plot.points.length, 2)
   assert.equal(
     plot.points.reduce((sum, point) => sum + point.count, 0),
     3,
@@ -172,6 +173,7 @@ test('scatter aggregation preserves zero coordinates and all valid sample counts
   assert.equal(bounded.valid, 1201)
   assert.equal(bounded.groups, 1201)
   assert.equal(bounded.points.length, 1000)
+  assert.equal(bounded.groupLimit, 1000)
   assert.equal(bounded.allGroups.length, 1201)
   assert.equal(bounded.allGroups.reduce((sum, point) => sum + point.count, 0), 1201)
   assert.deepEqual(bounded.allGroups.at(-1), { x: 1200, y: jobs[0].degreeValue, count: 1 })
