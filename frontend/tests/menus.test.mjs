@@ -73,6 +73,28 @@ test('creation rejects existing grants, invalid order and unsupported parent whi
   draft.order = '2147483648'
   assert.ok(menuErrors(draft, tree).order)
 })
+
+test('navigation paths that would be pruned are rejected before saving a menu', () => {
+  const draft = {
+    ...menuDraft(),
+    title: '新菜单',
+    name: 'New',
+    permission: 'new.view',
+  }
+  for (const path of [
+    'https://external.test', '//external.test', '/\\external.test', '/%2Fexternal.test', '/%5cexternal.test',
+    '/users list', ' /users', '/api/auth', '/_nuxt/assets', '/console/../login',
+  ]) {
+    assert.match(menuErrors({ ...draft, path }, tree).path, /路径/, path)
+    assert.throws(() => menuPayload({ ...draft, path }, tree, null, null), /Invalid menu form/, path)
+  }
+  const child = root.children[0]
+  assert.equal(menuPayload({ ...draft, path: '../login' }, tree, null, child).path, '../login')
+  assert.throws(() => menuPayload({ ...draft, path: '../../login' }, tree, null, child), /Invalid menu form/)
+  assert.match(menuErrors({ ...menuDraft(leaf), path: '../login' }, tree, leaf).path, /路径/)
+  assert.equal(menuPayload({ ...draft, path: '/console/reports' }, tree, null, root).path, '/console/reports')
+  assert.equal(menuPayload({ ...draft, type: 'F', path: 'reports:export' }, tree, null, root).path, 'reports:export')
+})
 test('deletion cannot remove descendants, shared permissions or role grants; business errors fail closed', () => {
   assert.match(menuDeleteReason(root, tree, []), /子菜单/)
   assert.match(menuDeleteReason(leaf, tree, [leaf.permission]), /角色/)
