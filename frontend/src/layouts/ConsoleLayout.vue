@@ -7,7 +7,11 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 import { isResumePath, type MenuItem } from '@/lib/session'
 
 const route = useRoute()
-const { state: session } = useSession()
+const { state: session, crossTabChanged } = useSession()
+
+function reloadPage() {
+  window.location.reload()
+}
 
 function menuTrail(items: MenuItem[], path: string): MenuItem[] | undefined {
   for (const item of items) {
@@ -90,6 +94,16 @@ watch(() => route.path, async () => {
         aria-label="主内容"
         class="flex flex-1 flex-col gap-6 p-4 md:p-8"
       >
+        <div
+          v-if="crossTabChanged"
+          class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-status-warning-surface p-4 text-sm text-status-warning-foreground"
+        >
+          <p role="alert" class="min-w-0 flex-1 basis-64">
+            {{ crossTabChanged === 'cleared' ? '其他标签页已清除登录凭据。' : '其他标签页已变更登录状态。' }}
+            已锁定提交，当前草稿仍保留。请先留存草稿，再刷新页面。
+          </p>
+          <UiButton type="button" variant="outline" size="sm" @click="reloadPage">立即刷新页面</UiButton>
+        </div>
         <RouterView v-slot="{ Component }">
           <component :is="Component" :key="isResumePath(route.path) ? route.path : undefined" />
         </RouterView>
