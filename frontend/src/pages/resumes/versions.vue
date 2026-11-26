@@ -54,6 +54,7 @@ const mode = ref<'all' | 'recent'>('all')
 const busy = ref('')
 const loadError = ref('')
 const detailError = ref('')
+const recentReadError = '无法读取最近提交，请重试。'
 const feedback = ref('')
 const confirmed = ref(false)
 const mainHeading = ref<HTMLElement | null>(null)
@@ -97,9 +98,10 @@ watch([source, target], () => { confirmed.value = false }, { flush: 'sync' })
 watch([from, to], () => { range.value = comparison.value = null })
 
 async function read(reset = false) {
-  const generation = ++revision
+  const generation = revision
   const owner = session.capture()
   const key = id.value
+  const isCurrent = () => generation === revision && key === id.value && session.owns(owner)
   loadError.value = ''
   range.value = comparison.value = null
   if (reset) {
@@ -114,16 +116,17 @@ async function read(reset = false) {
     const refreshRecent = mode.value === 'recent'
     if (refreshRecent) recent.value = []
     const [item, commits, latest] = await Promise.all([
-      getResume(key), resumeHistory(key), refreshRecent ? resumeHistory(key, true) : undefined,
+      getResume(key), resumeHistory(key), refreshRecent ? resumeHistory(key, true).catch(() => null) : undefined,
     ])
-    if (generation !== revision || key !== id.value || !session.owns(owner)) return false
+    if (!isCurrent()) return false
     record.value = item
     history.value = commits
-    if (latest) recent.value = latest
+    if (latest === null) detailError.value = recentReadError
+    else if (latest) recent.value = latest
     writeLocked.value = false
     return true
   } catch (cause) {
-    if (generation === revision && session.owns(owner)) {
+    if (isCurrent()) {
       loadError.value = resumeReadMessage(cause)
       writeLocked.value = true
     }
@@ -132,13 +135,14 @@ async function read(reset = false) {
 }
 
 async function refresh(reset = false) {
-  if (busy.value) return
+  if (busy.value && !reset) return
+  const generation = reset ? ++revision : revision
   busy.value = 'load'
   detailError.value = ''
   try {
     await read(reset)
   } finally {
-    busy.value = ''
+    if (generation === revision) busy.value = ''
   }
 }
 
@@ -146,24 +150,25 @@ watch(id, () => void refresh(true))
 onMounted(() => void refresh(true))
 onUnmounted(() => { revision++ })
 onBeforeRouteLeave(() => !busy.value.startsWith('write') || session.state.value.invalidated === true)
-onBeforeRouteUpdate((to, from) => to.params.id === from.params.id || !busy.value)
+onBeforeRouteUpdate((to, from) => to.params.id === from.params.id || !busy.value.startsWith('write'))
 
 async function readRecent() {
   if (busy.value) return
+  const generation = revision
   busy.value = 'recent'
   detailError.value = ''
   const key = id.value
   const owner = session.capture()
   try {
     const commits = await resumeHistory(key, true)
-    if (key === id.value && session.owns(owner)) {
+    if (generation === revision && key === id.value && session.owns(owner)) {
       recent.value = commits
       mode.value = 'recent'
     }
   } catch {
-    detailError.value = '无法读取最近提交，请重试。'
+    if (generation === revision) detailError.value = recentReadError
   } finally {
-    busy.value = ''
+    if (generation === revision) busy.value = ''
   }
 }
 
@@ -176,45 +181,48 @@ async function readRange() {
   range.value = null
   comparison.value = { from: start, to: end }
   if (rangeRelation.value !== 'forward') return
+  const generation = revision
   busy.value = 'range'
   const key = id.value
   const owner = session.capture()
   try {
     const commits = await resumeHistory(key, false, { fromCommit: start.id, toCommit: end.id })
-    if (key === id.value && session.owns(owner)) range.value = commits
+    if (generation === revision && key === id.value && session.owns(owner)) range.value = commits
   } catch {
-    detailError.value = '暂时无法读取区间提交。'
+    if (generation === revision) detailError.value = '暂时无法读取区间提交。'
   } finally {
-    busy.value = ''
+    if (generation === revision) busy.value = ''
   }
 }
 
 async function inspect(commit?: ResumeCommit, event?: MouseEvent) {
   if (busy.value) return
+  const generation = revision
   if (event) panelTrigger = event.currentTarget as HTMLElement
   busy.value = 'inspect'
   detailError.value = ''
   const key = id.value
   const owner = session.capture()
+  const isCurrent = () => generation === revision && key === id.value && session.owns(owner)
   try {
     if (commit) {
       const result = await inspectCommit(key, commit.id)
-      if (key !== id.value || !session.owns(owner)) return
+      if (!isCurrent()) return
       debug.value = result
       selection.value = commit
       panel.value = 'inspect'
     } else {
-      if (!(await read()) || key !== id.value || !session.owns(owner)) return
+      if (!(await read()) || !isCurrent()) return
       const result = await inspectResume(key)
-      if (key !== id.value || !session.owns(owner)) return
+      if (!isCurrent()) return
       validation.value = result
       selection.value = null
       panel.value = 'inspect'
     }
   } catch {
-    detailError.value = '暂时无法完成版本诊断，请重试。'
+    if (generation === revision) detailError.value = '暂时无法完成版本诊断，请重试。'
   } finally {
-    busy.value = ''
+    if (generation === revision) busy.value = ''
   }
 }
 

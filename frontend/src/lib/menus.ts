@@ -159,6 +159,16 @@ export function menuDraft(node?: MenuRecord | null): MenuDraft {
     hidden: node?.meta.hidden ?? false,
   }
 }
+
+function invalidDescendantPath(nodes: MenuRecord[], parent: string): MenuRecord | undefined {
+  for (const node of nodes) {
+    const path = node.meta.type !== 'F' && node.path ? consolePath(node.path, parent) : parent
+    if (!path) return node
+    const invalid = invalidDescendantPath(node.children, path)
+    if (invalid) return invalid
+  }
+}
+
 export function menuErrors(
   draft: MenuDraft,
   nodes: MenuRecord[],
@@ -181,8 +191,13 @@ export function menuErrors(
     for (const node of ancestors.reverse()) {
       if (base && node.path) base = consolePath(node.path, base)
     }
-    if (!base || !consolePath(draft.path, base))
+    const path = base && consolePath(draft.path, base)
+    if (!path) {
       errors.path = '请输入有效的站内导航路径，路径不得含空白或指向保留地址。'
+    } else if (current && draft.path !== current.path) {
+      const invalid = invalidDescendantPath(current.children, path)
+      if (invalid) errors.path = `此路径会使子菜单「${invalid.meta.metaTitle || invalid.name}」的导航路径无效或指向保留地址。`
+    }
   }
   for (const key of ['component', 'remark', 'redirect', 'icon'] as const)
     if (draft[key].length > 255) errors[key] = '不能超过 255 个字符'

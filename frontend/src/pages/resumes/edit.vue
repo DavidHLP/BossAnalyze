@@ -96,7 +96,7 @@ function offerLocalDraft(owner: ReturnType<typeof session.capture>, key: string)
 
 async function resolveLocalDraft(restore: boolean) {
   const saved = localDraft.value
-  if (!saved || !draftOwner || !session.owns(draftOwner)) return
+  if (!saved) return
   if (restore) {
     localDraft.value = null
     markdown.value = saved.content
@@ -275,6 +275,7 @@ async function write(action: 'save' | 'stash') {
   if (!(action === 'save' ? canSave.value : dirty.value) || localDraft.value || pendingAction.value || writeLocked.value) return
   const key = id.value
   const content = markdown.value
+  const beforeStashCount = record.value?.stashStack?.length ?? 0
   pendingAction.value = action
   feedback.value = writeError.value = ''
   checkOffered.value = false
@@ -288,13 +289,17 @@ async function write(action: 'save' | 'stash') {
     if (loadError.value) {
       writeLocked.value = true
       writeError.value = '操作已被接收，但暂时无法确认最新状态。'
-    } else if (action === 'stash' || (record.value?.headCommit === commitId && record.value?.content === content)) {
+    } else if (action === 'stash'
+      ? (record.value?.stashStack?.length ?? 0) > beforeStashCount
+      : record.value?.headCommit === commitId && record.value?.content === content) {
       if (action === 'stash') markdown.value = record.value?.content ?? ''
       else message.value = ''
       clearLocalDraft()
       feedback.value = action === 'stash' ? '草稿已储藏，可在版本历史中取回。' : '简历已保存并提交。'
     } else {
-      writeError.value = '最新版本与本次提交不同，草稿仍保留。请核对后再操作。'
+      writeError.value = action === 'stash'
+        ? '储藏结果未确认，请先核对储藏记录。'
+        : '最新版本与本次提交不同，草稿仍保留。请核对后再操作。'
     }
   } catch {
     if (session.owns(owner) && key === id.value) {

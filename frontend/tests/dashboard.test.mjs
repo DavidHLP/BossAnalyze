@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { AxiosError } from 'axios'
 import { dashboardSnapshot, formatPercentage, peakVisits, visitShare } from '../src/lib/dashboard.ts'
 import { heatBuckets, ipDistribution, logReadStatus, logTotals, weekdayDistribution } from '../src/lib/log-analysis.ts'
+import { permissionDenied } from '../src/lib/rbac-mutations.ts'
 import request from '../src/utils/request/request.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/dashboard.json', import.meta.url)))
@@ -42,7 +43,8 @@ test('extended log status reflects every requested section, including denied rea
   assert.equal(status('empty', 'updated', 'error', 'empty'), '部分日志分项暂无快照或读取失败')
   assert.equal(status('empty', 'empty', 'empty', 'empty'), '暂无可用的日志快照')
   assert.equal(status('error', 'empty', 'error', 'error'), '未能读取日志快照，请重试')
-  assert.equal(status('forbidden', 'updated', 'empty', 'error'), '部分日志分项读取被拒绝（403）')
+  assert.equal(status('forbidden', 'updated', 'empty', 'error'), '部分日志分项读取被拒绝（403），其他分项读取失败')
+  assert.equal(status('forbidden', 'updated', 'empty', 'updated'), '部分日志分项读取被拒绝（403）')
   assert.equal(status('forbidden', 'forbidden', 'forbidden', 'forbidden'), '日志分项读取均被拒绝（403）')
 })
 
@@ -235,6 +237,41 @@ test('dashboard API preserves response and propagates transport errors for retry
     }
     await assert.rejects(api.getDashboardStats(), (error) => error.code === status)
   }
+})
+
+test('cold gateway cache responses and a concurrent permission denial keep all read failures visible', async () => {
+  globalThis.window = { location: { href: '/' } }
+  globalThis.localStorage = { getItem: () => 'fixture-token' }
+  const endpoints = {
+    '/api/v1/system/logs/dashboard/stats': [204, ''],
+    '/api/v1/system/logs/stats': [503, { error: '日志分析服务暂不可用' }],
+    '/api/v1/system/logs/heatmap': [200, {}],
+    '/api/v1/system/logs/ip-statistics': [200, {}],
+  }
+  request.defaults.adapter = async (config) => {
+    const [status, data] = endpoints[config.url]
+    const response = { config, status, headers: {}, data }
+    if (status >= 400) throw new AxiosError('Request failed', 'ERR_BAD_RESPONSE', config, undefined, response)
+    return response
+  }
+  const read = async () => {
+    const reads = await Promise.allSettled([
+      api.getDashboardStats(), api.getCompleteLogStats().then(logTotals),
+      api.getHeatMapData().then(heatBuckets), api.getIpStatistics().then(ipDistribution),
+    ])
+    return reads.map(read => ({
+      loading: false,
+      result: read.status === 'fulfilled' ? read.value === null ? 'empty' : 'updated'
+        : permissionDenied(read.reason) ? 'forbidden' : 'error',
+    }))
+  }
+  const cold = await read()
+  assert.deepEqual(cold.map(part => part.result), ['empty', 'error', 'error', 'error'])
+  assert.equal(logReadStatus(cold), '未能读取日志快照，请重试')
+  endpoints['/api/v1/system/logs/heatmap'] = [403, { code: 403 }]
+  const denied = await read()
+  assert.deepEqual(denied.map(part => part.result), ['empty', 'error', 'forbidden', 'error'])
+  assert.equal(logReadStatus(denied), '部分日志分项读取被拒绝（403），其他分项读取失败')
 })
 
 test('health API preserves a degraded response and propagates transport failures', async () => {

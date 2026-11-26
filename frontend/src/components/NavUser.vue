@@ -8,7 +8,7 @@ import { findMenu } from '@/lib/session'
 
 const props = defineProps<{ user: { name: string; email: string } }>()
 const { isMobile, setOpenMobile } = useSidebar()
-const { state: session, signOut } = useSession()
+const { state: session, crossTabChanged, capturePage, signOut } = useSession()
 const initial = computed(() => Array.from(props.user.name.trim() || props.user.email)[0])
 const links = computed(() => [
   { path: '/console/profile', label: '个人中心', icon: UserCircleIcon },
@@ -60,7 +60,10 @@ const links = computed(() => [
             </RouterLink>
           </UiDropdownMenuItem>
           <UiDropdownMenuSeparator v-if="links.length" />
-          <UiDropdownMenuItem @select="() => signOut()">
+          <UiDropdownMenuItem
+            :disabled="crossTabChanged !== null"
+            @select="signOut(false, null, undefined, capturePage())"
+          >
             <HugeiconsIcon :icon="Logout01Icon" aria-hidden="true" />退出登录
           </UiDropdownMenuItem>
         </UiDropdownMenuContent>

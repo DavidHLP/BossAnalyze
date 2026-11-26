@@ -95,6 +95,23 @@ test('navigation paths that would be pruned are rejected before saving a menu', 
   assert.equal(menuPayload({ ...draft, path: '/console/reports' }, tree, null, root).path, '/console/reports')
   assert.equal(menuPayload({ ...draft, type: 'F', path: 'reports:export' }, tree, null, root).path, 'reports:export')
 })
+
+test('moving a parent rejects a newly reserved grandchild path and ignores action paths', () => {
+  const [child] = root.children
+  const [action] = child.children
+  const grandchild = { ...leaf, pid: child.id, path: '../../login' }
+  const parent = {
+    ...root,
+    path: '/console/outer',
+    children: [{ ...child, path: 'nested', children: [grandchild, { ...action, path: 'fixture:action' }] }],
+  }
+  const draft = menuDraft(parent)
+  const moved = { ...draft, path: '/console' }
+  assert.match(menuErrors(moved, [parent], parent).path, /子菜单.*路径/)
+  assert.throws(() => menuPayload(moved, [parent], parent, null), /Invalid menu form/)
+  assert.equal(menuPayload({ ...draft, path: '/console/other' }, [parent], parent, null).path, '/console/other')
+})
+
 test('deletion cannot remove descendants, shared permissions or role grants; business errors fail closed', () => {
   assert.match(menuDeleteReason(root, tree, []), /子菜单/)
   assert.match(menuDeleteReason(leaf, tree, [leaf.permission]), /角色/)

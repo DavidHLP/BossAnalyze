@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import { authorizeRoute } from '../src/router/guard.ts'
 import { loginDestination, safeReturnPath } from '../src/lib/session.ts'
 import { assetMarkdown, countDuplicateCommits, exportDestination, resumeMainline, resumePreview } from '../src/lib/resumes.ts'
@@ -148,4 +149,160 @@ test('local resume drafts are confined to the current login and resume and can b
   assert.equal(resumeDraftStore(storage, 'bob@example.invalid', '2', 'a').read(), null)
   assert.equal(resumeDraftStore(storage, 'alice@example.invalid', '3', 'a').read(), null)
   assert.equal(items.size, 0)
+})
+
+async function resumePage(file, bindings, names) {
+  const vue = await import('vue')
+  const ts = await import('typescript')
+  const source = await readFile(new URL(`../src/pages/resumes/${file}.vue`, import.meta.url), 'utf8')
+  const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+    .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
+    .replaceAll('import.meta.env', 'env')
+  const { outputText } = ts.transpileModule(script, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+  })
+  return new Function('bindings', `with (bindings) { ${outputText.replace(/^export \{\};$/m, '')}\nreturn { ${names.join(',')} } }`)({
+    ...vue, ...await import('../src/lib/resumes.ts'),
+    env: {}, onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {}, onBeforeRouteUpdate() {},
+    ...bindings,
+  })
+}
+
+async function resumeEditor(savedDraft) {
+  const { ref } = await import('vue')
+  const values = new Map()
+  const storage = {
+    get length() { return values.size },
+    key: index => [...values.keys()][index] ?? null,
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  }
+  const { resumeDraftStore } = await import('../src/lib/resumes.ts')
+  const store = resumeDraftStore(storage, 'id:1', '100', 'fixture')
+  if (savedDraft) store.write(savedDraft)
+  const crossTabChanged = ref(null)
+  const owner = { token: 'fixture-token', timestamp: '100' }
+  const server = { item: { id: 'fixture', content: '# 已保存', stashStack: ['previous'] }, writes: [] }
+  const editor = await resumePage('edit', {
+    useRoute: () => ({ params: { id: 'fixture' } }),
+    useSession: () => ({
+      state: ref({ user: { id: 1 } }), crossTabChanged,
+      capture: () => owner, owns: () => !crossTabChanged.value,
+    }),
+    window: { sessionStorage: storage },
+    document: { getElementById: () => null },
+    getResume: async () => server.item,
+    resumeHistory: async () => [],
+    changeResumeVersion: async (...args) => { server.writes.push(args) },
+  }, ['load', 'write', 'resolveLocalDraft', 'markdown', 'message', 'localDraft', 'writeError', 'feedback'])
+  await editor.load(true)
+  return { editor, server, store, crossTabChanged }
+}
+
+test('the editor keeps the draft until readback shows a larger stash stack', async () => {
+  const { editor, server, store } = await resumeEditor()
+  const draft = { content: '# 未保存正文', message: '备注' }
+  editor.markdown.value = draft.content
+  editor.message.value = draft.message
+  await editor.write('stash')
+  assert.deepEqual(server.writes, [['fixture', 'stash', { content: draft.content }]])
+  assert.deepEqual(store.read(), draft)
+  assert.equal(editor.markdown.value, draft.content)
+  assert.equal(editor.message.value, draft.message)
+  assert.equal(editor.feedback.value, '')
+  assert.match(editor.writeError.value, /储藏结果未确认，请先核对储藏记录/)
+
+  server.item = { ...server.item, stashStack: ['previous', 'new'] }
+  await editor.write('stash')
+  assert.equal(store.read(), null)
+  assert.equal(editor.markdown.value, '# 已保存')
+  assert.equal(editor.message.value, draft.message)
+  assert.match(editor.feedback.value, /草稿已储藏/)
+})
+
+test('a stale tab can recover or clear the offered local draft while both writes stay blocked', async () => {
+  const draft = { content: '# 本地正文', message: '本地备注' }
+  for (const restore of [true, false]) {
+    const { editor, server, store, crossTabChanged } = await resumeEditor(draft)
+    crossTabChanged.value = 'changed'
+    await editor.resolveLocalDraft(restore)
+    assert.equal(editor.localDraft.value, null)
+    assert.equal(editor.markdown.value, restore ? draft.content : '# 已保存')
+    assert.equal(editor.message.value, restore ? draft.message : '')
+    assert.deepEqual(store.read(), restore ? draft : null)
+    await editor.write('save')
+    await editor.write('stash')
+    assert.deepEqual(server.writes, [])
+  }
+})
+
+async function versionsPage({ getResume, resumeHistory }) {
+  const { reactive, ref } = await import('vue')
+  const route = reactive({ params: { id: 'first' } })
+  const owner = { token: 'fixture-token', timestamp: '100' }
+  let routeGuard
+  const versions = await resumePage('versions', {
+    useRoute: () => route, useRouter: () => ({}), useMediaQuery: () => ref(false),
+    useSession: () => ({ state: ref({}), capture: () => owner, owns: () => true }),
+    onBeforeRouteUpdate: guard => { routeGuard = guard },
+    getResume, resumeHistory,
+  }, ['refresh', 'record', 'history', 'recent', 'mode', 'busy', 'loadError', 'detailError', 'writeLocked'])
+  return { versions, route, routeGuard }
+}
+
+test('versions refresh keeps fresh primary history and writes available when recent commits fail', async () => {
+  const old = { id: 'old' }
+  const current = { id: 'current' }
+  let commit = old
+  let recentFails = false
+  const { versions } = await versionsPage({
+    getResume: async (id) => ({ id, headCommit: commit.id }),
+    resumeHistory: async (_id, recent) => {
+      if (recent && recentFails) throw { code: 503 }
+      return [commit]
+    },
+  })
+  await versions.refresh(true)
+  versions.mode.value = 'recent'
+  recentFails = true
+  commit = current
+  await versions.refresh()
+  assert.equal(versions.record.value.headCommit, 'current')
+  assert.deepEqual(versions.history.value, [current])
+  assert.equal(versions.loadError.value, '')
+  assert.equal(versions.writeLocked.value, false)
+  assert.ok(versions.detailError.value)
+  recentFails = false
+  await versions.refresh()
+  assert.deepEqual(versions.recent.value, [current])
+  assert.equal(versions.detailError.value, '')
+})
+
+test('versions switches resumes during a read, ignores the old failure, and guards writes', async () => {
+  const first = Promise.withResolvers()
+  const second = Promise.withResolvers()
+  const { versions, route, routeGuard } = await versionsPage({
+    getResume: id => id === 'first' ? first.promise : second.promise,
+    resumeHistory: async id => [{ id: `${id}-head` }],
+  })
+  const pending = versions.refresh(true)
+  const next = { params: { id: 'second' } }
+  assert.equal(versions.busy.value, 'load')
+  assert.equal(routeGuard(next, route), true)
+  route.params = next.params
+  const { nextTick } = await import('vue')
+  await nextTick()
+  first.reject({ code: 503 })
+  await pending
+  assert.equal(versions.loadError.value, '')
+  assert.equal(versions.busy.value, 'load')
+  second.resolve({ id: 'second', headCommit: 'second-head' })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(versions.record.value.id, 'second')
+  assert.deepEqual(versions.history.value, [{ id: 'second-head' }])
+  assert.equal(versions.busy.value, '')
+  versions.busy.value = 'write-confirm'
+  assert.equal(routeGuard({ params: { id: 'third' } }, route), false)
+  assert.equal(routeGuard({ params: { id: 'second' } }, route), true)
 })
