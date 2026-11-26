@@ -46,14 +46,16 @@ test('reset eligibility follows only first parents and terminates on malformed c
 
 test('log projections distinguish empty caches, missing buckets and observed zero', () => {
   assert.deepEqual(logTotals({ totalVisits: 0, uniqueIps: 0 }), { visits: 0, ips: 0 })
-  assert.deepEqual(heatBuckets({}), { hours: [], minutes: [] })
-  const data = heatBuckets({ hourHeatmap: {
+  assert.throws(() => heatBuckets({}), /Invalid log response/)
+  assert.deepEqual(heatBuckets({ hourHeatmap: {}, minuteHeatmap: {} }), { hours: [], minutes: [] })
+  const data = heatBuckets({ minuteHeatmap: {}, hourHeatmap: {
     '2026-11-20 10': { count: 0 }, '2026-11-21 10': { count: 4 }, '2026-11-21 11': { count: 2 },
   } })
   assert.deepEqual(weekdayAverages(data.hours), { workdays: 0, weekends: 6 })
   assert.notEqual(heatLevel(undefined), heatLevel(0))
-  assert.throws(() => heatBuckets({ minuteHeatmap: { '2026-11-20 10:61': { count: 1 } } }))
-  assert.equal(weekdayDistribution({ weekdayStatistics: { weekdayStats: { 2: { count: 0 } } } }).days[0].count, 0)
+  assert.throws(() => heatBuckets({ hourHeatmap: {}, minuteHeatmap: { '2026-11-20 10:61': { count: 1 } } }), /Invalid bucket time/)
+  const weekday = weekdayDistribution({ generatedAt: '2026-11-20T10:00:00Z', weekdayStatistics: { weekdayStats: { 2: { count: 0 } } } })
+  assert.equal(weekday.days[0].count, 0)
   assert.equal(ipDistribution({ ipStats: { '203.0.113.1': { count: 1 } } }).countries[0].name, '未知')
 })
 
