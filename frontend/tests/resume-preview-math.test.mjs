@@ -4,15 +4,38 @@ import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { createResumeMathEngine, loadResumeMath, RESUME_MATH_MAX_LENGTH } from '../src/lib/resume-math.ts'
+import {
+  createResumeMathEngine, loadResumeMath, renderResumeMath, RESUME_MATH_MAX_LENGTH,
+} from '../src/lib/resume-math.ts'
+
+test('renderResumeMath denies trusted commands even if the renderer returns MathML', () => {
+  const unsupported = { ok: false, message: '公式包含不受支持的命令。' }
+  let trustDecision
+  const denied = renderResumeMath((_, { trust }) => {
+    trustDecision = trust({ command: '\\href', url: 'javascript:alert(1)' })
+    return '<math></math>'
+  }, String.raw`\href{javascript:alert(1)}{x}`, false)
+  assert.equal(trustDecision, false)
+  assert.deepEqual(denied, unsupported)
+  for (const html of [
+    '<math><a>x</a></math>', '<math><mtext href="https://example.com">x</mtext></math>',
+  ]) {
+    assert.deepEqual(renderResumeMath(() => html, 'x', false), unsupported)
+  }
+})
 
 test('rejected links and invalid TeX fail locally, macros never leak between formulas', async () => {
   const engine = await loadResumeMath()
+  const { default: katex } = await import('katex')
   const link = String.raw`\href{javascript:alert(1)}{x}`
-  assert.equal(engine.render(link, false).ok, false)
+  assert.deepEqual(renderResumeMath(katex.renderToString, link, false),
+    { ok: false, message: '公式包含不受支持的命令。' })
   assert.equal(engine.renderOrNull(link, true), null)
   assert.equal(engine.renderOrNull('x^{', false), null)
-  assert.match(engine.renderOrNull(String.raw`\textcolor{#cc0000}{\text{\textbackslash word}}`, false), /<mtext>\\word<\/mtext>/)
+  const literal = String.raw`\text{\textbackslash url}`
+  assert.match(engine.renderOrNull(literal, false), /<mtext>\\url<\/mtext>/)
+  const redLiteral = String.raw`\textcolor{#cc0000}{${literal}}`
+  assert.match(engine.renderOrNull(redLiteral, false), /<mtext>\\url<\/mtext>/)
   assert.match(engine.renderOrNull(String.raw`\gdef\resumeMacro{x}\resumeMacro`, false), /<mi>x<\/mi>/)
   assert.equal(engine.renderOrNull(String.raw`\resumeMacro`, false), null)
   assert.match(engine.renderOrNull('y', false), /<mi>y<\/mi>/)
@@ -29,7 +52,9 @@ test('bounds each formula before rendering and accepts only MathML output', () =
   assert.equal(calls.length, 0)
   assert.equal(engine.renderOrNull('𝑥'.repeat(2048), true), '<math></math>')
   assert.equal(engine.renderOrNull('x', false), null)
-  assert.deepEqual(calls[0], { output: 'mathml', displayMode: true, trust: false, throwOnError: true,
+  const { trust, ...options } = calls[0]
+  assert.equal(typeof trust, 'function')
+  assert.deepEqual(options, { output: 'mathml', displayMode: true, throwOnError: true,
     strict: 'error', maxExpand: 250, maxSize: 10, macros: {} })
   assert.notEqual(calls[0].macros, calls[1].macros)
 })

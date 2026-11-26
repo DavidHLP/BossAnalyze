@@ -31,6 +31,22 @@ test('math and code take priority over emphasis and links', () => {
     { kind: 'link', text: '文档', href: 'https://example.invalid/' })
 })
 
+test('dollars in valid Markdown link destinations stay out of inline math', () => {
+  const source = '# 姓名\n[主页](https://example.com/?a=$x$) · [邮箱](mailto:me@example.com)\n\n' +
+    '公式 $y$，以及 [标签 $z$](https://example.com/?a=$query$)'
+  const blocks = resumePreview(source)
+  assert.deepEqual(blocks[1].inline, [
+    { kind: 'link', text: '主页', href: 'https://example.com/?a=$x$' },
+    { kind: 'text', text: ' · ' },
+    { kind: 'link', text: '邮箱', href: 'mailto:me@example.com' },
+  ])
+  assert.deepEqual(resumeMathNodes(blocks).map(node => node.tex), ['y', 'z'])
+  assert.match(resumeHtml('简历', blocks), /href="https:\/\/example\.com\/\?a=\$x\$"/)
+  for (const target of ['file:///tmp/?q=$x$', 'https://example.com/?q=`$x$']) {
+    assert.deepEqual(resumeMathNodes(resumePreview(`[链接](${target})`)).map(node => node.tex), ['x'])
+  }
+})
+
 test('dollar escapes remove one backslash from plain text and preserve code and TeX', () => {
   const text = String.raw`\$5 \\\$6 \\$x$ ` + '`\\$code`'
   const [block] = resumePreview(text)
