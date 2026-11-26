@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import {
   consolePath,
   findMenu,
@@ -197,9 +198,9 @@ async function sessionFixture() {
     useRouter: () => router,
     localStorage,
     sessionStorage: { removeItem() {} },
-    getUserBaseInfo: async () => ({ email: 'fixture@example.invalid' }),
-    getUserPrivateInformation: async () => { if (api.pending) return api.pending; if (api.failure) throw api.failure; return [] },
-    getUserRoutes: async () => [node('/console/users')],
+    getUserBaseInfo: async () => api.user ?? { email: 'fixture@example.invalid' },
+    getUserPrivateInformation: async () => { if (api.pending) return api.pending; if (api.failure) throw api.failure; return api.permissions ?? [] },
+    getUserRoutes: async () => api.routes ?? [node('/console/users')],
     login: async () => ({ token: 'synthetic-login' }),
     logout: async () => {
       api.logoutCalls++
@@ -210,6 +211,37 @@ async function sessionFixture() {
     },
   }, ['useSession'])
   return { vue, router, storage, localStorage, sessionLib, api, session: useSession(), useSession }
+}
+
+async function pageFixture(t, file, location, routes) {
+  const { createServer } = await import('vite')
+  const { createSSRApp } = await import('vue')
+  const { renderToString } = await import('vue/server-renderer')
+  const { createRouter, createMemoryHistory } = await import('vue-router')
+  const vite = await createServer({
+    root: fileURLToPath(new URL('../', import.meta.url)),
+    appType: 'custom',
+    optimizeDeps: { noDiscovery: true, include: [] },
+    server: { middlewareMode: true, ws: false, watch: null },
+  })
+  t.after(() => vite.close())
+  const { default: Page } = await vite.ssrLoadModule(`/src/${file}`)
+  const { installComponents, ui } = await vite.ssrLoadModule('/src/ui-components.ts')
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: routes.map(path => ({ path, component: { render: () => null } })),
+  })
+  await router.push(location)
+  return {
+    router,
+    load: vite.ssrLoadModule.bind(vite),
+    render() {
+      const app = createSSRApp(Page)
+      app.use(router)
+      installComponents(app, ui)
+      return renderToString(app)
+    },
+  }
 }
 
 test('transient restore fails closed, retains token and retries; 401 invalidates it', async () => {
@@ -228,6 +260,82 @@ test('transient restore fails closed, retains token and retries; 401 invalidates
   await assert.rejects(session.restore())
   assert.equal(storage.has('token'), false)
   assert.equal(session.state.value.invalidated, true)
+})
+
+test('session refresh updates the user and route authorization without changing the session owner', async () => {
+  const { authorizeRoute } = await import('../src/router/guard.ts')
+  const { session, api } = await sessionFixture()
+  await session.restore()
+  const owner = session.capture()
+  api.user = { id: 1, name: 'Updated name', email: 'fixture@example.invalid' }
+  api.permissions = ['roles.read']
+  api.routes = [node('/console/roles', 'roles.read')]
+  assert.equal(await session.refresh(), true)
+  assert.deepEqual(session.capture(), owner)
+  assert.equal(session.state.value.user.name, 'Updated name')
+  assert.deepEqual(session.state.value.permissions, ['roles.read'])
+  assert.equal(await authorizeRoute(session, {
+    path: '/console/roles', fullPath: '/console/roles', meta: { access: 'menu' },
+  }), true)
+  const revoked = await authorizeRoute(session, {
+    path: '/console/users', fullPath: '/console/users', meta: { access: 'menu' },
+  })
+  assert.equal(revoked.params.code, '403')
+})
+
+test('a failed refresh leaves the restored account and authorization available for retry', async () => {
+  const { session, api } = await sessionFixture()
+  await session.restore()
+  const owner = session.capture()
+  const restored = session.state.value
+  for (const failure of [new Error('network unavailable'), { code: 503 }]) {
+    api.failure = failure
+    assert.equal(await session.refresh(), false)
+    assert.deepEqual(session.capture(), owner)
+    assert.deepEqual(session.state.value, restored)
+  }
+  api.failure = null
+  api.routes = [node('/console/roles')]
+  assert.equal(await session.refresh(), true)
+  assert.ok(findMenu(session.state.value.menus, '/console/roles'))
+})
+
+test('a refresh from a replaced session cannot publish old authorization or clear the new token', async () => {
+  for (const expired of [false, true]) {
+    const { session, api, storage } = await sessionFixture()
+    await session.restore()
+    const response = Promise.withResolvers()
+    api.pending = response.promise
+    const oldRefresh = session.refresh()
+
+    api.pending = null
+    api.routes = [node('/console/roles')]
+    await session.signIn('fixture@example.invalid', 'synthetic')
+    if (expired) response.reject({ code: 401 })
+    else response.resolve([])
+
+    assert.equal(await oldRefresh, false)
+    assert.equal(storage.get('token'), 'synthetic-login')
+    assert.ok(findMenu(session.state.value.menus, '/console/roles'))
+    assert.equal(findMenu(session.state.value.menus, '/console/users'), undefined)
+  }
+})
+
+test('a slow refresh does not replace the authorization published by a newer refresh', async () => {
+  const { session, api } = await sessionFixture()
+  await session.restore()
+  const response = Promise.withResolvers()
+  api.pending = response.promise
+  const older = session.refresh()
+
+  api.pending = null
+  api.routes = [node('/console/roles')]
+  assert.equal(await session.refresh(), true)
+  response.resolve([])
+  await older
+
+  assert.ok(findMenu(session.state.value.menus, '/console/roles'))
+  assert.equal(findMenu(session.state.value.menus, '/console/users'), undefined)
 })
 
 test('all production editor guards preserve session and draft on cancel, then complete logout on discard', async () => {
@@ -383,8 +491,52 @@ test('a completed old logout cannot clear a newly signed-in session', async () =
   assert.equal(session.state.value.ready, true)
 })
 
+test('pending login and recovery respect navigation away from the login form', async () => {
+  for (const action of ['submit', 'retrySession']) {
+    for (const departure of ['register', 'pending register', 'unmount', 'stay']) {
+      const { vue, router, localStorage, session } = await sessionFixture()
+      router.addRoute({ path: '/register', component: {} })
+      await router.replace({ path: '/login', query: { redirect: '/console/users' } })
+      const result = Promise.withResolvers()
+      let unmount
+      const form = await scriptRuntime('components/LoginForm.vue', {
+        ...vue,
+        useSession: () => ({ ...session, signIn: () => result.promise, restore: () => result.promise }),
+        useRouter: () => router, useRoute: () => router.currentRoute.value,
+        onMounted: callback => callback(), onUnmounted: callback => { unmount = callback },
+        onBeforeRouteLeave: guard => router.beforeEach(guard),
+        localStorage, loginDestination, loginFailure,
+      }, [action])
+      await session.restore()
+
+      const pending = form[action]()
+      if (departure === 'register') await router.push('/register')
+      if (departure === 'unmount') unmount?.()
+      const entered = Promise.withResolvers()
+      const leave = Promise.withResolvers()
+      let registering
+      if (departure === 'pending register') {
+        router.beforeEach(to => {
+          if (to.path !== '/register') return true
+          entered.resolve()
+          return leave.promise
+        })
+        registering = router.push('/register')
+        await entered.promise
+      }
+      result.resolve(true)
+      await pending
+      leave.resolve(true)
+      await registering
+
+      const expected = { register: '/register', 'pending register': '/register', unmount: '/login', stay: '/console/users' }
+      assert.equal(router.currentRoute.value.path, expected[departure], `${action}: ${departure}`)
+    }
+  }
+})
+
 test('retry navigates to the original destination and repeats the route guard', async () => {
-  const { vue, router } = await sessionFixture()
+  const { vue, router, sessionLib, storage } = await sessionFixture()
   const redirect = '/console/users?edit=1#form'
   router.addRoute({ path: '/system-error/:code', component: {} })
   await router.replace('/system-error/503')
@@ -395,11 +547,88 @@ test('retry navigates to the original destination and repeats the route guard', 
     useRoute: () => ({ params: { code: '503' }, query: { redirect } }),
     useRouter: () => router,
     document: { title: '' },
+    ...sessionLib,
     safeReturnPath: (await import('../src/lib/session.ts')).safeReturnPath,
   }, ['retry'])
+  const timestamp = storage.get('token_timestamp')
+  storage.set('token_timestamp', '0')
+  await retry()
+  assert.equal(guardCalls, 0)
+  storage.set('token_timestamp', timestamp)
   await retry()
   assert.equal(guardCalls, 1)
   assert.equal(router.currentRoute.value.fullPath, redirect)
+})
+
+test('the 503 page offers session retry only when the local credentials are valid', async (t) => {
+  const page = await pageFixture(t, 'pages/SystemError.vue', '/system-error/503?redirect=/console/users', [
+    '/system-error/:code', '/console', '/login',
+  ])
+  const storage = new Map()
+  for (const [name, value] of Object.entries({
+    document: { title: '' },
+    localStorage: { getItem: key => storage.get(key) ?? null },
+  })) {
+    const original = Object.getOwnPropertyDescriptor(globalThis, name)
+    Object.defineProperty(globalThis, name, { configurable: true, value })
+    t.after(() => {
+      if (original) Object.defineProperty(globalThis, name, original)
+      else delete globalThis[name]
+    })
+  }
+  const now = Date.now()
+  for (const [token, timestamp] of [
+    [null, String(now)],
+    ['synthetic', null],
+    ['synthetic', 'invalid'],
+    ['synthetic', String(now - 86_400_000)],
+  ]) {
+    storage.set('token', token)
+    storage.set('token_timestamp', timestamp)
+    const html = await page.render()
+    assert.match(html, /本机没有有效的登录凭据/)
+    assert.match(html, /href="\/login\?redirect=\/console\/users"[^>]*>前往登录/)
+    assert.doesNotMatch(html, /已保留当前登录凭据|重试恢复会话/)
+  }
+  storage.set('token_timestamp', String(now))
+  const valid = await page.render()
+  assert.match(valid, /已保留当前登录凭据/)
+  assert.match(valid, /重试恢复会话/)
+})
+
+test('the workbench explains the missing dashboard permission and shortcut access without reading logs', async (t) => {
+  const page = await pageFixture(t, 'pages/console/index.vue', '/console', [
+    '/console', '/console/dashboard', '/console/profile', '/resumes', '/recruitment',
+  ])
+  const { useSession: usePageSession } = await page.load('/src/composables/useSession.ts')
+  const { state } = usePageSession(page.router)
+  const html = await page.render()
+  assert.match(html, /当前账号未获数据看板权限/)
+  assert.match(html, /当前账号暂无可用的授权快捷入口/)
+  assert.doesNotMatch(html, /进入数据看板|刷新概览/)
+
+  const vue = await import('vue')
+  let loadOverview
+  let logReads = 0
+  await scriptRuntime('pages/console/index.vue', {
+    ...vue, findMenu, menuShortcuts,
+    useSession: () => ({ state }), useRouter: () => page.router,
+    onMounted: callback => { loadOverview = callback },
+    getDashboardStats: async () => { logReads++; return null },
+    getUserRole: async () => ({ id: 1, roleName: 'User', status: 1 }),
+    getUserPrivateInformation: async () => [],
+    ...await import('../src/lib/dashboard.ts'),
+    ...await import('../src/lib/settings.ts'),
+  }, [])
+  await loadOverview()
+  assert.equal(logReads, 0)
+
+  state.value.menus = menuTree([node('/console/dashboard', 'logs.read')], ['logs.read'])
+  await loadOverview()
+  assert.equal(logReads, 1)
+  const authorized = await page.render()
+  assert.match(authorized, /进入数据看板/)
+  assert.doesNotMatch(authorized, /当前账号未获数据看板权限|当前账号暂无可用的授权快捷入口/)
 })
 
 test('forced logout only clears the initiating session even when navigation is delayed', async () => {
@@ -426,7 +655,7 @@ test('forced logout only clears the initiating session even when navigation is d
   assert.equal(api.logoutCalls, 0)
 })
 
-test('a storage change freezes the displayed draft and requests while reload is blocked', async () => {
+test('cross-tab token changes freeze the displayed draft until a manual reload', async () => {
   const fixture = await sessionFixture()
   const { session, sessionLib, vue, storage, localStorage, useSession, router } = fixture
   await session.restore()
@@ -438,10 +667,10 @@ test('a storage change freezes the displayed draft and requests while reload is 
     removeEventListener: events.removeEventListener.bind(events),
     location: { reload: () => { reloads++ } },
   }
-  const { listenToSessionEvents } = await scriptRuntime('composables/session-events.ts', {
+  const { listenToSessionEvents, registerDirtyDraft, hasDirtyDraft } = await scriptRuntime('composables/session-events.ts', {
     window, localStorage,
-  }, ['listenToSessionEvents'])
-  listenToSessionEvents(session, router)
+  }, ['listenToSessionEvents', 'registerDirtyDraft', 'hasDirtyDraft'])
+  const stopListening = listenToSessionEvents(session, router)
   const users = await import('../src/lib/users.ts')
   const draftProps = vue.reactive({ open: false, mode: 'create', rolesUnavailable: false })
   let writes = 0
@@ -455,18 +684,54 @@ test('a storage change freezes the displayed draft and requests while reload is 
   Object.assign(panel.draft, {
     name: 'Unsaved', email: 'draft@example.invalid', roleId: 1, password: 'synthetic-password',
   })
+  const unregister = registerDirtyDraft('user-editor', () => panel.draft.name !== '')
+  assert.equal(hasDirtyDraft(), true)
+  const notify = (key, newValue) =>
+    events.dispatchEvent(Object.assign(new Event('storage'), { key, newValue, storageArea: localStorage }))
   storage.set('token', 'other-account')
   assert.throws(() => sessionLib.requestSessionOwner(true), /Session changed/)
-  events.dispatchEvent(Object.assign(new Event('storage'), { key: 'token', storageArea: localStorage }))
-  assert.equal(reloads, 1)
+  notify('token', 'other-account')
+  notify('token_timestamp', storage.get('token_timestamp'))
+  assert.equal(reloads, 0)
+  assert.equal(session.crossTabChanged.value, 'changed')
   assert.equal(session.state.value.invalidated, undefined)
   assert.equal(panel.sessionChanged.value, true)
+  assert.equal(session.owns(session.capture()), false)
   await panel.save()
   assert.equal(writes, 0)
   assert.equal(panel.draft.name, 'Unsaved')
+  storage.clear()
+  notify(null, null)
+  assert.equal(session.crossTabChanged.value, 'cleared')
+  assert.equal(reloads, 0)
+  events.dispatchEvent(new Event('unauthorized'))
+  assert.equal(session.state.value.invalidated, undefined)
   storage.set('token', 'synthetic')
+  storage.set('token_timestamp', owner.timestamp)
   assert.equal(session.owns(owner), false, 'a token round trip still invalidates the old generation')
   assert.throws(() => sessionLib.withSessionOwner(owner, () => {}), /Session changed/)
+  unregister()
+  assert.equal(hasDirtyDraft(), false)
+  notify('token', 'synthetic')
+  assert.equal(reloads, 1)
+  stopListening()
+})
+
+test('the console announces cross-tab invalidation and offers a manual reload', async (t) => {
+  const page = await pageFixture(t, 'layouts/ConsoleLayout.vue', '/console', [
+    '/console', '/resumes', '/recruitment',
+  ])
+  const { useSession } = await page.load('/src/composables/useSession.ts')
+  const session = useSession(page.router)
+  assert.equal((await page.render()).includes('立即刷新页面'), false)
+  for (const [status, message] of [['changed', '其他标签页已变更登录状态'], ['cleared', '其他标签页已清除登录凭据']]) {
+    session.crossTabChanged.value = status
+    const html = await page.render()
+    assert.equal(html.includes('role="alert"'), true)
+    assert.equal(html.includes(message), true)
+    assert.equal(html.includes('已锁定提交'), true)
+    assert.equal(html.includes('立即刷新页面'), true)
+  }
 })
 
 test('request classification separates network, timeout and absent write bodies from explicit rejection', async () => {
