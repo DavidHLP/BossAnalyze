@@ -68,12 +68,21 @@ export async function getResume(id: string) {
   return record(await request.get(resource(id)))
 }
 
+function writtenRecord(value: unknown) {
+  if (value && typeof value === 'object' && 'code' in value) requireMutationSuccess(value)
+  try {
+    return record(value)
+  } catch {
+    throw Object.assign(new Error('Missing written resume record'), { resultUnknown: true })
+  }
+}
+
 export async function createResume(title: string) {
-  return record(await request.post('/api/resume', { title, content: '# ' + title + '\n' }))
+  return writtenRecord(await request.post('/api/resume', { title, content: '# ' + title + '\n' }))
 }
 
 export async function renameResume(id: string, title: string) {
-  return record(await request.put(resource(id), { title }))
+  return writtenRecord(await request.put(resource(id), { title }))
 }
 
 export async function deleteResume(id: string) {

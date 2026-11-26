@@ -9,7 +9,9 @@ import {
 } from '@/api/resume/resume'
 import { useSession } from '@/composables/useSession'
 import { restoreActionFocus } from '@/lib/rbac-mutations'
-import { countDuplicateCommits, resumeMainline, resumeReadMessage, resumeTime, shortCommit } from '@/lib/resumes'
+import {
+  countDuplicateCommits, resumeFirstParentRelation, resumeLineDiff, resumeMainline, resumeReadMessage, resumeTime, shortCommit,
+} from '@/lib/resumes'
 import ResumePreview from '@/components/resumes/ResumePreview.vue'
 
 type Action = 'branch' | 'switch' | 'merge' | 'stash' | 'stash/pop' | 'checkout' | 'reset' | 'revert' | 'fix-duplicate-ids'
@@ -34,6 +36,7 @@ const record = shallowRef<ResumeRecord | null>(null)
 const history = shallowRef<ResumeCommit[]>([])
 const recent = shallowRef<ResumeCommit[]>([])
 const range = shallowRef<ResumeCommit[] | null>(null)
+const comparison = shallowRef<{ from: ResumeCommit; to: ResumeCommit } | null>(null)
 const validation = shallowRef<ResumeValidation | null>(null)
 const debug = shallowRef<Record<string, unknown> | null>(null)
 const selection = shallowRef<ResumeCommit | null>(null)
@@ -67,21 +70,38 @@ const sourceSnapshot = computed(() => history.value.find(commit => commit.id ===
 const stashCount = computed(() => record.value?.stashStack?.length ?? 0)
 const mainline = computed(() => resumeMainline(branchTips.value[record.value?.currentBranch ?? ''], history.value))
 const canReset = computed(() => !!selection.value && mainline.value.has(selection.value.id))
+const checkoutBranches = computed(() => Object.entries(branchTips.value)
+  .filter(([, tip]) => tip === selection.value?.id).map(([name]) => name))
+const revertSnapshot = computed(() => history.value.find(commit => commit.id === selection.value?.parentCommits?.[0]))
+const rangeRelation = computed(() => comparison.value
+  ? resumeFirstParentRelation(comparison.value.from.id, comparison.value.to.id, history.value)
+  : null)
+const lineDiff = computed(() => comparison.value
+  ? resumeLineDiff(comparison.value.from.content ?? '', comparison.value.to.content ?? '')
+  : null)
+const lineMarkers = { added: '+', removed: '−', unchanged: ' ' }
+const lineLabels = { added: '新增', removed: '删除', unchanged: '未变' }
+const lineColors = { added: 'bg-primary/10', removed: 'bg-destructive/10', unchanged: '' }
 const canConfirm = computed(() => {
   if (!operation.value || busy.value || writeLocked.value) return false
   if (operation.value === 'branch') return !!branchName.value.trim() && !branches.value.includes(branchName.value.trim())
   if (operation.value === 'switch') return !!target.value && target.value !== record.value?.currentBranch
   if (operation.value === 'merge') return !!sourceSnapshot.value && !!target.value && target.value !== source.value && confirmed.value
   if (operation.value === 'reset') return canReset.value
+  if (operation.value === 'revert') return !!revertSnapshot.value && !!record.value?.headCommit
   if (operation.value === 'fix-duplicate-ids') return duplicates.value > 0 && confirmed.value
   return true
 })
+
+watch([source, target], () => { confirmed.value = false }, { flush: 'sync' })
+watch([from, to], () => { range.value = comparison.value = null })
 
 async function read(reset = false) {
   const generation = ++revision
   const owner = session.capture()
   const key = id.value
   loadError.value = ''
+  range.value = comparison.value = null
   if (reset) {
     record.value = null
     history.value = recent.value = []
@@ -91,10 +111,15 @@ async function read(reset = false) {
     filter.value = from.value = to.value = feedback.value = ''
   }
   try {
-    const [item, commits] = await Promise.all([getResume(key), resumeHistory(key)])
+    const refreshRecent = mode.value === 'recent'
+    if (refreshRecent) recent.value = []
+    const [item, commits, latest] = await Promise.all([
+      getResume(key), resumeHistory(key), refreshRecent ? resumeHistory(key, true) : undefined,
+    ])
     if (generation !== revision || key !== id.value || !session.owns(owner)) return false
     record.value = item
     history.value = commits
+    if (latest) recent.value = latest
     writeLocked.value = false
     return true
   } catch (cause) {
@@ -109,6 +134,7 @@ async function read(reset = false) {
 async function refresh(reset = false) {
   if (busy.value) return
   busy.value = 'load'
+  detailError.value = ''
   try {
     await read(reset)
   } finally {
@@ -120,7 +146,7 @@ watch(id, () => void refresh(true))
 onMounted(() => void refresh(true))
 onUnmounted(() => { revision++ })
 onBeforeRouteLeave(() => !busy.value.startsWith('write') || session.state.value.invalidated === true)
-onBeforeRouteUpdate(() => !busy.value.startsWith('write'))
+onBeforeRouteUpdate((to, from) => to.params.id === from.params.id || !busy.value)
 
 async function readRecent() {
   if (busy.value) return
@@ -142,14 +168,19 @@ async function readRecent() {
 }
 
 async function readRange() {
-  if (!from.value || !to.value || from.value === to.value || busy.value) return
-  busy.value = 'range'
+  if (from.value === to.value || busy.value) return
+  const start = history.value.find(item => item.id === from.value)
+  const end = history.value.find(item => item.id === to.value)
+  if (!start || !end) return
   detailError.value = ''
   range.value = null
+  comparison.value = { from: start, to: end }
+  if (rangeRelation.value !== 'forward') return
+  busy.value = 'range'
   const key = id.value
   const owner = session.capture()
   try {
-    const commits = await resumeHistory(key, false, { fromCommit: from.value, toCommit: to.value })
+    const commits = await resumeHistory(key, false, { fromCommit: start.id, toCommit: end.id })
     if (key === id.value && session.owns(owner)) range.value = commits
   } catch {
     detailError.value = '暂时无法读取区间提交。'
@@ -340,23 +371,37 @@ async function submit() {
       <form aria-labelledby="commit-range-title" class="flex min-w-0 flex-col gap-3 border bg-card p-4" @submit.prevent="readRange">
         <div class="flex flex-col gap-1">
           <h2 id="commit-range-title" class="font-medium">区间提交记录</h2>
-          <p class="text-xs text-muted-foreground">按第一父提交追溯区间，结果为提交列表。</p>
+          <p class="text-xs text-muted-foreground">比较所选快照的正文，提交列表从结束提交沿第一父链回溯。</p>
         </div>
         <UiField>
           <UiFieldLabel for="range-from">起始提交</UiFieldLabel>
-          <select id="range-from" v-model="from" class="min-w-0 border bg-background p-2 text-sm"><option value="">选择提交</option><option v-for="(item, index) in history" :key="index" :value="item.id">{{ shortCommit(item.id) }}</option></select>
+          <select id="range-from" v-model="from" :disabled="Boolean(busy)" class="min-w-0 border bg-background p-2 text-sm"><option value="">选择提交</option><option v-for="(item, index) in history" :key="index" :value="item.id">{{ shortCommit(item.id) }}</option></select>
         </UiField>
         <UiField>
           <UiFieldLabel for="range-to">结束提交</UiFieldLabel>
-          <select id="range-to" v-model="to" class="min-w-0 border bg-background p-2 text-sm"><option value="">选择提交</option><option v-for="(item, index) in history" :key="index" :value="item.id">{{ shortCommit(item.id) }}</option></select>
+          <select id="range-to" v-model="to" :disabled="Boolean(busy)" class="min-w-0 border bg-background p-2 text-sm"><option value="">选择提交</option><option v-for="(item, index) in history" :key="index" :value="item.id">{{ shortCommit(item.id) }}</option></select>
         </UiField>
         <UiButton type="submit" variant="outline" :disabled="Boolean(busy) || !from || !to || from === to">查询区间</UiButton>
+        <p v-if="rangeRelation === 'separate'" role="status" class="text-sm">两次提交不在同一条第一父链上。下方仍可比较正文。</p>
+        <p v-else-if="rangeRelation === 'reverse'" role="status" class="text-sm">结束提交是起始提交的第一父链祖先。交换起止提交可查看区间记录。</p>
         <div v-if="range" role="status" class="flex flex-col gap-2 text-sm">
           共 {{ range.length }} 条提交
           <ul class="flex flex-col gap-1 text-xs text-muted-foreground">
             <li v-for="(item, index) in range" :key="index" class="break-words">{{ shortCommit(item.id) }} · {{ item.message }}</li>
           </ul>
         </div>
+        <section v-if="lineDiff" aria-labelledby="line-diff-title" class="flex min-w-0 flex-col gap-2 text-sm">
+          <h3 id="line-diff-title" class="font-medium">正文逐行对比</h3>
+          <p v-if="lineDiff.limited" class="text-xs text-muted-foreground">改动区间较大，中间部分按整段删除和新增显示。</p>
+          <p v-if="!lineDiff.lines.length" class="text-muted-foreground">两份正文均为空。</p>
+          <ul v-else tabindex="0" aria-label="逐行正文差异" class="max-h-80 overflow-auto border font-mono text-xs">
+            <li v-for="(line, index) in lineDiff.lines" :key="index" class="flex gap-2 px-2 py-0.5" :class="lineColors[line.kind]">
+              <span aria-hidden="true" class="w-3 shrink-0 whitespace-pre">{{ lineMarkers[line.kind] }}</span>
+              <span class="sr-only">{{ lineLabels[line.kind] }}</span>
+              <span class="min-w-0 whitespace-pre-wrap wrap-anywhere">{{ line.text }}</span>
+            </li>
+          </ul>
+        </section>
       </form>
     </div>
 
@@ -379,6 +424,14 @@ async function submit() {
             <ul class="flex flex-col gap-2 text-sm">
               <li>分支数 · {{ validation.branchCount ?? '—' }}</li><li>孤立提交 · {{ validation.orphanCommits ?? '—' }}</li><li>重复提交 ID · {{ duplicates }}</li>
             </ul>
+            <div v-if="validation.errors?.length" class="text-sm">
+              <h3 class="font-medium text-destructive">错误</h3>
+              <ul class="list-disc space-y-1 pl-5 wrap-anywhere"><li v-for="(error, index) in validation.errors" :key="index">{{ error }}</li></ul>
+            </div>
+            <div v-if="validation.warnings?.length" class="text-sm">
+              <h3 class="font-medium">警告</h3>
+              <ul class="list-disc space-y-1 pl-5 wrap-anywhere"><li v-for="(warning, index) in validation.warnings" :key="index">{{ warning }}</li></ul>
+            </div>
             <div class="flex flex-wrap gap-2">
               <UiButton variant="outline" :disabled="Boolean(busy)" @click="inspect()">重新校验</UiButton>
               <UiButton v-if="duplicates" variant="destructive" :disabled="Boolean(busy) || writeLocked" @click="open('fix-duplicate-ids', $event)">去重重建</UiButton>
@@ -417,6 +470,22 @@ async function submit() {
             <UiFieldLabel for="version-stash">要储藏的正文</UiFieldLabel><UiTextarea id="version-stash" v-model="draft" :disabled="Boolean(busy)" />
           </UiField>
           <p v-if="selection && operation !== 'fix-duplicate-ids'" class="font-mono text-xs text-muted-foreground">{{ shortCommit(selection.id) }} · {{ selection.message }}</p>
+          <p v-if="operation === 'checkout'" class="text-sm wrap-anywhere">
+            <template v-if="checkoutBranches.length === 1">HEAD 将切到「{{ checkoutBranches[0] }}」的尖端，下一次保存会推进该分支。</template>
+            <template v-else-if="checkoutBranches.length > 1">这是多个分支的尖端（{{ checkoutBranches.join('、') }}）。服务器选定其中一个作为当前分支，下一次保存会推进该分支。</template>
+            <template v-else>HEAD 将分离到所选提交，当前分支指针暂时保留。下一次保存会基于所选提交创建新版本并移动当前分支指针，原先的部分历史可能从该分支脱离。</template>
+          </p>
+          <div v-if="operation === 'revert'" class="flex flex-col gap-2 text-sm">
+            <template v-if="revertSnapshot">
+              <p class="font-medium">将恢复的第一父快照 · {{ shortCommit(revertSnapshot.id) }}</p>
+              <pre tabindex="0" aria-label="第一父快照正文" class="max-h-40 overflow-auto whitespace-pre-wrap wrap-anywhere border p-2">{{ revertSnapshot.content || '（正文为空）' }}</pre>
+            </template>
+            <p v-else>找不到第一父快照，无法回滚。</p>
+          </div>
+          <div v-if="operation === 'reset' && selection" class="flex flex-col gap-2 text-sm">
+            <p class="font-medium">目标快照摘要</p>
+            <pre tabindex="0" aria-label="目标快照摘要" class="max-h-32 overflow-auto whitespace-pre-wrap wrap-anywhere border p-2">{{ selection.content ? selection.content.slice(0, 400) + (selection.content.length > 400 ? '…' : '') : '（正文为空）' }}</pre>
+          </div>
           <UiDialogFooter>
             <UiButton type="button" variant="outline" :disabled="Boolean(busy)" @click="operation = null">取消</UiButton>
             <UiButton type="submit" :variant="action?.destructive ? 'destructive' : 'default'" :disabled="!canConfirm">{{ busy ? '正在处理…' : action?.title }}</UiButton>

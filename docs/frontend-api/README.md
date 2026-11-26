@@ -4,56 +4,34 @@ Current directories are `backend/` and `frontend/`; see the
 [project structure and migration map](../project-structure.md). Historical paths
 in the archived catalogs, JSON inventory and contract snapshots are intentional.
 
-This is the interface handoff for rebuilding the frontend while retaining its API layer.
-It records the **current checkout at `832bfde`, dated 2026-10-30**, including unused exports,
-known contract defects and external integrations. It does not delete or redesign the UI,
-change requests, migrate data, or claim that every operation works. Source links in the
-catalog and snapshots are pinned to this baseline commit so they survive deletion of the
-old frontend files.
+The archived interface handoff is pinned to `832bfde` (2026-10-30). It records
+the old `vue/` frontend, its consumers and its verification evidence. The catalog
+references are pinned so they remain usable after the old source files were removed.
 
-## Current frontend state
+## Current frontend
 
-The frontend now uses a fresh Nuxt 4 + shadcn-vue foundation initialized with preset
-`a2lQlAlu` and `--pointer`. The preserved API and supporting types moved from `vue/src/`
-to `frontend/app/`; their module structure and request contracts are unchanged. The shared Axios
-client now explicitly rejects server-side use before reading browser storage. Nitro route
-rules replace the old Vite development proxy and also apply to the production Node server.
-See [the frontend README](../../frontend/README.md) for commands and the current layout.
+BossAnalyze uses Vite, Vue 3, Vue Router and shadcn-vue. Use Node.js 22.13+ and
+pnpm 11.24.0. Pages and API mappings live under `frontend/src/`. Vite development
+and the production Node entry point share the proxy in `frontend/server/api-proxy.ts`.
+Both forward `/api/v1/ai/**` and `/api/v2/ai/**` to the crawler on 8081 and other
+`/api/**` calls to the main API on 8080. The main API owns the analytics gateway.
+The browser Axios client retains the same-origin prefix, attaches the current Bearer
+token to protected requests, and unwraps the response envelope.
 
-The catalog, contracts, consumers and HTTP observations below are the historical pre-removal
-snapshot. The old business consumers are absent; their pinned source links remain usable.
-The new login uses `login-02`; the protected console shell uses `sidebar-07`, connected to
-the preserved authentication and permission/menu APIs. `/console/dashboard` now reads the
-existing log dashboard API. `/console/users` now uses the existing user/role APIs for a
-filtered paginated list and detail/create/edit/delete flows. `/console/roles` now reads
-the complete auth role list and menu tree, with metadata CRUD and menu authorization
-through the existing auth wrappers. Authorization includes parent/shared-permission
-linkage, unmatched-grant protection and a read-back check before reporting success.
-`/console/menus` now uses the existing router APIs for an expandable tree and
-detail/create/edit/delete flows, with fixed existing parent/permission values,
-role-reference and shared-permission deletion guards, and write read-back confirmation.
-Other business routes remain rebuilding placeholders. Real user, role and menu reads were verified; write flows used browser-only
-fixtures and were not executed against existing records.
-`/console/settings` now reads the existing account/role/permission and log-health APIs.
-It is read-only because no settings-save contract exists. Health transport failures
-propagate to an error state, distinct from the backend's explicit degraded connectivity.
-`/console/profile` now uses the existing current-user account, role and permission APIs
-for read-only identity details and expandable access information. No administrator query
-or unsupported profile/avatar/password-save operation is used. Real reads and isolated
-loading/empty/error/forbidden states were checked without modifying account records.
-The dashboard wrapper propagates request errors instead of manufacturing zero statistics.
-`/console` now reads existing role/permission data and, when the session grants the
-dashboard destination, the same log snapshot API. Its quick entries mirror authorized
-sidebar leaves. Missing snapshots remain unavailable; refresh never triggers analysis.
-The gateway's default response is shown as an unavailable snapshot, and known backend
-sample metrics are excluded. Recruitment analytics is available at `/recruitment`; drafts
-and export assembly remain to be rebuilt.
-Existing API defects remain documented; backend code, database schemas and stored data
-are outside this change. Real local login and permission menus were verified using existing
-accounts. The real dashboard API returned no usable analysis snapshot; populated and error
-states were checked with isolated browser responses, without writing fixtures to services.
+- `/register` uses the existing email-verification and registration endpoints.
+- `/resumes` provides owned resume management, editing and version history. Browser
+  output supports PDF via print, standalone HTML and Markdown. Session drafts are
+  scoped to the signed-in account, login and resume. Optional external export requires
+  explicit consent and a usable HTTPS result. Private images default to off.
+- `/console/logs` exposes the extended analysis APIs with dashboard access and a
+  separate trigger permission. A successful trigger starts background analysis.
 
-## Documents
+`pnpm test` runs `frontend/tests/*.test.mjs` through Node's test runner.
+The [frontend README](../../frontend/README.md) documents build, startup and Playwright
+commands. The sections below describe the historical snapshot at `832bfde` and its
+original defects and file paths.
+
+## Historical documents
 
 - [Endpoint catalog](endpoints.md): all **63 wrappers / transport calls**, individually
   numbered, with method, URL, typed parameters, request body/query, response declaration,
@@ -83,7 +61,7 @@ There are **62 distinct method/path operations**: `getDashboardStats` and
 | `router/router.ts` | 4 | Dynamic menu lookup and management |
 | `user/user.ts` | 4 | User administration |
 
-## Files required when retaining the API directory
+## Historical dependencies of the old API directory
 
 Keeping only `vue/src/api/` is **not sufficient to compile or use the current API layer**.
 These are the direct dependencies to retain or deliberately rehome before deleting other
@@ -134,7 +112,7 @@ reimplemented by the new application if retained:
 - Unsaved editor drafts and template preferences use local storage and are not backend APIs.
   Removing their current stores/components does not preserve those browser-only drafts.
 
-## Routing and transport
+## Historical routing and transport
 
 Keep request paths relative to the frontend origin and retain their `/api` prefix.
 The development server listens on `127.0.0.1:5020` with this order:
@@ -189,7 +167,7 @@ Consequences:
 The complete business code dictionary, response helpers and exact adapters are archived in
 [contracts.md](contracts.md). No unified response schema has been invented for `any`/open maps.
 
-## Known incomplete or incompatible contracts
+## Historical incomplete or incompatible contracts
 
 These five frontend operations have **no matching backend controller route** in this snapshot:
 
@@ -223,7 +201,7 @@ Other concrete limitations are recorded per endpoint:
   dedicated AI-similarity wrapper in the scanned application. A link/button or backend-only
   route is not an existing frontend data contract.
 
-## Coverage boundary
+## Historical coverage boundary
 
 All application `.ts`, `.js` and `.vue` sources under `vue/src` were scanned for HTTP
 transports and API references, including namespace imports. All 63 concrete transport calls
