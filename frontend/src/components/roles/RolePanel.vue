@@ -23,6 +23,7 @@ import {
 } from '@/lib/roles'
 import type { ManagedRole, PermissionNode } from '@/lib/roles'
 import { useSession } from '@/composables/useSession'
+import { registerDirtyDraft } from '@/composables/session-events'
 import PermissionBranch from './PermissionBranch.vue'
 
 const props = defineProps<{
@@ -215,8 +216,15 @@ function beforeUnload(event: BeforeUnloadEvent) {
     event.returnValue = ''
   }
 }
-onMounted(() => window.addEventListener('beforeunload', beforeUnload))
-onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
+let unregisterDraft: (() => void) | undefined
+onMounted(() => {
+  unregisterDraft = registerDirtyDraft('role-panel', () => dirty.value)
+  window.addEventListener('beforeunload', beforeUnload)
+})
+onUnmounted(() => {
+  unregisterDraft?.()
+  window.removeEventListener('beforeunload', beforeUnload)
+})
 function toggle(id: number, checked: boolean) {
   if (session.owns(owner) && !pending.value && !grantBlocked.value && !discardOpen.value && !clearOpen.value)
     selected.value = togglePermission(props.tree, selected.value, id, checked)
@@ -274,7 +282,7 @@ async function save(confirmedClear = false) {
   }
   pending.value = true
   requestFailure.value = ''
-  let grantAccepted = false
+  let accepted = false
   try {
     if (props.mode === 'grant' && current.value) {
       const roleId = current.value.id
@@ -285,7 +293,7 @@ async function save(confirmedClear = false) {
           routerIds: canonicalSelection(props.tree, selected.value),
         })),
       )
-      grantAccepted = true
+      accepted = true
       if (!session.owns(owner)) return
       const rows = managedRoles(await withSessionOwner(owner, getRoleList))
       if (!session.owns(owner)) return
@@ -299,20 +307,29 @@ async function save(confirmedClear = false) {
       roleWriteSucceeded(await withSessionOwner(owner, () =>
         props.mode === 'create' ? addRole(payload) : editRole(payload),
       ))
+      accepted = true
       if (!session.owns(owner)) return
+      let rows: ManagedRole[] | undefined
+      if (props.mode === 'edit' && !self.value) {
+        rows = managedRoles(await withSessionOwner(owner, getRoleList))
+        if (!session.owns(owner)) return
+        const updated = rows.find((role) => role.id === payload.id)
+        if (!updated || updated.roleName !== payload.roleName || updated.status !== payload.status || updated.remark !== payload.remark)
+          throw new Error('Role read-back mismatch')
+      }
       initial.value = serialize()
-      emit('saved', props.mode === 'edit' && self.value, undefined, props.mode === 'create' ? payload.roleName : undefined)
+      emit('saved', props.mode === 'edit' && self.value, rows, props.mode === 'create' ? payload.roleName : undefined)
     }
   } catch (error) {
     if (!session.owns(owner)) return
-    if (props.mode === 'grant' && (grantAccepted || mutationResultUnknown(error))) {
+    if (props.mode === 'grant' && (accepted || mutationResultUnknown(error))) {
       initial.value = serialize()
       emit('unconfirmed')
       if (self.value) {
         pending.value = false
         await session.signOut(true, null, undefined, owner)
       }
-    } else if (mutationResultUnknown(error)) {
+    } else if (accepted || mutationResultUnknown(error)) {
       emit('writeUnconfirmed', props.mode === 'edit' && self.value)
       await nextTick()
       document.getElementById('role-write-unconfirmed')?.focus()

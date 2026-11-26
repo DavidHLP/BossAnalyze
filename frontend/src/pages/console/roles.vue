@@ -6,7 +6,7 @@ import { Add01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons
 import { deleteRole, getRoleList, getUserRole } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
 import { getUserManageInfo } from '@/api/user/user'
-import { checkReadAccess, listPage, listSize, listStatus, mutationError, mutationResultUnknown, permissionDenied, restoreActionFocus, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
+import { checkReadAccess, listPage, listSize, listStatus, mutationError, mutationResultUnknown, navigationRefreshFailure, permissionDenied, restoreActionFocus, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
 import { currentRoleId, isDefaultRole, managedRoles, permissionTree, roleWriteSucceeded } from '@/lib/roles'
 import { findMenu, withSessionOwner } from '@/lib/session'
 import { userPage } from '@/lib/users'
@@ -209,16 +209,19 @@ async function saved(self: boolean, rows?: ManagedRole[], name?: string) {
     return
   }
   createdName.value = name ?? ''
-  notice.value =
-    mode.value === 'grant'
-      ? '菜单授权已更新并回读确认'
-      : mode.value === 'create'
-        ? '角色已创建'
-        : '角色信息已更新'
-  if (rows) {
-    roles.value = rows
-    clampPage()
-  } else await loadRoles()
+  if (!rows) {
+    notice.value = '角色已创建'
+    await loadRoles()
+    return
+  }
+  roles.value = rows
+  clampPage()
+  await confirmChange(mode.value === 'grant' ? '菜单授权已更新并回读确认' : '角色信息已更新')
+}
+async function confirmChange(message: string) {
+  notice.value = message
+  if (!(await session.refresh()) && notice.value === message)
+    notice.value = `${message}。${navigationRefreshFailure}`
 }
 function readRoles(rows: ManagedRole[], id: number) {
   roles.value = rows
@@ -263,6 +266,7 @@ async function remove() {
   deleting.value = true
   deleteFailure.value = ''
   roleInUse.value = false
+  let accepted = false
   try {
     if (await hasLinkedUsers(id)) {
       roleInUse.value = true
@@ -270,14 +274,16 @@ async function remove() {
     }
     if (!session.owns(owner)) return
     roleWriteSucceeded(await withSessionOwner(owner, () => deleteRole(id)))
+    accepted = true
+    const read = await loadRoles()
     if (!session.owns(owner)) return
+    if (!read || roles.value.some((role) => role.id === id)) throw new Error('Delete not confirmed')
     deleteTrigger = null
     deletion.value = null
-    notice.value = '角色已删除'
-    await loadRoles()
+    await confirmChange('角色已删除')
   } catch (error) {
     if (!session.owns(owner)) return
-    if (mutationResultUnknown(error)) {
+    if (accepted || mutationResultUnknown(error)) {
       lockWrite()
       return
     }
