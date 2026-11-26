@@ -6,7 +6,7 @@ import { Add01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons
 import { deleteRole, getRoleList, getUserRole } from '@/api/auth/auth'
 import { getUserRoutes } from '@/api/router/router'
 import { getUserManageInfo } from '@/api/user/user'
-import { checkReadAccess, listPage, listSize, listStatus, mutationError, mutationResultUnknown, navigationRefreshFailure, permissionDenied, restoreActionFocus, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
+import { checkReadAccess, listPage, listSize, listStatus, mutationError, mutationResultUnknown, permissionDenied, refreshNavigation, restoreActionFocus, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
 import { currentRoleId, isDefaultRole, managedRoles, permissionTree, roleWriteSucceeded } from '@/lib/roles'
 import { findMenu, withSessionOwner } from '@/lib/session'
 import { userPage } from '@/lib/users'
@@ -216,12 +216,7 @@ async function saved(self: boolean, rows?: ManagedRole[], name?: string) {
   }
   roles.value = rows
   clampPage()
-  await confirmChange(mode.value === 'grant' ? '菜单授权已更新并回读确认' : '角色信息已更新')
-}
-async function confirmChange(message: string) {
-  notice.value = message
-  if (!(await session.refresh()) && notice.value === message)
-    notice.value = `${message}。${navigationRefreshFailure}`
+  await refreshNavigation(session.refresh, notice, mode.value === 'grant' ? '菜单授权已更新并回读确认。' : '角色信息已更新。')
 }
 function readRoles(rows: ManagedRole[], id: number) {
   roles.value = rows
@@ -280,7 +275,7 @@ async function remove() {
     if (!read || roles.value.some((role) => role.id === id)) throw new Error('Delete not confirmed')
     deleteTrigger = null
     deletion.value = null
-    await confirmChange('角色已删除')
+    await refreshNavigation(session.refresh, notice, '角色已删除。')
   } catch (error) {
     if (!session.owns(owner)) return
     if (accepted || mutationResultUnknown(error)) {

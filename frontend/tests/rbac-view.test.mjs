@@ -205,7 +205,7 @@ function viewControls(find) {
   }
 }
 
-test('confirmed menu changes refresh the session, and a failed refresh preserves success and credentials', async (t) => {
+test('confirmed menu changes and manual readback refresh navigation without losing credentials on failure', async (t) => {
   const vite = await viewServer(t)
   const { default: Menus } = await vite.ssrLoadModule('/src/pages/console/menus.vue.view-test.ts')
   const { default: request } = await vite.ssrLoadModule('/src/utils/request/request.ts')
@@ -269,8 +269,14 @@ test('confirmed menu changes refresh the session, and a failed refresh preserves
   await click(button('删除菜单'))
   await flushView()
   assert.equal(sessionReads, 2, 'unconfirmed deletion must not refresh the session')
+  leaf.path = 'leaf-after-read'
+  const recoveredPath = '/console/leaf-after-read'
   await click(button('重新读取菜单'))
   await flushView()
+  assert.equal(sessionReads, 3)
+  assert.equal(findMenu(session.state.value.menus, recoveredPath)?.title, '新菜单名称')
+  assert.equal(await canNavigate(recoveredPath), true)
+  assert.equal((await canNavigate(path)).params.code, '403')
 
   deleteConfirmed = true
   refreshFails = true
@@ -281,9 +287,9 @@ test('confirmed menu changes refresh the session, and a failed refresh preserves
   await flushView()
   const notice = view.find((element) => element.props.role === 'status' && elementText(element).includes('菜单已删除并回读确认。'))
   assert.match(elementText(notice), /变更已生效，但当前侧栏未能自动刷新，可稍后刷新或重新登录/)
-  assert.equal(sessionReads, 3)
+  assert.equal(sessionReads, 4)
   assert.equal(localStorage.getItem('token'), 'test-session')
-  assert.equal(findMenu(session.state.value.menus, path)?.title, '新菜单名称')
+  assert.equal(findMenu(session.state.value.menus, recoveredPath)?.title, '新菜单名称')
 })
 
 test('only confirmed changes to other roles refresh the session, and editing the current role still signs out', async (t) => {
@@ -639,4 +645,50 @@ test('uncertain user writes stay locked across reopening, while code 1006 permit
   } finally {
     app.unmount()
   }
+})
+
+test('uncertain user edits are read back from the first page without the previous filters', async (t) => {
+  const vite = await viewServer(t)
+  const { default: Users } = await vite.ssrLoadModule('/src/pages/console/users.vue.view-test.ts')
+  const { default: request } = await vite.ssrLoadModule('/src/utils/request/request.ts')
+  let view
+  t.after(() => view?.app.unmount())
+  mockBrowser(t)
+  const fixture = JSON.parse(await readFile(new URL('./fixtures/users.json', import.meta.url)))
+  const target = fixture.content[0]
+  const reads = []
+  let renamed = false
+  request.defaults.adapter = async (config) => {
+    if (config.url === '/api/user/getUserManageInfo') {
+      const params = JSON.parse(config.data)
+      reads.push(params)
+      const content = !renamed ? [target] : params.query.name ? [] : [{ ...target, name: '更新后用户' }]
+      return { config, status: 200, data: { data: { ...fixture, content, totalElements: 22 } } }
+    }
+    if (config.url === '/api/role/getRoleList?roleName=')
+      return { config, status: 200, data: { data: [{ id: 901, roleName: '测试管理员', status: 1 }] } }
+    assert.equal(config.url, '/api/user/updateUser')
+    renamed = true
+    return { config, status: 204 }
+  }
+  view = renderView(Users, {}, { query: {
+    name: target.name, status: '1', roleId: '901', page: '2',
+  } })
+  const { find } = view
+  const { byId, byLabel, button, click } = viewControls(find)
+  await flushView()
+  assert.deepEqual(reads[0], { number: 11, size: 10, query: { name: target.name, status: 1, roleId: 901 } })
+  click(byLabel(`编辑${target.name}`))
+  await nextTick()
+  byId('user-name').props['onUpdate:modelValue']('更新后用户')
+  await byId('user-editor-form').props.onSubmit(new Event('submit', { cancelable: true }))
+  await flushView()
+  assert.equal(button('新增用户').props.disabled, true)
+
+  await click(button('刷新列表核对'))
+  await flushView()
+  assert.deepEqual(reads.at(-1), { number: 1, size: 10, query: {} })
+  assert.ok(byLabel('编辑更新后用户'))
+  assert.ok(find((element) => element.props.role === 'status' &&
+    elementText(element).includes('已清空筛选并刷新用户列表，请核对实际状态')))
 })

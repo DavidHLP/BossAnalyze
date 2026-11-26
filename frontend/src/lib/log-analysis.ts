@@ -7,7 +7,11 @@ export function logReadStatus(parts: ReadonlyArray<{ loading: boolean; result: L
   const results = parts.map(part => part.result).filter(result => result !== null)
   if (!results.length) return ''
   if (results.every(result => result === 'forbidden')) return '日志分项读取均被拒绝（403）'
-  if (results.includes('forbidden')) return '部分日志分项读取被拒绝（403）'
+  if (results.includes('forbidden')) {
+    return results.includes('error')
+      ? '部分日志分项读取被拒绝（403），其他分项读取失败'
+      : '部分日志分项读取被拒绝（403）'
+  }
   if (results.every(result => result === 'empty')) return '暂无可用的日志快照'
   if (results.every(result => result === 'empty' || result === 'error')) return '未能读取日志快照，请重试'
   if (results.includes('error')) {

@@ -467,6 +467,7 @@ test('menu icons accept only installed names and retain path/default fallbacks',
 
 test('failed server logout is explicitly unconfirmed and forced expiry skips revocation', async () => {
   const { session, storage, router, api } = await sessionFixture()
+  await session.restore()
   api.logoutFailure = true
   assert.equal(await session.signOut(), true)
   assert.equal(api.logoutCalls, 1)
@@ -478,6 +479,7 @@ test('failed server logout is explicitly unconfirmed and forced expiry skips rev
 
 test('a completed old logout cannot clear a newly signed-in session', async () => {
   const { session, storage, api } = await sessionFixture()
+  await session.restore()
   const started = Promise.withResolvers()
   const pending = Promise.withResolvers()
   api.logoutPending = pending.promise
@@ -489,6 +491,48 @@ test('a completed old logout cannot clear a newly signed-in session', async () =
   await signingOut
   assert.equal(storage.get('token'), 'synthetic-login')
   assert.equal(session.state.value.ready, true)
+})
+
+test('signing out of a stale page leaves the other tab’s credentials and route cache intact', async () => {
+  for (const storageEventDelivered of [false, true]) {
+    const { session, storage, api, router } = await sessionFixture()
+    await session.restore()
+    const replacement = [
+      ['token', 'another-account'],
+      ['token_timestamp', String(Date.now())],
+      ['cachedRoutes', 'another-account-routes'],
+    ]
+    for (const [key, value] of replacement) storage.set(key, value)
+    if (storageEventDelivered) {
+      session.changed()
+      session.crossTabChanged.value = 'changed'
+    }
+
+    assert.equal(await session.signOut(), false)
+    assert.equal(api.logoutCalls, 0)
+    assert.deepEqual([...storage], replacement)
+    assert.equal(router.currentRoute.value.path, '/console/users')
+  }
+})
+
+test('an unauthorized event after the interceptor removed the token still signs out the page', async () => {
+  const { session, router, storage, localStorage, api } = await sessionFixture()
+  await session.restore()
+  const window = new EventTarget()
+  const { listenToSessionEvents } = await scriptRuntime('composables/session-events.ts', {
+    window, localStorage,
+  }, ['listenToSessionEvents'])
+  const stop = listenToSessionEvents(session, router)
+  const navigation = Promise.withResolvers()
+  router.afterEach(navigation.resolve)
+  storage.delete('token')
+  window.dispatchEvent(new Event('unauthorized'))
+  assert.equal(session.state.value.invalidated, true)
+  await navigation.promise
+  assert.equal(router.currentRoute.value.query.reason, 'expired')
+  assert.equal(storage.has('token_timestamp'), false)
+  assert.equal(api.logoutCalls, 0)
+  stop()
 })
 
 test('pending login and recovery respect navigation away from the login form', async () => {

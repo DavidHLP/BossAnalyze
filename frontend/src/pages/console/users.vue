@@ -38,6 +38,7 @@ function userFilters(): UserBaseInfo {
   }
 }
 const applied = shallowRef(userFilters())
+const emptyFilters = { name: '', roleId: null, status: 'all' } as const
 const users = shallowRef<ManagedUser[]>([])
 const roles = shallowRef<UserRole[]>([])
 const size = ref(listSize(route.query.size))
@@ -136,6 +137,12 @@ async function loadUsers(): Promise<boolean> {
 }
 async function refreshUsers() {
   if (!owner || pending.value || deleting.value || !session.owns(owner)) return
+  const clearSearch = unconfirmedWrite.value !== null && (filtered.value || page.value !== 1)
+  if (clearSearch) {
+    Object.assign(filters, emptyFilters)
+    applied.value = userFilters()
+    page.value = 1
+  }
   if (!(await loadUsers()) || !session.owns(owner) || !unconfirmedWrite.value) return
   const self = unconfirmedWrite.value === 'self'
   editorOpen.value = false
@@ -145,7 +152,9 @@ async function refreshUsers() {
     await session.signOut(true, null, undefined, owner)
     return
   }
-  notice.value = '已刷新用户列表，请核对实际状态。'
+  notice.value = clearSearch
+    ? '已清空筛选并刷新用户列表，请核对实际状态。'
+    : '已刷新用户列表，请核对实际状态。'
 }
 function lockWrite(self = false) {
   unconfirmedWrite.value = self ? 'self' : 'other'
@@ -192,7 +201,7 @@ function search() {
 }
 function reset() {
   if (pending.value || sessionChanged.value) return
-  Object.assign(filters, { name: '', roleId: null, status: 'all' })
+  Object.assign(filters, emptyFilters)
   search()
 }
 function changePage(value: number) {

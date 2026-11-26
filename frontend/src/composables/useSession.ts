@@ -29,6 +29,9 @@ export function useSession(router = useRouter()) {
   function capture() {
     return sessionOwner()
   }
+  function capturePage() {
+    return loadedOwner
+  }
   function owns(owner: SessionOwner | null) {
     return !crossTabChanged.value && !state.value.invalidated && !!owner &&
       validSession(owner.token, owner.timestamp) && ownsSession(owner)
@@ -133,9 +136,9 @@ export function useSession(router = useRouter()) {
     force = false,
     destination: unknown = null,
     reason?: string,
-    owner = sessionOwner(),
+    owner = capturePage(),
   ) {
-    if (!ownsSession(owner)) return false
+    if (crossTabChanged.value || !owner || !ownsSession(owner)) return false
     if (force) clear()
     const target = destination ? loginLocation(destination, reason) : '/login'
     const failure = await router.replace(target)
@@ -156,5 +159,5 @@ export function useSession(router = useRouter()) {
     return true
   }
 
-  return { state, crossTabChanged, restore, refresh, signIn, signOut, clear, capture, owns, changed }
+  return { state, crossTabChanged, restore, refresh, signIn, signOut, clear, capture, capturePage, owns, changed }
 }

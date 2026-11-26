@@ -22,7 +22,10 @@ export function listenToSessionEvents(session: ReturnType<typeof useSession>, ro
   function unauthorized() {
     if (session.crossTabChanged.value) return
     const route = router.currentRoute.value
-    if (route.path !== '/login') void session.signOut(true, route.fullPath, 'expired')
+    // The 401 interceptor removes the rejected token before dispatching this event.
+    const expired = session.capture()
+    if (route.path !== '/login' && !expired.token)
+      void session.signOut(true, route.fullPath, 'expired', expired)
   }
   function storageChanged(event: StorageEvent) {
     if (event.storageArea !== localStorage) return
