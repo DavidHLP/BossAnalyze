@@ -1,4 +1,5 @@
 import { offsetToPosition, resumeMathNodes, resumePreview, type PreviewBlock, type ResumeInline } from './resumes.ts'
+import { resumeTexTemplates, type ResumeTexTemplateId } from './resume-tex-templates.ts'
 
 export interface ResumeTexError {
   line: number
@@ -10,7 +11,7 @@ export interface ResumeTexError {
 }
 
 export type ResumeLatexResult =
-  | { ok: true; tex: string; warnings: string[] }
+  | { ok: true; tex: string; warnings: string[]; effectiveTemplate: ResumeTexTemplateId }
   | { ok: false; errors: ResumeTexError[] }
 
 const raw = String.raw
@@ -255,11 +256,15 @@ export function renderResumeLatexBlocks(blocks: readonly PreviewBlock[]): string
   return renderBlocks(blocks)
 }
 
-function renderBlocks(blocks: readonly PreviewBlock[]): string {
-  return blocks.map(block => {
+function renderBlocks(blocks: readonly PreviewBlock[], professional = false): string {
+  return blocks.map((block, index) => {
     switch (block.kind) {
-      case 'heading': return raw`\resumeheading{${block.level}}{${renderInline(block.inline)}}`
-      case 'text': return raw`\resumebody{${renderInline(block.inline)}}`
+      case 'heading': return professional && index === 0
+        ? raw`\resumename{${renderInline(block.inline)}}`
+        : raw`\resumeheading{${block.level}}{${renderInline(block.inline)}}`
+      case 'text': return professional && index === 1
+        ? raw`\resumecontact{${renderInline(block.inline)}}`
+        : raw`\resumebody{${renderInline(block.inline)}}`
       case 'rule': return raw`\resumerule`
       case 'math': return raw`\[
 ${renderMath(block.tex)}
@@ -278,34 +283,37 @@ ${renderMath(block.tex)}
   }).join('\n')
 }
 
-const preamble = raw`\documentclass[UTF8,a4paper,11pt,fontset=fandol]{ctexart}
-\usepackage[margin=16mm]{geometry}
-\usepackage{amsmath}
-\usepackage{amssymb}
-\usepackage{booktabs}
-\usepackage{enumitem}
-\usepackage{longtable}
-\usepackage[hidelinks]{hyperref}
-\pagestyle{empty}
-\setlength{\parindent}{0pt}
-\setlength{\parskip}{0.35em}
-\newcommand{\resumeheading}[2]{%
-  \ifcase#1\relax\or\section*{#2}\or\subsection*{#2}\or\subsubsection*{#2}\fi}
-\newcommand{\resumebody}[1]{\par #1\par}
-\newlist{resumeitemize}{itemize}{1}
-\setlist[resumeitemize]{label=\textbullet}
-\newlist{resumeenumerate}{enumerate}{1}
-\setlist[resumeenumerate]{label=\arabic*.}
-\newenvironment{resumetable}[1]{%
-  \ifdim\dimexpr\linewidth/#1\relax<4\tabcolsep
-    \setlength{\tabcolsep}{\dimexpr\linewidth/#1/4\relax}%
-  \fi
-  \begin{longtable}{*{#1}{p{\dimexpr\linewidth/#1-2\tabcolsep\relax}}}}
-  {\end{longtable}}
-\newcommand{\resumerule}{\par\noindent\rule{\linewidth}{0.4pt}\par}
-\newcommand{\resumeasset}[1]{\resumebody{#1}}`
+export function inspectResumeTexTemplate(
+  blocks: readonly PreviewBlock[],
+  templateId: ResumeTexTemplateId,
+): { fallbackToBasic: boolean; warnings: string[] } {
+  if (templateId === 'basic') return { fallbackToBasic: false, warnings: [] }
 
-export function resumeLatex(title: string, content: string | PreviewBlock[], sourceMarkdown?: string): ResumeLatexResult {
+  const names = blocks.filter(block => block.kind === 'heading' && block.level === 1)
+  if (names.length > 1) {
+    return { fallbackToBasic: true, warnings: ['正文包含多个 H1（一级标题），下载时将使用基础模板。'] }
+  }
+  const first = blocks[0]
+  if (first?.kind !== 'heading' || first.level !== 1 ||
+    !first.inline.some(token => token.kind === 'math' || token.text.trim())) {
+    return { fallbackToBasic: true, warnings: ['正文第一块须为非空的 H1（姓名），下载时将使用基础模板。'] }
+  }
+  const warnings: string[] = []
+  if (blocks[1]?.kind !== 'text') warnings.push('姓名后没有联系行，将省略这一行。')
+  if (!blocks.some(block => block.kind === 'heading' && block.level === 2)) {
+    warnings.push('正文没有 H2（二级标题）分区，将按原顺序排版。')
+  }
+  return { fallbackToBasic: false, warnings }
+}
+
+export function resumeLatex(
+  title: string,
+  content: string | readonly PreviewBlock[],
+  options?: { sourceMarkdown?: string; template?: ResumeTexTemplateId } | string,
+): ResumeLatexResult {
+  const { sourceMarkdown, template = 'basic' } = typeof options === 'string'
+    ? { sourceMarkdown: options }
+    : options ?? {}
   const blocks = typeof content === 'string' ? resumePreview(content) : content
   const source = typeof content === 'string' ? content : sourceMarkdown ?? ''
   const errors: ResumeTexError[] = []
@@ -314,11 +322,14 @@ export function resumeLatex(title: string, content: string | PreviewBlock[], sou
     if (message) errors.push({ ...offsetToPosition(source, start), start, end, formula, message })
   }
   if (errors.length) return { ok: false, errors }
-  const warnings = blocks.flatMap(block => block.kind === 'asset' ? [`${omittedAsset}：${assetName(block.fileName)}`] : [])
-  return { ok: true, warnings, tex: raw`${preamble}
-\hypersetup{pdftitle={${inlineText(title)}}}
+  const { fallbackToBasic, warnings } = inspectResumeTexTemplate(blocks, template)
+  const effectiveTemplate = fallbackToBasic ? 'basic' : template
+  for (const block of blocks) {
+    if (block.kind === 'asset') warnings.push(`${omittedAsset}：${assetName(block.fileName)}`)
+  }
+  return { ok: true, effectiveTemplate, warnings, tex: raw`${resumeTexTemplates[effectiveTemplate].preamble(inlineText(title))}
 \begin{document}
-${renderBlocks(blocks)}
+${renderBlocks(blocks, effectiveTemplate !== 'basic')}
 \end{document}
 ` }
 }
