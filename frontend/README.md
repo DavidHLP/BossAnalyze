@@ -22,6 +22,8 @@ pnpm build
 pnpm start
 ```
 
+`pnpm test` 使用 Node.js 测试运行器执行 `tests/*.test.mjs`。单独运行简历相关用例可执行 `node --experimental-strip-types --test --test-concurrency=1 tests/penpot-pages.test.mjs`。
+
 生产入口读取 `dist/`。`HOST` 和 `PORT` 默认分别为 `127.0.0.1` 和 `5020`。
 开发和生产都在原路径代理 `/api/**`。AI v1/v2 走 8081，其余走 8080。
 `BOSS_TRUSTED_PROXY_IPS` 可配置可信代理的准确 IP 列表。只有匹配的直接代理可提供单个合法的转发地址。
@@ -32,5 +34,23 @@ pnpm start
 
 - `/register` 使用现有邮箱注册接口。验证码发送需要 SMTP 配置。
 - `/resumes` 提供本人简历列表、编辑及版本历史。默认关闭私有图片素材接口。只有在后端已对图片查看和地址查询执行对象所有者校验的环境，才设置 `VITE_RESUME_PRIVATE_IMAGES=true`。
-- 如需外部导出，在构建前配置经过批准的 HTTPS `VITE_EXPORT_URL`。浏览器展示目标地址，用户确认后才发送当前简历正文和导出参数。
+- 简历预览用结构化 Markdown 渲染标题、列表、分割线、表格、代码、加粗、斜体、链接和 `asset:` 图片引用。原始 HTML 按文本显示，链接仅接受 `https://`、`http://` 和 `mailto:`。
+- 编辑器在当前标签页的 `sessionStorage` 按账号、登录会话和简历分开暂存正文及提交备注。刷新后可选择恢复或清除。已确认保存、储藏和主动丢弃会清理暂存，离开登录会话会使旧草稿失效。服务端储藏仍可在版本历史中取回。
+- 「导出简历」支持浏览器打印或另存为 PDF、下载独立 A4 HTML 和下载 Markdown 原文。导出文件由浏览器生成，HTML 和打印用文字标注图片素材。
+- 如需外部导出，在构建前配置经过批准的 HTTPS `VITE_EXPORT_URL`。浏览器展示目标地址，用户确认后才发送当前简历正文和导出参数。服务须返回可打开的 HTTPS 结果，字段为 `url`、`downloadUrl` 或 `previewUrl`。
 - `/console/logs` 使用数据看板访问权限。手动触发另外要求 `logs.analysis.trigger`，成功回执表示已启动后台分析。
+
+## Playwright 浏览器测试
+
+`tests/*.browser.mjs` 使用 Playwright 和 Chromium，单独于 `pnpm test` 执行。先准备隔离的本机审计 Mock 服务和合成数据。简历测试会写入测试记录，要求 Mock API 响应包含 `X-BossAnalyze-Preview: mock`，并在隔离的开发前端启用 `VITE_BOSS_MOCK_PREVIEW=1` 以覆盖图片素材流程。普通 `pnpm dev` 使用实际 API 代理，请勿将它直接作为写操作测试的目标。
+
+在 `frontend/` 运行简历浏览器测试，按本机实际安装路径调整变量。
+
+```sh
+RESUME_MOCK_URL=http://127.0.0.1:5129 \
+PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
+CHROMIUM_PATH=/usr/bin/chromium \
+node --test --test-concurrency=1 tests/resume-interactions.browser.mjs
+```
+
+本仓库未内置上述审计 Mock 服务。各套测试所需的 Mock 地址和浏览器配置见对应脚本。

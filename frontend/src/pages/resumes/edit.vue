@@ -5,7 +5,9 @@ import { RiArrowLeftLine, RiHistoryLine, RiImageLine, RiSaveLine } from '@remixi
 import { changeResumeVersion, getResume, resumeHistory, type ResumeCommit, type ResumeRecord } from '@/api/resume/resume'
 import { ownsResumeAsset, readResumeAsset } from '@/api/resume/assets'
 import { useSession } from '@/composables/useSession'
-import { assetMarkdown, resumePreview, resumeReadMessage, resumeTime, shortCommit } from '@/lib/resumes'
+import {
+  assetMarkdown, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime, shortCommit, type ResumeDraft,
+} from '@/lib/resumes'
 import { DialogClose, DialogTrigger } from '@/components/ui/dialog'
 import ResumeAssets from '@/components/resumes/ResumeAssets.vue'
 import ResumeExport from '@/components/resumes/ResumeExport.vue'
@@ -31,6 +33,14 @@ const checkedVersion = shallowRef<{ branch?: string; head: ResumeCommit | null }
 const leaveOpen = ref(false)
 const markdown = ref('')
 const message = ref('')
+const localDraft = shallowRef<ResumeDraft | null>(null)
+const account = computed(() => {
+  const user = session.state.value.user
+  if (user?.id !== undefined) return 'id:' + user.id
+  return user?.email ? 'email:' + user.email : null
+})
+let draftStore: ReturnType<typeof resumeDraftStore> | undefined
+let draftOwner: ReturnType<typeof session.capture> | undefined
 const mode = ref<'edit' | 'preview'>('edit')
 const assetsOpen = ref(false)
 const exportOpen = ref(false)
@@ -44,7 +54,7 @@ const dirty = computed(() => !!record.value && markdown.value !== (record.value.
 const headUnavailable = computed(() => Boolean(record.value?.headCommit && !head.value))
 const restored = computed(() => !!head.value && (head.value.content ?? '') !== (record.value?.content ?? ''))
 const hasDraft = computed(() => dirty.value || !!message.value.trim())
-const canSave = computed(() => hasDraft.value || restored.value)
+const canSave = computed(() => !localDraft.value && (hasDraft.value || restored.value))
 const workspaceStatus = computed(() => {
   if (hasDraft.value) return '有未保存的更改'
   if (restored.value) return '已恢复到工作区，尚未提交'
@@ -60,6 +70,59 @@ let checkRevision = 0
 let leaveDecision: ((discard: boolean) => void) | null = null
 let draftInput: HTMLElement | null = null
 let returnToDraft = false
+
+function clearLocalDraft() {
+  draftStore?.clear()
+  localDraft.value = null
+}
+
+function offerLocalDraft(owner: ReturnType<typeof session.capture>, key: string) {
+  draftStore = undefined
+  draftOwner = owner
+  localDraft.value = null
+  if (!account.value || !owner.timestamp) return
+  try {
+    draftStore = resumeDraftStore(window.sessionStorage, account.value, owner.timestamp, key)
+    const saved = draftStore.read()
+    if (saved && (saved.content !== markdown.value || saved.message.trim())) localDraft.value = saved
+    else draftStore.clear()
+  } catch {
+    // Some browsers block sessionStorage access.
+  }
+}
+
+async function resolveLocalDraft(restore: boolean) {
+  const saved = localDraft.value
+  if (!saved || !draftOwner || !session.owns(draftOwner)) return
+  if (restore) {
+    localDraft.value = null
+    markdown.value = saved.content
+    message.value = saved.message
+  } else {
+    clearLocalDraft()
+  }
+  mode.value = 'edit'
+  await nextTick()
+  selection()?.focus({ preventScroll: true })
+}
+
+watch([markdown, message], () => {
+  if (!record.value || record.value.id !== id.value || localDraft.value || !draftOwner || !session.owns(draftOwner)) return
+  if (hasDraft.value) draftStore?.write({ content: markdown.value, message: message.value })
+  else draftStore?.clear()
+}, { flush: 'sync' })
+
+watch(account, () => {
+  clearLocalDraft()
+  draftStore = undefined
+  draftOwner = undefined
+  loadRevision++
+  checkRevision++
+  record.value = head.value = null
+  markdown.value = message.value = ''
+  assetsOpen.value = exportOpen.value = checkOpen.value = false
+  if (account.value) void load(true)
+}, { flush: 'sync' })
 
 async function readWorkspace(key: string) {
   const [item, commits] = await Promise.all([getResume(key), resumeHistory(key, 1).catch(() => [])])
@@ -84,6 +147,7 @@ async function load(force = false) {
       feedback.value = writeError.value = ''
       checkOffered.value = checkOpen.value = false
       mode.value = 'edit'
+      offerLocalDraft(owner, key)
     }
     head.value = workspace.head
     record.value = item
@@ -182,7 +246,7 @@ function replaceSelection(input: HTMLTextAreaElement, start: number, end: number
 }
 
 function insert(before: string, after = '', defaultText = '') {
-  if (pendingAction.value) return
+  if (pendingAction.value || localDraft.value) return
   const input = selection()
   if (!input) return
   const { selectionStart: start, selectionEnd: end } = input
@@ -192,7 +256,7 @@ function insert(before: string, after = '', defaultText = '') {
 }
 
 async function insertAsset(name: string) {
-  if (pendingAction.value) return
+  if (pendingAction.value || localDraft.value) return
   mode.value = 'edit'
   await nextTick()
   const input = selection()
@@ -203,7 +267,7 @@ async function insertAsset(name: string) {
 }
 
 async function write(action: 'save' | 'stash') {
-  if (!(action === 'save' ? canSave.value : dirty.value) || pendingAction.value || writeLocked.value) return
+  if (!(action === 'save' ? canSave.value : dirty.value) || localDraft.value || pendingAction.value || writeLocked.value) return
   const key = id.value
   const content = markdown.value
   const owner = session.capture()
@@ -223,6 +287,7 @@ async function write(action: 'save' | 'stash') {
     } else if (action === 'stash' || (record.value?.headCommit === commitId && record.value?.content === content)) {
       if (action === 'stash') markdown.value = record.value?.content ?? ''
       else message.value = ''
+      clearLocalDraft()
       feedback.value = action === 'stash' ? '草稿已储藏，可在版本历史中取回。' : '简历已保存并提交。'
     } else {
       writeError.value = '最新版本与本次提交不同，草稿仍保留。请核对后再操作。'
@@ -261,6 +326,7 @@ function finishNavigation(discard: boolean) {
   leaveDecision = null
   returnToDraft = !discard
   leaveOpen.value = false
+  if (discard) clearLocalDraft()
   resolve?.(discard)
 }
 
@@ -316,7 +382,7 @@ onUnmounted(() => {
         <UiButton variant="outline" :disabled="!dirty || Boolean(pendingAction) || writeLocked" @click="write('stash')">储藏</UiButton>
         <UiButton as-child variant="outline"><RouterLink :to="'/resumes/' + id + '/versions'"><RiHistoryLine data-icon="inline-start" />版本历史</RouterLink></UiButton>
         <UiButton variant="outline" :disabled="Boolean(pendingAction)" @click="assetsOpen = true"><RiImageLine data-icon="inline-start" />图片素材</UiButton>
-        <UiButton variant="outline" @click="exportOpen = true">外部导出</UiButton>
+        <UiButton variant="outline" @click="exportOpen = true">导出简历</UiButton>
         <UiButton :disabled="!canSave || Boolean(pendingAction) || writeLocked" @click="write('save')"><RiSaveLine data-icon="inline-start" />{{ pendingAction === 'save' ? '正在提交…' : '保存并提交' }}</UiButton>
       </div>
     </header>
@@ -377,6 +443,16 @@ onUnmounted(() => {
     <p v-if="feedback" role="status" class="text-sm text-muted-foreground">{{ feedback }}</p>
     <UiSkeleton v-if="pending && !record" role="status" aria-label="正在读取简历" class="h-96" />
     <template v-if="record">
+      <UiAlert v-if="localDraft" role="status">
+        <UiAlertTitle>检测到本地草稿</UiAlertTitle>
+        <UiAlertDescription class="flex flex-col items-start gap-2">
+          恢复会将暂存的正文和备注填入编辑区。你可以在编辑后保存或储藏。
+          <div class="flex flex-wrap gap-2">
+            <UiButton type="button" size="sm" @click="resolveLocalDraft(true)">恢复本地草稿</UiButton>
+            <UiButton type="button" size="sm" variant="outline" @click="resolveLocalDraft(false)">忽略并清除</UiButton>
+          </div>
+        </UiAlertDescription>
+      </UiAlert>
       <div class="flex gap-2 md:hidden" role="group" aria-label="简历工作区">
         <UiButton size="sm" variant="outline" :aria-pressed="mode === 'edit'" @click="mode = 'edit'">编辑</UiButton>
         <UiButton size="sm" variant="outline" :aria-pressed="mode === 'preview'" @click="mode = 'preview'">预览</UiButton>
@@ -386,21 +462,21 @@ onUnmounted(() => {
           <div class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
             <h2 class="font-medium">Markdown 编辑</h2><span class="text-xs text-muted-foreground">纯文本 · UTF-8</span>
           </div>
-          <div class="flex flex-wrap gap-1 border-b px-3 py-2" role="group" aria-label="Markdown 工具栏">
+          <fieldset :disabled="localDraft !== null" class="flex flex-wrap gap-1 border-b px-3 py-2" aria-label="Markdown 工具栏">
             <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('## ', '', '小节标题')">标题</UiButton>
             <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('**', '**', '加粗文字')">加粗</UiButton>
             <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('- ', '', '列表项')">列表</UiButton>
             <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('\n---\n')">分割线</UiButton>
             <UiButton size="sm" variant="ghost" @click="assetsOpen = true">插入图片</UiButton>
-          </div>
+          </fieldset>
           <UiField class="p-3">
             <UiFieldLabel for="resume-markdown" class="sr-only">简历正文</UiFieldLabel>
-            <UiTextarea id="resume-markdown" v-model="markdown" class="min-h-[24rem] font-mono leading-relaxed" :disabled="Boolean(pendingAction)" spellcheck="false" @focus="rememberDraftFocus" />
+            <UiTextarea id="resume-markdown" v-model="markdown" class="min-h-[24rem] font-mono leading-relaxed" :disabled="Boolean(pendingAction || localDraft)" spellcheck="false" @focus="rememberDraftFocus" />
           </UiField>
           <div class="flex flex-col gap-3 border-t p-3">
             <UiField>
               <UiFieldLabel for="resume-message">提交备注</UiFieldLabel>
-              <UiInput id="resume-message" v-model="message" maxlength="160" placeholder="简单描述本次修改" :disabled="Boolean(pendingAction)" @focus="rememberDraftFocus" />
+              <UiInput id="resume-message" v-model="message" maxlength="160" placeholder="简单描述本次修改" :disabled="Boolean(pendingAction || localDraft)" @focus="rememberDraftFocus" />
             </UiField>
             <p class="flex flex-wrap gap-3 text-xs tabular-nums text-muted-foreground">
               <span>{{ markdown.length }} 字符</span>
