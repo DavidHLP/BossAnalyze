@@ -10,6 +10,7 @@ defineProps<{ tokens: ResumeInline[] }>()
     <code v-else-if="token.kind === 'code'" class="bg-muted px-1 font-mono">{{ token.text }}</code>
     <strong v-else-if="token.kind === 'strong'">{{ token.text }}</strong>
     <em v-else-if="token.kind === 'em'">{{ token.text }}</em>
-    <template v-else>{{ token.text }}</template>
+    <template v-else-if="token.kind === 'text'">{{ token.text }}</template>
+    <template v-else-if="token.kind === 'math'">{{ token.raw }}</template>
   </template>
 </template>
