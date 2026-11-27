@@ -14,7 +14,7 @@ test('inline math uses the nearest unescaped dollar run and respects the currenc
   for (const [text, tex] of [
     ['$2$', ['2']], ['$2x$', ['2x']], ['$a_1$ 与 $b_2$', ['a_1', 'b_2']], ['$x$９', ['x']],
     ['$bad$$ tail $ok$', ['ok']], [String.raw`$x\$y$`, [String.raw`x\$y`]],
-    [String.raw`$x\$$ next $ok$`, ['ok']],
+    [String.raw`$x\$$ next $ok$`, [String.raw`x\$`, 'ok']],
   ]) {
     const blocks = resumePreview(text)
     assert.equal(resumeHasMath(blocks), true, text)
@@ -56,6 +56,17 @@ test('dollar escapes remove one backslash from plain text and preserve code and 
     { kind: 'text', text: ' ' },
     { kind: 'code', text: String.raw`\$code` },
   ])
+})
+
+test('a literal dollar can sit beside an inline formula', () => {
+  for (const [source, literal] of [[String.raw`\$$x$`, '$'], [String.raw`\$ $x$`, '$ ']]) {
+    const start = literal.length + 1
+    assert.deepEqual(resumePreview(source)[0].inline, [
+      { kind: 'text', text: literal },
+      { kind: 'math', tex: 'x', raw: '$x$', start, end: start + 3, bodyStart: start + 1 },
+    ])
+  }
+  assert.equal(resumeHasMath(resumePreview(String.raw`\$$$x$`)), false)
 })
 
 test('inline offsets use original UTF-16 positions in headings and lists across mixed line endings', () => {
@@ -101,13 +112,15 @@ test('empty or unmatched display math leaves subsequent text and fences availabl
   }
 })
 
-test('table pipes split cells only outside closed math, closed code and pipe escapes', () => {
+test('table pipes split cells outside closed code and pipe escapes', () => {
   const markdown = [
-    String.raw`| 中文😀 \| $head|v$ | 后列 |`,
+    String.raw`| 中文😀 \| $\lvert v\rvert$ | 后列 |`,
     '| --- | --- |',
-    String.raw`| $a|b$ $a\|b$ | ` + '`a|b` ' + String.raw`\| ` + '`c\\|d` |',
+    String.raw`| $a\|b$ | ` + '`a|b` ' + String.raw`\| ` + '`c\\|d` |',
     '| $unclosed | 另一格 |',
     '| `unclosed | 独立 |',
+    '$only|math$',
+    '',
     '$only|math$',
   ].join('\r\n')
   const [table, rest] = resumePreview(markdown)
@@ -120,18 +133,31 @@ test('table pipes split cells only outside closed math, closed code and pipe esc
   assert.deepEqual(table.rows.slice(1), [
     [[{ kind: 'text', text: '$unclosed' }], [{ kind: 'text', text: '另一格' }]],
     [[{ kind: 'text', text: '`unclosed' }], [{ kind: 'text', text: '独立' }]],
+    [[{ kind: 'text', text: '$only' }], [{ kind: 'text', text: 'math$' }]],
   ])
   assert.equal(rest.kind, 'text')
+  assert.deepEqual(resumeMathNodes([rest]).map(node => node.tex), ['only|math'])
 
-  const formulas = ['$head|v$', '$a|b$', String.raw`$a\|b$`]
+  const formulas = [String.raw`$\lvert v\rvert$`, String.raw`$a\|b$`]
   const nodes = resumeMathNodes([table])
   assert.deepEqual(nodes, formulas.map(raw => {
     const start = markdown.indexOf(raw)
     return { display: false, tex: raw.slice(1, -1), raw, start, end: start + raw.length, bodyStart: start + 1 }
   }))
   assert.deepEqual(nodes.map(node => offsetToPosition(markdown, node.start)), [
-    { line: 1, column: 11 }, { line: 3, column: 3 }, { line: 3, column: 9 },
+    { line: 1, column: 11 }, { line: 3, column: 3 },
   ])
+})
+
+test('table currency does not pair with the math opener in the next cell', () => {
+  const source = '| 价格 | 公式 |\n| --- | --- |\n|$20|$x$|'
+  const [table] = resumePreview(source)
+  assert.equal(table.kind, 'table')
+  const start = source.indexOf('$x$')
+  assert.deepEqual(table.rows, [[
+    [{ kind: 'text', text: '$20' }],
+    [{ kind: 'math', tex: 'x', raw: '$x$', start, end: start + 3, bodyStart: start + 1 }],
+  ]])
 })
 
 test('a table stops before display math or a code fence even when the next line contains a pipe', () => {

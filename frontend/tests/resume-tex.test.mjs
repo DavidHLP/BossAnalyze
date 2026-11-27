@@ -303,6 +303,26 @@ test('rejects unknown commands, malformed arguments, crossed scopes, and misplac
   }
 })
 
+test('LaTeX preflight rejects a third cases column and resets the limit each row', () => {
+  const formula = tex`\begin{cases}a&b&c\end{cases}`
+  const source = `标题\n公式 $${formula}$`
+  const result = resumeLatex('标题', source)
+  assert.equal(result.ok, false)
+  assert.equal(result.errors.length, 1)
+  const [{ line, column, start, end, message }] = result.errors
+  assert.deepEqual([line, column, source.slice(start, end)], [2, 4, `$${formula}$`])
+  assert.match(message, /cases.*两列/)
+
+  for (const valid of [
+    tex`\begin{cases}a&b\end{cases}`,
+    tex`\begin{cases}a\&b&c\\d&e\end{cases}`,
+    tex`\begin{cases}\begin{matrix}a&b&c\end{matrix}&d\end{cases}`,
+    tex`\begin{aligned}a&b&c\end{aligned}`,
+  ]) {
+    assert.equal(resumeLatex('标题', `$${valid}$`).ok, true, valid)
+  }
+})
+
 test('LaTeX export rejects missing or repeated scripts on the same math atom', () => {
   const rejected = ['x^', 'x_', 'x_1_2', 'x^a^b', 'x^_1', 'x^{y_}', 'x_1^{a}_2',
     tex`\begin{matrix}x^&y\end{matrix}`, tex`\left(x_\right)`]
