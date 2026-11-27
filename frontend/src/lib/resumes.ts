@@ -15,13 +15,17 @@ export function resumeReadMessage(cause: unknown) {
 }
 
 export type ResumeListChange =
-  | { kind: 'create'; id?: string; title: string; previousIds: ReadonlySet<string> }
+  | { kind: 'create'; id?: string; title: string; content: string; previousIds: ReadonlySet<string> }
   | { kind: 'rename'; id: string; title: string }
   | { kind: 'delete'; id: string }
 
-export function resumeListReadback(change: ResumeListChange, items: { id: string; title: string }[]) {
-  if (change.kind === 'create' && !change.id) {
-    return items.some(item => item.title === change.title && !change.previousIds.has(item.id))
+export function resumeListReadback(change: ResumeListChange, items: { id: string; title: string; content?: string | null }[]) {
+  if (change.kind === 'create') {
+    const matches = (item: { title: string; content?: string | null } | undefined) =>
+      Boolean(item) && item!.title === change.title && item!.content === change.content
+    return change.id
+      ? matches(items.find(item => item.id === change.id))
+      : items.some(item => matches(item) && !change.previousIds.has(item.id))
   }
   const item = items.find(item => item.id === change.id)
   return change.kind === 'delete' ? !item : item?.title === change.title
@@ -234,12 +238,35 @@ function appendInlineText(tokens: ResumeInline[], text: string) {
   if (end < text.length) tokens.push({ kind: 'text', text: text.slice(end) })
 }
 
+function maskedEscapes(text: string) {
+  const values: string[] = []
+  const masked = text.replace(/\\([*|#.`_[\]{}()>+\-!])/g, (literal: string, char: string) => {
+    if (values.length >= 0x6400) return literal
+    values.push(char)
+    return String.fromCharCode(0xe000 + values.length - 1)
+  })
+  return {
+    text: masked,
+    restore: (value: string) => values.length
+      ? value.replace(/[\uE000-\uF8FF]/g, marker => values[marker.charCodeAt(0) - 0xe000] ?? marker)
+      : value,
+  }
+}
+
 function resumeInline(text: string, baseOffset: number, inTable = false): ResumeInline[] {
   const tokens: ResumeInline[] = []
   let plainStart = 0
   const unescapePipes = (value: string) => inTable ? value.replaceAll('\\|', '|') : value
-  const appendPlain = (end: number) => appendInlineText(tokens, unescapePipes(text.slice(plainStart, end))
-    .replace(/\\+(\$)?/g, (literal, dollar) => dollar && literal.length % 2 === 0 ? literal.slice(1) : literal))
+  const appendPlain = (end: number) => {
+    const escaped = maskedEscapes(unescapePipes(text.slice(plainStart, end))
+      .replace(/\\+(\$)?/g, (literal, dollar) => dollar && literal.length % 2 === 0 ? literal.slice(1) : literal))
+    const start = tokens.length
+    appendInlineText(tokens, escaped.text)
+    for (let i = start; i < tokens.length; i++) {
+      const token = tokens[i]!
+      if ('text' in token) token.text = escaped.restore(token.text)
+    }
+  }
   for (const { kind, start, end } of inlineSpans(text)) {
     appendPlain(start)
     const body = text.slice(start + 1, end - 1)
