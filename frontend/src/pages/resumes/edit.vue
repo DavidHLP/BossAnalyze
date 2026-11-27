@@ -11,6 +11,7 @@ import { useSession } from '@/composables/useSession'
 import { registerDirtyDraft } from '@/composables/session-events'
 import { mutationResultUnknown } from '@/lib/rbac-mutations'
 import { resumeCopyContent, resumeCopySourceLabel, resumeCopyTitle, resumeCopyVerified } from '@/lib/resume-copy'
+import { resumePaginationSuggestions, type ResumePagination, type ResumePaginationSuggestion } from '@/lib/resume-pagination'
 import {
   assetMarkdown, resumeAssetNames, resumeConflictCopyTitle, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime,
   resumeWriteConflict, shortCommit, type ResumeConflictState, type ResumeDraft,
@@ -77,6 +78,15 @@ const mode = ref<'edit' | 'preview'>('edit')
 const editorMode = ref<'form' | 'markdown'>('form')
 const assetsOpen = ref(false)
 const exportOpen = ref(false)
+const compact = ref(false)
+const pagination = shallowRef<ResumePagination | null>(null)
+const paginationSuggestions = computed(() => (pagination.value?.pages ?? 0) > 1
+  ? resumePaginationSuggestions(markdown.value) : [])
+const paginationSuggestionLabels: Record<ResumePaginationSuggestion['kind'], string> = {
+  'oldest-experience': '考虑删减最早一段工作经历',
+  'merge-points': '考虑合并相近要点',
+  'shorten-summary': '考虑缩短个人摘要',
+}
 const staged = ref<string[]>([])
 const hidden = ref<string[]>([])
 const dirty = computed(() => !!record.value && markdown.value !== (record.value.content ?? ''))
@@ -211,6 +221,8 @@ watch(account, () => {
   checkRevision++
   record.value = head.value = null
   markdown.value = message.value = ''
+  compact.value = false
+  pagination.value = null
   savedAt.value = ''
   restoreOpen.value = false
   restoreError.value = ''
@@ -706,6 +718,8 @@ onBeforeRouteLeave(blockNavigation)
 onBeforeRouteUpdate((to, from) => to.params.id === from.params.id || blockNavigation())
 watch(id, () => {
   record.value = null
+  compact.value = false
+  pagination.value = null
   restoreOpen.value = false
   restoreError.value = ''
   restorePending.value = false
@@ -989,14 +1003,30 @@ onUnmounted(() => {
           </UiCollapsible>
         </div>
         <div class="min-w-0 border bg-muted/40" :class="{ 'max-md:hidden': mode === 'edit' }">
-          <div class="flex justify-between gap-2 border-b bg-card px-4 py-3">
-            <h2 class="font-medium">实时预览</h2><span class="text-xs text-muted-foreground">A4 · 纵向</span>
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b bg-card px-4 py-3">
+            <h2 class="font-medium">实时预览</h2>
+            <div class="flex flex-wrap items-center gap-2">
+              <span role="status" class="text-xs tabular-nums text-muted-foreground">
+                {{ pagination ? `约 ${pagination.pages} 页` : '页数待确认' }}
+                <template v-if="pagination?.overflowLines"> · 超出约 {{ pagination.overflowLines }} 行</template>
+              </span>
+              <UiButton type="button" size="sm" variant="outline" :aria-pressed="compact" @click="compact = !compact">紧凑排版</UiButton>
+            </div>
           </div>
-          <div class="p-3 sm:p-5"><ResumePreview :content="markdown" :images="images" /></div>
+          <ul v-if="paginationSuggestions.length" aria-label="缩短简历的建议" class="flex flex-wrap gap-x-2 border-b bg-card px-3 py-1">
+            <li v-for="suggestion in paginationSuggestions" :key="suggestion.kind">
+              <UiButton type="button" size="sm" variant="link" @click="locateResumeRange(suggestion)">
+                {{ paginationSuggestionLabels[suggestion.kind] }}
+              </UiButton>
+            </li>
+          </ul>
+          <div class="p-3 sm:p-5">
+            <ResumePreview :content="markdown" :images="images" :compact="compact" estimate-pages @pagination="pagination = $event" />
+          </div>
         </div>
       </div>
       <ResumeAssets v-model:open="assetsOpen" :enabled="canUseImages" :user-id="userId" :assets="assets" :images="images" @uploaded="uploaded" @removed="removed" @insert="insertAsset" />
-      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" :saved-content="record.content" :dirty="dirty" :load-image="loadImage" @locate="locateResumeRange" />
+      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" :saved-content="record.content" :dirty="dirty" :compact="compact" :load-image="loadImage" @locate="locateResumeRange" />
     </template>
     <div v-if="record" class="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden" role="group" aria-label="简历操作">
       <UiButton class="flex-1" :disabled="!canSave || Boolean(pendingAction) || submissionLocked" @click="write('save')"><RiSaveLine data-icon="inline-start" />{{ pendingAction === 'save' ? '正在保存…' : '保存' }}</UiButton>
