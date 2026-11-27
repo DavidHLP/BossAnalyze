@@ -8,6 +8,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import com.david.hlp.web.common.entity.Result;
 import com.david.hlp.web.common.enums.ResultCode;
+import com.david.hlp.web.resume.exception.ResumeWorkspaceConflictException;
 
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.dao.DataAccessException;
@@ -65,6 +66,12 @@ public class GlobalExceptionHandler {
     public Result<Void> handleBusinessException(final BusinessException ex) {
         log.error("业务异常: {}", ex.getMessage());
         return Result.error(ex.getCode(), ex.getMessage());
+    }
+
+    @ExceptionHandler(ResumeWorkspaceConflictException.class)
+    public Result<ResumeWorkspaceConflictException.State> handleResumeWorkspaceConflict(
+            ResumeWorkspaceConflictException ex) {
+        return Result.error(ex.getCode(), ex.getMessage(), ex.getState());
     }
 
     @ExceptionHandler(BindException.class)

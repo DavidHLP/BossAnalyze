@@ -50,23 +50,25 @@ public class ResumeController extends BaseController {
     }
 
     @PutMapping("/{id}")
-    public Result<Resume> updateResume(@PathVariable String id, @RequestBody Resume resume) {
+    public Result<Resume> updateResume(@PathVariable String id, @RequestBody UpdateRequest resume) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
-        Resume updatedResume = resumeService.updateResume(id, resume, userId);
-        return updatedResume != null ? Result.success(updatedResume)
-                : Result.error(HttpStatus.NOT_FOUND.value(), "简历不存在");
+        return Result.success(resumeService.updateResume(id, userId, resume.title(), resume.content(),
+                ResumeVersionController.parseWorkspaceRevision(resume.workspaceRevision())));
     }
 
+    public record UpdateRequest(String title, String content, String workspaceRevision) {}
+
     @DeleteMapping("/{id}")
-    public Result<Void> deleteResume(@PathVariable String id) {
+    public Result<Void> deleteResume(@PathVariable String id,
+            @RequestParam(required = false) Long workspaceRevision) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
-        resumeService.deleteResume(id, userId);
+        resumeService.deleteResume(id, userId, workspaceRevision);
         return Result.success(null);
     }
 }
