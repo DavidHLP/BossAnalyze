@@ -176,6 +176,7 @@ async function resumeScript(file, bindings, names) {
     ...vue, ...await import('../src/lib/resumes.ts'),
     env: {}, onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {}, onBeforeRouteUpdate() {},
     useRouter: () => ({ push: async () => {} }),
+    useResumeImages: () => ({ images: vue.ref({}) }),
     ...bindings,
   })
 }
