@@ -95,7 +95,7 @@ export function weekdayDistribution(value: unknown) {
   const data = object(value)
   const time = parseSnapshotTime(data.generatedAt)
   const byDay = object(object(data.weekdayStatistics).weekdayStats)
-  const noVisits = data.overview != null && object(data.overview).totalVisits === 0
+  const noVisits = amount(object(data.overview).totalVisits) === 0
   // Spark dayofweek uses Sunday=1. Print Monday first.
   const days = [2, 3, 4, 5, 6, 7, 1].map((key, i) => {
     const day = byDay[key] == null ? null : object(byDay[key])

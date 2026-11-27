@@ -22,14 +22,29 @@ test('extended log adapters reject missing fields while accepting published empt
   assert.throws(() => ipDistribution({ ipStats: null }), /Invalid/)
   assert.throws(() => weekdayDistribution({ generatedAt: fixture.generatedAt }), /Invalid/)
   assert.throws(() => weekdayDistribution({ generatedAt: fixture.generatedAt, weekdayStatistics: {} }), /Invalid/)
-  assert.throws(() => weekdayDistribution({ generatedAt: '2026-02-31T12:00:00', weekdayStatistics: { weekdayStats: {} } }), /Invalid/)
+  assert.throws(() => weekdayDistribution({
+    generatedAt: '2026-02-31T12:00:00', overview: { totalVisits: 0 }, weekdayStatistics: { weekdayStats: {} },
+  }), /Invalid/)
 
   assert.deepEqual(logTotals({ totalVisits: 0, uniqueIps: 0 }), { visits: 0, ips: 0 })
   assert.deepEqual(heatBuckets({ hourHeatmap: {}, minuteHeatmap: {} }), { hours: [], minutes: [] })
   assert.deepEqual(ipDistribution({ ipStats: {} }).records, [])
-  const weekday = weekdayDistribution({ generatedAt: fixture.generatedAt, weekdayStatistics: { weekdayStats: {} } })
+  const weekday = weekdayDistribution({
+    generatedAt: fixture.generatedAt, overview: { totalVisits: 0 }, weekdayStatistics: { weekdayStats: {} },
+  })
   assert.equal(weekday.time, '2026-10-30T16:00:00.000Z')
   assert.ok(weekday.days.length === 7 && weekday.days.every(day => day.count === null))
+})
+
+test('weekday snapshots reject a missing or invalid total visits denominator', () => {
+  const data = {
+    generatedAt: fixture.generatedAt,
+    weekdayStatistics: { weekdayStats: { 2: { count: 1, percentage: 100 } } },
+  }
+  assert.throws(() => weekdayDistribution(data), /Invalid log response/)
+  for (const totalVisits of [undefined, null, -1, 1.5, '1', Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => weekdayDistribution({ ...data, overview: { totalVisits } }), /Invalid log count/)
+  }
 })
 
 test('extended log status reflects every requested section, including denied reads', () => {

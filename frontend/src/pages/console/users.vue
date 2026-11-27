@@ -64,7 +64,7 @@ const roleRestricted = ref(false)
 const rolesUnavailable = computed(
   () => rolePending.value || roleFailed.value || !roles.value.length,
 )
-const unconfirmedWrite = ref<'self' | 'other' | null>(null)
+const unconfirmedWrite = ref<{ self: boolean; userId?: number; targetMissing: boolean } | null>(null)
 const editingUnavailable = computed(
   () => pending.value || rolesUnavailable.value || restricted.value || sessionChanged.value || unconfirmedWrite.value !== null,
 )
@@ -137,18 +137,22 @@ async function loadUsers(): Promise<boolean> {
 }
 async function refreshUsers() {
   if (!owner || pending.value || deleting.value || !session.owns(owner)) return
-  const clearSearch = unconfirmedWrite.value !== null && (filtered.value || page.value !== 1)
+  const write = unconfirmedWrite.value
+  const clearSearch = write && !write.targetMissing && (filtered.value || page.value !== 1)
   if (clearSearch) {
     Object.assign(filters, emptyFilters)
     applied.value = userFilters()
     page.value = 1
   }
-  if (!(await loadUsers()) || !session.owns(owner) || !unconfirmedWrite.value) return
-  const self = unconfirmedWrite.value === 'self'
+  if (!(await loadUsers()) || !session.owns(owner) || !write || unconfirmedWrite.value !== write) return
+  if (!write.self && write.userId !== undefined && !users.value.some(user => user.id === write.userId)) {
+    write.targetMissing = true
+    return
+  }
   editorOpen.value = false
   deletion.value = null
   unconfirmedWrite.value = null
-  if (self) {
+  if (write.self) {
     await session.signOut(true, null, undefined, owner)
     return
   }
@@ -156,8 +160,8 @@ async function refreshUsers() {
     ? '已清空筛选并刷新用户列表，请核对实际状态。'
     : '已刷新用户列表，请核对实际状态。'
 }
-function lockWrite(self = false) {
-  unconfirmedWrite.value = self ? 'self' : 'other'
+function lockWrite(self = false, userId?: number) {
+  unconfirmedWrite.value = { self, userId, targetMissing: false }
   notice.value = ''
 }
 async function listedEmailInUse(email: string, userId?: number) {
@@ -288,7 +292,10 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
     </UiAlert>
     <UiAlert v-if="unconfirmedWrite && !editorOpen && !deletion" role="alert">
       <UiAlertTitle>结果未确认</UiAlertTitle>
-      <UiAlertDescription>{{ unknownWriteMessage }}{{ failed ? '。列表读取失败，请重试。' : '' }}</UiAlertDescription>
+      <UiAlertDescription>
+        {{ unknownWriteMessage }}{{ failed ? '。列表读取失败，请重试。' : '' }}
+        <span v-if="unconfirmedWrite.targetMissing">。请调整筛选条件或页码后再刷新核对。</span>
+      </UiAlertDescription>
       <UiButton type="button" variant="outline" size="sm" class="mt-2"
         :disabled="pending || sessionChanged" @click="refreshUsers">刷新列表核对</UiButton>
     </UiAlert>
@@ -605,6 +612,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
       :role-pending="rolePending"
       :role-restricted="roleRestricted"
       :write-unconfirmed="unconfirmedWrite !== null"
+      :list-missing-target="unconfirmedWrite?.targetMissing ?? false"
       :list-pending="pending"
       :list-failed="failed"
       @saved="saved"

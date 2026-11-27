@@ -24,6 +24,7 @@ const props = defineProps<{
   roleRestricted: boolean
   reloadRoles: () => Promise<UserRole[] | undefined>
   writeUnconfirmed: boolean
+  listMissingTarget: boolean
   listPending: boolean
   listFailed: boolean
 }>()
@@ -31,7 +32,7 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
   closeAutoFocus: [event: Event]
   saved: [self: boolean]
-  writeUnconfirmed: [self: boolean]
+  writeUnconfirmed: [self: boolean, userId?: number]
   refreshList: []
 }>()
 const mobile = useMediaQuery('(width < 640px)')
@@ -184,7 +185,7 @@ async function save() {
   } catch (error) {
     if (!session.owns(owner)) return
     if (mutationResultUnknown(error)) {
-      emit('writeUnconfirmed', self)
+      emit('writeUnconfirmed', self, userId)
       await nextTick()
       document.getElementById('user-write-unconfirmed')?.focus()
       return
@@ -453,7 +454,10 @@ async function save() {
         >
         <UiAlert v-if="writeUnconfirmed" id="user-write-unconfirmed" role="alert" tabindex="-1">
           <UiAlertTitle>结果未确认</UiAlertTitle>
-          <UiAlertDescription>{{ unknownWriteMessage }}{{ listFailed ? '。列表读取失败，请重试。' : '' }}</UiAlertDescription>
+          <UiAlertDescription>
+            {{ unknownWriteMessage }}{{ listFailed ? '。列表读取失败，请重试。' : '' }}
+            <span v-if="listMissingTarget">。请关闭编辑面板，调整筛选条件或页码后再刷新核对。</span>
+          </UiAlertDescription>
           <UiButton type="button" variant="outline" size="sm" class="mt-2"
             :disabled="listPending || sessionChanged || saving" @click="emit('refreshList')">刷新列表核对</UiButton>
         </UiAlert>

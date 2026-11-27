@@ -55,7 +55,11 @@ test('log projections distinguish empty caches, missing buckets and observed zer
   assert.deepEqual(weekdayAverages(data.hours), { workdays: 0, weekends: 6 })
   assert.notEqual(heatLevel(undefined), heatLevel(0))
   assert.throws(() => heatBuckets({ hourHeatmap: {}, minuteHeatmap: { '2026-11-20 10:61': { count: 1 } } }), /Invalid bucket time/)
-  const weekday = weekdayDistribution({ generatedAt: '2026-11-20T10:00:00Z', weekdayStatistics: { weekdayStats: { 2: { count: 0 } } } })
+  const weekday = weekdayDistribution({
+    generatedAt: '2026-11-20T10:00:00Z',
+    overview: { totalVisits: 0 },
+    weekdayStatistics: { weekdayStats: { 2: { count: 0 } } },
+  })
   assert.equal(weekday.days[0].count, 0)
   assert.equal(ipDistribution({ ipStats: { '203.0.113.1': { count: 1 } } }).countries[0].name, '未知')
 })
@@ -151,10 +155,10 @@ test('local resume drafts are confined to the current login and resume and can b
   assert.equal(items.size, 0)
 })
 
-async function resumePage(file, bindings, names) {
+async function resumeScript(file, bindings, names) {
   const vue = await import('vue')
   const ts = await import('typescript')
-  const source = await readFile(new URL(`../src/pages/resumes/${file}.vue`, import.meta.url), 'utf8')
+  const source = await readFile(new URL(`../src/${file}.vue`, import.meta.url), 'utf8')
   const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
     .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
     .replaceAll('import.meta.env', 'env')
@@ -168,7 +172,9 @@ async function resumePage(file, bindings, names) {
   })
 }
 
-async function resumeEditor(savedDraft) {
+const stashEntry = (content, timestamp = 1) => ({ content, branch: 'main', head: 'head', timestamp })
+
+async function resumeEditor(savedDraft, stashStack = [stashEntry('# 旧储藏')]) {
   const { ref } = await import('vue')
   const values = new Map()
   const storage = {
@@ -183,8 +189,11 @@ async function resumeEditor(savedDraft) {
   if (savedDraft) store.write(savedDraft)
   const crossTabChanged = ref(null)
   const owner = { token: 'fixture-token', timestamp: '100' }
-  const server = { item: { id: 'fixture', content: '# 已保存', stashStack: ['previous'] }, writes: [] }
-  const editor = await resumePage('edit', {
+  const server = {
+    item: { id: 'fixture', content: '# 已保存', currentBranch: 'main', headCommit: 'head', stashStack },
+    writes: [],
+  }
+  const editor = await resumeScript('pages/resumes/edit', {
     useRoute: () => ({ params: { id: 'fixture' } }),
     useSession: () => ({
       state: ref({ user: { id: 1 } }), crossTabChanged,
@@ -195,16 +204,23 @@ async function resumeEditor(savedDraft) {
     getResume: async () => server.item,
     resumeHistory: async () => [],
     changeResumeVersion: async (...args) => { server.writes.push(args) },
-  }, ['load', 'write', 'resolveLocalDraft', 'markdown', 'message', 'localDraft', 'writeError', 'feedback'])
+  }, ['load', 'write', 'resolveLocalDraft', 'markdown', 'message', 'localDraft', 'writeError', 'writeLocked', 'feedback'])
   await editor.load(true)
   return { editor, server, store, crossTabChanged }
 }
 
-test('the editor keeps the draft until readback shows a larger stash stack', async () => {
-  const { editor, server, store } = await resumeEditor()
+test('unrelated new stashes and an existing match leave the editor draft locked', async () => {
   const draft = { content: '# 未保存正文', message: '备注' }
+  const existing = stashEntry(draft.content)
+  const { editor, server, store } = await resumeEditor(undefined, [existing])
   editor.markdown.value = draft.content
   editor.message.value = draft.message
+  server.item = { ...server.item, stashStack: [
+    stashEntry('# 其他正文', 2),
+    { ...stashEntry(draft.content, 3), branch: 'other' },
+    { ...stashEntry(draft.content, 4), head: 'other' },
+    { ...existing },
+  ] }
   await editor.write('stash')
   assert.deepEqual(server.writes, [['fixture', 'stash', { content: draft.content }]])
   assert.deepEqual(store.read(), draft)
@@ -212,9 +228,17 @@ test('the editor keeps the draft until readback shows a larger stash stack', asy
   assert.equal(editor.message.value, draft.message)
   assert.equal(editor.feedback.value, '')
   assert.match(editor.writeError.value, /储藏结果未确认，请先核对储藏记录/)
+  assert.equal(editor.writeLocked.value, true)
+  await editor.write('stash')
+  assert.equal(server.writes.length, 1)
+})
 
+test('the editor confirms a new matching stash after another tab pops the previous entry', async () => {
+  const content = '# 未保存正文'
+  const { editor, server, store } = await resumeEditor(undefined, [stashEntry(content)])
+  editor.markdown.value = content
   editor.message.value = '  '
-  server.item = { ...server.item, stashStack: ['previous', 'new'] }
+  server.item = { ...server.item, stashStack: [stashEntry(content, 2)] }
   await editor.write('stash')
   assert.equal(store.read(), null)
   assert.equal(editor.markdown.value, '# 已保存')
@@ -226,13 +250,37 @@ test('the editor offers the remaining commit remark after reloading a successful
   const remark = ' 本地备注 '
   editor.markdown.value = '# 未保存正文'
   editor.message.value = remark
-  server.item = { ...server.item, stashStack: ['previous', 'new'] }
+  server.item = { ...server.item, stashStack: [stashEntry(editor.markdown.value, 2), ...server.item.stashStack] }
 
   await editor.write('stash')
   assert.equal(editor.message.value, remark)
   await editor.load(true)
 
   assert.deepEqual(editor.localDraft.value, { content: '# 已保存', message: remark })
+})
+
+test('renaming a resume cancels local HTML and print jobs waiting for the math renderer', async () => {
+  const { reactive, ref } = await import('vue')
+  const props = reactive({ title: '旧标题', content: '$x$' })
+  const engine = Promise.withResolvers()
+  const exportPanel = await resumeScript('components/resumes/ResumeExport', {
+    defineProps: () => props,
+    defineModel: () => ref(true),
+    defineEmits: () => () => {},
+    loadResumeMath: () => engine.promise,
+    document: { createElement: () => assert.fail('The stale export must not create a download or print frame') },
+  }, ['exportHtml', 'htmlBusy'])
+
+  const html = exportPanel.exportHtml('html')
+  assert.equal(exportPanel.htmlBusy.value, true)
+  props.title = '新标题'
+  assert.equal(exportPanel.htmlBusy.value, false)
+  const print = exportPanel.exportHtml('pdf')
+  assert.equal(exportPanel.htmlBusy.value, true)
+  props.title = '最终标题'
+  engine.resolve({ renderOrNull: () => '<math></math>' })
+  await Promise.all([html, print])
+  assert.equal(exportPanel.htmlBusy.value, false)
 })
 
 test('a stale tab can recover or clear the offered local draft while both writes stay blocked', async () => {
@@ -256,7 +304,7 @@ async function versionsPage({ getResume, resumeHistory }) {
   const route = reactive({ params: { id: 'first' } })
   const owner = { token: 'fixture-token', timestamp: '100' }
   let routeGuard
-  const versions = await resumePage('versions', {
+  const versions = await resumeScript('pages/resumes/versions', {
     useRoute: () => route, useRouter: () => ({}), useMediaQuery: () => ref(false),
     useSession: () => ({ state: ref({}), capture: () => owner, owns: () => true }),
     onBeforeRouteUpdate: guard => { routeGuard = guard },
