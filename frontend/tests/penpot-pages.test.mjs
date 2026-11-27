@@ -175,6 +175,7 @@ async function resumeScript(file, bindings, names) {
   return new Function('bindings', `with (bindings) { ${outputText.replace(/^export \{\};$/m, '')}\nreturn { ${names.join(',')} } }`)({
     ...vue, ...await import('../src/lib/resumes.ts'),
     env: {}, onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {}, onBeforeRouteUpdate() {},
+    useResumeImages: () => ({ images: vue.ref({}) }),
     ...bindings,
   })
 }

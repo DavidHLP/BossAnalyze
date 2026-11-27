@@ -15,7 +15,7 @@ const message = computed(() => {
 </script>
 
 <template>
-  <span v-if="result?.ok" :class="{ 'block max-w-full overflow-x-auto': display }" v-html="result.html" />
+  <span v-if="result?.ok" :class="display ? 'resume-math-block' : 'resume-math-inline'" v-html="result.html" />
   <component :is="display ? 'div' : 'span'" v-else role="note"
     :class="loading ? 'text-muted-foreground' : 'rounded border border-destructive px-1 text-destructive'">
     <pre v-if="display" class="overflow-x-auto whitespace-pre-wrap wrap-anywhere"><code>{{ raw }}</code></pre>

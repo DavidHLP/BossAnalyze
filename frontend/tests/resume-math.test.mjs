@@ -201,6 +201,6 @@ test('standalone HTML escapes original formula markup when the renderer yields n
 })
 
 function assertOfflineHtml(html) {
-  assert.ok(html.includes('<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">'))
+  assert.ok(html.includes('<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">'))
   assert.doesNotMatch(html, /<script\b|\bsrc=|url\(|font-src/i)
 }
