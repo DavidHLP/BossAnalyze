@@ -2,6 +2,25 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { offsetToPosition, resumeHasMath, resumeHtml, resumeMathNodes, resumePreview } from '../src/lib/resumes.ts'
 
+test('preview headings accept 0-3 leading spaces and clamp levels 4-6 to the smallest style', () => {
+  const blocks = resumePreview('   # 标题\n#### 四级\n###### 六级')
+  assert.deepEqual(blocks.map(block => [block.kind, block.level, block.inline]), [
+    ['heading', 1, [{ kind: 'text', text: '标题' }]],
+    ['heading', 3, [{ kind: 'text', text: '四级' }]],
+    ['heading', 3, [{ kind: 'text', text: '六级' }]],
+  ])
+  assert.deepEqual(resumePreview('    # 四个空格仍是正文')[0], { kind: 'text', inline: [{ kind: 'text', text: '    # 四个空格仍是正文' }] })
+  const html = resumeHtml('简历', '#### 四级')
+  assert.match(html, /<h3>四级<\/h3>/)
+  assert.doesNotMatch(html, /####/)
+})
+
+test('escaped Markdown never rewrites literal private-use glyphs', () => {
+  assert.deepEqual(resumePreview('\uE000 x \\| y'), [
+    { kind: 'text', inline: [{ kind: 'text', text: '\uE000 x | y' }] },
+  ])
+})
+
 test('inline math uses the nearest unescaped dollar run and respects the currency guard', () => {
   for (const text of ['$100-$200', '$100–$200', '$5', '$100 and $200', '$ x$', '$x $', '$x$9',
     '$x$$y$', '中间 $$x$$ 文本', '$x$9 more $', '$x\ny$']) {

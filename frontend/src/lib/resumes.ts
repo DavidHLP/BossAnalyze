@@ -295,15 +295,26 @@ function appendInlineText(tokens: ResumeInline[], text: string) {
 
 function maskedEscapes(text: string) {
   const values: string[] = []
-  const masked = text.replace(/\\([*|#.`_[\]{}()>+\-!])/g, (literal: string, char: string) => {
-    if (values.length >= 0x6400) return literal
-    values.push(char)
-    return String.fromCharCode(0xe000 + values.length - 1)
-  })
+  if (!/\\([*|#.`_[\]{}()>+\-!])/.test(text)) return { text, restore: (value: string) => value }
+  // Pick a private-use marker that is absent from the text so restored escapes never rewrite real glyphs.
+  let marker = ''
+  for (let code = 0xe000; code <= 0xf8ff && !marker; code++) {
+    const candidate = String.fromCharCode(code)
+    if (!text.includes(candidate)) marker = candidate
+  }
+  // shortcut: if the text already contains every BMP private-use glyph, escapes are left unmasked.
+  const masked = marker
+    ? text.replace(/\\([*|#.`_[\]{}()>+\-!])/g, (literal: string, char: string) => {
+        if (values.length >= 0x6400) return literal
+        values.push(char)
+        return marker
+      })
+    : text
+  let next = 0
   return {
     text: masked,
-    restore: (value: string) => values.length
-      ? value.replace(/[\uE000-\uF8FF]/g, marker => values[marker.charCodeAt(0) - 0xe000] ?? marker)
+    restore: (value: string) => values.length && marker && value.includes(marker)
+      ? value.replaceAll(marker, () => values[next++] ?? marker)
       : value,
   }
 }
@@ -441,10 +452,10 @@ export function resumePreview(markdown: string, onBlock?: (block: PreviewBlock, 
       i = math.lastLine
       continue
     }
-    const title = /^(#{1,3})\s+(.+)$/.exec(line)
+    const title = /^ {0,3}(#{1,6})[ \t]+(.+)$/.exec(line)
     if (title) {
       const content = title[2]!
-      append({ kind: 'heading', level: title[1]!.length as 1 | 2 | 3,
+      append({ kind: 'heading', level: Math.min(title[1]!.length, 3) as 1 | 2 | 3,
         inline: resumeInline(content, offset + line.length - content.length) }, offset, i)
       continue
     }
