@@ -236,6 +236,42 @@ function selection() {
   return document.getElementById('resume-markdown') as HTMLTextAreaElement | null
 }
 
+function scrollToResumeSelection(input: HTMLTextAreaElement, start: number) {
+  // An autosizing textarea can extend past the viewport, so measure the selected line with wrapping.
+  const styles = getComputedStyle(input)
+  const mirror = document.createElement('div')
+  Object.assign(mirror.style, {
+    position: 'fixed', visibility: 'hidden', boxSizing: 'border-box', width: `${input.clientWidth}px`,
+    padding: styles.padding, font: styles.font, letterSpacing: styles.letterSpacing, tabSize: styles.tabSize,
+    whiteSpace: styles.whiteSpace, overflowWrap: styles.overflowWrap, wordBreak: styles.wordBreak,
+  })
+  const line = document.createElement('span')
+  line.textContent = input.value.slice(start).split('\n', 1)[0] || '\u200b'
+  mirror.append(input.value.slice(0, start), line)
+  document.body.append(mirror)
+  const offset = line.getBoundingClientRect().top - mirror.getBoundingClientRect().top
+  mirror.remove()
+
+  input.scrollTop = offset - input.clientHeight / 2
+  const top = input.getBoundingClientRect().top + input.clientTop + offset - input.scrollTop
+  window.scrollBy({ top: top - window.innerHeight / 2, behavior: 'instant' })
+}
+
+async function locateResumeRange({ start, end }: { start: number; end: number }) {
+  exportOpen.value = false
+  mode.value = 'edit'
+  await nextTick()
+  const input = selection()
+  if (!input) return
+  // The textarea normalizes line endings while stored Markdown may retain CRLF.
+  const offset = (index: number) => Math.min(input.value.length,
+    markdown.value.slice(0, Math.max(0, index)).replace(/\r\n?/g, '\n').length)
+  const first = offset(start)
+  input.focus({ preventScroll: true })
+  input.setSelectionRange(first, Math.max(first, offset(end)))
+  scrollToResumeSelection(input, first)
+}
+
 function replaceSelection(input: HTMLTextAreaElement, start: number, end: number, text: string, left: number, right = left) {
   input.focus({ preventScroll: true })
   input.setSelectionRange(start, end)
@@ -487,7 +523,7 @@ onUnmounted(() => {
           </fieldset>
           <UiField class="p-3">
             <UiFieldLabel for="resume-markdown" class="sr-only">简历正文</UiFieldLabel>
-            <UiTextarea id="resume-markdown" v-model="markdown" class="min-h-[24rem] font-mono leading-relaxed" :disabled="Boolean(pendingAction || localDraft)" spellcheck="false" @focus="rememberDraftFocus" />
+            <UiTextarea id="resume-markdown" v-model="markdown" class="min-h-[24rem] font-mono leading-relaxed" :readonly="Boolean(pendingAction || localDraft)" spellcheck="false" @focus="rememberDraftFocus" />
           </UiField>
           <div class="flex flex-col gap-3 border-t p-3">
             <UiField>
@@ -509,7 +545,7 @@ onUnmounted(() => {
         </div>
       </div>
       <ResumeAssets v-model:open="assetsOpen" :enabled="canUseImages" :user-id="userId" :assets="assets" :images="images" @uploaded="uploaded" @removed="removed" @insert="insertAsset" />
-      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" />
+      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" @locate="locateResumeRange" />
     </template>
   </section>
 </template>

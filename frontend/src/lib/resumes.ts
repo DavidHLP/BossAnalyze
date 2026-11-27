@@ -72,11 +72,25 @@ export function countDuplicateCommits(commits: { id: string }[]) {
   return commits.length - new Set(commits.map(commit => commit.id)).size
 }
 
+export type ResumeMathNode = {
+  display: boolean
+  tex: string
+  raw: string
+  start: number
+  end: number
+  bodyStart: number
+}
+
+export type ResumeMathRender = (tex: string, display: boolean) => string | null
+
+type ResumeMathToken = { kind: 'math' } & Omit<ResumeMathNode, 'display'>
+
 export type ResumeInline =
   | { kind: 'text' | 'strong' | 'em' | 'code'; text: string }
   | { kind: 'link'; text: string; href: string }
+  | ResumeMathToken
 
-type PreviewBlock =
+export type PreviewBlock =
   | { kind: 'heading'; level: 1 | 2 | 3; inline: ResumeInline[] }
   | { kind: 'text'; inline: ResumeInline[] }
   | { kind: 'code'; text: string }
@@ -84,9 +98,64 @@ type PreviewBlock =
   | { kind: 'table'; headers: ResumeInline[][]; rows: ResumeInline[][][] }
   | { kind: 'rule' }
   | { kind: 'asset'; text: string; fileName: string }
+  | ResumeMathToken
 
-function markdownHref(value: string) {
-  if (!/^(?:https?:\/\/|mailto:)/i.test(value) || /[\s\\]/.test(value)) return null
+function mathNode({ tex, raw, start, end, bodyStart }: ResumeMathToken, display: boolean): ResumeMathNode {
+  return { display, tex, raw, start, end, bodyStart }
+}
+
+function* inlineMathNodes(tokens: readonly ResumeInline[]): Generator<ResumeMathNode> {
+  for (const token of tokens) {
+    if (token.kind === 'math') yield mathNode(token, false)
+  }
+}
+
+function* mathNodes(blocks: readonly PreviewBlock[]): Generator<ResumeMathNode> {
+  for (const block of blocks) {
+    switch (block.kind) {
+      case 'math':
+        yield mathNode(block, true)
+        break
+      case 'heading':
+      case 'text':
+        yield* inlineMathNodes(block.inline)
+        break
+      case 'list':
+        for (const item of block.items) yield* inlineMathNodes(item)
+        break
+      case 'table':
+        for (const cell of block.headers) yield* inlineMathNodes(cell)
+        for (const row of block.rows) {
+          for (const cell of row) yield* inlineMathNodes(cell)
+        }
+        break
+    }
+  }
+}
+
+export function resumeHasMath(blocks: readonly PreviewBlock[]): boolean {
+  return !mathNodes(blocks).next().done
+}
+
+export function resumeMathNodes(blocks: readonly PreviewBlock[]): ResumeMathNode[] {
+  return [...mathNodes(blocks)]
+}
+
+export function offsetToPosition(source: string, offset: number): { line: number; column: number } {
+  const clamped = Math.min(source.length, Math.max(0, Math.trunc(offset) || 0))
+  let line = 1
+  let lineStart = 0
+  for (const match of source.matchAll(/\r\n?|\n/g)) {
+    const nextLineStart = match.index! + match[0].length
+    if (nextLineStart > clamped) break
+    line++
+    lineStart = nextLineStart
+  }
+  return { line, column: clamped - lineStart + 1 }
+}
+
+export function markdownHref(value: string) {
+  if (!/^(?:https?:\/\/|mailto:)/i.test(value) || /[\s\\\x00-\x1f\x7f]/.test(value)) return null
   try {
     const url = new URL(value)
     return url.username || url.password || !url.pathname ? null : url.href
@@ -95,51 +164,191 @@ function markdownHref(value: string) {
   }
 }
 
-function resumeInline(text: string): ResumeInline[] {
-  const tokens: ResumeInline[] = []
-  const pattern = /(?<!`)`([^`]+)`(?!`)|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|(?<![\w_])_([^_]+)_(?![\w_])|(!?)\[([^\[\]]*)\]\(([^()\s]+)\)/g
+type InlineSpan = { kind: 'code' | 'math'; start: number; end: number }
+const linkPattern = /(!?)\[([^\[\]]*)\]\(([^()\s]+)\)/g
+const emphasisPattern = /\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|(?<![\w_])_([^_]+)_(?![\w_])/
+const inlineTextPattern = new RegExp(`${emphasisPattern.source}|${linkPattern.source}`, 'g')
+
+function isEscaped(text: string, index: number) {
+  let start = index
+  while (text[start - 1] === '\\') start--
+  return (index - start) % 2 === 1
+}
+
+function* inlineMathSpans(text: string, offset: number): Generator<InlineSpan> {
+  // Mask dollars in link destinations without changing the offsets into the original text.
+  const scan = text.replace(linkPattern, (literal, image, label, destination) =>
+    !image && destination.includes('$') && !literal.includes('`') && markdownHref(destination)
+      ? `[${label}](${destination.replaceAll('$', 'x')})`
+      : literal)
+  let opener = -1
+  for (const match of scan.matchAll(/\$+/g)) {
+    const start = match.index!
+    const end = start + match[0].length
+    if (end - start !== 1) {
+      opener = -1
+      continue
+    }
+    if (isEscaped(text, start)) continue
+
+    if (opener !== -1 && /\S/.test(text[start - 1] ?? '') && !/[0-9]/.test(text[end] ?? '')) {
+      yield { kind: 'math', start: offset + opener, end: offset + end }
+      opener = -1
+    } else {
+      opener = /\S/.test(text[end] ?? '') ? start : -1
+    }
+  }
+}
+
+function* inlineSpans(text: string): Generator<InlineSpan> {
   let end = 0
-  for (const match of text.matchAll(pattern)) {
-    const [literal, code, strong, alternateStrong, emphasis, alternateEmphasis, image, label, destination] = match
+  for (const match of text.matchAll(/(?<!`)`[^`]+`(?!`)/g)) {
+    const start = match.index!
+    yield* inlineMathSpans(text.slice(end, start), end)
+    end = start + match[0].length
+    yield { kind: 'code', start, end }
+  }
+  yield* inlineMathSpans(text.slice(end), end)
+}
+
+function appendInlineText(tokens: ResumeInline[], text: string) {
+  let end = 0
+  for (const match of text.matchAll(inlineTextPattern)) {
+    const [literal, strong, alternateStrong, emphasis, alternateEmphasis, image, label, destination] = match
     const start = match.index!
     if (start > end) tokens.push({ kind: 'text', text: text.slice(end, start) })
     const href = destination && !image ? markdownHref(destination) : null
-    if (code) tokens.push({ kind: 'code', text: code })
-    else if (strong || alternateStrong) tokens.push({ kind: 'strong', text: (strong ?? alternateStrong)! })
+    if (strong || alternateStrong) tokens.push({ kind: 'strong', text: (strong ?? alternateStrong)! })
     else if (emphasis || alternateEmphasis) tokens.push({ kind: 'em', text: (emphasis ?? alternateEmphasis)! })
     else if (href) tokens.push({ kind: 'link', text: label || href, href })
     else tokens.push({ kind: 'text', text: literal })
     end = start + literal.length
   }
   if (end < text.length) tokens.push({ kind: 'text', text: text.slice(end) })
+}
+
+function resumeInline(text: string, baseOffset: number, inTable = false): ResumeInline[] {
+  const tokens: ResumeInline[] = []
+  let plainStart = 0
+  const unescapePipes = (value: string) => inTable ? value.replaceAll('\\|', '|') : value
+  const appendPlain = (end: number) => appendInlineText(tokens, unescapePipes(text.slice(plainStart, end))
+    .replace(/\\+(\$)?/g, (literal, dollar) => dollar && literal.length % 2 === 0 ? literal.slice(1) : literal))
+  for (const { kind, start, end } of inlineSpans(text)) {
+    appendPlain(start)
+    const body = text.slice(start + 1, end - 1)
+    if (kind === 'code') {
+      tokens.push({ kind, text: unescapePipes(body) })
+    } else {
+      tokens.push({ kind, tex: body, raw: text.slice(start, end),
+        start: baseOffset + start, end: baseOffset + end, bodyStart: baseOffset + start + 1 })
+    }
+    plainStart = end
+  }
+  appendPlain(text.length)
   return tokens
 }
 
 const listItem = /^\s*(?:([-*+])|(\d{1,9})[.)])[ \t]+(.+)$/
+const codeFence = /^\s*(`{3,}|~{3,})[^`]*$/
+const displayDelimiter = /^([ \t]*)\$\$[ \t]*$/
 
-function tableCells(line: string) {
-  if (!/(?<!\\)\|/.test(line)) return []
-  return line.trim().replace(/^\||(?<!\\)\|$/g, '').split(/(?<!\\)\|/).map(cell => cell.trim().replaceAll('\\|', '|'))
+type SourceLine = { text: string; offset: number }
+
+function mathBlock(markdown: string, lines: SourceLine[], index: number) {
+  const { text, offset } = lines[index]!
+  const single = /^([ \t]*)\$\$(?!\$)(.+?)(?<!\$)\$\$[ \t]*$/s.exec(text)
+  if (single) {
+    const start = offset + single[1]!.length
+    const bodyStart = start + 2
+    const tex = single[2]!
+    const close = bodyStart + tex.length
+    if (tex.trim() && !isEscaped(markdown, close)) {
+      const node: ResumeMathToken = { kind: 'math', tex, raw: markdown.slice(start, close + 2), start, end: close + 2, bodyStart }
+      return { node, lastLine: index }
+    }
+  }
+
+  const opener = displayDelimiter.exec(text)
+  if (!opener || !lines[index + 1]) return null
+  const start = offset + opener[1]!.length
+  const bodyStart = lines[index + 1]!.offset
+  for (let lastLine = index + 1; lastLine < lines.length; lastLine++) {
+    const line = lines[lastLine]!
+    if (codeFence.test(line.text)) break
+    const closer = displayDelimiter.exec(line.text)
+    if (!closer) continue
+    const previous = lines[lastLine - 1]!
+    const tex = markdown.slice(bodyStart, previous.offset + previous.text.length)
+    if (!tex.trim()) break
+    const end = line.offset + closer[1]!.length + 2
+    const node: ResumeMathToken = { kind: 'math', tex, raw: markdown.slice(start, end), start, end, bodyStart }
+    return { node, lastLine }
+  }
+  return null
+}
+
+function tableCells(line: SourceLine): SourceLine[] {
+  if (!line.text.includes('|')) return []
+  const leftTrimmed = line.text.trimStart()
+  const offset = line.offset + line.text.length - leftTrimmed.length
+  const text = leftTrimmed.trimEnd()
+  const cells: SourceLine[] = []
+  let cellStart = 0
+  const append = (end: number) => {
+    const raw = text.slice(cellStart, end)
+    const cell = raw.trimStart()
+    cells.push({ text: cell.trimEnd(), offset: offset + cellStart + raw.length - cell.length })
+  }
+  const split = (start: number, end: number) => {
+    for (let i = start; i < end; i++) {
+      if (text[i] !== '|' || text[i - 1] === '\\') continue
+      if (i > 0) append(i)
+      cellStart = i + 1
+    }
+  }
+  let plainStart = 0
+  for (const span of inlineSpans(text)) {
+    split(plainStart, span.start)
+    plainStart = span.end
+  }
+  split(plainStart, text.length)
+  if (cellStart && (cellStart < text.length || !cells.length)) append(text.length)
+  return cells
 }
 
 export function resumePreview(markdown: string): PreviewBlock[] {
   // shortcut: this flat résumé Markdown subset omits nested blocks and reference links.
-  const lines = markdown.split(/\r\n?|\n/)
+  const lines: SourceLine[] = []
+  let lineStart = 0
+  for (const match of markdown.matchAll(/\r\n?|\n/g)) {
+    const end = match.index!
+    lines.push({ text: markdown.slice(lineStart, end), offset: lineStart })
+    lineStart = end + match[0].length
+  }
+  lines.push({ text: markdown.slice(lineStart), offset: lineStart })
   const blocks: PreviewBlock[] = []
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!
+    const { text: line, offset } = lines[i]!
     if (!line.trim()) continue
-    const fence = /^\s*(`{3,}|~{3,})[^`]*$/.exec(line)
+    const fence = codeFence.exec(line)
     if (fence) {
       const close = new RegExp('^\\s*' + fence[1]![0] + '{' + fence[1]!.length + ',}\\s*$')
       const body: string[] = []
-      while (++i < lines.length && !close.test(lines[i]!)) body.push(lines[i]!)
+      while (++i < lines.length && !close.test(lines[i]!.text)) body.push(lines[i]!.text)
       blocks.push({ kind: 'code', text: body.join('\n') })
+      continue
+    }
+    const math = mathBlock(markdown, lines, i)
+    if (math) {
+      blocks.push(math.node)
+      i = math.lastLine
       continue
     }
     const title = /^(#{1,3})\s+(.+)$/.exec(line)
     if (title) {
-      blocks.push({ kind: 'heading', level: title[1]!.length as 1 | 2 | 3, inline: resumeInline(title[2]!) })
+      const content = title[2]!
+      blocks.push({ kind: 'heading', level: title[1]!.length as 1 | 2 | 3,
+        inline: resumeInline(content, offset + line.length - content.length) })
       continue
     }
     if (/^\s*---+\s*$/.test(line)) {
@@ -158,31 +367,37 @@ export function resumePreview(markdown: string): PreviewBlock[] {
     const bullet = listItem.exec(line)
     if (bullet) {
       const ordered = bullet[2] !== undefined
-      const items = [resumeInline(bullet[3]!)]
+      const content = bullet[3]!
+      const items = [resumeInline(content, offset + line.length - content.length)]
       while (i + 1 < lines.length) {
-        const next = listItem.exec(lines[i + 1]!)
+        const nextLine = lines[i + 1]!
+        const next = listItem.exec(nextLine.text)
         if (!next || ordered !== (next[2] !== undefined)) break
         i++
-        items.push(resumeInline(next[3]!))
+        const nextContent = next[3]!
+        items.push(resumeInline(nextContent, nextLine.offset + nextLine.text.length - nextContent.length))
       }
       blocks.push({ kind: 'list', start: ordered ? Number(bullet[2]) : null, items })
       continue
     }
-    const headers = tableCells(line)
-    const separator = headers.length ? tableCells(lines[i + 1] ?? '') : []
-    if (headers.length && headers.length === separator.length && separator.every(cell => /^:?-{3,}:?$/.test(cell))) {
+    const headers = tableCells(lines[i]!)
+    const separator = headers.length && lines[i + 1] ? tableCells(lines[i + 1]!) : []
+    if (headers.length && headers.length === separator.length && separator.every(cell => /^:?-{3,}:?$/.test(cell.text))) {
+      const parseCell = (cell: SourceLine | undefined) => cell ? resumeInline(cell.text, cell.offset, true) : []
       i++
       const rows: ResumeInline[][][] = []
       while (i + 1 < lines.length) {
-        const cells = tableCells(lines[i + 1]!)
+        const next = lines[i + 1]!
+        if (codeFence.test(next.text) || mathBlock(markdown, lines, i + 1)) break
+        const cells = tableCells(next)
         if (!cells.length) break
         i++
-        rows.push(headers.map((_, index) => resumeInline(cells[index] ?? '')))
+        rows.push(headers.map((_, index) => parseCell(cells[index])))
       }
-      blocks.push({ kind: 'table', headers: headers.map(resumeInline), rows })
+      blocks.push({ kind: 'table', headers: headers.map(parseCell), rows })
       continue
     }
-    blocks.push({ kind: 'text', inline: resumeInline(line) })
+    blocks.push({ kind: 'text', inline: resumeInline(line, offset) })
   }
   return blocks
 }
@@ -220,32 +435,46 @@ function escapeHtml(value: string) {
     .replaceAll('"', '&quot;').replaceAll("'", '&#39;')
 }
 
-function inlineHtml(tokens: ResumeInline[]) {
+function inlineHtml(tokens: ResumeInline[], renderMath?: ResumeMathRender) {
   return tokens.map(token => {
-    const text = escapeHtml(token.text)
-    if (token.kind === 'link') return '<a href="' + escapeHtml(token.href) + '" rel="noreferrer">' + text + '</a>'
-    if (token.kind === 'text') return text
-    return '<' + token.kind + '>' + text + '</' + token.kind + '>'
+    switch (token.kind) {
+      case 'text': return escapeHtml(token.text)
+      case 'strong': return '<strong>' + escapeHtml(token.text) + '</strong>'
+      case 'em': return '<em>' + escapeHtml(token.text) + '</em>'
+      case 'code': return '<code>' + escapeHtml(token.text) + '</code>'
+      case 'link':
+        return '<a href="' + escapeHtml(token.href) + '" rel="noreferrer">' + escapeHtml(token.text) + '</a>'
+      case 'math': {
+        const rendered = renderMath?.(token.tex, false)
+        return rendered ? '<span class="resume-math-inline">' + rendered + '</span>' : escapeHtml(token.raw)
+      }
+    }
   }).join('')
 }
 
-export function resumeHtml(title: string, markdown: string) {
-  const body = resumePreview(markdown).map(block => {
+export function resumeHtml(title: string, content: string | PreviewBlock[], renderMath?: ResumeMathRender): string {
+  const blocks = typeof content === 'string' ? resumePreview(content) : content
+  const renderInline = (tokens: ResumeInline[]) => inlineHtml(tokens, renderMath)
+  const body = blocks.map(block => {
     switch (block.kind) {
-      case 'heading': return '<h' + block.level + '>' + inlineHtml(block.inline) + '</h' + block.level + '>'
-      case 'text': return '<p>' + inlineHtml(block.inline) + '</p>'
+      case 'heading': return '<h' + block.level + '>' + renderInline(block.inline) + '</h' + block.level + '>'
+      case 'text': return '<p>' + renderInline(block.inline) + '</p>'
       case 'rule': return '<hr>'
       case 'asset': return '<p>' + escapeHtml(block.text || '图片素材') + ' · 本地导出未包含图片</p>'
       case 'code': return '<pre><code>' + escapeHtml(block.text) + '</code></pre>'
+      case 'math': {
+        const rendered = renderMath?.(block.tex, true)
+        return rendered ? '<div class="resume-math-block">' + rendered + '</div>' : '<pre><code>' + escapeHtml(block.raw) + '</code></pre>'
+      }
       case 'list': {
         const ordered = block.start !== null
         return (ordered ? '<ol start="' + block.start + '">' : '<ul>') +
-          block.items.map(item => '<li>' + inlineHtml(item) + '</li>').join('') + (ordered ? '</ol>' : '</ul>')
+          block.items.map(item => '<li>' + renderInline(item) + '</li>').join('') + (ordered ? '</ol>' : '</ul>')
       }
       case 'table':
-        return '<table><thead><tr>' + block.headers.map(cell => '<th scope="col">' + inlineHtml(cell) + '</th>').join('') +
+        return '<table><thead><tr>' + block.headers.map(cell => '<th scope="col">' + renderInline(cell) + '</th>').join('') +
           '</tr></thead><tbody>' + block.rows.map(row =>
-            '<tr>' + row.map(cell => '<td>' + inlineHtml(cell) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'
+            '<tr>' + row.map(cell => '<td>' + renderInline(cell) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'
     }
   }).join('\n')
 

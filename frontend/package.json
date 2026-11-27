@@ -23,6 +23,7 @@
     "axios": "^1.21.1",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
+    "katex": "0.16.47",
     "reka-ui": "^2.11.0",
     "send": "^1.2.1",
     "shadcn-vue": "^2.9.0",
