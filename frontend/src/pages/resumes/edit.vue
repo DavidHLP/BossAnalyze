@@ -3,7 +3,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } fr
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { RiArrowLeftLine, RiHistoryLine, RiSaveLine } from '@remixicon/vue'
 import {
-  changeResumeVersion, createResume, getResume, listResumes, resumeHistory, type ResumeCommit, type ResumeRecord,
+  changeResumeVersion, createResume, getResume, listResumes, resumeHistory, updateResumeAppearance,
+  type ResumeCommit, type ResumeRecord,
 } from '@/api/resume/resume'
 import { ownsResumeAsset } from '@/api/resume/assets'
 import { useResumeImages } from '@/composables/useResumeImages'
@@ -12,6 +13,7 @@ import { registerDirtyDraft } from '@/composables/session-events'
 import { mutationResultUnknown } from '@/lib/rbac-mutations'
 import { resumeCopyContent, resumeCopySourceLabel, resumeCopyTitle, resumeCopyVerified } from '@/lib/resume-copy'
 import { resumePaginationSuggestions, type ResumePagination, type ResumePaginationSuggestion } from '@/lib/resume-pagination'
+import { resolveResumeThemeId, resumeThemes, type ResumeThemeId } from '@/lib/resume-theme'
 import {
   assetMarkdown, resumeAssetNames, resumeConflictCopyTitle, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime,
   resumeWriteConflict, shortCommit, type ResumeConflictState, type ResumeDraft,
@@ -79,6 +81,9 @@ const editorMode = ref<'form' | 'markdown'>('form')
 const assetsOpen = ref(false)
 const exportOpen = ref(false)
 const compact = ref(false)
+const themeId = ref<ResumeThemeId>('basic')
+const themeWrite = shallowRef<Promise<void>>()
+const themeError = ref('')
 const pagination = shallowRef<ResumePagination | null>(null)
 const paginationSuggestions = computed(() => (pagination.value?.pages ?? 0) > 1
   ? resumePaginationSuggestions(markdown.value) : [])
@@ -118,6 +123,7 @@ function locateQuality(item: { start: number; end: number }) {
 }
 const { enabled: canUseImages, images, loadImage, forgetImage } = useResumeImages(assets)
 let loadRevision = 0
+let themeRevision = 0
 let checkRevision = 0
 let leaveDecision: ((discard: boolean) => void) | null = null
 let draftInput: HTMLElement | null = null
@@ -245,9 +251,12 @@ async function load(force = false) {
   const revision = ++loadRevision
   const owner = session.capture()
   const key = id.value
+  const appearanceRevision = themeRevision
+  const themeReadStartedDuringWrite = Boolean(themeWrite.value)
   pending.value = true
   loadError.value = ''
   try {
+    if (force && themeWrite.value) await themeWrite.value
     const workspace = await readWorkspace(key)
     if (revision !== loadRevision || !session.owns(owner)) return
     const { item } = workspace
@@ -257,18 +266,41 @@ async function load(force = false) {
       message.value = ''
       staged.value = hidden.value = []
       feedback.value = writeError.value = ''
+      themeError.value = ''
       checkOffered.value = checkOpen.value = false
       mode.value = 'edit'
       offerLocalDraft(owner, key)
     }
     head.value = workspace.head
     record.value = item
+    if (force || (!themeReadStartedDuringWrite && appearanceRevision === themeRevision)) {
+      themeId.value = resolveResumeThemeId(item.themeId)
+    }
     writeLocked.value = false
   } catch (cause) {
     if (revision === loadRevision && session.owns(owner)) loadError.value = resumeReadMessage(cause)
   } finally {
     if (revision === loadRevision) pending.value = false
   }
+}
+
+async function changeTheme(next: ResumeThemeId) {
+  const owner = session.capture()
+  const key = id.value
+  if (record.value?.id !== key || !session.owns(owner) || themeWrite.value || themeId.value === next) return
+  const previous = themeId.value
+  themeRevision++
+  themeId.value = next
+  themeError.value = ''
+  const write = updateResumeAppearance(key, next).catch(() => {
+    if (key === id.value && session.owns(owner)) {
+      themeId.value = previous
+      themeError.value = '主题保存失败，已恢复上一套主题。'
+    }
+  })
+  themeWrite.value = write
+  await write
+  themeWrite.value = undefined
 }
 
 async function checkLatestVersion() {
@@ -671,8 +703,9 @@ async function saveThenCopy() {
   }
 }
 
-function blockNavigation() {
+async function blockNavigation() {
   if (session.state.value.invalidated) return true
+  if (themeWrite.value) await themeWrite.value
   if (pendingAction.value || leaveDecision) return false
   if (!hasDraft.value) return true
   return new Promise<boolean>(resolve => {
@@ -1006,12 +1039,20 @@ onUnmounted(() => {
           <div class="flex flex-wrap items-center justify-between gap-2 border-b bg-card px-4 py-3">
             <h2 class="font-medium">实时预览</h2>
             <div class="flex flex-wrap items-center gap-2">
+              <div class="inline-flex gap-1" role="group" aria-label="简历主题">
+                <UiButton v-for="(theme, option) in resumeThemes" :key="option" type="button" size="sm"
+                  :variant="themeId === option ? 'secondary' : 'ghost'" :aria-pressed="themeId === option"
+                  :disabled="Boolean(themeWrite) || crossTabChanged !== null" @click="changeTheme(option)">
+                  {{ theme.label }}
+                </UiButton>
+              </div>
               <span role="status" class="text-xs tabular-nums text-muted-foreground">
                 {{ pagination ? `约 ${pagination.pages} 页` : '页数待确认' }}
                 <template v-if="pagination?.overflowLines"> · 超出约 {{ pagination.overflowLines }} 行</template>
               </span>
               <UiButton type="button" size="sm" variant="outline" :aria-pressed="compact" @click="compact = !compact">紧凑排版</UiButton>
             </div>
+            <p v-if="themeError" role="alert" class="w-full text-sm text-destructive">{{ themeError }}</p>
           </div>
           <ul v-if="paginationSuggestions.length" aria-label="缩短简历的建议" class="flex flex-wrap gap-x-2 border-b bg-card px-3 py-1">
             <li v-for="suggestion in paginationSuggestions" :key="suggestion.kind">
@@ -1021,12 +1062,12 @@ onUnmounted(() => {
             </li>
           </ul>
           <div class="p-3 sm:p-5">
-            <ResumePreview :content="markdown" :images="images" :compact="compact" estimate-pages @pagination="pagination = $event" />
+            <ResumePreview :content="markdown" :images="images" :compact="compact" :theme-id="themeId" estimate-pages @pagination="pagination = $event" />
           </div>
         </div>
       </div>
       <ResumeAssets v-model:open="assetsOpen" :enabled="canUseImages" :user-id="userId" :assets="assets" :images="images" @uploaded="uploaded" @removed="removed" @insert="insertAsset" />
-      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" :saved-content="record.content" :dirty="dirty" :compact="compact" :load-image="loadImage" @locate="locateResumeRange" />
+      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" :saved-content="record.content" :dirty="dirty" :compact="compact" :theme-id="themeId" :load-image="loadImage" @locate="locateResumeRange" />
     </template>
     <div v-if="record" class="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden" role="group" aria-label="简历操作">
       <UiButton class="flex-1" :disabled="!canSave || Boolean(pendingAction) || submissionLocked" @click="write('save')"><RiSaveLine data-icon="inline-start" />{{ pendingAction === 'save' ? '正在保存…' : '保存' }}</UiButton>

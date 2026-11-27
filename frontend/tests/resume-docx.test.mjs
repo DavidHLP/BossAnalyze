@@ -75,3 +75,20 @@ test('compact Word export uses 10pt text and 1.35 line spacing without changing 
   assert.notEqual(zipXml(compact, 'word/styles.xml'), zipXml(standard, 'word/styles.xml'))
   assert.equal(zipXml(compact, 'word/document.xml'), zipXml(standard, 'word/document.xml'))
 })
+
+test('Word maps the selected theme to editable heading styles, separators and links', async () => {
+  const blocks = resumePreview('# 简历\n\n## 经历\n\n[作品](https://example.invalid)\n\n---')
+  const wordFiles = async theme => {
+    const zip = Buffer.from(await (await resumeDocx(blocks, false, theme)).arrayBuffer())
+    return { styles: zipXml(zip, 'word/styles.xml'), document: zipXml(zip, 'word/document.xml') }
+  }
+  const basic = await wordFiles('basic')
+  const modern = await wordFiles('modern')
+  const style = (xml, id) => xml.match(new RegExp('<w:style [^>]*w:styleId="' + id + '".*?<\\/w:style>'))?.[0]
+  assert.match(style(basic.styles, 'Heading1'), /<w:color w:val="161616"\/>.*?<w:sz w:val="36"\/>/)
+  assert.match(style(modern.styles, 'Heading1'), /<w:color w:val="194F6B"\/>.*?<w:sz w:val="44"\/>/)
+  assert.match(style(modern.styles, 'Heading2'), /<w:pBdr>.*?w:color="8EA7B4"/)
+  assert.match(style(modern.styles, 'Hyperlink'), /<w:color w:val="194F6B"\/>/)
+  assert.match(modern.styles, /<w:docDefaults>.*?<w:sz w:val="22"\/>/)
+  assert.match(modern.document, /<w:pStyle w:val="Heading1"\/>.*?<w:pStyle w:val="Heading2"\/>.*?<w:bottom[^>]*w:color="8EA7B4"/)
+})

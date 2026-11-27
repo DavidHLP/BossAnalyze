@@ -1,3 +1,5 @@
+import { resumeThemeCss } from './resume-theme.ts'
+
 const pageWidthMm = 210
 const pageHeightMm = 297
 const pageMarginMm = 16
@@ -7,6 +9,8 @@ export const resumePageHeight = `${pageHeightMm}mm`
 export const resumePageMargin = `${pageMarginMm}mm`
 export const resumePageContentHeightPx = (pageHeightMm - pageMarginMm * 2) * 96 / 25.4
 export const resumeCompactClass = 'resume-body-compact'
+export const resumeFontSizePt = 11
+export const resumeLineHeight = 1.5
 export const resumeCompactFontSizePt = 10
 export const resumeCompactLineHeight = 1.35
 
@@ -14,20 +18,30 @@ export const resumeLayoutCss = `
   .resume-body {
     width: ${pageWidthMm - pageMarginMm * 2}mm;
     margin-inline: auto;
-    font: 11pt/1.5 system-ui, sans-serif;
+    font: ${resumeFontSizePt}pt/${resumeLineHeight} system-ui, sans-serif;
+    color: #161616;
     overflow-wrap: anywhere;
   }
   .resume-body.${resumeCompactClass} { font-size: ${resumeCompactFontSizePt}pt; line-height: ${resumeCompactLineHeight}; }
-  .resume-body :is(h1, h2, h3) { margin: 0 0 0.4em; font-weight: 600; break-after: avoid; }
-  .resume-body h1 { font-size: 18pt; line-height: 1.33; letter-spacing: -0.025em; }
-  .resume-body :is(h2, h3) { margin-top: 0.8em; border-bottom: 1px solid #9996; padding-bottom: 0.2em; }
-  .resume-body h2 { font-size: 12pt; }
-  .resume-body h3 { font-size: 11pt; }
+  ${resumeThemeCss}
+  ${[1, 2, 3].map(level => {
+    const prefix = '--resume-h' + level
+    return `.resume-body h${level} {
+      margin: var(${prefix}-before) 0 var(${prefix}-after);
+      font-size: var(${prefix}-size);
+      font-weight: var(${prefix}-weight);
+      color: var(${prefix}-color);
+      border-bottom: var(${prefix}-rule);
+      padding-bottom: var(${prefix}-padding);
+      break-after: avoid;
+    }`
+  }).join('\n')}
+  .resume-body h1 { line-height: 1.33; letter-spacing: -0.025em; }
   .resume-body :is(p, pre, ul, ol, figure, table, .resume-math-block) { margin: 0.5em 0; }
   .resume-body > :first-child { margin-top: 0; }
   .resume-body > :last-child { margin-bottom: 0; }
   .resume-body p { orphans: 2; widows: 2; }
-  .resume-body hr { margin: 0.75em 0; border: 0; border-top: 1px solid #9996; }
+  .resume-body hr { margin: 0.75em 0; border: 0; border-top: 1px solid var(--resume-rule-color); }
   .resume-body :is(ul, ol) { padding-inline-start: 1.6em; }
   .resume-body ul { list-style: disc; }
   .resume-body ol { list-style: decimal; }
@@ -38,7 +52,7 @@ export const resumeLayoutCss = `
   .resume-body thead { break-inside: avoid; }
   .resume-body :is(th, td) { border: 1px solid #9998; padding: 0.25em 0.5em; text-align: left; }
   .resume-body th { background: #9992; font-weight: 600; }
-  .resume-body a { color: inherit; text-decoration: underline; }
+  .resume-body a { color: var(--resume-link-color); text-decoration: underline; }
   .resume-body img { display: block; max-width: 100%; max-height: 208px; width: auto; height: auto; }
   .resume-body figcaption { opacity: 0.75; }
   .resume-body .resume-math-block { display: block; overflow-x: auto; }

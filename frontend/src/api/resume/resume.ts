@@ -1,5 +1,6 @@
 import request from '@/utils/request/request'
 import { requireMutationSuccess } from '@/lib/rbac-mutations'
+import type { ResumeThemeId } from '@/lib/resume-theme'
 
 export interface ResumeRecord {
   id: string
@@ -11,6 +12,7 @@ export interface ResumeRecord {
   currentBranch?: string
   headCommit?: string | null
   workspaceRevision?: number
+  themeId?: ResumeThemeId
   branches?: Record<string, string | null>
   stashStack?: unknown[]
 }
@@ -67,6 +69,13 @@ export async function listResumes() {
 
 export async function getResume(id: string) {
   return record(await request.get(resource(id)))
+}
+
+export async function updateResumeAppearance(id: string, themeId: ResumeThemeId) {
+  const result: unknown = await request.patch(resource(id) + '/appearance', { themeId })
+  if (!result || typeof result !== 'object' || !('themeId' in result) || result.themeId !== themeId) {
+    throw new Error('简历主题未确认')
+  }
 }
 
 function writtenRecord(value: unknown) {

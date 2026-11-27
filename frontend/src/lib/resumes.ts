@@ -1,4 +1,5 @@
 import { isResumeImageDataUrl, resumeCompactClass, resumeLayoutCss, resumePageMargin } from './resume-render.ts'
+import { resumeThemeAttribute, type ResumeThemeId } from './resume-theme.ts'
 
 export function shortCommit(id: string | null | undefined) {
   return id?.slice(0, 8) || '—'
@@ -635,9 +636,10 @@ function inlineHtml(tokens: ResumeInline[], renderMath?: ResumeMathRender) {
 }
 
 export function resumeHtml(title: string, content: string | PreviewBlock[], renderMath?: ResumeMathRender,
-  { images, includeImages = true, compact = false }: {
-    images?: Readonly<Record<string, string>>; includeImages?: boolean; compact?: boolean
+  { images, includeImages = true, compact = false, themeId }: {
+    images?: Readonly<Record<string, string>>; includeImages?: boolean; compact?: boolean; themeId?: ResumeThemeId
   } = {}): string {
+  const theme = resumeThemeAttribute(themeId)
   const blocks = typeof content === 'string' ? resumePreview(content) : content
   const renderInline = (tokens: ResumeInline[]) => inlineHtml(tokens, renderMath)
   const body = blocks.map(block => {
@@ -682,7 +684,7 @@ export function resumeHtml(title: string, content: string | PreviewBlock[], rend
   ${resumeLayoutCss}
   @media print { body { padding: 0; } }
 </style>
-<body><article class="resume-body${compact ? ' ' + resumeCompactClass : ''}">${body}</article></body></html>`
+<body><article class="resume-body${compact ? ' ' + resumeCompactClass : ''}"${theme ? ` data-resume-theme="${theme}"` : ''}>${body}</article></body></html>`
 }
 
 type CommitParents = { id: string; parentCommits?: string[] }[]
