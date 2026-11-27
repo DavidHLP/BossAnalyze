@@ -3,12 +3,14 @@ import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } fr
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { RiArrowLeftLine, RiHistoryLine, RiSaveLine } from '@remixicon/vue'
 import {
-  changeResumeVersion, createResume, getResume, resumeHistory, type ResumeCommit, type ResumeRecord,
+  changeResumeVersion, createResume, getResume, listResumes, resumeHistory, type ResumeCommit, type ResumeRecord,
 } from '@/api/resume/resume'
 import { ownsResumeAsset } from '@/api/resume/assets'
 import { useResumeImages } from '@/composables/useResumeImages'
 import { useSession } from '@/composables/useSession'
 import { registerDirtyDraft } from '@/composables/session-events'
+import { mutationResultUnknown } from '@/lib/rbac-mutations'
+import { resumeCopyContent, resumeCopySourceLabel, resumeCopyTitle, resumeCopyVerified } from '@/lib/resume-copy'
 import {
   assetMarkdown, resumeAssetNames, resumeConflictCopyTitle, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime,
   resumeWriteConflict, shortCommit, type ResumeConflictState, type ResumeDraft,
@@ -54,6 +56,15 @@ const conflictOpen = ref(false)
 const conflictState = shallowRef<ResumeConflictState | null>(null)
 const conflictPending = ref<'server' | 'copy' | null>(null)
 const conflictError = ref('')
+const copyOpen = ref(false)
+const copyPending = ref(false)
+const copyError = ref('')
+const copyNote = ref('')
+const copyTitle = ref('')
+const copyUnverified = ref(false)
+const copyCheck = shallowRef<{ title: string; content: string; id: string | null } | null>(null)
+const copyPreview = computed(() => resumeCopyContent(record.value?.content ?? ''))
+const copySource = computed(() => resumeCopySourceLabel(dirty.value))
 const account = computed(() => {
   const user = session.state.value.user
   if (user?.id !== undefined) return 'id:' + user.id
@@ -529,6 +540,111 @@ async function saveConflictCopy() {
   }
 }
 
+function openCopy() {
+  if (!record.value || pendingAction.value) return
+  // Keep an unconfirmed attempt so reopening the dialog cannot create a duplicate.
+  if (!copyUnverified.value) {
+    copyTitle.value = resumeCopyTitle(record.value.title)
+    copyCheck.value = null
+  }
+  copyError.value = copyNote.value = ''
+  copyOpen.value = true
+}
+
+async function verifyCopy(check: NonNullable<typeof copyCheck.value>, owner: ReturnType<typeof session.capture>) {
+  try {
+    let target = check.id
+    if (target) {
+      const [item, commits] = await Promise.all([getResume(target), resumeHistory(target, 2)])
+      if (!session.owns(owner) || !resumeCopyVerified(item, check.title, check.content, commits)) return false
+    } else {
+      // Without an ID the create reply was lost, so confirm through the server list.
+      const items = await listResumes()
+      const match = items.find(item => item.id !== id.value &&
+        item.title === check.title && (item.content ?? '') === check.content)
+      if (!session.owns(owner) || !match) return false
+      target = match.id
+    }
+    copyOpen.value = false
+    copyUnverified.value = false
+    copyNote.value = '简历副本已创建。'
+    await router.push('/resumes/' + target + '/edit')
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function createCopy() {
+  const current = record.value
+  if (copyPending.value || !current || writeLocked.value) return
+  const name = copyTitle.value.trim()
+  if (!name) {
+    copyError.value = '请输入副本标题。'
+    return
+  }
+  const check = { title: name, content: resumeCopyContent(current.content ?? '').content, id: null as string | null }
+  copyCheck.value = check
+  copyPending.value = true
+  copyError.value = ''
+  const owner = session.capture()
+  try {
+    try {
+      check.id = (await createResume(check.title, check.content)).id
+    } catch (cause) {
+      if (!session.owns(owner)) return
+      if (mutationResultUnknown(cause)) {
+        copyUnverified.value = true
+        copyError.value = '创建结果未知，标题已保留。正在刷新核对，确认前请勿重复创建。'
+        if (!(await verifyCopy(check, owner)) && session.owns(owner)) {
+          copyError.value = '暂未发现副本。请刷新核对，确认未生成后再重试，避免重复创建。'
+        }
+      } else {
+        copyError.value = '复制失败，请核对后重试。'
+      }
+      return
+    }
+    if (!session.owns(owner)) return
+    if (!(await verifyCopy(check, owner))) {
+      copyUnverified.value = true
+      copyError.value = '副本已受理，但未能回读确认标题、正文或初始版本。请刷新核对。'
+    }
+  } finally {
+    if (session.owns(owner)) copyPending.value = false
+  }
+}
+
+async function retryCopy() {
+  const check = copyCheck.value
+  if (!check || copyPending.value) return
+  copyPending.value = true
+  copyError.value = ''
+  const owner = session.capture()
+  try {
+    if (await verifyCopy(check, owner)) return
+    if (session.owns(owner)) copyError.value = '仍未回读确认副本。请到我的简历核对后再操作，避免重复创建。'
+  } finally {
+    if (session.owns(owner)) copyPending.value = false
+  }
+}
+
+async function saveThenCopy() {
+  if (copyPending.value || !dirty.value || localDraft.value) return
+  copyPending.value = true
+  copyError.value = ''
+  try {
+    await write('save')
+    if (!dirty.value && !writeError.value && !writeLocked.value) {
+      copyPending.value = false
+      await createCopy()
+      return
+    }
+    copyError.value = '保存未回读确认，尚未创建副本。请核对当前版本后重试。'
+  } finally {
+    copyPending.value = false
+  }
+}
+
 function blockNavigation() {
   if (session.state.value.invalidated) return true
   if (pendingAction.value || leaveDecision) return false
@@ -629,6 +745,7 @@ onUnmounted(() => {
           <UiDropdownMenuContent align="end" class="w-48">
             <UiDropdownMenuItem :disabled="!dirty || Boolean(pendingAction) || submissionLocked" @select="write('stash')">暂存草稿</UiDropdownMenuItem>
             <UiDropdownMenuItem :disabled="Boolean(pendingAction) || Boolean(localDraft)" @select="openRestore">恢复服务器正文</UiDropdownMenuItem>
+            <UiDropdownMenuItem :disabled="Boolean(pendingAction)" @select="openCopy">复制简历</UiDropdownMenuItem>
             <UiDropdownMenuItem :disabled="Boolean(pendingAction)" @select="assetsOpen = true">图片素材</UiDropdownMenuItem>
           </UiDropdownMenuContent>
         </UiDropdownMenu>
@@ -734,6 +851,40 @@ onUnmounted(() => {
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>
+    <UiDialog v-model:open="copyOpen">
+      <UiDialogContent @interact-outside.prevent @escape-key-down="copyPending && $event.preventDefault()">
+        <UiDialogHeader>
+          <UiDialogTitle>复制简历</UiDialogTitle>
+          <UiDialogDescription>以服务器已保存正文创建一份独立简历和一条初始版本，原简历不变。副本可使用新标题，创建后继续编辑。</UiDialogDescription>
+        </UiDialogHeader>
+        <div class="flex flex-col gap-4">
+          <UiAlert>
+            <UiAlertDescription>
+              复制来源：{{ copySource }}。
+              <template v-if="copyPreview.imageCount">{{ copyPreview.imageCount }} 张图片不会随副本复制，正文中保留文字占位。</template>
+              <template v-else>图片素材为用户级素材，不会随副本复制。</template>
+            </UiAlertDescription>
+          </UiAlert>
+          <UiAlert v-if="dirty" role="status">
+            <UiAlertDescription>当前有未保存修改，副本不会包含这些修改。可先保存再复制，或明确复制服务器版本。</UiAlertDescription>
+          </UiAlert>
+          <UiField>
+            <UiFieldLabel for="resume-copy-title">副本标题</UiFieldLabel>
+            <UiInput id="resume-copy-title" v-model="copyTitle" maxlength="120" :disabled="copyPending || copyUnverified" required />
+          </UiField>
+          <p v-if="copyError" role="alert" class="text-sm text-destructive">{{ copyError }}</p>
+        </div>
+        <UiDialogFooter>
+          <UiButton variant="outline" :disabled="copyPending" @click="copyOpen = false">取消</UiButton>
+          <UiButton v-if="copyUnverified" variant="outline" :disabled="copyPending" @click="retryCopy">重新核对</UiButton>
+          <template v-else>
+            <UiButton v-if="dirty && !localDraft" variant="outline" :disabled="copyPending || Boolean(pendingAction)" @click="saveThenCopy">先保存再复制</UiButton>
+            <UiButton :disabled="copyPending || Boolean(pendingAction)" @click="createCopy">{{ copyPending ? '正在创建…' : '复制服务器版本' }}</UiButton>
+          </template>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
+    <p v-if="copyNote" role="status" class="text-sm text-muted-foreground">{{ copyNote }}</p>
     <p v-if="feedback" role="status" class="text-sm text-muted-foreground">{{ feedback }}</p>
     <p v-if="savedAt" role="status" class="text-sm text-muted-foreground">已保存 {{ savedAt }} · 版本 {{ savedCommit }}</p>
     <UiSkeleton v-if="pending && !record" role="status" aria-label="正在读取简历" class="h-96" />
@@ -808,6 +959,7 @@ onUnmounted(() => {
         </UiDropdownMenuTrigger>
         <UiDropdownMenuContent align="end" :side="'top'" class="w-48">
           <UiDropdownMenuItem :disabled="!dirty || Boolean(pendingAction) || submissionLocked" @select="write('stash')">暂存草稿</UiDropdownMenuItem>
+          <UiDropdownMenuItem :disabled="Boolean(pendingAction)" @select="openCopy">复制简历</UiDropdownMenuItem>
           <UiDropdownMenuItem :disabled="Boolean(pendingAction)" @select="assetsOpen = true">图片素材</UiDropdownMenuItem>
           <UiDropdownMenuItem as-child>
             <RouterLink :to="'/resumes/' + id + '/versions'">版本历史</RouterLink>
