@@ -1,3 +1,26 @@
+import { parseSnapshotTime } from './dashboard.ts'
+
+export type LogReadResult = 'updated' | 'unchanged' | 'empty' | 'error' | 'forbidden' | null
+
+export function logReadStatus(parts: ReadonlyArray<{ loading: boolean; result: LogReadResult }>) {
+  if (parts.some(part => part.loading)) return '正在读取日志缓存…'
+  const results = parts.map(part => part.result).filter(result => result !== null)
+  if (!results.length) return ''
+  if (results.every(result => result === 'forbidden')) return '日志分项读取均被拒绝（403）'
+  if (results.includes('forbidden')) {
+    return results.includes('error')
+      ? '部分日志分项读取被拒绝（403），其他分项读取失败'
+      : '部分日志分项读取被拒绝（403）'
+  }
+  if (results.every(result => result === 'empty')) return '暂无可用的日志快照'
+  if (results.every(result => result === 'empty' || result === 'error')) return '未能读取日志快照，请重试'
+  if (results.includes('error')) {
+    return results.includes('empty') ? '部分日志分项暂无快照或读取失败' : '部分日志分项读取失败'
+  }
+  if (results.includes('empty')) return '部分日志分项暂无快照'
+  return results.includes('unchanged') ? '已读取全部日志分项，星期快照暂无更新' : '已读取全部日志分项'
+}
+
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid log response')
   return value as Record<string, unknown>
@@ -16,7 +39,6 @@ export function logTotals(value: unknown) {
 export function heatBuckets(value: unknown) {
   const data = object(value)
   function read(key: 'hourHeatmap' | 'minuteHeatmap', expression: RegExp) {
-    if (data[key] == null) return []
     return Object.entries(object(data[key])).map(([label, entry]) => {
       if (!expression.test(label)) throw new Error('Invalid bucket time')
       return { label, count: amount(object(entry).count) }
@@ -28,25 +50,41 @@ export function heatBuckets(value: unknown) {
   }
 }
 
+function text(value: unknown) {
+  return typeof value === 'string' ? value.trim() || null : null
+}
+
+function flag(value: unknown) {
+  return typeof value === 'boolean' ? value : null
+}
+
+function nonnegative(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+}
+
 export function ipDistribution(value: unknown) {
   const data = object(value)
-  const countries = new Map<string, number>()
-  const cities = new Map<string, number>()
+  type Group = { key: string; name: string; count: number }
+  const countries = new Map<string, Group>()
+  const cities = new Map<string, Group>()
   const known = new Set<string>()
-  const numberFor = (map: Map<string, number>, label: string, count: number) => map.set(label, (map.get(label) ?? 0) + count)
-  const labelFor = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : '未知'
-  const records = Object.entries(data.ipStats == null ? {} : object(data.ipStats)).map(([ip, value]) => {
+  function add(map: Map<string, Group>, key: string, name: string, count: number) {
+    const group = map.get(key)
+    if (group) group.count += count
+    else map.set(key, { key, name, count })
+  }
+  const records = Object.entries(object(data.ipStats)).map(([ip, value]) => {
     const item = object(value)
     const count = amount(item.count)
-    const country = labelFor(item.countryName)
-    const city = labelFor(item.city)
+    const country = text(item.countryName) ?? '未知'
+    const city = text(item.city) ?? '未知'
     if (country !== '未知') known.add(country)
-    numberFor(countries, country, count)
-    numberFor(cities, city, count)
-    return { ip, country, city, count }
+    add(countries, country, country, count)
+    add(cities, JSON.stringify([country, city]), `${city}（${country}）`, count)
+    return { ip, country, city, count, province: text(item.province) ?? text(item.region), isLocal: flag(item.isLocal) }
   }).sort((a, b) => b.count - a.count)
-  function top(map: Map<string, number>) {
-    return [...map].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
+  function top(map: Map<string, Group>) {
+    return [...map.values()].sort((a, b) => b.count - a.count)
   }
   return { records, countries: top(countries), cities: top(cities), known: known.size }
 }
@@ -55,15 +93,22 @@ export const weekdays = ['周一', '周二', '周三', '周四', '周五', '周�
 
 export function weekdayDistribution(value: unknown) {
   const data = object(value)
-  const times = typeof data.generatedAt === 'number' && Number.isFinite(new Date(data.generatedAt).getTime())
-    ? new Date(data.generatedAt).toISOString() : typeof data.generatedAt === 'string' ? data.generatedAt : ''
-  const distribution = data.weekdayStatistics == null ? {} : object(data.weekdayStatistics)
-  const byDay = distribution.weekdayStats == null ? {} : object(distribution.weekdayStats)
+  const time = parseSnapshotTime(data.generatedAt)
+  const byDay = object(object(data.weekdayStatistics).weekdayStats)
+  const noVisits = data.overview != null && object(data.overview).totalVisits === 0
   // Spark dayofweek uses Sunday=1. Print Monday first.
-  return { time: times, days: [2, 3, 4, 5, 6, 7, 1].map((key, i) => ({
-    name: weekdays[i]!,
-    count: byDay[key] == null ? null : amount(object(byDay[key]).count),
-  })) }
+  const days = [2, 3, 4, 5, 6, 7, 1].map((key, i) => {
+    const day = byDay[key] == null ? null : object(byDay[key])
+    return {
+      name: weekdays[i]!,
+      count: day ? amount(day.count) : null,
+      percentage: noVisits ? null : nonnegative(day?.percentage),
+      isWorkday: flag(day?.isWorkday),
+      isWeekend: flag(day?.isWeekend),
+      avgHourlyVisits: nonnegative(day?.avgHourlyVisits),
+    }
+  })
+  return { time, days }
 }
 
 export function weekdayAverages(hours: { label: string; count: number }[]) {

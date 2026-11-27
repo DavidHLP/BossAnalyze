@@ -18,16 +18,22 @@ interface Session {
 }
 
 let loadedOwner: SessionOwner | null = null
+let loadRevision = 0
+let appliedRevision = 0
 
 const state = ref<Session>({ user: null, menus: [], permissions: [], ready: false })
+const crossTabChanged = ref<'changed' | 'cleared' | null>(null)
 
 export function useSession(router = useRouter()) {
 
   function capture() {
     return sessionOwner()
   }
+  function capturePage() {
+    return loadedOwner
+  }
   function owns(owner: SessionOwner | null) {
-    return !state.value.invalidated && !!owner &&
+    return !crossTabChanged.value && !state.value.invalidated && !!owner &&
       validSession(owner.token, owner.timestamp) && ownsSession(owner)
   }
   function changed() {
@@ -37,19 +43,14 @@ export function useSession(router = useRouter()) {
   function clear() {
     advanceSession()
     loadedOwner = null
+    crossTabChanged.value = null
     state.value = { user: null, menus: [], permissions: [], ready: false, invalidated: true }
     for (const key of ['token', 'token_timestamp', 'cachedRoutes']) localStorage.removeItem(key)
     sessionStorage.removeItem('token_timestamp')
   }
 
-  async function restore() {
-    const owner = sessionOwner()
-    if (!validSession(owner.token, owner.timestamp)) {
-      clear()
-      return false
-    }
-    if (state.value.ready && loadedOwner && ownsSession(loadedOwner)) return true
-    state.value = { user: null, menus: [], permissions: [], ready: false }
+  async function load(owner: SessionOwner) {
+    const revision = ++loadRevision
     let result
     try {
       result = await withSessionOwner(owner, () => Promise.all([
@@ -58,13 +59,14 @@ export function useSession(router = useRouter()) {
         getUserRoutes(),
       ]))
     } catch (error) {
-      if (!ownsSession(owner)) {
-        if (sessionOwner().token) return restore()
-      } else if (error && typeof error === 'object' && 'code' in error && error.code === 401) clear()
+      if (ownsSession(owner) && error && typeof error === 'object' && 'code' in error && error.code === 401) {
+        clear()
+      }
       throw error
     }
     const [user, permissions, routes] = result
-    if (!ownsSession(owner)) return restore()
+    if (!ownsSession(owner) || !validSession(owner.token, owner.timestamp)) return false
+    if (revision < appliedRevision) return true
     if (!user || typeof user !== 'object' || typeof user.email !== 'string') {
       throw new Error('Invalid user response')
     }
@@ -79,8 +81,37 @@ export function useSession(router = useRouter()) {
       ready: true,
     }
     loadedOwner = owner
+    appliedRevision = revision
     bindDocumentSession(owner)
     return true
+  }
+
+  async function restore() {
+    if (crossTabChanged.value) return false
+    const owner = sessionOwner()
+    if (!validSession(owner.token, owner.timestamp)) {
+      clear()
+      return false
+    }
+    if (state.value.ready && loadedOwner && ownsSession(loadedOwner)) return true
+    state.value = { user: null, menus: [], permissions: [], ready: false }
+    try {
+      if (await load(owner)) return true
+    } catch (error) {
+      if (crossTabChanged.value) return false
+      if (ownsSession(owner) || !sessionOwner().token) throw error
+    }
+    return restore()
+  }
+
+  async function refresh(): Promise<boolean> {
+    const owner = sessionOwner()
+    if (!owns(owner)) return false
+    try {
+      return await load(owner)
+    } catch {
+      return false
+    }
   }
 
   async function signIn(email: string, password: string) {
@@ -105,9 +136,9 @@ export function useSession(router = useRouter()) {
     force = false,
     destination: unknown = null,
     reason?: string,
-    owner = sessionOwner(),
+    owner = capturePage(),
   ) {
-    if (!ownsSession(owner)) return false
+    if (crossTabChanged.value || !owner || !ownsSession(owner)) return false
     if (force) clear()
     const target = destination ? loginLocation(destination, reason) : '/login'
     const failure = await router.replace(target)
@@ -128,5 +159,5 @@ export function useSession(router = useRouter()) {
     return true
   }
 
-  return { state, restore, signIn, signOut, clear, capture, owns, changed }
+  return { state, crossTabChanged, restore, refresh, signIn, signOut, clear, capture, capturePage, owns, changed }
 }

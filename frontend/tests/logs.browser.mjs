@@ -106,17 +106,25 @@ test('读取日志区分初次延迟、同一快照、读取失败、空缓存�
         const path = new URL(route.request().url()).pathname
         const dashboard = path.endsWith('/dashboard/stats')
         const totals = path.endsWith('/logs/stats')
-        if (phase === 'empty') return route.fulfill({ status: 204 })
+        if (phase === 'cold' || phase === 'denied') {
+          if (dashboard) return route.fulfill({ status: 204 })
+          if (totals) return route.fulfill({ status: 503, json: { error: '日志分析服务暂不可用' } })
+          if (phase === 'denied' && path.endsWith('/heatmap')) return route.fulfill({ status: 403, json: { code: 403 } })
+          return route.fulfill({ status: 200, json: {} })
+        }
         await delay.promise
-        if (!dashboard && !totals) return route.fallback()
         if (totals && phase === 'error') {
           return route.fulfill({ status: 503, json: { code: 503 } })
         }
+        let data
+        if (dashboard) data = { generatedAt: time, weekdayStatistics: { weekdayStats: { 6: { count: 0 } } } }
+        else if (totals) data = { totalVisits: phase === 'zero' ? 0 : 13, uniqueIps: phase === 'zero' ? 0 : 6 }
+        else if (path.endsWith('/heatmap')) data = { hourHeatmap: {}, minuteHeatmap: {} }
+        else if (path.endsWith('/ip-statistics')) data = { ipStats: {} }
+        else return route.fallback()
         return route.fulfill({
           status: 200,
-          json: { code: 200, data: dashboard
-            ? { generatedAt: time, weekdayStatistics: { weekdayStats: { 6: { count: 0 } } } }
-            : { totalVisits: phase === 'zero' ? 0 : 13, uniqueIps: phase === 'zero' ? 0 : 6 } },
+          json: { code: 200, data },
         })
       })
     },
@@ -124,7 +132,7 @@ test('读取日志区分初次延迟、同一快照、读取失败、空缓存�
   const metrics = page.getByRole('region', { name: '快照指标' })
   const busy = page.getByRole('button', { name: '正在读取…', exact: true })
   const refresh = page.getByRole('button', { name: '刷新缓存', exact: true })
-  const checked = page.getByText('已检查，暂无新快照', { exact: true })
+  const checked = metrics.getByText('已读取全部日志分项，星期快照暂无更新', { exact: true })
   const snapshotTime = page.getByText('快照时间 ' + time, { exact: true })
 
   await busy.waitFor({ timeout: 2000 })
@@ -155,12 +163,19 @@ test('读取日志区分初次延迟、同一快照、读取失败、空缓存�
   assert.equal(await metrics.getByText('0', { exact: true }).count(), 2)
   await screenshot(metrics, 'p3-zero-snapshot')
 
-  phase = 'empty'
+  phase = 'cold'
   await refresh.click()
-  await metrics.getByText('暂无可用的日志快照', { exact: true }).waitFor()
-  assert.equal(await metrics.getByText('0', { exact: true }).count(), 0)
+  await metrics.getByText('未能读取日志快照，请重试', { exact: true }).waitFor()
   assert.equal(await snapshotTime.count(), 0)
-  assert.equal(await retry.count(), 0)
+  assert.ok(await retry.isVisible())
+  assert.ok(await page.getByRole('button', { name: '重试读取热力图' }).isVisible())
+
+  phase = 'denied'
+  await refresh.click()
+  await metrics.getByText('部分日志分项读取被拒绝（403），其他分项读取失败', { exact: true }).waitFor()
+  const denied = page.getByRole('alert').filter({ hasText: '当前账号缺少日志读取权限。' })
+  assert.ok(await denied.getByRole('button', { name: '重试读取热力图' }).isVisible())
+  assert.ok(await retry.isVisible())
 })
 
 test('390px 下趋势和热力图提供精确时段的触控入口，并保留方向键导航', async t => {

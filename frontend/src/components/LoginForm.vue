@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useSession } from '@/composables/useSession'
 import { AlertCircleIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -16,23 +16,38 @@ const action = ref<'login' | 'restore' | null>(null)
 const pending = computed(() => action.value !== null)
 const error = ref('')
 const canRestore = ref(false)
+let active = true
+let leaveCount = 0
 
 function updateRestoreAvailability() {
   canRestore.value = Boolean(localStorage.getItem('token'))
 }
 
 onMounted(updateRestoreAvailability)
+onUnmounted(() => { active = false })
+onBeforeRouteLeave(() => { leaveCount++ })
 watch(() => session.state.value.invalidated, (invalidated) => {
   if (invalidated) updateRestoreAvailability()
 })
 
+function authenticationReturn() {
+  const startPath = route.path
+  const startLeaveCount = leaveCount
+  return () => {
+    if (active && router.currentRoute.value.path === startPath && leaveCount === startLeaveCount) {
+      return router.replace(loginDestination(route.query.redirect, session.state.value.menus))
+    }
+  }
+}
+
 async function retrySession() {
   if (pending.value) return
+  const returnAfterAuthentication = authenticationReturn()
   action.value = 'restore'
   error.value = ''
   try {
     if (await session.restore()) {
-      await router.replace(loginDestination(route.query.redirect, session.state.value.menus))
+      await returnAfterAuthentication()
     } else {
       error.value = '会话已失效，请重新登录。'
     }
@@ -48,12 +63,14 @@ async function retrySession() {
 
 async function submit() {
   if (pending.value) return
+  const returnAfterAuthentication = authenticationReturn()
   action.value = 'login'
   error.value = ''
   try {
     await session.signIn(email.value.trim(), password.value)
     password.value = ''
-    await router.replace(loginDestination(route.query.redirect, session.state.value.menus))
+    updateRestoreAvailability()
+    await returnAfterAuthentication()
   } catch (cause) {
     updateRestoreAvailability()
     error.value = canRestore.value

@@ -51,6 +51,15 @@ test('metadata save does not send permissions and default role cannot be renamed
   assert.ok(roleErrors(roleDraft()).roleName)
 })
 
+test('metadata form and payload refuse to deactivate the default role', () => {
+  const defaultRole = roles.find(isDefaultRole)
+  const draft = { ...roleDraft(defaultRole), status: '0' }
+  assert.equal(roleErrors(draft, defaultRole).status, '系统默认角色不可停用')
+  assert.throws(() => rolePayload(draft, defaultRole))
+  assert.equal(rolePayload({ ...draft, status: '1' }, defaultRole).status, 1)
+  assert.equal(rolePayload({ ...roleDraft(roles.find(role => !isDefaultRole(role))), status: '0' }).status, 0)
+})
+
 test('tree retains disabled and action nodes but rejects duplicate or unrepresentable IDs', () => {
   assert.equal(permissionRows(tree).length, 5)
   assert.ok(permissionRows(tree).some((row) => row.node.id === 14 && row.node.status === 0))

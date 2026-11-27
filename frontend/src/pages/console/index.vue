@@ -130,15 +130,14 @@ onMounted(loadOverview)
     </nav>
 
     <UiCard
-      v-if="canViewDashboard"
       class="min-w-0 gap-3 py-4"
       role="region"
       aria-labelledby="overview-title"
-      :aria-busy="statsState === 'loading'"
+      :aria-busy="canViewDashboard && statsState === 'loading'"
     >
       <UiCardHeader class="flex flex-wrap items-center justify-between gap-3">
         <h2 id="overview-title" class="text-lg font-semibold">日志访问概览</h2>
-        <div class="flex flex-wrap gap-2">
+        <div v-if="canViewDashboard" class="flex flex-wrap gap-2">
           <UiButton variant="outline" size="sm" :aria-disabled="statsState === 'loading'" @click="refreshStats">
             <HugeiconsIcon :icon="RefreshIcon" class="size-4" aria-hidden="true" />
             刷新概览
@@ -152,7 +151,10 @@ onMounted(loadOverview)
         </div>
       </UiCardHeader>
       <UiCardContent>
-        <p v-if="statsState === 'forbidden'" role="status" class="border-t pt-4 text-sm text-muted-foreground">
+        <p v-if="!canViewDashboard" class="border-t pt-4 text-sm text-muted-foreground">
+          当前账号未获数据看板权限，日志概览尚未开放。请联系管理员确认权限。
+        </p>
+        <p v-else-if="statsState === 'forbidden'" role="status" class="border-t pt-4 text-sm text-muted-foreground">
           当前账号无权读取日志概览，请联系管理员确认权限。
         </p>
         <UiAlert v-else-if="statsState === 'error'" variant="destructive" role="alert">
@@ -203,9 +205,14 @@ onMounted(loadOverview)
       </UiCardContent>
     </UiCard>
 
-    <section v-if="shortcuts.length" class="min-w-0 space-y-3" aria-labelledby="shortcuts-title">
+    <section class="min-w-0 space-y-3" aria-labelledby="shortcuts-title">
       <h2 id="shortcuts-title" class="text-lg font-semibold">授权快捷入口</h2>
-      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <UiCard v-if="!shortcuts.length" class="gap-3 py-4">
+        <UiCardContent class="text-sm text-muted-foreground">
+          当前账号暂无可用的授权快捷入口。
+        </UiCardContent>
+      </UiCard>
+      <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <UiButton
           v-for="item in shortcuts"
           :key="item.path"

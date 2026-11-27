@@ -6,7 +6,7 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { withSessionOwner } from '@/lib/session'
 import { addRole, editRole, getRoleList, updateRoleRouters } from '@/api/auth/auth'
-import { mutationError, mutationResultUnknown, sessionChangedMessage } from '@/lib/rbac-mutations'
+import { mutationError, mutationResultUnknown, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
 import {
   canonicalSelection,
   filterPermissionTree,
@@ -23,6 +23,7 @@ import {
 } from '@/lib/roles'
 import type { ManagedRole, PermissionNode } from '@/lib/roles'
 import { useSession } from '@/composables/useSession'
+import { registerDirtyDraft } from '@/composables/session-events'
 import PermissionBranch from './PermissionBranch.vue'
 
 const props = defineProps<{
@@ -36,6 +37,9 @@ const props = defineProps<{
   actorRoleId: number | null
   locked: boolean
   awaitingRead: boolean
+  writeUnconfirmed: boolean
+  listPending: boolean
+  listFailed: boolean
 }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
@@ -44,6 +48,8 @@ const emit = defineEmits<{
   rolesRead: [rows: ManagedRole[], id: number]
   retryTree: []
   unconfirmed: []
+  writeUnconfirmed: [self: boolean]
+  refreshList: []
 }>()
 const mobile = useMediaQuery('(width < 640px)')
 const session = useSession()
@@ -89,7 +95,7 @@ const title = computed(
 )
 const serialize = () => JSON.stringify(props.mode === 'grant' ? selected.value : draft)
 const dirty = computed(() => props.open && props.mode !== 'view' && serialize() !== initial.value)
-const errors = computed(() => roleErrors(draft))
+const errors = computed(() => roleErrors(draft, current.value))
 const missing = computed(() =>
   current.value ? unrepresentedGrants(current.value, props.tree) : [],
 )
@@ -121,6 +127,9 @@ const permissionTitles = computed(() => {
   return titles
 })
 watch([permissionQuery, onlySelected], () => { collapsed.value = [] })
+function preventPermissionSearchSubmit(event: KeyboardEvent) {
+  if (!event.isComposing && event.keyCode !== 229) event.preventDefault()
+}
 function expand(id: number, open: boolean) {
   collapsed.value = open
     ? collapsed.value.filter((value) => value !== id)
@@ -207,8 +216,15 @@ function beforeUnload(event: BeforeUnloadEvent) {
     event.returnValue = ''
   }
 }
-onMounted(() => window.addEventListener('beforeunload', beforeUnload))
-onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
+let unregisterDraft: (() => void) | undefined
+onMounted(() => {
+  unregisterDraft = registerDirtyDraft('role-panel', () => dirty.value)
+  window.addEventListener('beforeunload', beforeUnload)
+})
+onUnmounted(() => {
+  unregisterDraft?.()
+  window.removeEventListener('beforeunload', beforeUnload)
+})
 function toggle(id: number, checked: boolean) {
   if (session.owns(owner) && !pending.value && !grantBlocked.value && !discardOpen.value && !clearOpen.value)
     selected.value = togglePermission(props.tree, selected.value, id, checked)
@@ -266,7 +282,7 @@ async function save(confirmedClear = false) {
   }
   pending.value = true
   requestFailure.value = ''
-  let grantAccepted = false
+  let accepted = false
   try {
     if (props.mode === 'grant' && current.value) {
       const roleId = current.value.id
@@ -277,7 +293,7 @@ async function save(confirmedClear = false) {
           routerIds: canonicalSelection(props.tree, selected.value),
         })),
       )
-      grantAccepted = true
+      accepted = true
       if (!session.owns(owner)) return
       const rows = managedRoles(await withSessionOwner(owner, getRoleList))
       if (!session.owns(owner)) return
@@ -291,19 +307,32 @@ async function save(confirmedClear = false) {
       roleWriteSucceeded(await withSessionOwner(owner, () =>
         props.mode === 'create' ? addRole(payload) : editRole(payload),
       ))
+      accepted = true
       if (!session.owns(owner)) return
+      let rows: ManagedRole[] | undefined
+      if (props.mode === 'edit' && !self.value) {
+        rows = managedRoles(await withSessionOwner(owner, getRoleList))
+        if (!session.owns(owner)) return
+        const updated = rows.find((role) => role.id === payload.id)
+        if (!updated || updated.roleName !== payload.roleName || updated.status !== payload.status || updated.remark !== payload.remark)
+          throw new Error('Role read-back mismatch')
+      }
       initial.value = serialize()
-      emit('saved', props.mode === 'edit' && self.value, undefined, props.mode === 'create' ? payload.roleName : undefined)
+      emit('saved', props.mode === 'edit' && self.value, rows, props.mode === 'create' ? payload.roleName : undefined)
     }
   } catch (error) {
     if (!session.owns(owner)) return
-    if (props.mode === 'grant' && (grantAccepted || mutationResultUnknown(error))) {
+    if (props.mode === 'grant' && (accepted || mutationResultUnknown(error))) {
       initial.value = serialize()
       emit('unconfirmed')
       if (self.value) {
         pending.value = false
         await session.signOut(true, null, undefined, owner)
       }
+    } else if (accepted || mutationResultUnknown(error)) {
+      emit('writeUnconfirmed', props.mode === 'edit' && self.value)
+      await nextTick()
+      document.getElementById('role-write-unconfirmed')?.focus()
     } else requestFailure.value = mutationError(error, '保存')
   } finally {
     pending.value = false
@@ -484,7 +513,8 @@ async function confirmClear() {
             </div>
             <UiField>
               <UiFieldLabel for="permission-search">搜索菜单或权限标识</UiFieldLabel>
-              <UiInput id="permission-search" v-model="permissionQuery" placeholder="输入菜单标题或权限码" />
+              <UiInput id="permission-search" v-model="permissionQuery" placeholder="输入菜单标题或权限码"
+                @keydown.enter="preventPermissionSearchSubmit" />
             </UiField>
             <div class="flex flex-wrap items-center gap-2">
               <UiButton type="button" variant="outline" size="sm" aria-controls="role-permission-tree"
@@ -550,13 +580,16 @@ async function confirmClear() {
               class="flex gap-6"
               :disabled="pending"
               :aria-invalid="Boolean(submitted && errors.status)"
-              :aria-describedby="submitted && errors.status ? 'role-status-error' : undefined"
+              :aria-describedby="submitted && errors.status ? 'role-status-error' : isDefaultRole(current) ? 'default-role-status-note' : undefined"
               ><label class="flex items-center gap-2 text-sm"
                 ><UiRadioGroupItem value="1" />启用</label
               ><label class="flex items-center gap-2 text-sm"
-                ><UiRadioGroupItem value="0" />停用</label
+                ><UiRadioGroupItem value="0" :disabled="isDefaultRole(current)" />停用</label
               ></UiRadioGroup
             >
+            <p v-if="isDefaultRole(current)" id="default-role-status-note" class="text-xs text-muted-foreground">
+              系统默认角色不可停用
+            </p>
             <UiFieldError v-if="submitted && errors.status" id="role-status-error">
               {{ errors.status }}
             </UiFieldError></UiField
@@ -576,6 +609,12 @@ async function confirmClear() {
               {{ errors.remark }}
             </UiFieldError></UiField
           >
+          <UiAlert v-if="writeUnconfirmed" id="role-write-unconfirmed" role="alert" tabindex="-1">
+            <UiAlertTitle>结果未确认</UiAlertTitle>
+            <UiAlertDescription>{{ unknownWriteMessage }}{{ listFailed ? '。列表读取失败，请重试。' : '' }}</UiAlertDescription>
+            <UiButton type="button" variant="outline" size="sm" class="mt-2"
+              :disabled="listPending || sessionChanged || pending" @click="emit('refreshList')">刷新列表核对</UiButton>
+          </UiAlert>
         </template>
       </form>
       <UiAlert v-if="requestFailure" variant="destructive" role="alert" class="mx-4 mb-2 w-auto shrink-0">

@@ -14,33 +14,392 @@ export function resumeReadMessage(cause: unknown) {
   return '暂时无法读取简历，请重试。'
 }
 
+export type ResumeListChange =
+  | { kind: 'create'; id?: string; title: string; previousIds: ReadonlySet<string> }
+  | { kind: 'rename'; id: string; title: string }
+  | { kind: 'delete'; id: string }
+
+export function resumeListReadback(change: ResumeListChange, items: { id: string; title: string }[]) {
+  if (change.kind === 'create' && !change.id) {
+    return items.some(item => item.title === change.title && !change.previousIds.has(item.id))
+  }
+  const item = items.find(item => item.id === change.id)
+  return change.kind === 'delete' ? !item : item?.title === change.title
+}
+
+export interface ResumeDraft {
+  content: string
+  message: string
+}
+
+export function resumeDraftStore(storage: Storage, account: string, sessionStart: string, resumeId: string) {
+  const prefix = 'bossanalyze:resume-draft:'
+  const scope = prefix + JSON.stringify([account, sessionStart]) + ':'
+  const key = scope + resumeId
+  try {
+    for (let i = storage.length - 1; i >= 0; i--) {
+      const previous = storage.key(i)
+      if (previous?.startsWith(prefix) && !previous.startsWith(scope)) storage.removeItem(previous)
+    }
+  } catch {
+    // A blocked store cannot prevent editing or server saves.
+  }
+  return {
+    read(): ResumeDraft | null {
+      try {
+        const raw = storage.getItem(key)
+        if (raw === null) return null
+        const value: unknown = JSON.parse(raw)
+        if (value && typeof value === 'object' && 'content' in value && 'message' in value &&
+          typeof value.content === 'string' && typeof value.message === 'string') {
+          return { content: value.content, message: value.message }
+        }
+      } catch {
+        // Malformed or unavailable local storage leaves the server copy in place.
+      }
+      return null
+    },
+    write(draft: ResumeDraft) {
+      try { storage.setItem(key, JSON.stringify(draft)) } catch { /* The editor still holds the draft. */ }
+    },
+    clear() {
+      try { storage.removeItem(key) } catch { /* A blocked store cannot be cleared. */ }
+    },
+  }
+}
+
 export function countDuplicateCommits(commits: { id: string }[]) {
   return commits.length - new Set(commits.map(commit => commit.id)).size
 }
 
-type PreviewBlock =
-  | { kind: 'heading'; level: 1 | 2 | 3; text: string }
-  | { kind: 'text' | 'bullet'; text: string }
+export type ResumeMathNode = {
+  display: boolean
+  tex: string
+  raw: string
+  start: number
+  end: number
+  bodyStart: number
+}
+
+export type ResumeMathRender = (tex: string, display: boolean) => string | null
+
+type ResumeMathToken = { kind: 'math' } & Omit<ResumeMathNode, 'display'>
+
+export type ResumeInline =
+  | { kind: 'text' | 'strong' | 'em' | 'code'; text: string }
+  | { kind: 'link'; text: string; href: string }
+  | ResumeMathToken
+
+export type PreviewBlock =
+  | { kind: 'heading'; level: 1 | 2 | 3; inline: ResumeInline[] }
+  | { kind: 'text'; inline: ResumeInline[] }
+  | { kind: 'code'; text: string }
+  | { kind: 'list'; start: number | null; items: ResumeInline[][] }
+  | { kind: 'table'; headers: ResumeInline[][]; rows: ResumeInline[][][] }
   | { kind: 'rule' }
   | { kind: 'asset'; text: string; fileName: string }
+  | ResumeMathToken
+
+function mathNode({ tex, raw, start, end, bodyStart }: ResumeMathToken, display: boolean): ResumeMathNode {
+  return { display, tex, raw, start, end, bodyStart }
+}
+
+function* inlineMathNodes(tokens: readonly ResumeInline[]): Generator<ResumeMathNode> {
+  for (const token of tokens) {
+    if (token.kind === 'math') yield mathNode(token, false)
+  }
+}
+
+function* mathNodes(blocks: readonly PreviewBlock[]): Generator<ResumeMathNode> {
+  for (const block of blocks) {
+    switch (block.kind) {
+      case 'math':
+        yield mathNode(block, true)
+        break
+      case 'heading':
+      case 'text':
+        yield* inlineMathNodes(block.inline)
+        break
+      case 'list':
+        for (const item of block.items) yield* inlineMathNodes(item)
+        break
+      case 'table':
+        for (const cell of block.headers) yield* inlineMathNodes(cell)
+        for (const row of block.rows) {
+          for (const cell of row) yield* inlineMathNodes(cell)
+        }
+        break
+    }
+  }
+}
+
+export function resumeHasMath(blocks: readonly PreviewBlock[]): boolean {
+  return !mathNodes(blocks).next().done
+}
+
+export function resumeMathNodes(blocks: readonly PreviewBlock[]): ResumeMathNode[] {
+  return [...mathNodes(blocks)]
+}
+
+export function offsetToPosition(source: string, offset: number): { line: number; column: number } {
+  const clamped = Math.min(source.length, Math.max(0, Math.trunc(offset) || 0))
+  let line = 1
+  let lineStart = 0
+  for (const match of source.matchAll(/\r\n?|\n/g)) {
+    const nextLineStart = match.index! + match[0].length
+    if (nextLineStart > clamped) break
+    line++
+    lineStart = nextLineStart
+  }
+  return { line, column: clamped - lineStart + 1 }
+}
+
+export function markdownHref(value: string) {
+  if (!/^(?:https?:\/\/|mailto:)/i.test(value) || /[\s\\\x00-\x1f\x7f]/.test(value)) return null
+  try {
+    const url = new URL(value)
+    return url.username || url.password || !url.pathname ? null : url.href
+  } catch {
+    return null
+  }
+}
+
+type InlineSpan = { kind: 'code' | 'math'; start: number; end: number }
+const linkPattern = /(!?)\[([^\[\]]*)\]\(([^()\s]+)\)/g
+const emphasisPattern = /\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|(?<![\w_])_([^_]+)_(?![\w_])/
+const inlineTextPattern = new RegExp(`${emphasisPattern.source}|${linkPattern.source}`, 'g')
+
+function isEscaped(text: string, index: number) {
+  let start = index
+  while (text[start - 1] === '\\') start--
+  return (index - start) % 2 === 1
+}
+
+function* inlineMathSpans(text: string, offset: number): Generator<InlineSpan> {
+  // Mask dollars in link destinations without changing the offsets into the original text.
+  const scan = text.replace(linkPattern, (literal, image, label, destination) =>
+    !image && destination.includes('$') && !literal.includes('`') && markdownHref(destination)
+      ? `[${label}](${destination.replaceAll('$', 'x')})`
+      : literal)
+  let opener = -1
+  for (const match of scan.matchAll(/\$+/g)) {
+    const start = match.index!
+    const end = start + match[0].length
+    if (end - start !== 1) {
+      opener = -1
+      continue
+    }
+    if (isEscaped(text, start)) continue
+
+    if (opener !== -1 && /\S/.test(text[start - 1] ?? '') && !/[0-9]/.test(text[end] ?? '')) {
+      yield { kind: 'math', start: offset + opener, end: offset + end }
+      opener = -1
+    } else {
+      opener = /\S/.test(text[end] ?? '') ? start : -1
+    }
+  }
+}
+
+function* inlineSpans(text: string): Generator<InlineSpan> {
+  let end = 0
+  for (const match of text.matchAll(/(?<!`)`[^`]+`(?!`)/g)) {
+    const start = match.index!
+    yield* inlineMathSpans(text.slice(end, start), end)
+    end = start + match[0].length
+    yield { kind: 'code', start, end }
+  }
+  yield* inlineMathSpans(text.slice(end), end)
+}
+
+function appendInlineText(tokens: ResumeInline[], text: string) {
+  let end = 0
+  for (const match of text.matchAll(inlineTextPattern)) {
+    const [literal, strong, alternateStrong, emphasis, alternateEmphasis, image, label, destination] = match
+    const start = match.index!
+    if (start > end) tokens.push({ kind: 'text', text: text.slice(end, start) })
+    const href = destination && !image ? markdownHref(destination) : null
+    if (strong || alternateStrong) tokens.push({ kind: 'strong', text: (strong ?? alternateStrong)! })
+    else if (emphasis || alternateEmphasis) tokens.push({ kind: 'em', text: (emphasis ?? alternateEmphasis)! })
+    else if (href) tokens.push({ kind: 'link', text: label || href, href })
+    else tokens.push({ kind: 'text', text: literal })
+    end = start + literal.length
+  }
+  if (end < text.length) tokens.push({ kind: 'text', text: text.slice(end) })
+}
+
+function resumeInline(text: string, baseOffset: number, inTable = false): ResumeInline[] {
+  const tokens: ResumeInline[] = []
+  let plainStart = 0
+  const unescapePipes = (value: string) => inTable ? value.replaceAll('\\|', '|') : value
+  const appendPlain = (end: number) => appendInlineText(tokens, unescapePipes(text.slice(plainStart, end))
+    .replace(/\\+(\$)?/g, (literal, dollar) => dollar && literal.length % 2 === 0 ? literal.slice(1) : literal))
+  for (const { kind, start, end } of inlineSpans(text)) {
+    appendPlain(start)
+    const body = text.slice(start + 1, end - 1)
+    if (kind === 'code') {
+      tokens.push({ kind, text: unescapePipes(body) })
+    } else {
+      tokens.push({ kind, tex: body, raw: text.slice(start, end),
+        start: baseOffset + start, end: baseOffset + end, bodyStart: baseOffset + start + 1 })
+    }
+    plainStart = end
+  }
+  appendPlain(text.length)
+  return tokens
+}
+
+const listItem = /^\s*(?:([-*+])|(\d{1,9})[.)])[ \t]+(.+)$/
+const codeFence = /^\s*(`{3,}|~{3,})[^`]*$/
+const displayDelimiter = /^([ \t]*)\$\$[ \t]*$/
+
+type SourceLine = { text: string; offset: number }
+
+function mathBlock(markdown: string, lines: SourceLine[], index: number) {
+  const { text, offset } = lines[index]!
+  const single = /^([ \t]*)\$\$(?!\$)(.+?)(?<!\$)\$\$[ \t]*$/s.exec(text)
+  if (single) {
+    const start = offset + single[1]!.length
+    const bodyStart = start + 2
+    const tex = single[2]!
+    const close = bodyStart + tex.length
+    if (tex.trim() && !isEscaped(markdown, close)) {
+      const node: ResumeMathToken = { kind: 'math', tex, raw: markdown.slice(start, close + 2), start, end: close + 2, bodyStart }
+      return { node, lastLine: index }
+    }
+  }
+
+  const opener = displayDelimiter.exec(text)
+  if (!opener || !lines[index + 1]) return null
+  const start = offset + opener[1]!.length
+  const bodyStart = lines[index + 1]!.offset
+  for (let lastLine = index + 1; lastLine < lines.length; lastLine++) {
+    const line = lines[lastLine]!
+    if (codeFence.test(line.text)) break
+    const closer = displayDelimiter.exec(line.text)
+    if (!closer) continue
+    const previous = lines[lastLine - 1]!
+    const tex = markdown.slice(bodyStart, previous.offset + previous.text.length)
+    if (!tex.trim()) break
+    const end = line.offset + closer[1]!.length + 2
+    const node: ResumeMathToken = { kind: 'math', tex, raw: markdown.slice(start, end), start, end, bodyStart }
+    return { node, lastLine }
+  }
+  return null
+}
+
+function tableCells(line: SourceLine): SourceLine[] {
+  if (!line.text.includes('|')) return []
+  const leftTrimmed = line.text.trimStart()
+  const offset = line.offset + line.text.length - leftTrimmed.length
+  const text = leftTrimmed.trimEnd()
+  const cells: SourceLine[] = []
+  let cellStart = 0
+  const append = (end: number) => {
+    const raw = text.slice(cellStart, end)
+    const cell = raw.trimStart()
+    cells.push({ text: cell.trimEnd(), offset: offset + cellStart + raw.length - cell.length })
+  }
+  const split = (start: number, end: number) => {
+    for (let i = start; i < end; i++) {
+      if (text[i] !== '|' || text[i - 1] === '\\') continue
+      if (i > 0) append(i)
+      cellStart = i + 1
+    }
+  }
+  let plainStart = 0
+  for (const span of inlineSpans(text)) {
+    split(plainStart, span.start)
+    plainStart = span.end
+  }
+  split(plainStart, text.length)
+  if (cellStart && (cellStart < text.length || !cells.length)) append(text.length)
+  return cells
+}
 
 export function resumePreview(markdown: string): PreviewBlock[] {
-  return markdown.split(/\r?\n/).flatMap((line): PreviewBlock[] => {
-    if (!line.trim()) return []
+  // shortcut: this flat résumé Markdown subset omits nested blocks and reference links.
+  const lines: SourceLine[] = []
+  let lineStart = 0
+  for (const match of markdown.matchAll(/\r\n?|\n/g)) {
+    const end = match.index!
+    lines.push({ text: markdown.slice(lineStart, end), offset: lineStart })
+    lineStart = end + match[0].length
+  }
+  lines.push({ text: markdown.slice(lineStart), offset: lineStart })
+  const blocks: PreviewBlock[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const { text: line, offset } = lines[i]!
+    if (!line.trim()) continue
+    const fence = codeFence.exec(line)
+    if (fence) {
+      const close = new RegExp('^\\s*' + fence[1]![0] + '{' + fence[1]!.length + ',}\\s*$')
+      const body: string[] = []
+      while (++i < lines.length && !close.test(lines[i]!.text)) body.push(lines[i]!.text)
+      blocks.push({ kind: 'code', text: body.join('\n') })
+      continue
+    }
+    const math = mathBlock(markdown, lines, i)
+    if (math) {
+      blocks.push(math.node)
+      i = math.lastLine
+      continue
+    }
     const title = /^(#{1,3})\s+(.+)$/.exec(line)
-    if (title) return [{ kind: 'heading', level: title[1]!.length as 1 | 2 | 3, text: title[2]! }]
-    if (/^\s*---+\s*$/.test(line)) return [{ kind: 'rule' }]
+    if (title) {
+      const content = title[2]!
+      blocks.push({ kind: 'heading', level: title[1]!.length as 1 | 2 | 3,
+        inline: resumeInline(content, offset + line.length - content.length) })
+      continue
+    }
+    if (/^\s*---+\s*$/.test(line)) {
+      blocks.push({ kind: 'rule' })
+      continue
+    }
     const asset = /^!\[([^\]]*)\]\(asset:([^)]+)\)$/.exec(line.trim())
     if (asset) {
       try {
-        return [{ kind: 'asset', text: asset[1]!, fileName: decodeURIComponent(asset[2]!) }]
+        blocks.push({ kind: 'asset', text: asset[1]!, fileName: decodeURIComponent(asset[2]!) })
+        continue
       } catch {
-        return [{ kind: 'text', text: line }]
+        // A malformed private image reference remains plain text.
       }
     }
-    const bullet = /^\s*[-*+]\s+(.+)$/.exec(line)
-    return bullet ? [{ kind: 'bullet', text: bullet[1]! }] : [{ kind: 'text', text: line }]
-  })
+    const bullet = listItem.exec(line)
+    if (bullet) {
+      const ordered = bullet[2] !== undefined
+      const content = bullet[3]!
+      const items = [resumeInline(content, offset + line.length - content.length)]
+      while (i + 1 < lines.length) {
+        const nextLine = lines[i + 1]!
+        const next = listItem.exec(nextLine.text)
+        if (!next || ordered !== (next[2] !== undefined)) break
+        i++
+        const nextContent = next[3]!
+        items.push(resumeInline(nextContent, nextLine.offset + nextLine.text.length - nextContent.length))
+      }
+      blocks.push({ kind: 'list', start: ordered ? Number(bullet[2]) : null, items })
+      continue
+    }
+    const headers = tableCells(lines[i]!)
+    const separator = headers.length && lines[i + 1] ? tableCells(lines[i + 1]!) : []
+    if (headers.length && headers.length === separator.length && separator.every(cell => /^:?-{3,}:?$/.test(cell.text))) {
+      const parseCell = (cell: SourceLine | undefined) => cell ? resumeInline(cell.text, cell.offset, true) : []
+      i++
+      const rows: ResumeInline[][][] = []
+      while (i + 1 < lines.length) {
+        const next = lines[i + 1]!
+        if (codeFence.test(next.text) || mathBlock(markdown, lines, i + 1)) break
+        const cells = tableCells(next)
+        if (!cells.length) break
+        i++
+        rows.push(headers.map((_, index) => parseCell(cells[index])))
+      }
+      blocks.push({ kind: 'table', headers: headers.map(parseCell), rows })
+      continue
+    }
+    blocks.push({ kind: 'text', inline: resumeInline(line, offset) })
+  }
+  return blocks
 }
 
 export function assetMarkdown(fileName: string) {
@@ -50,16 +409,100 @@ export function assetMarkdown(fileName: string) {
 
 export function exportDestination(config: string | undefined, mock = false) {
   if (mock) return '/api/mock/resume-export'
-  if (!config) return null
+  const address = config?.trim()
+  if (!address || !/^https:\/\/[^/]/i.test(address) || /[\s\\]/.test(address)) return null
   try {
-    const url = new URL(config)
+    const url = new URL(address)
     return url.protocol === 'https:' && !url.username && !url.password ? url.href : null
   } catch {
     return null
   }
 }
 
-export function resumeMainline(head: string | null | undefined, commits: { id: string; parentCommits?: string[] }[]) {
+export function resumeExportResult(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || ('success' in payload && payload.success === false)) return null
+  for (const field of ['url', 'downloadUrl', 'previewUrl'] as const) {
+    const value = (payload as Record<string, unknown>)[field]
+    if (typeof value !== 'string') continue
+    const url = exportDestination(value)
+    if (url) return url
+  }
+  return null
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;')
+}
+
+function inlineHtml(tokens: ResumeInline[], renderMath?: ResumeMathRender) {
+  return tokens.map(token => {
+    switch (token.kind) {
+      case 'text': return escapeHtml(token.text)
+      case 'strong': return '<strong>' + escapeHtml(token.text) + '</strong>'
+      case 'em': return '<em>' + escapeHtml(token.text) + '</em>'
+      case 'code': return '<code>' + escapeHtml(token.text) + '</code>'
+      case 'link':
+        return '<a href="' + escapeHtml(token.href) + '" rel="noreferrer">' + escapeHtml(token.text) + '</a>'
+      case 'math': {
+        const rendered = renderMath?.(token.tex, false)
+        return rendered ? '<span class="resume-math-inline">' + rendered + '</span>' : escapeHtml(token.raw)
+      }
+    }
+  }).join('')
+}
+
+export function resumeHtml(title: string, content: string | PreviewBlock[], renderMath?: ResumeMathRender): string {
+  const blocks = typeof content === 'string' ? resumePreview(content) : content
+  const renderInline = (tokens: ResumeInline[]) => inlineHtml(tokens, renderMath)
+  const body = blocks.map(block => {
+    switch (block.kind) {
+      case 'heading': return '<h' + block.level + '>' + renderInline(block.inline) + '</h' + block.level + '>'
+      case 'text': return '<p>' + renderInline(block.inline) + '</p>'
+      case 'rule': return '<hr>'
+      case 'asset': return '<p>' + escapeHtml(block.text || '图片素材') + ' · 本地导出未包含图片</p>'
+      case 'code': return '<pre><code>' + escapeHtml(block.text) + '</code></pre>'
+      case 'math': {
+        const rendered = renderMath?.(block.tex, true)
+        return rendered ? '<div class="resume-math-block">' + rendered + '</div>' : '<pre><code>' + escapeHtml(block.raw) + '</code></pre>'
+      }
+      case 'list': {
+        const ordered = block.start !== null
+        return (ordered ? '<ol start="' + block.start + '">' : '<ul>') +
+          block.items.map(item => '<li>' + renderInline(item) + '</li>').join('') + (ordered ? '</ol>' : '</ul>')
+      }
+      case 'table':
+        return '<table><thead><tr>' + block.headers.map(cell => '<th scope="col">' + renderInline(cell) + '</th>').join('') +
+          '</tr></thead><tbody>' + block.rows.map(row =>
+            '<tr>' + row.map(cell => '<td>' + renderInline(cell) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'
+    }
+  }).join('\n')
+
+  return `<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>${escapeHtml(title)}</title>
+<style>
+  @page { size: A4; margin: 16mm; }
+  :root { color: #161616; background: white; font: 11pt/1.5 system-ui, sans-serif; }
+  body { max-width: 178mm; margin: 2rem auto; padding: 0 1rem; overflow-wrap: anywhere; }
+  h1, h2, h3 { break-after: avoid; }
+  p, pre, ul, ol { margin: 0.45rem 0; }
+  pre { white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #777; padding: 0.25rem 0.5rem; text-align: left; }
+  tr { break-inside: avoid; }
+  a { color: inherit; }
+  @media print { body { margin: 0; padding: 0; } }
+</style>
+<body>${body}</body></html>`
+}
+
+type CommitParents = { id: string; parentCommits?: string[] }[]
+
+export function resumeMainline(head: string | null | undefined, commits: CommitParents) {
   const parents = new Map(commits.map(commit => [commit.id, commit.parentCommits?.[0]]))
   const seen = new Set<string>()
   while (head && !seen.has(head)) {
@@ -67,4 +510,60 @@ export function resumeMainline(head: string | null | undefined, commits: { id: s
     head = parents.get(head)
   }
   return seen
+}
+
+export function resumeFirstParentRelation(from: string, to: string, commits: CommitParents) {
+  if (resumeMainline(to, commits).has(from)) return 'forward'
+  if (resumeMainline(from, commits).has(to)) return 'reverse'
+  return 'separate'
+}
+
+export function resumeLineDiff(previous: string, next: string) {
+  const split = (content: string) => content ? content.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n') : []
+  const before = split(previous)
+  const after = split(next)
+  const lines: { kind: 'unchanged' | 'added' | 'removed'; text: string }[] = []
+  let prefix = 0
+  let left = before.length
+  let right = after.length
+  while (prefix < left && prefix < right && before[prefix] === after[prefix]) {
+    lines.push({ kind: 'unchanged', text: before[prefix++]! })
+  }
+  while (left > prefix && right > prefix && before[left - 1] === after[right - 1]) {
+    left--
+    right--
+  }
+
+  const height = left - prefix + 1
+  const width = right - prefix + 1
+  // shortcut: mark the changed middle as a replacement when exact alignment would block the editor.
+  const limited = height > 1 && width > 1 && height * width > 1_000_000
+  if (limited || height === 1 || width === 1) {
+    for (let i = prefix; i < left; i++) lines.push({ kind: 'removed', text: before[i]! })
+    for (let j = prefix; j < right; j++) lines.push({ kind: 'added', text: after[j]! })
+  } else {
+    const lengths = new Uint32Array(height * width)
+    for (let i = height - 2; i >= 0; i--) {
+      for (let j = width - 2; j >= 0; j--) {
+        const cell = i * width + j
+        lengths[cell] = before[prefix + i] === after[prefix + j] ? lengths[cell + width + 1]! + 1
+          : Math.max(lengths[cell + width]!, lengths[cell + 1]!)
+      }
+    }
+    let i = 0
+    let j = 0
+    while (i < height - 1 || j < width - 1) {
+      const cell = i * width + j
+      if (i < height - 1 && j < width - 1 && before[prefix + i] === after[prefix + j]) {
+        lines.push({ kind: 'unchanged', text: before[prefix + i++]! })
+        j++
+      } else if (i < height - 1 && (j === width - 1 || lengths[cell + width]! >= lengths[cell + 1]!)) {
+        lines.push({ kind: 'removed', text: before[prefix + i++]! })
+      } else {
+        lines.push({ kind: 'added', text: after[prefix + j++]! })
+      }
+    }
+  }
+  for (let i = left; i < before.length; i++) lines.push({ kind: 'unchanged', text: before[i]! })
+  return { lines, limited }
 }

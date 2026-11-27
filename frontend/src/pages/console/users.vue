@@ -8,7 +8,7 @@ import { getUserManageInfo } from '@/api/user/user'
 import { getRoleList } from '@/api/role/role'
 import { userPage, userPageNumber, userRoles } from '@/lib/users'
 import type { ManagedUser, UserRole } from '@/lib/users'
-import { checkReadAccess, listPage, listSize, listStatus, permissionDenied, restoreActionFocus, sessionChangedMessage } from '@/lib/rbac-mutations'
+import { checkReadAccess, listPage, listSize, listStatus, permissionDenied, restoreActionFocus, sessionChangedMessage, unknownWriteMessage } from '@/lib/rbac-mutations'
 import { withSessionOwner } from '@/lib/session'
 import type { UserBaseInfo } from '@/api/auth/auth.d'
 import { useSession } from '@/composables/useSession'
@@ -38,6 +38,7 @@ function userFilters(): UserBaseInfo {
   }
 }
 const applied = shallowRef(userFilters())
+const emptyFilters = { name: '', roleId: null, status: 'all' } as const
 const users = shallowRef<ManagedUser[]>([])
 const roles = shallowRef<UserRole[]>([])
 const size = ref(listSize(route.query.size))
@@ -63,8 +64,9 @@ const roleRestricted = ref(false)
 const rolesUnavailable = computed(
   () => rolePending.value || roleFailed.value || !roles.value.length,
 )
+const unconfirmedWrite = ref<'self' | 'other' | null>(null)
 const editingUnavailable = computed(
-  () => pending.value || rolesUnavailable.value || restricted.value || sessionChanged.value,
+  () => pending.value || rolesUnavailable.value || restricted.value || sessionChanged.value || unconfirmedWrite.value !== null,
 )
 const filtered = computed(() => Object.values(applied.value).some((value) => value !== undefined))
 const notice = ref('')
@@ -102,8 +104,8 @@ function beforeUnload(event: BeforeUnloadEvent) {
 }
 let loadGeneration = 0
 
-async function loadUsers() {
-  if (!owner || !session.owns(owner)) return
+async function loadUsers(): Promise<boolean> {
+  if (!owner || !session.owns(owner)) return false
   const generation = ++loadGeneration
   const isLatest = () => generation === loadGeneration && session.owns(owner)
   pending.value = true
@@ -114,7 +116,7 @@ async function loadUsers() {
       getUserManageInfo(userPageNumber(page.value, size.value), size.value, applied.value),
     )
     const result = userPage(checkReadAccess(response))
-    if (!isLatest()) return
+    if (!isLatest()) return false
     const last = Math.max(1, Math.ceil(result.total / size.value))
     if (page.value > last) {
       page.value = last
@@ -122,17 +124,41 @@ async function loadUsers() {
     }
     users.value = result.users
     total.value = result.total
+    return true
   } catch (error) {
-    if (!isLatest()) return
+    if (!isLatest()) return false
     users.value = []
     failed.value = true
     restricted.value = permissionDenied(error)
+    return false
   } finally {
     if (generation === loadGeneration) pending.value = false
   }
 }
-function refreshUsers() {
-  if (!pending.value) void loadUsers()
+async function refreshUsers() {
+  if (!owner || pending.value || deleting.value || !session.owns(owner)) return
+  const clearSearch = unconfirmedWrite.value !== null && (filtered.value || page.value !== 1)
+  if (clearSearch) {
+    Object.assign(filters, emptyFilters)
+    applied.value = userFilters()
+    page.value = 1
+  }
+  if (!(await loadUsers()) || !session.owns(owner) || !unconfirmedWrite.value) return
+  const self = unconfirmedWrite.value === 'self'
+  editorOpen.value = false
+  deletion.value = null
+  unconfirmedWrite.value = null
+  if (self) {
+    await session.signOut(true, null, undefined, owner)
+    return
+  }
+  notice.value = clearSearch
+    ? '已清空筛选并刷新用户列表，请核对实际状态。'
+    : '已刷新用户列表，请核对实际状态。'
+}
+function lockWrite(self = false) {
+  unconfirmedWrite.value = self ? 'self' : 'other'
+  notice.value = ''
 }
 async function listedEmailInUse(email: string, userId?: number) {
   const matches = (user: ManagedUser) => user.id !== userId && user.email === email
@@ -175,7 +201,7 @@ function search() {
 }
 function reset() {
   if (pending.value || sessionChanged.value) return
-  Object.assign(filters, { name: '', roleId: null, status: 'all' })
+  Object.assign(filters, emptyFilters)
   search()
 }
 function changePage(value: number) {
@@ -202,7 +228,7 @@ function openEditor(event: Event, mode: 'view' | 'create' | 'edit', user: Manage
   editorOpen.value = true
 }
 function canDelete(user: ManagedUser) {
-  return !pending.value && !sessionChanged.value && !isCurrentUser(user)
+  return !pending.value && !sessionChanged.value && !unconfirmedWrite.value && !isCurrentUser(user)
 }
 function confirmDelete(event: Event, user: ManagedUser) {
   if (!canDelete(user)) return
@@ -259,6 +285,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
     >
     <UiAlert v-if="sessionChanged" variant="destructive" role="alert">
       <UiAlertDescription>{{ sessionChangedMessage }}</UiAlertDescription>
+    </UiAlert>
+    <UiAlert v-if="unconfirmedWrite && !editorOpen && !deletion" role="alert">
+      <UiAlertTitle>结果未确认</UiAlertTitle>
+      <UiAlertDescription>{{ unknownWriteMessage }}{{ failed ? '。列表读取失败，请重试。' : '' }}</UiAlertDescription>
+      <UiButton type="button" variant="outline" size="sm" class="mt-2"
+        :disabled="pending || sessionChanged" @click="refreshUsers">刷新列表核对</UiButton>
     </UiAlert>
     <UiAlert v-if="roleFailed || (!rolePending && !roles.length)" variant="destructive" role="alert">
       <UiAlertTitle>{{ roleRestricted ? '当前账号无权读取角色列表' : roleFailed ? '角色列表读取失败' : '暂无可分配角色' }}</UiAlertTitle
@@ -572,7 +604,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
       :roles-unavailable="rolesUnavailable"
       :role-pending="rolePending"
       :role-restricted="roleRestricted"
+      :write-unconfirmed="unconfirmedWrite !== null"
+      :list-pending="pending"
+      :list-failed="failed"
       @saved="saved"
+      @write-unconfirmed="lockWrite"
+      @refresh-list="refreshUsers"
       :reload-roles="refreshRoles"
       @close-auto-focus="restoreSheetFocus"
     >
@@ -591,9 +628,14 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
     <DeleteUserDialog
       :user="deletion"
       :session-changed="sessionChanged"
+      :write-unconfirmed="unconfirmedWrite !== null"
+      :list-pending="pending"
+      :list-failed="failed"
       @pending="deleting = $event"
       @close="deletion = null"
       @deleted="deleted"
+      @write-unconfirmed="lockWrite()"
+      @refresh-list="refreshUsers"
       @close-auto-focus="restoreDeleteFocus"
     />
   </section>

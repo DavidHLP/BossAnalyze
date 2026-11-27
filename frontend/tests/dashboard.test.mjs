@@ -5,10 +5,86 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { AxiosError } from 'axios'
-import { dashboardSnapshot, peakVisits, visitShare } from '../src/lib/dashboard.ts'
+import { dashboardSnapshot, formatPercentage, peakVisits, visitShare } from '../src/lib/dashboard.ts'
+import { heatBuckets, ipDistribution, logReadStatus, logTotals, weekdayDistribution } from '../src/lib/log-analysis.ts'
+import { permissionDenied } from '../src/lib/rbac-mutations.ts'
 import request from '../src/utils/request/request.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/dashboard.json', import.meta.url)))
+
+test('extended log adapters reject missing fields while accepting published empty snapshots', () => {
+  for (const adapt of [logTotals, heatBuckets, ipDistribution, weekdayDistribution]) {
+    assert.throws(() => adapt({}), /Invalid/)
+  }
+  assert.throws(() => logTotals({ totalVisits: 0 }), /Invalid/)
+  assert.throws(() => heatBuckets({ hourHeatmap: {} }), /Invalid/)
+  assert.throws(() => heatBuckets({ minuteHeatmap: {} }), /Invalid/)
+  assert.throws(() => ipDistribution({ ipStats: null }), /Invalid/)
+  assert.throws(() => weekdayDistribution({ generatedAt: fixture.generatedAt }), /Invalid/)
+  assert.throws(() => weekdayDistribution({ generatedAt: fixture.generatedAt, weekdayStatistics: {} }), /Invalid/)
+  assert.throws(() => weekdayDistribution({ generatedAt: '2026-02-31T12:00:00', weekdayStatistics: { weekdayStats: {} } }), /Invalid/)
+
+  assert.deepEqual(logTotals({ totalVisits: 0, uniqueIps: 0 }), { visits: 0, ips: 0 })
+  assert.deepEqual(heatBuckets({ hourHeatmap: {}, minuteHeatmap: {} }), { hours: [], minutes: [] })
+  assert.deepEqual(ipDistribution({ ipStats: {} }).records, [])
+  const weekday = weekdayDistribution({ generatedAt: fixture.generatedAt, weekdayStatistics: { weekdayStats: {} } })
+  assert.equal(weekday.time, '2026-10-30T16:00:00.000Z')
+  assert.ok(weekday.days.length === 7 && weekday.days.every(day => day.count === null))
+})
+
+test('extended log status reflects every requested section, including denied reads', () => {
+  const status = (...results) => logReadStatus(results.map(result => ({ result, loading: false })))
+  assert.equal(status(null, null, null, null), '')
+  assert.equal(logReadStatus([{ result: 'updated', loading: true }]), '正在读取日志缓存…')
+  assert.equal(status('updated', 'updated', 'updated', 'updated'), '已读取全部日志分项')
+  assert.equal(status('unchanged', 'updated', 'updated', 'updated'), '已读取全部日志分项，星期快照暂无更新')
+  assert.equal(status('updated', 'empty', 'updated', 'unchanged'), '部分日志分项暂无快照')
+  assert.equal(status('updated', 'error', 'updated', 'updated'), '部分日志分项读取失败')
+  assert.equal(status('empty', 'updated', 'error', 'empty'), '部分日志分项暂无快照或读取失败')
+  assert.equal(status('empty', 'empty', 'empty', 'empty'), '暂无可用的日志快照')
+  assert.equal(status('error', 'empty', 'error', 'error'), '未能读取日志快照，请重试')
+  assert.equal(status('forbidden', 'updated', 'empty', 'error'), '部分日志分项读取被拒绝（403），其他分项读取失败')
+  assert.equal(status('forbidden', 'updated', 'empty', 'updated'), '部分日志分项读取被拒绝（403）')
+  assert.equal(status('forbidden', 'forbidden', 'forbidden', 'forbidden'), '日志分项读取均被拒绝（403）')
+})
+
+test('IP counts group cities within each country and retain province and network metadata', () => {
+  const data = ipDistribution({ ipStats: {
+    '203.0.113.1': { countryName: '美国', city: '波特兰', region: '俄勒冈州', isLocal: false, count: 5 },
+    '203.0.113.2': { countryName: ' 美国 ', city: '波特兰', count: 4 },
+    '198.51.100.1': { countryName: '澳大利亚', city: '波特兰', province: '维多利亚州', isLocal: true, count: 3 },
+  } })
+  const namedCounts = rows => rows.map(({ name, count }) => [name, count])
+  assert.deepEqual(namedCounts(data.cities), [['波特兰（美国）', 9], ['波特兰（澳大利亚）', 3]])
+  assert.deepEqual(namedCounts(data.countries), [['美国', 9], ['澳大利亚', 3]])
+  assert.deepEqual(data.records.map(({ province, isLocal }) => [province, isLocal]), [
+    ['俄勒冈州', false], [null, null], ['维多利亚州', true],
+  ])
+})
+
+test('weekday rows preserve published percentages, day types and hourly averages, including zero', () => {
+  const data = weekdayDistribution({
+    generatedAt: fixture.generatedAt,
+    overview: { totalVisits: 48 },
+    weekdayStatistics: { weekdayStats: {
+      2: { count: 0, percentage: 0, isWorkday: true, isWeekend: false, avgHourlyVisits: 0 },
+      1: { count: 18, percentage: 37.5, isWorkday: false, isWeekend: true, avgHourlyVisits: 0.75 },
+    } },
+  })
+  assert.deepEqual(data.days[0], { name: '周一', count: 0, percentage: 0, isWorkday: true, isWeekend: false, avgHourlyVisits: 0 })
+  assert.deepEqual(data.days.at(-1), { name: '周日', count: 18, percentage: 37.5, isWorkday: false, isWeekend: true, avgHourlyVisits: 0.75 })
+  assert.deepEqual(data.days[1], { name: '周二', count: null, percentage: null, isWorkday: null, isWeekend: null, avgHourlyVisits: null })
+})
+
+test('weekday percentage is unavailable when the snapshot reports zero visits', () => {
+  const data = weekdayDistribution({
+    generatedAt: fixture.generatedAt,
+    overview: { totalVisits: 0 },
+    weekdayStatistics: { weekdayStats: { 2: { count: 0, percentage: 0 } } },
+  })
+  assert.equal(data.days[0].count, 0)
+  assert.equal(formatPercentage(data.days[0].percentage), '—')
+})
 
 test('explicit no-content is unavailable, while real zero snapshots remain zero', () => {
   assert.equal(dashboardSnapshot(null), null)
@@ -38,6 +114,24 @@ test('snapshot sorts hourly buckets and rankings, without exposing backend sampl
   assert.equal('securityStats' in data, false)
   assert.equal('operatingSystems' in data, false)
   assert.equal(fixture.topPages.pages[0].path, '/console/profile')
+})
+
+test('dashboard exposes published country totals and HTTP method metadata when available', () => {
+  const snapshot = dashboardSnapshot({
+    ...fixture,
+    geoStats: { countryStats: { 中国: { visits: 38 }, 巴西: { visits: 55 } } },
+    httpMethodStatistics: { methodStats: {
+      GET: { count: 200, description: '获取资源', isSafe: true, isIdempotent: true },
+      POST: { count: 40, isSafe: false, isIdempotent: false },
+    } },
+  })
+  assert.deepEqual(snapshot.countries, [{ label: '巴西', count: 55 }, { label: '中国', count: 38 }])
+  assert.deepEqual(snapshot.methods, [
+    { label: 'GET', count: 200, detail: '获取资源 · 安全方法 · 幂等' },
+    { label: 'POST', count: 40, detail: '非安全方法 · 非幂等' },
+  ])
+  assert.deepEqual(dashboardSnapshot(fixture).countries, [])
+  assert.deepEqual(dashboardSnapshot({ ...fixture, geoStats: { countryStats: {} } }).countries, [])
 })
 
 test('generation timestamps normalize cache milliseconds and retain valid string timestamps', () => {
@@ -145,6 +239,41 @@ test('dashboard API preserves response and propagates transport errors for retry
   }
 })
 
+test('cold gateway cache responses and a concurrent permission denial keep all read failures visible', async () => {
+  globalThis.window = { location: { href: '/' } }
+  globalThis.localStorage = { getItem: () => 'fixture-token' }
+  const endpoints = {
+    '/api/v1/system/logs/dashboard/stats': [204, ''],
+    '/api/v1/system/logs/stats': [503, { error: '日志分析服务暂不可用' }],
+    '/api/v1/system/logs/heatmap': [200, {}],
+    '/api/v1/system/logs/ip-statistics': [200, {}],
+  }
+  request.defaults.adapter = async (config) => {
+    const [status, data] = endpoints[config.url]
+    const response = { config, status, headers: {}, data }
+    if (status >= 400) throw new AxiosError('Request failed', 'ERR_BAD_RESPONSE', config, undefined, response)
+    return response
+  }
+  const read = async () => {
+    const reads = await Promise.allSettled([
+      api.getDashboardStats(), api.getCompleteLogStats().then(logTotals),
+      api.getHeatMapData().then(heatBuckets), api.getIpStatistics().then(ipDistribution),
+    ])
+    return reads.map(read => ({
+      loading: false,
+      result: read.status === 'fulfilled' ? read.value === null ? 'empty' : 'updated'
+        : permissionDenied(read.reason) ? 'forbidden' : 'error',
+    }))
+  }
+  const cold = await read()
+  assert.deepEqual(cold.map(part => part.result), ['empty', 'error', 'error', 'error'])
+  assert.equal(logReadStatus(cold), '未能读取日志快照，请重试')
+  endpoints['/api/v1/system/logs/heatmap'] = [403, { code: 403 }]
+  const denied = await read()
+  assert.deepEqual(denied.map(part => part.result), ['empty', 'error', 'forbidden', 'error'])
+  assert.equal(logReadStatus(denied), '部分日志分项读取被拒绝（403），其他分项读取失败')
+})
+
 test('health API preserves a degraded response and propagates transport failures', async () => {
   globalThis.window = { location: { href: '/' } }
   globalThis.localStorage = { getItem: () => 'fixture-token' }
@@ -187,13 +316,16 @@ test('health API accepts a validated 503 degradation and preserves forbidden and
   await assert.rejects(api.checkServiceHealth(), (error) => error.code === 503)
 })
 
-test('peak uses the supplied snapshot buckets and shares keep a zero denominator distinct', () => {
+test('empty buckets have no peak and zero denominators have no share', () => {
   const hours = [{ label: 'old', count: 100 }, ...Array.from({ length: 24 }, () => ({ count: 5 }))]
   assert.equal(peakVisits(hours), 100)
   assert.equal(peakVisits(hours.slice(-24)), 5)
-  assert.equal(peakVisits([]), 0)
-  assert.equal(visitShare(10, 0).toFixed(1), '0.0')
-  assert.equal(visitShare(1, 3).toFixed(1), '33.3')
+  assert.equal(peakVisits([]), null)
+  assert.equal(peakVisits([{ label: '2026-10-30 08', count: 0 }]), 0)
+  assert.equal(visitShare(10, 0), null)
+  assert.equal(formatPercentage(visitShare(10, 0)), '—')
+  assert.equal(formatPercentage(visitShare(0, 3)), '0.0%')
+  assert.equal(formatPercentage(visitShare(1, 3)), '33.3%')
 })
 
 test('snapshot timestamps share an explicit timezone policy without inventing server timezone', async () => {

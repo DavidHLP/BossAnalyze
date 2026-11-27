@@ -1,8 +1,8 @@
 # Local Development
 
-For frontend replacement work, use the [frontend API preservation guide](frontend-api/README.md).
-It inventories every current frontend HTTP wrapper, payload type, transport dependency,
-backend mismatch and verification boundary before removing the existing UI.
+The [frontend README](../frontend/README.md) describes the current Vite frontend.
+The [frontend API preservation guide](frontend-api/README.md) records the legacy frontend
+inventory and links to the current transport and page entry points.
 
 ## Requirements
 
@@ -70,6 +70,11 @@ HOST=127.0.0.1 PORT=5020 pnpm start
 Deploy `dist/`, the frontend `server/` directory, and its runtime dependencies together.
 See [the frontend README](../frontend/README.md) for route fallback and proxy settings.
 
+`pnpm test` runs the Node.js tests in `frontend/tests/*.test.mjs`. Browser suites in
+`frontend/tests/*.browser.mjs` run separately against an isolated local mock. The
+[frontend README](../frontend/README.md#playwright-浏览器测试) gives the Playwright command
+and prerequisites.
+
 ## Local Profile Boundaries
 
 `local-dev` binds application ports to loopback, uses a real local Spark session,
@@ -90,16 +95,38 @@ Redis, and MongoDB. `/actuator/health/liveness` checks process availability.
 Crawler and Spark expose `/actuator/health`. A failed SMTP connection still
 appears in the API's overall health result; local readiness does not test email.
 
-Verify an authenticated user-info request after login; resume API checks are separate
-from the still-unbuilt resume UI. Recruitment endpoints return empty arrays for an
-empty `boss_data` database. To check actual log processing, trigger analysis via
+Verify an authenticated user-info request after login. `/register` uses the existing
+SMTP-backed verification-code flow. `/resumes` provides resume CRUD, editing and version
+history. `/console/logs` exposes extended analysis to accounts with dashboard access.
+Recruitment endpoints return empty arrays for an empty `boss_data` database.
+To check actual log processing in an isolated environment, trigger analysis via
 `POST /api/v1/system/logs/analysis/trigger`, then verify a fresh result at Spark's
 `/api/log/access/analysis/complete` and a heatmap through the frontend gateway.
 An initial `204` means no analysis result has been cached yet.
 
-SMTP, object storage, and external resume export/statistics services require
-their own configuration. Unavailable dashboard measurements remain unavailable rather than being filled
-with sample values. A successful HTTP response does not verify model quality or external delivery.
+SMTP, object storage and optional external resume export require their own configuration.
+Local resume printing/PDF and HTML, Markdown, and LaTeX (`.tex`) downloads run in the browser.
+`VITE_RESUME_PRIVATE_IMAGES` stays off by default. Unavailable dashboard measurements
+have an explicit unavailable state. A successful HTTP response does not verify model
+quality or external delivery.
+
+Use `$...$` for inline resume math on a single line and `$$...$$` for display math,
+either on one line or with the `$$` delimiters on lines of their own. The Pandoc
+currency guard requires non-whitespace inside both inline delimiters and rules out
+an ASCII digit immediately after the closing `$`, so `$100-$200` stays plain text.
+Use `\$` for a literal dollar sign. Preview, standalone HTML and print load KaTeX
+on demand and use the same MathML output.
+
+LaTeX is a one-way local export. It substitutes text for private images and cannot
+be imported into resume version history. Compile it locally with XeLaTeX and the
+`ctex` package and Fandol fonts. Keep shell escape disabled.
+
+```sh
+xelatex -no-shell-escape -halt-on-error resume.tex
+```
+
+If LaTeX formula validation fails, use the line and column reported by the export
+dialog to jump to the formula in the Markdown editor.
 
 ## Offline geolocation and object storage
 

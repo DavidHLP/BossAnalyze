@@ -45,31 +45,3 @@ export const getCityNameList = (): Promise<string[]> => {
 export const getPositionNameList = (cityName?: string): Promise<string[]> => {
   return request.get('/api/v1/boss/basic/position-name-list', { params: { cityName } });
 };
-
-/**
- * 获取公司列表
- * @param cityName - 城市名称
- * @param positionName - 职位名称
- * @returns Promise<JobData[]>
- */
-export const getCompanyList = (
-  cityName: string,
-  positionName: string
-): Promise<JobData[]> => {
-  return request.get('/api/boss/basic/company-list', { params: { cityName, positionName } });
-};
-
-/**
- * 获取三维分析图表数据
- * @param cityName - 城市名称
- * @param positionName - 职位名称
- * @returns Promise<JobData[]>
- */
-export const getThreeDimensionalAnalysisChart = (
-  cityName: string,
-  positionName: string
-): Promise<JobData[]> => {
-  return request.get('/api/boss/user/three-dimensional-analysis-chart', {
-    params: { cityName, positionName }
-  });
-};

@@ -5,7 +5,7 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { Add01Icon, ArrowRight01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { getUserRoutes, deleteRouter } from '@/api/router/router'
 import { getRoleList } from '@/api/auth/auth'
-import { checkReadAccess, listStatus, mutationError, mutationResultUnknown, permissionDenied, restoreActionFocus, sessionChangedMessage } from '@/lib/rbac-mutations'
+import { checkReadAccess, listStatus, mutationError, mutationResultUnknown, permissionDenied, refreshNavigation, restoreActionFocus, sessionChangedMessage } from '@/lib/rbac-mutations'
 import { managedRoles } from '@/lib/roles'
 import {
   managedMenus,
@@ -52,7 +52,6 @@ const filtering = computed(() => Boolean(applied.query || applied.status !== 'al
 const total = computed(() => menuRows(tree.value).length)
 const matches = computed(() => rows.value.filter((row) => row.match).length)
 const notice = ref('')
-const navigationNotice = '重新登录后将更新左侧导航栏。'
 const awaitingRead = ref<'save' | 'delete' | null>(null)
 const writeLocked = computed(() => pending.value || failed.value || awaitingRead.value !== null || sessionChanged.value)
 const open = ref(false)
@@ -94,8 +93,8 @@ async function load() {
   try {
     const result = managedMenus(checkReadAccess(await withSessionOwner(owner, getUserRoutes)))
     if (!session.owns(owner)) return
-    tree.value = result
-    if (awaitingRead.value) read(tree.value)
+    if (awaitingRead.value) await read(result)
+    else tree.value = result
   } catch (error) {
     if (!session.owns(owner)) return
     tree.value = []
@@ -144,15 +143,15 @@ function show(
   parent.value = ancestor
   open.value = true
 }
-function saved(value: MenuRecord[]) {
+async function saved(value: MenuRecord[]) {
   tree.value = value
   open.value = false
-  notice.value = `菜单已保存并回读确认。${navigationNotice}`
+  await refreshNavigation(session.refresh, notice, '菜单已保存并回读确认。')
 }
-function read(value: MenuRecord[]) {
+async function read(value: MenuRecord[]) {
   tree.value = value
   awaitingRead.value = null
-  notice.value = `已重新读取菜单，请核对最终配置。${navigationNotice}`
+  await refreshNavigation(session.refresh, notice, '已重新读取菜单，请核对最终配置。', false)
 }
 function lockSave() {
   awaitingRead.value = 'save'
@@ -237,7 +236,7 @@ async function remove() {
     tree.value = result
     deleteTrigger = null
     deletion.value = null
-    notice.value = `菜单已删除并回读确认。${navigationNotice}`
+    await refreshNavigation(session.refresh, notice, '菜单已删除并回读确认。')
   } catch (error) {
     if (!session.owns(owner)) return
     if (accepted || mutationResultUnknown(error)) {
@@ -572,7 +571,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
       "
       ><UiDialogContent
         :show-close-button="false"
-        class="top-[38.2%]! sm:max-w-[400px]!"
+        class="sm:max-w-[400px]"
         @pointer-down-outside.prevent
         @interact-outside.prevent
         @close-auto-focus="restoreDeleteFocus"

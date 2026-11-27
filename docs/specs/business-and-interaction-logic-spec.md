@@ -1,8 +1,20 @@
 # BossAnalyze 业务逻辑与交互逻辑规格书
 
+## 当前 Vite 前端
+
+前端采用 Vue 3、Vue Router、Vite 和 shadcn-vue，源码位于 `frontend/src/`。开发使用 `pnpm dev`，生产使用 `pnpm build` 生成 `dist/`，再由 `pnpm start` 启动 Node 服务。工具链为 Node.js 22.13+、pnpm 11.24.0。开发与生产共享同源 `/api/**` 代理及来源 IP 清理规则。AI v1/v2 请求转至 8081，其余请求转至 8080，招聘及日志经主 API 网关。见 [前端运行说明](../../frontend/README.md)和[代理入口](../../frontend/server/api-proxy.ts)。
+
+- `/register` 已接入邮件验证码和注册。邮件发送依赖 SMTP。
+- `/resumes` 已接入本人简历列表、编辑、版本历史及仓库维护。列表区分明确写入失败、结果未知以及受理后未能回读确认。版本页提供第一父链说明、快照确认和正文逐行对比。
+- 编辑器以结构化 Markdown 预览正文，按账号、登录会话和简历暂存本地草稿。可在浏览器打印或另存 A4 PDF、下载独立 HTML 或 Markdown 源码。外部导出需配置 HTTPS 服务、经用户同意，并返回可打开的 HTTPS 结果。私有图片默认关闭，简历职位匹配保持隐私停用。
+- `/console/logs` 已接入扩展日志读侧和手动触发。访问沿用看板授权，触发另需 `logs.analysis.trigger`。
+- `pnpm test` 执行 `frontend/tests/*.test.mjs`，`pnpm type-check` 和 `pnpm build` 提供类型及生产构建检查。Playwright 单独运行，使用隔离 Mock。见 [前端测试说明](../../frontend/README.md#playwright-浏览器测试)。
+
+以下 §1–§6 保留历史源码盘点，其旧路径、框架、功能状态和数量对应固定提交。§7 标注已落地的交互变更。
+
 ## 1. 概述、盘点基线与功能范围四象限
 
-本文供产品设计、UI 重设计、前端重构和验收使用。盘点基线为 `06dc97735acb55ca56950797e88d2510a6295199`。行为依据为该提交的路由、调用链、控制器、数据模型与测试源码。「现有」表示基线实现，「可选」表示需要独立立项。浏览器及部署验证项见第 6 节。下文文件路径均相对仓库根目录，API 表中的前缀与相对路由直接拼接。
+本文供产品设计、UI 重设计、前端重构和验收使用。历史盘点基线为 `06dc97735acb55ca56950797e88d2510a6295199`。行为依据为该提交的路由、调用链、控制器、数据模型与测试源码。「现有」表示历史基线实现，「可选」表示盘点时可独立立项。浏览器及部署验证项见第 6 节。下文文件路径均相对仓库根目录，API 表中的前缀与相对路由直接拼接。
 
 | 运行组件 | 基线与职责 | 依赖与入口 |
 | --- | --- | --- |
@@ -415,9 +427,11 @@ Analytics 与 crawler 直连仍回查主 API 身份。受保护的日志路由�
 
 映射源 [Result · `backend/api/src/main/java/com/david/hlp/web/common/entity/Result.java`](../../backend/api/src/main/java/com/david/hlp/web/common/entity/Result.java)、[业务码 · `backend/api/src/main/java/com/david/hlp/web/common/enums/ResultCode.java`](../../backend/api/src/main/java/com/david/hlp/web/common/enums/ResultCode.java)、[异常处理 · `backend/api/src/main/java/com/david/hlp/web/common/exception/GlobalExceptionHandler.java`](../../backend/api/src/main/java/com/david/hlp/web/common/exception/GlobalExceptionHandler.java)、[浏览器请求 · `frontend/app/utils/request/request.ts`](../../frontend/app/utils/request/request.ts)、[看板请求 · `frontend/app/api/log/accesslog.ts`](../../frontend/app/api/log/accesslog.ts)。
 
-## 5. 后端已就绪但未接入 UI 的能力与停用能力边界
+## 5. 历史快照中的 UI 接入缺口与停用能力边界
 
-### 5.1 可独立规划的能力
+### 5.1 盘点时可独立规划的能力
+
+注册、简历、外部导出和扩展日志的现行页面参见文首。下表记录盘点时的接入约束。
 
 | 能力 | 接入约束与需要设计的失败状态 |
 | --- | --- |
@@ -475,9 +489,9 @@ Analytics 与 crawler 直连仍回查主 API 身份。受保护的日志路由�
 | 10 | 重排 UI 丢失快捷键或辅助入口 | 768/640 两处分界、7 天 Cookie、跳过导航、焦点回归、状态播报、小时图按钮和表格、散点明细可键盘访问 |
 | 11 | 从历史文档恢复失效契约 | 以基线源码核对代理、响应、退出、包版本和无效封装，漂移见 §8 |
 
-### 6.2 前端 73 项测试
+### 6.2 前端单测入口与历史覆盖
 
-以下为 `frontend/tests/*.test.mjs` 顶层 `test()` 源码计数。执行入口 `cd frontend && pnpm test`，配合 `pnpm type-check`、`pnpm build` 使用。
+当前入口为 `cd frontend && pnpm test`，执行目录内的 `tests/*.test.mjs`。简历行为及部分路由、日志投影可用 `node --experimental-strip-types --test --test-concurrency=1 tests/penpot-pages.test.mjs` 单独检查。以下 73 项为历史基线的顶层 `test()` 源码计数。
 
 | 文件 | 项数 | 保护范围 |
 | --- | ---: | --- |
@@ -516,19 +530,18 @@ Analytics 与 crawler 直连仍回查主 API 身份。受保护的日志路由�
 - 以手机/桌面和键盘/读屏检查两个断点、可见焦点、主内容跳转、抽屉闭环、图表等价数据、宽内容滚动、文本对比度和 200% 缩放下操作可达。
 - 不带真实简历内容的现网边界验证仅检查停用响应及 UI 没有上传/匹配入口，使用隔离样本进行任何写操作验收。
 
-## 7. 现状体验痛点与 UI 重设计优化清单
+## 7. 体验优化项的现行状态
 
-以下是可选的重设计工作项。若未采纳，当前行为以第 2、3 节为准。
-
-| 纯前端 UI / 交互优化项 | 可采取的改动与保留契约 |
+| 纯前端 UI / 交互优化项 | 已落地行为或剩余契约 |
 | --- | --- |
-| 招聘「重试当前条件」实际读 draft | 将重试与应用草稿显式分开，重试失败时的 `applied`。草稿留给另一次提交 |
-| 侧栏快捷键抢占文本输入 | 对输入、内容编辑区和正在编辑的弹层增加合理豁免。继续保留触发按钮、侧栏状态和可公开发现的键盘机制 |
-| 路由与权限变更后侧栏可陈旧 | 注明生效方式，或在已确认写入后重新恢复授权树。保持后端每次鉴权和强退保护 |
-| 部分删除/保存错误过于泛化 | 将 HTTP、业务错误与回读未确认映射到稳定行动文案，保留「已提交、未确认」状态和原输入。避免把 `1006` 当登录失效 |
-| 看板和散点信息密度高 | 明示快照范围和抽样，移动端优化阅读/分页，保留键盘可操作小时项和全量坐标分组明细 |
-| 健康适配只消费 200 | 选择接受并验证非 200 正文的降级形状，保留权限拒绝与请求失败。若改变网关状态码，则按跨层契约变更处理 |
-| 跨标签刷新容易丢稿 | 可以将远端换会话改成显式失效提示，处理脏草稿及账号切换，不在新身份下提交旧草稿 |
+| 招聘条件重试 | 「重试上次条件」使用上次应用的条件。未应用的筛选草稿留在表单 |
+| 侧栏快捷键 | 文本输入和活动模态期间抑制侧栏快捷键。按钮及正常键盘切换仍可使用 |
+| 路由与权限变更 | 会话提供同 token 强制重读权限树。菜单与角色写后刷新以页面接线为准，修改本人或当前角色仍强制退出 |
+| 删除、保存与写后回读 | 用户、角色和菜单写入显示操作反馈，简历列表区分写入失败、结果未知及受理后回读失败。删除确认密码错误保留会话 |
+| 看板与散点信息 | 看板区分快照空桶与真实零值。散点图显示实际绘制组数、总组数及 1,000 组上限，明细保留全量分组 |
+| 健康响应与网关 | 服务端状态码统一仍需跨层契约。前端区分权限拒绝、连接失败与已知健康状态 |
+| 跨标签会话变化 | 壳层支持已登记脏草稿的页内失效提示和提交锁。登记范围以各编辑组件接线为准。简历编辑另在本标签页提供按会话隔离的草稿恢复 |
+| 简历版本与导出 | 最近列表可刷新，合并目标改变需重新确认。版本校验显示明细，快照支持逐行对比。本地 PDF/HTML/Markdown 与经同意的外部导出均可使用 |
 
 | 需同步改动后端的优化项 | 需要补齐的能力或数据契约 |
 | --- | --- |
@@ -546,9 +559,9 @@ Analytics 与 crawler 直连仍回查主 API 身份。受保护的日志路由�
 | --- | --- | --- |
 | [项目结构 · `docs/project-structure.md`](../project-structure.md)、[本地开发 · `docs/local-development.md`](../local-development.md) | 目录迁移、工具链、生产 Node 代理、各服务启动和环境边界 | 与当前物理路径、代理和服务边界对照使用。发布或本机参数以一次真实运行和对应配置为准 |
 | [前端审查修复规格 · `docs/frontend-audit-repair-spec.md`](../frontend-audit-repair-spec.md)、[验证记录 · `docs/frontend-audit-repair-validation.md`](../frontend-audit-repair-validation.md) | 服务端访问边界、会话竞态、导航隐藏、招聘口径、历史验证 | 验证记录固定在当时审查范围，当前页数、路由和用例数量以本规格对应提交重查 |
-| [现有前端说明 · `frontend/README.md`](../../frontend/README.md) | 开发命令、页面导航及功能描述 | 关于「没有服务端注销封装」及将旧外部计数地址/凭据打入客户端的描述过时。当前有 `/api/auth/logout`，仅定义 `VITE_EXPORT_URL`，计数 stub 返回 0。参考 README 中关于各页面的段落时以实际适配器和网关状态为准 |
+| [现有前端说明 · `frontend/README.md`](../../frontend/README.md) | Vite 开发及生产命令、已接入页面、测试入口 | 包含简历本地导出、安全预览、草稿与外部导出约束。旧外部计数地址属于历史快照 |
 | [旧前端 API 总览 · `docs/frontend-api/README.md`](../frontend-api/README.md)、[端点 · `docs/frontend-api/endpoints.md`](../frontend-api/endpoints.md)、[结构 · `docs/frontend-api/contracts.md`](../frontend-api/contracts.md)、[验证 · `docs/frontend-api/verification.md`](../frontend-api/verification.md) | 遗留封装和固定提交的取证，了解旧 DTO 和历史端点 | 含 `vue/`、`JDK17SERVE/` 的旧路径与 pin，旧 401 直接清 token 未考虑请求归属。外部计数/浏览器凭据、映射数、登录和包装语义属于不同阶段。查当前接口用 §4 及当前源码。无映射封装见 §5.3 |
 | [独立凭据测试 README · `tools/credential-contract-tests/README.md`](../../tools/credential-contract-tests/README.md)、[现有 POM · `tools/credential-contract-tests/pom.xml`](../../tools/credential-contract-tests/pom.xml) | 隔离 Maven 合同及离线重复入口、模拟网络范围 | README 仍描述旧推理供应商及相关初始化/HTTP 测试，当前 POM 的源集和测试用例是实际边界。登录服务不因此出现前端 refresh 路由 |
 | [隐私停用 · `docs/operations/resume-matching-privacy-hold.md`](../operations/resume-matching-privacy-hold.md)、[授权规格 · `docs/specs/resume-privacy-authorization-20261112.md`](resume-privacy-authorization-20261112.md)、[收尾边界 · `docs/specs/ai-closeout-20261112.md`](ai-closeout-20261112.md) | 匹配处理权限、停用范围与各运行组件边界 | 当前上线限制以控制器前置保护、配置默认值和当前部署检查为准。历史验收只证明其记录时环境 |
 | [采样 · `docs/recruitment-sampling.md`](../recruitment-sampling.md)、[离线地理位置 · `docs/operations/offline-geolocation.md`](../operations/offline-geolocation.md)、[对象存储迁移 · `docs/operations/rustfs-migration.md`](../operations/rustfs-migration.md)、[数据库角色唯一性 · `docs/operations/database-role-uniqueness.md`](../operations/database-role-uniqueness.md) | CLI 与专用基础设施运行手册 | 与对应 CLI、Hadoop/Redis、S3 及数据库配置和迁移文件配套使用。SQL 快照会删除表，只向明确的新空库导入 |
-| `docs/specs/`、`docs/operations/`、`docs/security/` 其余专项记录 | 专项合同、上线记录、依赖和架构审查 | 查某项历史治理和上线证据时按文档记录的日期与版本使用。当前重设计的页面、交互和 API 以本文基线对应实现为准 |
+| `docs/specs/`、`docs/operations/`、`docs/security/` 其余专项记录 | 专项合同、上线记录、依赖和架构审查 | 历史治理和上线证据按记录日期与提交使用。当前页面和 API 以文首及对应源码为准 |

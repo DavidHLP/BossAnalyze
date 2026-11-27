@@ -12,6 +12,7 @@ import {
   userDeleteError,
   userWriteSucceeded,
 } from '../src/lib/users.ts'
+import { requestFailure } from '../src/utils/request/request.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/users.json', import.meta.url)))
 
@@ -124,6 +125,24 @@ test('only the confirmation-password business code identifies an incorrect opera
   )
   assert.match(userDeleteError({ code: 400, data: { code: 1007 } }), /参数未通过校验/)
   assert.match(userDeleteError({ code: 403 }), /无权删除/)
+})
+
+test('an indeterminate write asks the operator to check the list before retrying', () => {
+  const expected = '请求可能已提交，请先刷新列表核对实际状态'
+  const failures = [
+    requestFailure(undefined, undefined),
+    requestFailure(504, 'Gateway Timeout'),
+    requestFailure(204, undefined),
+  ]
+  for (const failure of failures) {
+    assert.deepEqual(userSaveError(failure), { field: null, message: expected })
+    assert.equal(userDeleteError(failure), expected)
+  }
+  assert.throws(() => userWriteSucceeded({}), error => userSaveError(error).message === expected)
+  assert.equal(
+    userDeleteError(requestFailure(400, { code: 1006 })),
+    '操作者密码不正确，请重试',
+  )
 })
 
 test('create and edit introductions respect the existing 255-character column without truncation', () => {
