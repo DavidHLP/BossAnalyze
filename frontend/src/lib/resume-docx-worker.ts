@@ -5,9 +5,9 @@ import { resumePreview } from './resumes.ts'
 
 declare const self: DedicatedWorkerGlobalScope
 
-self.onmessage = async ({ data }: MessageEvent<string>) => {
+self.onmessage = async ({ data }: MessageEvent<{ content: string; compact?: boolean }>) => {
   try {
-    self.postMessage(await resumeDocx(resumePreview(data)))
+    self.postMessage(await resumeDocx(resumePreview(data.content), data.compact))
   } catch {
     self.postMessage(null)
   }

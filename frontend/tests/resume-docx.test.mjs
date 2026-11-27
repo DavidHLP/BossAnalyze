@@ -64,3 +64,14 @@ test('preserves safe links and ordered lists while flattening tables, images and
   assert.match(xml, /E=mc\^2<\/w:t>(?:<\/w:r><w:r>)?<w:br\/><w:t[^>]*>x=y/)
   assert.doesNotMatch(xml, /<w:tbl\b|<w:drawing\b|<m:oMath/)
 })
+
+test('compact Word export uses 10pt text and 1.35 line spacing without changing the body', async () => {
+  const blocks = resumePreview('# 简历\n\n工作经历')
+  const standard = Buffer.from(await (await resumeDocx(blocks)).arrayBuffer())
+  const compact = Buffer.from(await (await resumeDocx(blocks, true)).arrayBuffer())
+  const defaults = zipXml(compact, 'word/styles.xml').match(/<w:docDefaults>.*?<\/w:docDefaults>/)?.[0]
+  assert.match(defaults, /<w:sz w:val="20"\/>/)
+  assert.match(defaults, /<w:spacing[^>]*w:line="324"/)
+  assert.notEqual(zipXml(compact, 'word/styles.xml'), zipXml(standard, 'word/styles.xml'))
+  assert.equal(zipXml(compact, 'word/document.xml'), zipXml(standard, 'word/document.xml'))
+})

@@ -2,7 +2,7 @@ import {
   BorderStyle, Document, ExternalHyperlink, HeadingLevel, LevelFormat, Packer, Paragraph, TextRun,
   convertMillimetersToTwip, type NumberingDefinition,
 } from 'docx'
-import { resumePageHeight, resumePageMargin, resumePageWidth } from './resume-render.ts'
+import { resumeCompactFontSizePt, resumeCompactLineHeight, resumePageHeight, resumePageMargin, resumePageWidth } from './resume-render.ts'
 import { markdownHref, type PreviewBlock, type ResumeInline } from './resumes.ts'
 
 const headings = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3] as const
@@ -31,7 +31,7 @@ function inlineRuns(inline: ResumeInline[]) {
   })
 }
 
-export function resumeDocx(blocks: readonly PreviewBlock[]): Promise<Blob> {
+export function resumeDocx(blocks: readonly PreviewBlock[], compact = false): Promise<Blob> {
   const numbering: NumberingDefinition[] = []
   const paragraphs = blocks.flatMap((block, index) => {
     switch (block.kind) {
@@ -72,7 +72,12 @@ export function resumeDocx(blocks: readonly PreviewBlock[]): Promise<Blob> {
     }
   })
   const margin = convertMillimetersToTwip(Number.parseInt(resumePageMargin))
+  const fontSize = resumeCompactFontSizePt * 2
   return Packer.toBlob(new Document({
+    styles: compact ? { default: { document: {
+      run: { size: fontSize, sizeComplexScript: fontSize },
+      paragraph: { spacing: { line: Math.round(resumeCompactLineHeight * 240) } },
+    } } } : undefined,
     numbering: { config: numbering },
     sections: [{
       properties: {

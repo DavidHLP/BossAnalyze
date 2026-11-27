@@ -7,6 +7,8 @@ export const resumePageHeight = `${pageHeightMm}mm`
 export const resumePageMargin = `${pageMarginMm}mm`
 export const resumePageContentHeightPx = (pageHeightMm - pageMarginMm * 2) * 96 / 25.4
 export const resumeCompactClass = 'resume-body-compact'
+export const resumeCompactFontSizePt = 10
+export const resumeCompactLineHeight = 1.35
 
 export const resumeLayoutCss = `
   .resume-body {
@@ -15,7 +17,7 @@ export const resumeLayoutCss = `
     font: 11pt/1.5 system-ui, sans-serif;
     overflow-wrap: anywhere;
   }
-  .resume-body.${resumeCompactClass} { font-size: 10pt; line-height: 1.35; }
+  .resume-body.${resumeCompactClass} { font-size: ${resumeCompactFontSizePt}pt; line-height: ${resumeCompactLineHeight}; }
   .resume-body :is(h1, h2, h3) { margin: 0 0 0.4em; font-weight: 600; break-after: avoid; }
   .resume-body h1 { font-size: 18pt; line-height: 1.33; letter-spacing: -0.025em; }
   .resume-body :is(h2, h3) { margin-top: 0.8em; border-bottom: 1px solid #9996; padding-bottom: 0.2em; }

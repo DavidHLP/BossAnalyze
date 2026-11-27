@@ -136,7 +136,7 @@ async function cancelDocxFromDialog() {
 
 function exportDocx() {
   if (!open.value || !docxEnabled || docxWorker.value) return
-  const { title } = props
+  const { title, compact } = props
   docxError.value = ''
   const fail = () => {
     cancelDocx()
@@ -158,7 +158,7 @@ function exportDocx() {
         fail()
       }
     }
-    worker.postMessage(exportContent.value)
+    worker.postMessage({ content: exportContent.value, compact })
   } catch {
     fail()
   }
