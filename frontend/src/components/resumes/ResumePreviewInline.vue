@@ -10,8 +10,8 @@ defineProps<{
 
 <template>
   <template v-for="(token, index) in tokens" :key="index">
-    <a v-if="token.kind === 'link'" :href="token.href" target="_blank" rel="noopener noreferrer" class="underline">{{ token.text }}</a>
-    <code v-else-if="token.kind === 'code'" class="bg-muted px-1 font-mono">{{ token.text }}</code>
+    <a v-if="token.kind === 'link'" :href="token.href" target="_blank" rel="noopener noreferrer">{{ token.text }}</a>
+    <code v-else-if="token.kind === 'code'">{{ token.text }}</code>
     <strong v-else-if="token.kind === 'strong'">{{ token.text }}</strong>
     <em v-else-if="token.kind === 'em'">{{ token.text }}</em>
     <template v-else-if="token.kind === 'text'">{{ token.text }}</template>

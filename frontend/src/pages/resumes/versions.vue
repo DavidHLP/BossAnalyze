@@ -8,9 +8,10 @@ import {
   type ResumeCommit, type ResumeRecord, type ResumeValidation,
 } from '@/api/resume/resume'
 import { useSession } from '@/composables/useSession'
+import { useResumeImages } from '@/composables/useResumeImages'
 import { restoreActionFocus } from '@/lib/rbac-mutations'
 import {
-  countDuplicateCommits, resumeFirstParentRelation, resumeLineDiff, resumeMainline, resumeReadMessage, resumeTime, shortCommit,
+  countDuplicateCommits, resumeAssetNames, resumeFirstParentRelation, resumeLineDiff, resumeMainline, resumePreview, resumeReadMessage, resumeTime, shortCommit,
 } from '@/lib/resumes'
 import ResumePreview from '@/components/resumes/ResumePreview.vue'
 
@@ -41,6 +42,9 @@ const validation = shallowRef<ResumeValidation | null>(null)
 const debug = shallowRef<Record<string, unknown> | null>(null)
 const selection = shallowRef<ResumeCommit | null>(null)
 const panel = ref<'snapshot' | 'inspect' | null>(null)
+const snapshotImageNames = computed(() => panel.value === 'snapshot'
+  ? resumeAssetNames(resumePreview(selection.value?.content ?? '')) : [])
+const { images } = useResumeImages(snapshotImageNames)
 const operation = ref<Action | null>(null)
 const action = computed(() => operation.value ? actions[operation.value] : null)
 const from = ref('')
@@ -446,7 +450,7 @@ async function submit() {
           <UiSheetDescription>{{ selection ? shortCommit(selection.id) + ' · ' + (selection.message ?? '') : '检查当前版本、版本线及版本引用。' }}</UiSheetDescription>
         </UiSheetHeader>
         <div class="flex flex-col gap-4 px-4 pb-6">
-          <ResumePreview v-if="panel === 'snapshot' && selection" :content="selection.content ?? ''" />
+          <ResumePreview v-if="panel === 'snapshot' && selection" :content="selection.content ?? ''" :images="images" />
           <dl v-else-if="selection && debug" class="flex flex-col gap-2 text-sm">
             <div>版本存在 · {{ debug.commitExists === true ? '是' : '否' }}</div>
             <div>前序版本数 · {{ typeof debug.parentCount === 'number' ? debug.parentCount : '—' }}</div>
