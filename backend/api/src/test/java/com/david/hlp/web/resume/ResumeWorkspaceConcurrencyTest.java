@@ -210,7 +210,7 @@ class ResumeWorkspaceConcurrencyTest {
     }
 
     @Test
-    void branchOperationsCheckoutResetRevertAndRepairAdvanceRevision() {
+    void branchOperationsCheckoutResetAndRevertAdvanceRevision() {
         Resume resume = createResume();
         String id = resume.getId();
         versions.createBranch(id, OWNER, "feature", 0L);
@@ -224,8 +224,7 @@ class ResumeWorkspaceConcurrencyTest {
         versions.checkout(id, OWNER, resume.getHeadCommit(), 4L);
         versions.resetToCommit(id, OWNER, resume.getHeadCommit(), 5L);
         String reverted = versions.revertCommit(id, OWNER, feature, 6L);
-        assertEquals(true, versions.fixDuplicateCommitIds(id, OWNER, 7L).get("success"));
-        assertEquals(8, getResume(id).getWorkspaceRevision());
+        assertEquals(7, getResume(id).getWorkspaceRevision());
         assertEquals(reverted, getResume(id).getHeadCommit());
         assertEquals("initial", getResume(id).getContent());
     }

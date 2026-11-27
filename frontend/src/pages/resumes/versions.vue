@@ -11,11 +11,12 @@ import { useSession } from '@/composables/useSession'
 import { useResumeImages } from '@/composables/useResumeImages'
 import { restoreActionFocus } from '@/lib/rbac-mutations'
 import {
-  countDuplicateCommits, resumeAssetNames, resumeFirstParentRelation, resumeLineDiff, resumeMainline, resumePreview, resumeReadMessage, resumeTime, shortCommit,
+  countDuplicateCommits, resumeAssetNames, resumeFirstParentRelation, resumeLineDiff, resumeMainline, resumePreview, resumeReadMessage, resumeTime,
+  resumeWriteConflict, shortCommit,
 } from '@/lib/resumes'
 import ResumePreview from '@/components/resumes/ResumePreview.vue'
 
-type Action = 'branch' | 'switch' | 'merge' | 'stash' | 'stash/pop' | 'checkout' | 'reset' | 'revert' | 'fix-duplicate-ids'
+type Action = 'branch' | 'switch' | 'merge' | 'stash' | 'stash/pop' | 'checkout' | 'reset' | 'revert'
 const actions: Record<Action, { title: string; description: string; destructive?: boolean }> = {
   branch: { title: '新建版本线', description: '新版本线将从当前版本建立。' },
   switch: { title: '切换版本线', description: '编辑区内容将更新为目标版本线的最新内容。' },
@@ -25,7 +26,6 @@ const actions: Record<Action, { title: string; description: string; destructive?
   checkout: { title: '恢复到此版本', description: '此操作会用所选版本的内容替换当前编辑区内容。' },
   reset: { title: '回退到此版本', description: '将当前版本线和编辑区回退至所选版本。后续版本可能不再出现在当前版本线上，且会改变版本记录。', destructive: true },
   revert: { title: '以该版本内容新建保存', description: '用所选版本的正文创建一个新版本，保留原有版本记录。' },
-  'fix-duplicate-ids': { title: '去重重建', description: '将永久删除旧版本记录、清空版本线与暂存，并使用当前内容重建主版本线。', destructive: true },
 }
 const route = useRoute()
 const router = useRouter()
@@ -96,7 +96,6 @@ const canConfirm = computed(() => {
   if (operation.value === 'merge') return !!sourceSnapshot.value && !!target.value && target.value !== source.value && confirmed.value
   if (operation.value === 'reset') return canReset.value
   if (operation.value === 'revert') return !!revertSnapshot.value && !!record.value?.headCommit
-  if (operation.value === 'fix-duplicate-ids') return duplicates.value > 0 && confirmed.value
   return true
 })
 
@@ -270,15 +269,15 @@ async function submit() {
   const owner = session.capture()
   const previous = record.value
   const previousStash = stashCount.value
+  const revision = record.value?.workspaceRevision
   let result: string | undefined
   try {
-    if (command === 'branch') await changeResumeVersion(key, 'branch', { name: branchName.value.trim() })
-    else if (command === 'switch') await changeResumeVersion(key, 'switch', { branch: target.value })
-    else if (command === 'merge') result = await changeResumeVersion(key, 'merge', { source: source.value, target: target.value })
-    else if (command === 'stash') await changeResumeVersion(key, 'stash', { content: draft.value })
-    else if (command === 'stash/pop') result = await changeResumeVersion(key, 'stash/pop')
-    else if (command === 'fix-duplicate-ids') await changeResumeVersion(key, 'fix-duplicate-ids')
-    else if (commit) result = await changeResumeVersion(key, command, { commitId: commit.id })
+    if (command === 'branch') await changeResumeVersion(key, 'branch', { name: branchName.value.trim() }, revision)
+    else if (command === 'switch') await changeResumeVersion(key, 'switch', { branch: target.value }, revision)
+    else if (command === 'merge') result = await changeResumeVersion(key, 'merge', { source: source.value, target: target.value }, revision)
+    else if (command === 'stash') await changeResumeVersion(key, 'stash', { content: draft.value }, revision)
+    else if (command === 'stash/pop') result = await changeResumeVersion(key, 'stash/pop', undefined, revision)
+    else if (commit) result = await changeResumeVersion(key, command, { commitId: commit.id }, revision)
     if (key !== id.value || !session.owns(owner)) return
     operation.value = null
     mode.value = 'all'
@@ -300,18 +299,20 @@ async function submit() {
         case 'checkout': return current.headCommit === commit?.id
         case 'reset': return current.headCommit === commit?.id && current.branches?.[current.currentBranch ?? ''] === commit?.id
         case 'revert': return current.headCommit === result
-        case 'fix-duplicate-ids': return !duplicates.value && current.currentBranch === 'main'
         default: return false
       }
     })()
     if (verified) feedback.value = '操作成功，已重新读取版本状态。'
     else detailError.value = '操作已被接收，重读时未能确认预期结果。请核对版本状态。'
-  } catch {
+  } catch (cause) {
     if (key === id.value && session.owns(owner)) {
+      const conflict = resumeWriteConflict(cause)
       range.value = validation.value = null
       await read()
       operation.value = null
-      detailError.value = '操作结果未确认，已尝试重读版本。请核对后再操作。'
+      detailError.value = conflict
+        ? '另一个标签页或设备已保存新版本，本次操作未执行。请核对最新版本后重试。'
+        : '操作结果未确认，已尝试重读版本。请核对后再操作。'
     }
   } finally {
     busy.value = ''
@@ -342,7 +343,6 @@ async function submit() {
               <UiButton variant="outline" :disabled="Boolean(busy) || writeLocked" @click="open('merge', $event)">合并版本线</UiButton>
               <UiButton :disabled="Boolean(busy) || writeLocked" @click="open('branch', $event)"><RiAddLine data-icon="inline-start" />新建版本线</UiButton>
               <UiButton variant="outline" :disabled="Boolean(busy)" @click="inspect(undefined, $event)">检查版本完整性</UiButton>
-              <UiButton v-if="duplicates" variant="destructive" :disabled="Boolean(busy) || writeLocked" @click="open('fix-duplicate-ids', $event)">去重重建</UiButton>
             </div>
           </div>
           <UiSeparator />
@@ -472,7 +472,6 @@ async function submit() {
             </div>
             <div class="flex flex-wrap gap-2">
               <UiButton variant="outline" :disabled="Boolean(busy)" @click="inspect()">重新校验</UiButton>
-              <UiButton v-if="duplicates" variant="destructive" :disabled="Boolean(busy) || writeLocked" @click="open('fix-duplicate-ids', $event)">去重重建</UiButton>
             </div>
           </template>
         </div>
@@ -500,14 +499,14 @@ async function submit() {
             <summary>核对源内容 · {{ shortCommit(sourceSnapshot.id) }} → {{ shortCommit(branchTips[target]) }}</summary>
             <pre class="mt-2 max-h-44 overflow-auto whitespace-pre-wrap break-words">{{ sourceSnapshot.content }}</pre>
           </details>
-          <label v-if="operation === 'merge' || operation === 'fix-duplicate-ids'" class="flex items-start gap-2 text-sm">
+          <label v-if="operation === 'merge'" class="flex items-start gap-2 text-sm">
             <input v-model="confirmed" type="checkbox" :disabled="Boolean(busy)" class="mt-1">
-            {{ operation === 'merge' ? '我已核对源内容，确认合并' : '我已核对重复版本并确认永久重建' }}
+            我已核对源内容，确认合并
           </label>
           <UiField v-if="operation === 'stash'">
             <UiFieldLabel for="version-stash">要暂存的正文</UiFieldLabel><UiTextarea id="version-stash" v-model="draft" :disabled="Boolean(busy)" />
           </UiField>
-          <p v-if="selection && operation !== 'fix-duplicate-ids'" class="font-mono text-xs text-muted-foreground">{{ shortCommit(selection.id) }} · {{ selection.message }}</p>
+          <p v-if="selection" class="font-mono text-xs text-muted-foreground">{{ shortCommit(selection.id) }} · {{ selection.message }}</p>
           <p v-if="operation === 'checkout'" class="text-sm wrap-anywhere">
             <template v-if="checkoutBranches.length === 1">当前版本线将指向「{{ checkoutBranches[0] }}」的最新版本，下一次保存会推进该版本线。</template>
             <template v-else-if="checkoutBranches.length > 1">这是多个版本线的最新版本（{{ checkoutBranches.join('、') }}）。服务器会选定其中一个作为当前版本线，下一次保存会推进该版本线。</template>
