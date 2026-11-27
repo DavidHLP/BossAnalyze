@@ -37,6 +37,13 @@ const leaveOpen = ref(false)
 const markdown = ref('')
 const message = ref('')
 const localDraft = shallowRef<ResumeDraft | null>(null)
+const draftSavedAt = ref('')
+const draftUnavailable = ref(false)
+const savedAt = ref('')
+const savedCommit = ref('')
+const restoreOpen = ref(false)
+const restorePending = ref(false)
+const restoreError = ref('')
 const account = computed(() => {
   const user = session.state.value.user
   if (user?.id !== undefined) return 'id:' + user.id
@@ -73,16 +80,27 @@ let checkRevision = 0
 let leaveDecision: ((discard: boolean) => void) | null = null
 let draftInput: HTMLElement | null = null
 let returnToDraft = false
+let draftTimer: ReturnType<typeof setTimeout> | undefined
 
 function clearLocalDraft() {
-  draftStore?.clear()
+  if (draftTimer !== undefined) {
+    clearTimeout(draftTimer)
+    draftTimer = undefined
+  }
+  try {
+    draftStore?.clear()
+  } catch {
+    draftUnavailable.value = true
+  }
   localDraft.value = null
+  draftSavedAt.value = ''
 }
 
 function offerLocalDraft(owner: ReturnType<typeof session.capture>, key: string) {
   draftStore = undefined
   draftOwner = owner
   localDraft.value = null
+  draftUnavailable.value = false
   if (!account.value || !owner.timestamp) return
   try {
     draftStore = resumeDraftStore(window.sessionStorage, account.value, owner.timestamp, key)
@@ -90,8 +108,42 @@ function offerLocalDraft(owner: ReturnType<typeof session.capture>, key: string)
     if (saved && (saved.content !== markdown.value || saved.message.trim())) localDraft.value = saved
     else draftStore.clear()
   } catch {
-    // Some browsers block sessionStorage access.
+    // Blocked or full storage leaves editing and server saves usable.
+    draftUnavailable.value = true
   }
+}
+
+function persistDraft() {
+  if (!draftStore || !draftOwner || !session.owns(draftOwner) ||
+    !record.value || record.value.id !== id.value || localDraft.value) return
+  try {
+    if (hasDraft.value) {
+      draftStore.write({
+        content: markdown.value,
+        message: message.value,
+        baseHeadCommit: record.value.headCommit ?? null,
+      })
+      draftSavedAt.value = new Date().toTimeString().slice(0, 5)
+      draftUnavailable.value = false
+    } else {
+      draftStore.clear()
+      draftSavedAt.value = ''
+    }
+  } catch {
+    draftSavedAt.value = ''
+    draftUnavailable.value = true
+  }
+}
+
+function flushDraft() {
+  if (draftTimer === undefined) return
+  clearTimeout(draftTimer)
+  draftTimer = undefined
+  persistDraft()
+}
+
+function pageHidden() {
+  if (document.visibilityState === 'hidden') flushDraft()
 }
 
 async function resolveLocalDraft(restore: boolean) {
@@ -110,9 +162,13 @@ async function resolveLocalDraft(restore: boolean) {
 }
 
 watch([markdown, message], () => {
+  savedAt.value = ''
   if (!record.value || record.value.id !== id.value || localDraft.value || !draftOwner || !session.owns(draftOwner)) return
-  if (hasDraft.value) draftStore?.write({ content: markdown.value, message: message.value })
-  else draftStore?.clear()
+  if (draftTimer !== undefined) clearTimeout(draftTimer)
+  draftTimer = setTimeout(() => {
+    draftTimer = undefined
+    persistDraft()
+  }, 300)
 }, { flush: 'sync' })
 
 watch(account, () => {
@@ -123,6 +179,10 @@ watch(account, () => {
   checkRevision++
   record.value = head.value = null
   markdown.value = message.value = ''
+  savedAt.value = ''
+  restoreOpen.value = false
+  restoreError.value = ''
+  restorePending.value = false
   assetsOpen.value = exportOpen.value = checkOpen.value = false
   if (account.value) void load(true)
 }, { flush: 'sync' })
@@ -330,7 +390,7 @@ async function write(action: 'save' | 'stash') {
   const content = markdown.value
   const beforeWrite = record.value
   pendingAction.value = action
-  feedback.value = writeError.value = ''
+  feedback.value = writeError.value = savedAt.value = ''
   checkOffered.value = false
   try {
     let commitId: string | undefined
@@ -348,9 +408,13 @@ async function write(action: 'save' | 'stash') {
       if (action === 'stash') markdown.value = record.value?.content ?? ''
       else message.value = ''
       if (action === 'stash' && message.value.trim() && draftOwner && session.owns(draftOwner)) {
-        draftStore?.write({ content: markdown.value, message: message.value })
+        persistDraft()
       } else {
         clearLocalDraft()
+      }
+      if (action === 'save') {
+        savedAt.value = new Date().toTimeString().slice(0, 5)
+        savedCommit.value = shortCommit(commitId ?? record.value?.headCommit)
       }
       feedback.value = action === 'stash' ? '草稿已储藏，可在版本历史中取回。' : '简历已保存并提交。'
     } else {
@@ -371,6 +435,44 @@ async function write(action: 'save' | 'stash') {
   } finally {
     checkOffered.value = action === 'save' && Boolean(writeError.value) && session.owns(owner) && key === id.value
     pendingAction.value = null
+  }
+}
+
+function openRestore() {
+  if (pendingAction.value || localDraft.value) return
+  restoreError.value = ''
+  restoreOpen.value = true
+}
+
+async function restoreServerContent(stashFirst: boolean) {
+  if (restorePending.value || pendingAction.value || localDraft.value) return
+  const owner = session.capture()
+  const key = id.value
+  restorePending.value = true
+  restoreError.value = ''
+  try {
+    if (stashFirst) {
+      await write('stash')
+      if (!session.owns(owner) || key !== id.value) return
+      if (writeError.value || writeLocked.value) {
+        restoreError.value = '当前修改未能暂存，编辑区保持不变。'
+        return
+      }
+    }
+    // Reading the server workspace replaces only the editor, never the version store.
+    const item = await getResume(key)
+    if (!session.owns(owner) || key !== id.value) return
+    const current = record.value
+    if (current) record.value = { ...current, content: item.content }
+    markdown.value = item.content ?? ''
+    savedAt.value = ''
+    clearLocalDraft()
+    if (hasDraft.value) persistDraft()
+    restoreOpen.value = false
+  } catch (cause) {
+    if (session.owns(owner) && key === id.value) restoreError.value = resumeReadMessage(cause)
+  } finally {
+    restorePending.value = false
   }
 }
 
@@ -419,19 +521,31 @@ function beforeUnload(event: BeforeUnloadEvent) {
 
 onBeforeRouteLeave(blockNavigation)
 onBeforeRouteUpdate((to, from) => to.params.id === from.params.id || blockNavigation())
-watch(id, () => { record.value = null; void load(true) })
+watch(id, () => {
+  record.value = null
+  restoreOpen.value = false
+  restoreError.value = ''
+  restorePending.value = false
+  savedAt.value = ''
+  void load(true)
+})
 let unregisterDraft: (() => void) | undefined
 onMounted(() => {
   unregisterDraft = registerDirtyDraft('resume-editor', () => hasDraft.value || localDraft.value !== null)
   void load(true)
   window.addEventListener('beforeunload', beforeUnload)
+  window.addEventListener('pagehide', flushDraft)
+  document.addEventListener('visibilitychange', pageHidden)
 })
 onUnmounted(() => {
   unregisterDraft?.()
   leaveDecision?.(false)
+  flushDraft()
   loadRevision++
   checkRevision++
   window.removeEventListener('beforeunload', beforeUnload)
+  window.removeEventListener('pagehide', flushDraft)
+  document.removeEventListener('visibilitychange', pageHidden)
   imageRequests.clear()
   for (const key of Object.keys(images.value)) revokeImage(key)
 })
@@ -446,10 +560,13 @@ onUnmounted(() => {
         <div v-if="record" class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <UiBadge variant="secondary">{{ record.currentBranch ?? '未知分支' }}</UiBadge>
           <span role="status">{{ workspaceStatus }}</span>
+          <span v-if="draftUnavailable" role="status">本地草稿不可用</span>
+          <span v-else-if="draftSavedAt" role="status">已自动暂存 {{ draftSavedAt }}</span>
         </div>
       </div>
       <div v-if="record" class="flex flex-wrap items-center gap-2">
         <UiButton variant="outline" :disabled="!dirty || Boolean(pendingAction) || submissionLocked" @click="write('stash')">储藏</UiButton>
+        <UiButton variant="outline" :disabled="Boolean(pendingAction) || Boolean(localDraft)" @click="openRestore">恢复服务器正文</UiButton>
         <UiButton as-child variant="outline"><RouterLink :to="'/resumes/' + id + '/versions'"><RiHistoryLine data-icon="inline-start" />版本历史</RouterLink></UiButton>
         <UiButton variant="outline" :disabled="Boolean(pendingAction)" @click="assetsOpen = true"><RiImageLine data-icon="inline-start" />图片素材</UiButton>
         <UiButton variant="outline" @click="exportOpen = true">导出简历</UiButton>
@@ -510,7 +627,26 @@ onUnmounted(() => {
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>
+    <UiDialog v-model:open="restoreOpen">
+      <UiDialogContent>
+        <UiDialogHeader>
+          <UiDialogTitle>恢复服务器正文？</UiDialogTitle>
+          <UiDialogDescription>
+            编辑区将替换为服务器当前保存的正文。这不会创建、重置或检出版本。
+          </UiDialogDescription>
+        </UiDialogHeader>
+        <p v-if="restoreError" role="alert">{{ restoreError }}</p>
+        <UiDialogFooter>
+          <UiButton variant="outline" :disabled="restorePending" @click="restoreOpen = false">取消</UiButton>
+          <UiButton v-if="dirty && !submissionLocked" variant="outline" :disabled="restorePending" @click="restoreServerContent(true)">暂存当前修改并恢复</UiButton>
+          <UiButton variant="destructive" :disabled="restorePending" @click="restoreServerContent(false)">
+            {{ restorePending ? '正在读取…' : '放弃修改并恢复' }}
+          </UiButton>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
     <p v-if="feedback" role="status" class="text-sm text-muted-foreground">{{ feedback }}</p>
+    <p v-if="savedAt" role="status" class="text-sm text-muted-foreground">已保存 {{ savedAt }} · 版本 {{ savedCommit }}</p>
     <UiSkeleton v-if="pending && !record" role="status" aria-label="正在读取简历" class="h-96" />
     <template v-if="record">
       <UiAlert v-if="localDraft" role="status">

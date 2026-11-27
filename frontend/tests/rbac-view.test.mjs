@@ -145,7 +145,9 @@ function mockBrowser(t) {
   const localStorage = storage({ token: 'test-session', token_timestamp: String(Date.now()) })
   const sessionStorage = storage()
   const window = Object.assign(new EventTarget(), { sessionStorage, location: { reload: t.mock.fn() } })
-  const document = { querySelector: () => null, getElementById: () => null }
+  const document = Object.assign(new EventTarget(), {
+    querySelector: () => null, getElementById: () => null, visibilityState: 'visible',
+  })
   for (const [name, value] of Object.entries({ window, localStorage, sessionStorage, document })) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, name)
     Object.defineProperty(globalThis, name, { configurable: true, value })
