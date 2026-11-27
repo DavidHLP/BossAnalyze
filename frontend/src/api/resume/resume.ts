@@ -6,8 +6,8 @@ export interface ResumeRecord {
   userId: number
   title: string
   content: string | null
-  createdAt?: string
-  updatedAt?: string
+  createdAt?: string | number
+  updatedAt?: string | number
   currentBranch?: string
   headCommit?: string | null
   branches?: Record<string, string | null>
@@ -22,7 +22,7 @@ export interface ResumeCommit {
   commitType?: string
   parentCommits?: string[]
   author?: string
-  commitTime?: string
+  commitTime?: string | number
 }
 
 export interface ResumeValidation {

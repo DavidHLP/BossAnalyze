@@ -82,6 +82,7 @@ function renderView(component, props, location = {}) {
     'UiAvatar', 'UiAvatarFallback', 'UiCombobox', 'UiComboboxAnchor', 'UiComboboxEmpty', 'UiComboboxInput',
     'UiComboboxItem', 'UiComboboxList', 'UiComboboxViewport',
     'UiDialog', 'UiDialogContent', 'UiDialogDescription', 'UiDialogFooter', 'UiDialogHeader', 'UiDialogTitle',
+    'UiDropdownMenu', 'UiDropdownMenuTrigger', 'UiDropdownMenuContent', 'UiDropdownMenuItem', 'UiDropdownMenuSeparator',
     'UiPagination', 'UiPaginationContent', 'UiPaginationEllipsis', 'UiPaginationItem',
     'UiPaginationNext', 'UiPaginationPrevious', 'RouterLink',
     'UiSkeleton', 'UiTable', 'UiTableBody', 'UiTableCaption', 'UiTableCell',
@@ -541,7 +542,7 @@ for (const editor of [
       if (editor.form) {
         await byId(editor.form).props.onSubmit(new Event('submit', { cancelable: true }))
       } else {
-        for (const label of ['保存并提交', '储藏']) {
+        for (const label of ['保存']) {
           const action = button(label)
           assert.equal(action.props.disabled, true)
           await click(action)
