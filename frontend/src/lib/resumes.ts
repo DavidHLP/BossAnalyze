@@ -2,9 +2,28 @@ export function shortCommit(id: string | null | undefined) {
   return id?.slice(0, 8) || '—'
 }
 
-export function resumeTime(value: string | undefined) {
+export function resumeStamp(value: string | number | undefined) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (!value) return 0
+  const text = value.trim()
+  if (/^\d+$/.test(text)) {
+    const epoch = Number(text)
+    return Number.isFinite(epoch) ? epoch : 0
+  }
+  const stamp = Date.parse(text)
+  return Number.isNaN(stamp) ? 0 : stamp
+}
+
+function resumeClock(value: Date) {
+  return Number.isNaN(value.getTime()) ? '—' : value.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+export function resumeTime(value: string | number | undefined) {
+  if (typeof value === 'number') return resumeClock(new Date(value))
   if (!value) return '—'
-  return value.replace('T', ' ').slice(0, 19)
+  const text = value.trim()
+  if (/^\d+$/.test(text)) return resumeClock(new Date(Number(text)))
+  return Number.isNaN(Date.parse(text)) ? '—' : text.replace('T', ' ').slice(0, 19)
 }
 
 export function resumeReadMessage(cause: unknown) {
@@ -15,13 +34,17 @@ export function resumeReadMessage(cause: unknown) {
 }
 
 export type ResumeListChange =
-  | { kind: 'create'; id?: string; title: string; previousIds: ReadonlySet<string> }
+  | { kind: 'create'; id?: string; title: string; content: string; previousIds: ReadonlySet<string> }
   | { kind: 'rename'; id: string; title: string }
   | { kind: 'delete'; id: string }
 
-export function resumeListReadback(change: ResumeListChange, items: { id: string; title: string }[]) {
-  if (change.kind === 'create' && !change.id) {
-    return items.some(item => item.title === change.title && !change.previousIds.has(item.id))
+export function resumeListReadback(change: ResumeListChange, items: { id: string; title: string; content?: string | null }[]) {
+  if (change.kind === 'create') {
+    const matches = (item: { title: string; content?: string | null } | undefined) =>
+      Boolean(item) && item!.title === change.title && item!.content === change.content
+    return change.id
+      ? matches(items.find(item => item.id === change.id))
+      : items.some(item => matches(item) && !change.previousIds.has(item.id))
   }
   const item = items.find(item => item.id === change.id)
   return change.kind === 'delete' ? !item : item?.title === change.title
@@ -30,40 +53,52 @@ export function resumeListReadback(change: ResumeListChange, items: { id: string
 export interface ResumeDraft {
   content: string
   message: string
+  baseHeadCommit: string | null
 }
 
 export function resumeDraftStore(storage: Storage, account: string, sessionStart: string, resumeId: string) {
-  const prefix = 'bossanalyze:resume-draft:'
-  const scope = prefix + JSON.stringify([account, sessionStart]) + ':'
-  const key = scope + resumeId
-  try {
-    for (let i = storage.length - 1; i >= 0; i--) {
-      const previous = storage.key(i)
-      if (previous?.startsWith(prefix) && !previous.startsWith(scope)) storage.removeItem(previous)
-    }
-  } catch {
-    // A blocked store cannot prevent editing or server saves.
-  }
+  const key = 'bossanalyze:resume-draft:v2:' +
+    [account, sessionStart, resumeId].map(encodeURIComponent).join(':')
   return {
     read(): ResumeDraft | null {
+      // Storage access and quota errors surface so the editor can report drafts as unavailable.
+      const raw = storage.getItem(key)
+      if (raw === null) return null
+      let value: unknown
       try {
-        const raw = storage.getItem(key)
-        if (raw === null) return null
-        const value: unknown = JSON.parse(raw)
-        if (value && typeof value === 'object' && 'content' in value && 'message' in value &&
-          typeof value.content === 'string' && typeof value.message === 'string') {
-          return { content: value.content, message: value.message }
-        }
+        value = JSON.parse(raw)
       } catch {
-        // Malformed or unavailable local storage leaves the server copy in place.
+        storage.removeItem(key)
+        return null
       }
-      return null
+      if (!value || typeof value !== 'object' ||
+        !('account' in value) || value.account !== account ||
+        !('resumeId' in value) || value.resumeId !== resumeId ||
+        !('content' in value) || typeof value.content !== 'string' ||
+        !('message' in value) || typeof value.message !== 'string' ||
+        ('baseHeadCommit' in value && value.baseHeadCommit !== null && typeof value.baseHeadCommit !== 'string')) {
+        storage.removeItem(key)
+        return null
+      }
+      return {
+        content: value.content,
+        message: value.message,
+        baseHeadCommit: 'baseHeadCommit' in value && typeof value.baseHeadCommit === 'string'
+          ? value.baseHeadCommit
+          : null,
+      }
     },
     write(draft: ResumeDraft) {
-      try { storage.setItem(key, JSON.stringify(draft)) } catch { /* The editor still holds the draft. */ }
+      storage.setItem(key, JSON.stringify({
+        account,
+        resumeId,
+        content: draft.content,
+        message: draft.message,
+        baseHeadCommit: draft.baseHeadCommit ?? null,
+      }))
     },
     clear() {
-      try { storage.removeItem(key) } catch { /* A blocked store cannot be cleared. */ }
+      storage.removeItem(key)
     },
   }
 }
@@ -234,12 +269,35 @@ function appendInlineText(tokens: ResumeInline[], text: string) {
   if (end < text.length) tokens.push({ kind: 'text', text: text.slice(end) })
 }
 
+function maskedEscapes(text: string) {
+  const values: string[] = []
+  const masked = text.replace(/\\([*|#.`_[\]{}()>+\-!])/g, (literal: string, char: string) => {
+    if (values.length >= 0x6400) return literal
+    values.push(char)
+    return String.fromCharCode(0xe000 + values.length - 1)
+  })
+  return {
+    text: masked,
+    restore: (value: string) => values.length
+      ? value.replace(/[\uE000-\uF8FF]/g, marker => values[marker.charCodeAt(0) - 0xe000] ?? marker)
+      : value,
+  }
+}
+
 function resumeInline(text: string, baseOffset: number, inTable = false): ResumeInline[] {
   const tokens: ResumeInline[] = []
   let plainStart = 0
   const unescapePipes = (value: string) => inTable ? value.replaceAll('\\|', '|') : value
-  const appendPlain = (end: number) => appendInlineText(tokens, unescapePipes(text.slice(plainStart, end))
-    .replace(/\\+(\$)?/g, (literal, dollar) => dollar && literal.length % 2 === 0 ? literal.slice(1) : literal))
+  const appendPlain = (end: number) => {
+    const escaped = maskedEscapes(unescapePipes(text.slice(plainStart, end))
+      .replace(/\\+(\$)?/g, (literal, dollar) => dollar && literal.length % 2 === 0 ? literal.slice(1) : literal))
+    const start = tokens.length
+    appendInlineText(tokens, escaped.text)
+    for (let i = start; i < tokens.length; i++) {
+      const token = tokens[i]!
+      if ('text' in token) token.text = escaped.restore(token.text)
+    }
+  }
   for (const { kind, start, end } of inlineSpans(text)) {
     appendPlain(start)
     const body = text.slice(start + 1, end - 1)
@@ -412,6 +470,80 @@ export function resumePreview(markdown: string): PreviewBlock[] {
 export function assetMarkdown(fileName: string) {
   return '![' + fileName.replace(/[\[\]\\]/g, '') + '](asset:' +
     encodeURIComponent(fileName).replace(/[()]/g, char => char === '(' ? '%28' : '%29') + ')'
+}
+
+export type ResumeExportSource = 'current' | 'saved' | 'save-first'
+export type ResumeExportFormat = 'html' | 'pdf' | 'markdown' | 'tex' | 'docx' | 'external'
+
+export interface ResumeExportSourceState {
+  dirty: boolean
+  savedContent: string | null
+}
+
+export function resumeExportContent(source: ResumeExportSource, content: string, savedContent: string | null) {
+  return source === 'current' ? content : savedContent ?? ''
+}
+
+export function resumeExportSourceLabel(source: ResumeExportSource, dirty: boolean) {
+  if (source === 'saved') return '服务器正文（不含编辑区未保存修改）'
+  if (source === 'save-first') return '服务器正文（保存已回读确认）'
+  return dirty ? '当前内容（含未保存修改）' : '当前内容（与服务器正文一致）'
+}
+
+export function resumeExportUnavailableReason(source: ResumeExportSource, state: ResumeExportSourceState) {
+  if (source === 'current') return null
+  if (state.savedContent === null) return '服务器尚无可导出的正文，可先导出当前内容。'
+  if (source === 'save-first' && state.dirty) return '保存尚未回读确认：请先在编辑页保存并核对，或直接导出当前内容。'
+  return null
+}
+
+export function resumeImageCount(markdown: string) {
+  const names = resumePreview(markdown).flatMap(block => block.kind === 'asset' ? [block.fileName] : [])
+  return new Set(names).size
+}
+
+export function resumeExportFileBase(title: string) {
+  return title.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || '简历'
+}
+
+export function resumeExportSummary(input: {
+  source: ResumeExportSource
+  dirty: boolean
+  savedContent: string | null
+  title: string
+  imageCount: number
+  imagesEmbedded: boolean
+}) {
+  return {
+    source: resumeExportSourceLabel(input.source, input.dirty),
+    unsaved: input.source === 'current' && input.dirty ? '有未保存修改' : '不含未保存修改',
+    images: input.imageCount
+      ? `${input.imageCount} 张图片，${input.imagesEmbedded ? '已嵌入' : '未嵌入'}`
+      : '无图片',
+    fileName: resumeExportFileBase(input.title) + '.pdf / .html / .md / .tex',
+  }
+}
+
+export function resumeExportLossNotes(
+  format: ResumeExportFormat,
+  { imageCount, imagesEmbedded }: { imageCount: number; imagesEmbedded: boolean },
+) {
+  switch (format) {
+    case 'html':
+    case 'pdf':
+      if (!imageCount) return ['导出文件不含图片。']
+      return [imagesEmbedded
+        ? `${imageCount} 张图片已嵌入导出文件。`
+        : `${imageCount} 张图片以文字占位，未嵌入导出文件。`]
+    case 'markdown':
+      return ['Markdown 保留公式源码与图片引用，不嵌入图片文件。']
+    case 'tex':
+      return ['需要用本机 XeLaTeX 编译，并禁用 --shell-escape；不含图片，且无法回导版本库。']
+    case 'docx':
+      return ['DOCX 导出尚未开放；开放后公式与图片仅以文字占位。']
+    case 'external':
+      return ['外部导出只发送标题与 Markdown 正文，图片不会发送；版式由对方服务决定。']
+  }
 }
 
 export function exportDestination(config: string | undefined, mock = false) {

@@ -6,8 +6,8 @@ export interface ResumeRecord {
   userId: number
   title: string
   content: string | null
-  createdAt?: string
-  updatedAt?: string
+  createdAt?: string | number
+  updatedAt?: string | number
   currentBranch?: string
   headCommit?: string | null
   branches?: Record<string, string | null>
@@ -22,7 +22,7 @@ export interface ResumeCommit {
   commitType?: string
   parentCommits?: string[]
   author?: string
-  commitTime?: string
+  commitTime?: string | number
 }
 
 export interface ResumeValidation {
@@ -77,8 +77,8 @@ function writtenRecord(value: unknown) {
   }
 }
 
-export async function createResume(title: string) {
-  return writtenRecord(await request.post('/api/resume', { title, content: '# ' + title + '\n' }))
+export async function createResume(title: string, content: string) {
+  return writtenRecord(await request.post('/api/resume', { title, content }))
 }
 
 export async function renameResume(id: string, title: string) {

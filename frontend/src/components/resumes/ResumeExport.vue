@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { FieldDescription, FieldTitle } from '@/components/ui/field'
-import { exportDestination, resumeExportResult, resumeHasMath, resumeHtml, resumePreview, type ResumeMathRender } from '@/lib/resumes'
+import {
+  exportDestination, resumeExportContent, resumeExportFileBase, resumeExportLossNotes, resumeExportResult,
+  resumeExportSummary, resumeExportUnavailableReason, resumeHasMath, resumeHtml,
+  resumeImageCount, resumePreview, type ResumeExportSource, type ResumeMathRender,
+} from '@/lib/resumes'
 import { loadResumeMath } from '@/lib/resume-math'
 import { inspectResumeTexTemplate, resumeLatex, type ResumeTexError } from '@/lib/resume-tex'
 import { resumeTexTemplates, type ResumeTexTemplateId } from '@/lib/resume-tex-templates'
 
-const props = defineProps<{ title: string; content: string }>()
+const props = defineProps<{ title: string; content: string; savedContent: string | null; dirty: boolean }>()
 const open = defineModel<boolean>('open', { required: true })
 type ResumeRange = Pick<ResumeTexError, 'start' | 'end'>
 const emit = defineEmits<{ locate: [range: ResumeRange] }>()
@@ -20,8 +24,28 @@ const htmlJob = ref<symbol>()
 const sourceFallback = ref<'html' | 'pdf'>()
 const printing = ref(false)
 const htmlBusy = computed(() => !!htmlJob.value || printing.value)
+const source = ref<ResumeExportSource>('current')
+const sourceOptions: { value: ResumeExportSource; label: string }[] = [
+  { value: 'current', label: '导出当前内容' },
+  { value: 'saved', label: '导出服务器正文' },
+  { value: 'save-first', label: '先保存再导出' },
+]
+const exportContent = computed(() => resumeExportContent(source.value, props.content, props.savedContent))
+// shortcut: HTML/PDF still render images as text until #128 lands; then derive this from the renderer.
+const imagesEmbedded = false
+const imageCount = computed(() => resumeImageCount(exportContent.value))
+const summary = computed(() => resumeExportSummary({
+  source: source.value, dirty: props.dirty, savedContent: props.savedContent,
+  title: props.title, imageCount: imageCount.value, imagesEmbedded,
+}))
+const sourceReason = (value: ResumeExportSource) =>
+  resumeExportUnavailableReason(value, { dirty: props.dirty, savedContent: props.savedContent })
+const localLoss = computed(() => resumeExportLossNotes('html', { imageCount: imageCount.value, imagesEmbedded }))
+const markdownLoss = computed(() => resumeExportLossNotes('markdown', { imageCount: imageCount.value, imagesEmbedded }))
+const docxLoss = computed(() => resumeExportLossNotes('docx', { imageCount: imageCount.value, imagesEmbedded }))
+const externalLoss = computed(() => resumeExportLossNotes('external', { imageCount: imageCount.value, imagesEmbedded }))
 const texTemplate = ref<ResumeTexTemplateId>('basic')
-const texBlocks = computed(() => resumePreview(props.content))
+const texBlocks = computed(() => resumePreview(exportContent.value))
 const texInspection = computed(() => texTemplate.value === 'basic'
   ? null
   : inspectResumeTexTemplate(texBlocks.value, texTemplate.value))
@@ -41,16 +65,30 @@ function resetLocalExport() {
 }
 
 watch(open, () => {
+  source.value = 'current'
   accepted.value = false
   error.value = ''
   resultUrl.value = null
   texTemplate.value = 'basic'
+  cancelExternal()
   resetLocalExport()
 }, { flush: 'sync' })
 
-watch([() => props.content, () => props.title], () => {
+watch(source, () => {
+  accepted.value = false
+  error.value = ''
+  resultUrl.value = null
+  cancelExternal()
+  resetLocalExport()
+}, { flush: 'sync' })
+
+watch([() => props.content, () => props.title, () => props.savedContent], () => {
   locateOnClose = undefined
   resetLocalExport()
+}, { flush: 'sync' })
+
+watch([() => props.dirty, () => props.savedContent], () => {
+  if (sourceReason(source.value)) source.value = 'current'
 }, { flush: 'sync' })
 
 function download(title: string, content: string, extension: 'html' | 'md' | 'tex', type: string) {
@@ -58,7 +96,7 @@ function download(title: string, content: string, extension: 'html' | 'md' | 'te
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = (title.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || '简历') + '.' + extension
+  link.download = resumeExportFileBase(title) + '.' + extension
   document.body.append(link)
   link.click()
   link.remove()
@@ -66,8 +104,8 @@ function download(title: string, content: string, extension: 'html' | 'md' | 'te
 }
 
 function downloadLatex() {
-  const { title, content } = props
-  const result = resumeLatex(title, texBlocks.value, { sourceMarkdown: content, template: texTemplate.value })
+  const { title } = props
+  const result = resumeLatex(title, texBlocks.value, { sourceMarkdown: exportContent.value, template: texTemplate.value })
   texErrors.value = result.ok ? [] : result.errors
   texWarnings.value = result.ok ? result.warnings.filter(warning => !texInspection.value?.warnings.includes(warning)) : []
   if (result.ok) download(title, result.tex, 'tex', 'text/x-tex;charset=utf-8')
@@ -93,7 +131,8 @@ function returnToEditor(event: Event) {
 
 async function exportHtml(output: 'html' | 'pdf', withMath = true) {
   if (!open.value || htmlBusy.value) return
-  const { title, content } = props
+  const { title } = props
+  const content = exportContent.value
   const job = Symbol()
   htmlJob.value = job
   htmlError.value = ''
@@ -141,6 +180,16 @@ function cancelHtml() {
   clearPrintFrame()
 }
 
+let exportJob: symbol | undefined
+let exportAbort: AbortController | undefined
+
+function cancelExternal() {
+  exportJob = undefined
+  exportAbort?.abort()
+  exportAbort = undefined
+  pending.value = false
+}
+
 function printResume(html: string) {
   clearPrintFrame()
   printing.value = true
@@ -171,10 +220,17 @@ function printResume(html: string) {
   document.body.append(frame)
 }
 
-onUnmounted(cancelHtml)
+onUnmounted(() => {
+  cancelHtml()
+  cancelExternal()
+})
 
 async function submit() {
   if (!accepted.value || pending.value || complete.value || !destination) return
+  const job = Symbol()
+  const abort = new AbortController()
+  exportJob = job
+  exportAbort = abort
   pending.value = true
   error.value = ''
   try {
@@ -183,16 +239,22 @@ async function submit() {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'omit',
       redirect: 'error',
-      signal: AbortSignal.timeout(20_000),
-      body: JSON.stringify({ content: props.content, style: '', link: '', name: props.title, type: format.value }),
+      signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20_000)]),
+      body: JSON.stringify({ content: exportContent.value, style: '', link: '', name: props.title, type: format.value }),
     })
+    if (exportJob !== job) return
     if (!response.ok) throw new Error('Export failed')
     resultUrl.value = resumeExportResult(await response.json())
     if (!resultUrl.value) throw new Error('Missing export result')
   } catch {
-    error.value = '未收到有效导出结果。再次导出会重新发送当前简历内容。'
+    if (exportJob !== job) return
+    error.value = '未收到有效导出结果。再次导出会重新发送所选的简历正文。'
   } finally {
-    pending.value = false
+    if (exportJob === job) {
+      exportJob = undefined
+      exportAbort = undefined
+      pending.value = false
+    }
   }
 }
 </script>
@@ -202,15 +264,38 @@ async function submit() {
     <UiDialogContent @interact-outside.prevent @escape-key-down="pending && $event.preventDefault()" @close-auto-focus="returnToEditor">
       <UiDialogHeader>
         <UiDialogTitle>导出简历</UiDialogTitle>
-        <UiDialogDescription>导出当前编辑区中的正文。</UiDialogDescription>
+        <UiDialogDescription>选择导出来源与格式。导出文件不包含下方摘要以外的推断。</UiDialogDescription>
       </UiDialogHeader>
+      <dl aria-label="导出来源摘要" class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-y py-2 text-sm">
+        <dt class="text-muted-foreground">来源</dt><dd>{{ summary.source }}</dd>
+        <dt class="text-muted-foreground">未保存</dt><dd>{{ summary.unsaved }}</dd>
+        <dt class="text-muted-foreground">图片</dt><dd>{{ summary.images }}</dd>
+        <dt class="text-muted-foreground">文件名</dt><dd class="wrap-anywhere">{{ summary.fileName }}</dd>
+      </dl>
+      <UiField>
+        <FieldTitle id="resume-export-source">导出来源</FieldTitle>
+        <UiRadioGroup v-model="source" aria-labelledby="resume-export-source" class="flex flex-col gap-2">
+          <div v-for="option in sourceOptions" :key="option.value" class="flex flex-col gap-1">
+            <label class="flex min-h-8 items-center gap-2 text-sm" :class="sourceReason(option.value) ? 'opacity-60' : 'cursor-pointer'">
+              <UiRadioGroupItem :id="`resume-export-source-${option.value}`" :value="option.value" :disabled="Boolean(sourceReason(option.value))" />
+              {{ option.label }}
+            </label>
+            <p v-if="sourceReason(option.value)" class="text-xs text-muted-foreground">{{ sourceReason(option.value) }}</p>
+          </div>
+        </UiRadioGroup>
+      </UiField>
       <section aria-labelledby="local-resume-export" class="flex flex-col gap-2">
         <h3 id="local-resume-export" class="font-medium">本地导出</h3>
-        <p class="text-sm text-muted-foreground">文件在浏览器中生成。打印和 HTML 用文字标注图片素材。</p>
+        <p class="text-sm text-muted-foreground">文件在浏览器中生成。</p>
+        <ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          <li v-for="note in localLoss" :key="note">{{ note }}</li>
+          <li v-for="note in markdownLoss" :key="note">{{ note }}</li>
+          <li v-for="note in docxLoss" :key="note">{{ note }}</li>
+        </ul>
         <div class="flex flex-wrap gap-2">
           <UiButton type="button" variant="outline" :disabled="htmlBusy" @click="exportHtml('pdf')">打印 / 另存为 PDF</UiButton>
           <UiButton type="button" variant="outline" :disabled="htmlBusy" @click="exportHtml('html')">下载 HTML</UiButton>
-          <UiButton type="button" variant="outline" @click="download(title, content, 'md', 'text/markdown;charset=utf-8')">下载 Markdown</UiButton>
+          <UiButton type="button" variant="outline" @click="download(title, exportContent, 'md', 'text/markdown;charset=utf-8')">下载 Markdown</UiButton>
         </div>
         <UiField>
           <FieldTitle id="resume-tex-template">LaTeX (.tex) 模板</FieldTitle>
@@ -261,7 +346,10 @@ async function submit() {
       <form aria-labelledby="external-resume-export" class="flex flex-col gap-4 border-t pt-4" @submit.prevent="submit">
         <div>
           <h3 id="external-resume-export" class="font-medium">外部导出</h3>
-          <p class="text-sm text-muted-foreground">确认后，当前简历正文和标题将发送至所示服务。</p>
+          <p class="text-sm text-muted-foreground">确认后，{{ summary.source }}和标题将发送至所示服务。</p>
+          <ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            <li v-for="note in externalLoss" :key="note">{{ note }}</li>
+          </ul>
         </div>
         <div class="flex flex-col gap-1 text-sm">
           <span class="text-muted-foreground">导出地址</span>
@@ -275,7 +363,7 @@ async function submit() {
         </UiField>
         <label v-if="destination && !complete" class="flex items-start gap-2 text-sm">
           <input v-model="accepted" :disabled="pending" type="checkbox" class="mt-1">
-          我已确认地址并同意发送当前简历内容
+          我已确认地址并同意发送{{ summary.source }}
         </label>
         <UiAlert v-if="error" role="alert" variant="destructive"><UiAlertDescription>{{ error }}</UiAlertDescription></UiAlert>
         <p v-if="complete" role="status" class="text-sm">
