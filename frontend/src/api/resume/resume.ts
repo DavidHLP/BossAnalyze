@@ -44,7 +44,7 @@ type ResumeWrite =
   | ['merge', { source: string; target: string }]
   | ['checkout' | 'reset' | 'revert', { commitId: string }]
   | ['stash', { content: string }]
-  | ['stash/pop']
+  | ['stash/pop', undefined]
 
 function resource(id: string) {
   if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('Invalid resume ID')

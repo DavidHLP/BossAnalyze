@@ -272,11 +272,11 @@ async function submit() {
   const revision = record.value?.workspaceRevision
   let result: string | undefined
   try {
-    if (command === 'branch') await changeResumeVersion(key, 'branch', { name: branchName.value.trim() })
-    else if (command === 'switch') await changeResumeVersion(key, 'switch', { branch: target.value })
+    if (command === 'branch') await changeResumeVersion(key, 'branch', { name: branchName.value.trim() }, revision)
+    else if (command === 'switch') await changeResumeVersion(key, 'switch', { branch: target.value }, revision)
     else if (command === 'merge') result = await changeResumeVersion(key, 'merge', { source: source.value, target: target.value }, revision)
     else if (command === 'stash') await changeResumeVersion(key, 'stash', { content: draft.value }, revision)
-    else if (command === 'stash/pop') result = await changeResumeVersion(key, 'stash/pop')
+    else if (command === 'stash/pop') result = await changeResumeVersion(key, 'stash/pop', undefined, revision)
     else if (commit) result = await changeResumeVersion(key, command, { commitId: commit.id }, revision)
     if (key !== id.value || !session.owns(owner)) return
     operation.value = null

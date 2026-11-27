@@ -301,6 +301,14 @@ async function resumeVersions() {
       if (action === 'stash') {
         server.record = { ...server.record, stashStack: [...server.record.stashStack, { content: data.content }] }
       }
+      if (action === 'stash/pop') return '# 取回的草稿'
+      if (action === 'branch') {
+        server.record = {
+          ...server.record,
+          branches: { ...server.record.branches, [data.name]: server.record.headCommit },
+        }
+      }
+      if (action === 'switch') server.record = { ...server.record, currentBranch: data.branch }
       if (action === 'revert') return 'reverted'
       return undefined
     },
@@ -332,6 +340,21 @@ test('version actions send the current workspace revision', async () => {
   page.draft.value = '# 草稿'
   await page.submit()
   assert.deepEqual(server.calls.at(-1), { action: 'stash', data: { content: '# 草稿' }, revision: 4 })
+
+  page.operation.value = 'branch'
+  page.branchName.value = 'release'
+  await page.submit()
+  assert.deepEqual(server.calls.at(-1), { action: 'branch', data: { name: 'release' }, revision: 4 })
+
+  page.operation.value = 'switch'
+  page.target.value = 'feature'
+  await page.submit()
+  assert.deepEqual(server.calls.at(-1), { action: 'switch', data: { branch: 'feature' }, revision: 4 })
+
+  page.operation.value = 'stash/pop'
+  await page.submit()
+  assert.deepEqual(server.calls.at(-1), { action: 'stash/pop', data: undefined, revision: 4 })
+  assert.equal(server.pushed, '/resumes/fixture/edit')
 })
 
 test('a stale version write reports the conflict instead of overwriting silently', async () => {
@@ -345,4 +368,12 @@ test('a stale version write reports the conflict instead of overwriting silently
   assert.match(page.detailError.value, /另一个标签页或设备已保存新版本/)
   assert.equal(page.operation.value, null)
   assert.equal(page.writeLocked.value, false)
+
+  page.operation.value = 'stash/pop'
+  await page.submit()
+  assert.equal(server.calls.length, 2)
+  assert.equal(server.calls[1].action, 'stash/pop')
+  assert.equal(server.calls[1].revision, 4)
+  assert.match(page.detailError.value, /另一个标签页或设备已保存新版本/)
+  assert.equal(page.operation.value, null)
 })
