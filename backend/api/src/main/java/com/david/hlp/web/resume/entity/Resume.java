@@ -39,6 +39,13 @@ public class Resume implements Serializable {
     @Field("title")
     private String title;
 
+    @Field("theme_id")
+    private String themeId;
+
+    public String getThemeId() {
+        return themeId == null ? "basic" : themeId;
+    }
+
     @CreatedDate
     @Field("created_at")
     private Date createdAt;

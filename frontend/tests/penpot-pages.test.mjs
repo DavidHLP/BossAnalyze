@@ -175,7 +175,7 @@ async function resumeScript(file, bindings, names) {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
   })
   return new Function('bindings', `with (bindings) { ${outputText.replace(/^export \{\};$/m, '')}\nreturn { ${names.join(',')} } }`)({
-    ...vue, ...await import('../src/lib/resumes.ts'),
+    ...vue, ...await import('../src/lib/resumes.ts'), ...await import('../src/lib/resume-theme.ts'),
     env: {}, onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {}, onBeforeRouteUpdate() {},
     useRouter: () => ({ push: async () => {} }),
     useResumeImages: () => ({ images: vue.ref({}) }),

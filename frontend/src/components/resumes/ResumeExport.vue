@@ -7,11 +7,12 @@ import {
   resumeImageCount, resumePreview, type ResumeExportSource, type ResumeMathRender,
 } from '@/lib/resumes'
 import { loadResumeMath } from '@/lib/resume-math'
+import type { ResumeThemeId } from '@/lib/resume-theme'
 import { inspectResumeTexTemplate, resumeLatex, type ResumeTexError } from '@/lib/resume-tex'
 import { resumeTexTemplates, type ResumeTexTemplateId } from '@/lib/resume-tex-templates'
 
 const props = defineProps<{
-  title: string; content: string; savedContent: string | null; dirty: boolean; compact?: boolean
+  title: string; content: string; savedContent: string | null; dirty: boolean; compact?: boolean; themeId?: ResumeThemeId
   loadImage: (name: string) => Promise<string | undefined>
 }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -101,6 +102,13 @@ watch([() => props.content, () => props.title, () => props.savedContent, () => p
   resetLocalExport()
 }, { flush: 'sync' })
 
+watch(() => props.themeId, () => {
+  htmlError.value = docxError.value = ''
+  sourceFallback.value = undefined
+  cancelHtml()
+  cancelDocx()
+}, { flush: 'sync' })
+
 watch([() => props.dirty, () => props.savedContent], () => {
   if (sourceReason(source.value)) source.value = 'current'
 }, { flush: 'sync' })
@@ -136,7 +144,7 @@ async function cancelDocxFromDialog() {
 
 function exportDocx() {
   if (!open.value || !docxEnabled || docxWorker.value) return
-  const { title, compact } = props
+  const { title, compact, themeId } = props
   docxError.value = ''
   const fail = () => {
     cancelDocx()
@@ -158,7 +166,7 @@ function exportDocx() {
         fail()
       }
     }
-    worker.postMessage({ content: exportContent.value, compact })
+    worker.postMessage({ content: exportContent.value, compact, themeId })
   } catch {
     fail()
   }
@@ -192,7 +200,7 @@ function returnToEditor(event: Event) {
 
 async function exportHtml(output: 'html' | 'pdf', withMath = true) {
   if (!open.value || htmlBusy.value) return
-  const { title, compact } = props
+  const { title, compact, themeId } = props
   const content = exportContent.value
   const job = Symbol()
   htmlJob.value = job
@@ -225,7 +233,7 @@ async function exportHtml(output: 'html' | 'pdf', withMath = true) {
       if (htmlJob.value !== job) return
       images = Object.fromEntries(loaded.filter((entry): entry is readonly [string, string] => entry[1] !== undefined))
     }
-    const html = resumeHtml(title, blocks, renderMath, { images, includeImages: withImages, compact })
+    const html = resumeHtml(title, blocks, renderMath, { images, includeImages: withImages, compact, themeId })
     if (invalidMath) {
       htmlError.value = '至少有一处公式无法渲染。请修正公式后重试，或下载 Markdown 原文。'
       return

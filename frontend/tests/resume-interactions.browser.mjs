@@ -64,6 +64,107 @@ async function shot(page, name) {
   }
 }
 
+test('resume themes roll back on failure and match the saved preview, HTML and print layout', async t => {
+  const { page, resource, resume } = await editor(t, {
+    content: '# 陈小明\n\n## 经历\n\n正文 [作品](https://example.invalid)\n\n---',
+  })
+  await page.setViewportSize({ width: 1920, height: 960 })
+  const preview = page.getByRole('article', { name: '简历预览' })
+  const themes = page.getByRole('group', { name: '简历主题' })
+  const modern = themes.getByRole('button', { name: '现代' })
+  const basic = themes.getByRole('button', { name: '简洁' })
+  const fail = Promise.withResolvers()
+  let savedTheme
+  let requests = 0
+  t.after(() => fail.resolve())
+  await page.route('**' + resource + '/appearance', async route => {
+    assert.equal(route.request().method(), 'PATCH')
+    assert.deepEqual(route.request().postDataJSON(), { themeId: 'modern' })
+    if (++requests === 1) {
+      await fail.promise
+      return route.fulfill({ status: 503, json: { code: 503 } })
+    }
+    savedTheme = 'modern'
+    return route.fulfill({ json: { code: 200, data: { themeId: savedTheme } } })
+  })
+  await page.route('**' + resource, route => route.fulfill({
+    json: { code: 200, data: { ...resume, themeId: savedTheme } },
+  }))
+  await page.route('**' + resource + '/version/history', route => route.fulfill({
+    json: { code: 200, data: [{ id: 'snapshot', content: resume.content, message: '测试版本' }] },
+  }))
+
+  await modern.click()
+  assert.equal(await modern.getAttribute('aria-pressed'), 'true')
+  assert.equal(await basic.isDisabled(), true)
+  assert.equal(await preview.getAttribute('data-resume-theme'), 'modern')
+  fail.resolve()
+  await page.getByRole('alert').filter({ hasText: /主题保存失败/ }).waitFor()
+  assert.equal(requests, 1)
+  assert.equal(await basic.getAttribute('aria-pressed'), 'true')
+  assert.equal(await preview.getAttribute('data-resume-theme'), null)
+
+  const saved = page.waitForResponse(response => response.url().endsWith(resource + '/appearance'))
+  await modern.click()
+  assert.equal((await saved).ok(), true)
+  assert.equal(requests, 2)
+  await page.reload()
+  await preview.waitFor()
+  assert.equal(await modern.getAttribute('aria-pressed'), 'true')
+
+  const layout = article => article.evaluate(element => {
+    const body = getComputedStyle(element)
+    const title = getComputedStyle(element.querySelector('h1'))
+    const section = getComputedStyle(element.querySelector('h2'))
+    return {
+      width: Math.round(parseFloat(body.width)), bodySize: body.fontSize, bodyLineHeight: body.lineHeight,
+      titleSize: title.fontSize, titleWeight: title.fontWeight,
+      headingColor: title.color, sectionTop: section.marginTop, sectionRule: section.borderBottomColor,
+      sectionRuleWidth: Math.round(parseFloat(section.borderBottomWidth)),
+      linkColor: getComputedStyle(element.querySelector('a')).color,
+    }
+  })
+  const expected = await layout(preview)
+  assert.equal(expected.width, 673)
+  assert.equal(Math.round(parseFloat(expected.bodySize)), 15)
+  assert.equal(expected.titleWeight, '700')
+  assert.equal(expected.headingColor, 'rgb(25, 79, 107)')
+  assert.equal(expected.sectionRuleWidth, 1)
+
+  await page.getByRole('button', { name: '导出', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '导出简历' })
+  const downloaded = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: '下载 HTML' }).click()
+  const html = await readFile(await (await downloaded).path(), 'utf8')
+  const exportPage = await page.context().newPage()
+  await exportPage.setContent(html)
+  assert.deepEqual(await layout(exportPage.locator('article')), expected)
+
+  await page.evaluate(() => {
+    const append = document.body.append.bind(document.body)
+    document.body.append = (...nodes) => {
+      for (const node of nodes) {
+        if (node instanceof HTMLIFrameElement && node.title === '简历打印视图') {
+          window.resumePrintHtml = node.srcdoc
+        }
+      }
+      append(...nodes)
+    }
+  })
+  await dialog.getByRole('button', { name: '打印 / 另存为 PDF' }).click()
+  const printHtml = await page.evaluate(() => window.resumePrintHtml)
+  assert.equal(printHtml, html)
+  await exportPage.setContent(printHtml)
+  await exportPage.emulateMedia({ media: 'print' })
+  assert.deepEqual(await layout(exportPage.locator('article')), expected)
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('link', { name: '版本历史' }).click()
+  await page.getByRole('button', { name: '测试版本' }).click()
+  await preview.waitFor()
+  assert.equal(await preview.getAttribute('data-resume-theme'), 'modern')
+})
+
 test('a rejected LaTeX download locates the formula in the mobile Markdown editor', async t => {
   const formula = '$x%$'
   const prefix = '# 公式验收\r\n' + '用于滚动核验的正文\r\n'.repeat(40) + '中文😀 '

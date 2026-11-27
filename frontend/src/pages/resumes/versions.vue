@@ -450,7 +450,7 @@ async function submit() {
           <UiSheetDescription>{{ selection ? shortCommit(selection.id) + ' · ' + (selection.message ?? '') : '检查当前版本、版本线及版本引用。' }}</UiSheetDescription>
         </UiSheetHeader>
         <div class="flex flex-col gap-4 px-4 pb-6">
-          <ResumePreview v-if="panel === 'snapshot' && selection" :content="selection.content ?? ''" :images="images" />
+          <ResumePreview v-if="panel === 'snapshot' && selection" :content="selection.content ?? ''" :images="images" :theme-id="record?.themeId" />
           <dl v-else-if="selection && debug" class="flex flex-col gap-2 text-sm">
             <div>版本存在 · {{ debug.commitExists === true ? '是' : '否' }}</div>
             <div>前序版本数 · {{ typeof debug.parentCount === 'number' ? debug.parentCount : '—' }}</div>
