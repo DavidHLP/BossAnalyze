@@ -3,11 +3,12 @@ import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } fr
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { RiArrowLeftLine, RiHistoryLine, RiImageLine, RiSaveLine } from '@remixicon/vue'
 import { changeResumeVersion, getResume, resumeHistory, type ResumeCommit, type ResumeRecord } from '@/api/resume/resume'
-import { ownsResumeAsset, readResumeAsset } from '@/api/resume/assets'
+import { ownsResumeAsset } from '@/api/resume/assets'
+import { useResumeImages } from '@/composables/useResumeImages'
 import { useSession } from '@/composables/useSession'
 import { registerDirtyDraft } from '@/composables/session-events'
 import {
-  assetMarkdown, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime, shortCommit, type ResumeDraft,
+  assetMarkdown, resumeAssetNames, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime, shortCommit, type ResumeDraft,
 } from '@/lib/resumes'
 import { DialogClose, DialogTrigger } from '@/components/ui/dialog'
 import ResumeAssets from '@/components/resumes/ResumeAssets.vue'
@@ -49,10 +50,6 @@ const assetsOpen = ref(false)
 const exportOpen = ref(false)
 const staged = ref<string[]>([])
 const hidden = ref<string[]>([])
-const images = shallowRef<Record<string, string>>({})
-const imageRequests = new Map<string, symbol>()
-const canUseImages = import.meta.env.VITE_RESUME_PRIVATE_IMAGES === 'true' ||
-  (import.meta.env.DEV && import.meta.env.VITE_BOSS_MOCK_PREVIEW === '1')
 const dirty = computed(() => !!record.value && markdown.value !== (record.value.content ?? ''))
 const headUnavailable = computed(() => Boolean(record.value?.headCommit && !head.value))
 const restored = computed(() => !!head.value && (head.value.content ?? '') !== (record.value?.content ?? ''))
@@ -64,10 +61,11 @@ const workspaceStatus = computed(() => {
   return head.value ? '工作区正文对应当前 HEAD' : '工作区已读取，尚未核对 HEAD'
 })
 const assets = computed(() => {
-  const keys = resumePreview(markdown.value).flatMap(block => block.kind === 'asset' ? [block.fileName] : [])
+  const keys = resumeAssetNames(resumePreview(markdown.value))
   return [...new Set([...keys, ...staged.value])].filter(key =>
     userId.value !== undefined && ownsResumeAsset(userId.value, key) && !hidden.value.includes(key))
 })
+const { enabled: canUseImages, images, loadImage, forgetImage } = useResumeImages(assets)
 let loadRevision = 0
 let checkRevision = 0
 let leaveDecision: ((discard: boolean) => void) | null = null
@@ -183,53 +181,17 @@ async function checkLatestVersion() {
 
 watch(checkOpen, open => { if (open) void checkLatestVersion() })
 
-function revokeImage(key: string) {
-  imageRequests.delete(key)
-  const url = images.value[key]
-  if (!url) return
-  URL.revokeObjectURL(url)
-  const rest = { ...images.value }
-  delete rest[key]
-  images.value = rest
-}
-
-async function fetchImage(key: string) {
-  const actor = userId.value
-  if (!canUseImages || actor === undefined || images.value[key] || imageRequests.has(key)) return
-  const request = Symbol()
-  imageRequests.set(key, request)
-  const owner = session.capture()
-  try {
-    const blob = await readResumeAsset(actor, key)
-    if (blob && imageRequests.get(key) === request && session.owns(owner)) {
-      images.value = { ...images.value, [key]: URL.createObjectURL(blob) }
-    }
-  } catch {
-    // A missing asset does not prevent the document from being edited.
-  } finally {
-    if (imageRequests.get(key) === request) imageRequests.delete(key)
-  }
-}
-
-watch(() => JSON.stringify(assets.value), () => {
-  const keys = new Set(assets.value)
-  for (const key of new Set([...Object.keys(images.value), ...imageRequests.keys()])) {
-    if (!keys.has(key)) revokeImage(key)
-  }
-  for (const key of keys) void fetchImage(key)
-})
-
 function uploaded(name: string) {
   hidden.value = hidden.value.filter(key => key !== name)
-  revokeImage(name)
+  forgetImage(name)
   if (!staged.value.includes(name)) staged.value = [...staged.value, name]
-  void fetchImage(name)
+  void loadImage(name)
 }
 
 function removed(name: string) {
   hidden.value = [...hidden.value, name]
   staged.value = staged.value.filter(key => key !== name)
-  revokeImage(name)
+  forgetImage(name)
 }
 
 function selection() {
@@ -432,8 +394,6 @@ onUnmounted(() => {
   loadRevision++
   checkRevision++
   window.removeEventListener('beforeunload', beforeUnload)
-  imageRequests.clear()
-  for (const key of Object.keys(images.value)) revokeImage(key)
 })
 </script>
 
@@ -563,7 +523,7 @@ onUnmounted(() => {
         </div>
       </div>
       <ResumeAssets v-model:open="assetsOpen" :enabled="canUseImages" :user-id="userId" :assets="assets" :images="images" @uploaded="uploaded" @removed="removed" @insert="insertAsset" />
-      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" :saved-content="record.content" :dirty="dirty" @locate="locateResumeRange" />
+      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" :saved-content="record.content" :dirty="dirty" :load-image="loadImage" @locate="locateResumeRange" />
     </template>
   </section>
 </template>

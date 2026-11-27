@@ -1,3 +1,5 @@
+import { isResumeImageDataUrl, resumeLayoutCss, resumePageMargin } from './resume-render.ts'
+
 export function shortCommit(id: string | null | undefined) {
   return id?.slice(0, 8) || '—'
 }
@@ -433,6 +435,10 @@ export function assetMarkdown(fileName: string) {
     encodeURIComponent(fileName).replace(/[()]/g, char => char === '(' ? '%28' : '%29') + ')'
 }
 
+export function resumeAssetNames(blocks: PreviewBlock[]) {
+  return [...new Set(blocks.flatMap(block => block.kind === 'asset' ? [block.fileName] : []))]
+}
+
 export type ResumeExportSource = 'current' | 'saved' | 'save-first'
 export type ResumeExportFormat = 'html' | 'pdf' | 'markdown' | 'tex' | 'docx' | 'external'
 
@@ -459,43 +465,46 @@ export function resumeExportUnavailableReason(source: ResumeExportSource, state:
 }
 
 export function resumeImageCount(markdown: string) {
-  const names = resumePreview(markdown).flatMap(block => block.kind === 'asset' ? [block.fileName] : [])
-  return new Set(names).size
+  return resumeAssetNames(resumePreview(markdown)).length
 }
 
 export function resumeExportFileBase(title: string) {
   return title.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || '简历'
 }
 
-export function resumeExportSummary(input: {
+interface ResumeExportImages {
+  imageCount: number
+  embeddedImageCount?: number
+  includeImages?: boolean
+}
+
+export function resumeExportSummary(input: ResumeExportImages & {
   source: ResumeExportSource
   dirty: boolean
   savedContent: string | null
   title: string
-  imageCount: number
-  imagesEmbedded: boolean
 }) {
   return {
     source: resumeExportSourceLabel(input.source, input.dirty),
     unsaved: input.source === 'current' && input.dirty ? '有未保存修改' : '不含未保存修改',
-    images: input.imageCount
-      ? `${input.imageCount} 张图片，${input.imagesEmbedded ? '已嵌入' : '未嵌入'}`
-      : '无图片',
+    images: resumeExportLossNotes('html', input)[0],
     fileName: resumeExportFileBase(input.title) + '.pdf / .html / .md / .tex',
   }
 }
 
 export function resumeExportLossNotes(
   format: ResumeExportFormat,
-  { imageCount, imagesEmbedded }: { imageCount: number; imagesEmbedded: boolean },
+  { imageCount, embeddedImageCount, includeImages = true }: ResumeExportImages,
 ) {
   switch (format) {
     case 'html':
     case 'pdf':
-      if (!imageCount) return ['导出文件不含图片。']
-      return [imagesEmbedded
-        ? `${imageCount} 张图片已嵌入导出文件。`
-        : `${imageCount} 张图片以文字占位，未嵌入导出文件。`]
+      if (!imageCount) return ['无图片。']
+      if (!includeImages) return ['已选择省略全部图片和占位文字。']
+      if (embeddedImageCount === undefined) return [`${imageCount} 张图片待处理，可用图片将嵌入，失败时保留文字占位。`]
+      if (embeddedImageCount === imageCount) return [`${imageCount} 张图片已嵌入。`]
+      if (!embeddedImageCount) return [`${imageCount} 张图片加载失败，已保留文字占位。`]
+      return [`已嵌入 ${embeddedImageCount} 张图片，另有 ${imageCount - embeddedImageCount} 张保留文字占位。`]
     case 'markdown':
       return ['Markdown 保留公式源码与图片引用，不嵌入图片文件。']
     case 'tex':
@@ -552,7 +561,8 @@ function inlineHtml(tokens: ResumeInline[], renderMath?: ResumeMathRender) {
   }).join('')
 }
 
-export function resumeHtml(title: string, content: string | PreviewBlock[], renderMath?: ResumeMathRender): string {
+export function resumeHtml(title: string, content: string | PreviewBlock[], renderMath?: ResumeMathRender,
+  { images, includeImages = true }: { images?: Readonly<Record<string, string>>; includeImages?: boolean } = {}): string {
   const blocks = typeof content === 'string' ? resumePreview(content) : content
   const renderInline = (tokens: ResumeInline[]) => inlineHtml(tokens, renderMath)
   const body = blocks.map(block => {
@@ -560,7 +570,14 @@ export function resumeHtml(title: string, content: string | PreviewBlock[], rend
       case 'heading': return '<h' + block.level + '>' + renderInline(block.inline) + '</h' + block.level + '>'
       case 'text': return '<p>' + renderInline(block.inline) + '</p>'
       case 'rule': return '<hr>'
-      case 'asset': return '<p>' + escapeHtml(block.text || '图片素材') + ' · 本地导出未包含图片</p>'
+      case 'asset': {
+        if (!includeImages) return ''
+        const src = images && Object.hasOwn(images, block.fileName) ? images[block.fileName] : undefined
+        const alt = escapeHtml(block.text)
+        return isResumeImageDataUrl(src)
+          ? `<figure><img src="${src}" alt="${alt}"></figure>`
+          : `<figure><figcaption>${alt || '图片素材'} · 图片无法加载</figcaption></figure>`
+      }
       case 'code': return '<pre><code>' + escapeHtml(block.text) + '</code></pre>'
       case 'math': {
         const rendered = renderMath?.(block.tex, true)
@@ -581,23 +598,16 @@ export function resumeHtml(title: string, content: string | PreviewBlock[], rend
   return `<!doctype html>
 <html lang="zh-CN"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>${escapeHtml(title)}</title>
 <style>
-  @page { size: A4; margin: 16mm; }
-  :root { color: #161616; background: white; font: 11pt/1.5 system-ui, sans-serif; }
-  body { max-width: 178mm; margin: 2rem auto; padding: 0 1rem; overflow-wrap: anywhere; }
-  h1, h2, h3 { break-after: avoid; }
-  p, pre, ul, ol { margin: 0.45rem 0; }
-  pre { white-space: pre-wrap; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #777; padding: 0.25rem 0.5rem; text-align: left; }
-  tr { break-inside: avoid; }
-  a { color: inherit; }
-  @media print { body { margin: 0; padding: 0; } }
+  @page { size: A4; margin: ${resumePageMargin}; }
+  body { margin: 0; padding: ${resumePageMargin}; color: #161616; background: white; }
+  ${resumeLayoutCss}
+  @media print { body { padding: 0; } }
 </style>
-<body>${body}</body></html>`
+<body><article class="resume-body">${body}</article></body></html>`
 }
 
 type CommitParents = { id: string; parentCommits?: string[] }[]

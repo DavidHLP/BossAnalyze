@@ -2,7 +2,7 @@
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { FieldDescription, FieldTitle } from '@/components/ui/field'
 import {
-  exportDestination, resumeExportContent, resumeExportFileBase, resumeExportLossNotes, resumeExportResult,
+  exportDestination, resumeAssetNames, resumeExportContent, resumeExportFileBase, resumeExportLossNotes, resumeExportResult,
   resumeExportSummary, resumeExportUnavailableReason, resumeHasMath, resumeHtml,
   resumeImageCount, resumePreview, type ResumeExportSource, type ResumeMathRender,
 } from '@/lib/resumes'
@@ -10,7 +10,10 @@ import { loadResumeMath } from '@/lib/resume-math'
 import { inspectResumeTexTemplate, resumeLatex, type ResumeTexError } from '@/lib/resume-tex'
 import { resumeTexTemplates, type ResumeTexTemplateId } from '@/lib/resume-tex-templates'
 
-const props = defineProps<{ title: string; content: string; savedContent: string | null; dirty: boolean }>()
+const props = defineProps<{
+  title: string; content: string; savedContent: string | null; dirty: boolean
+  loadImage: (name: string) => Promise<string | undefined>
+}>()
 const open = defineModel<boolean>('open', { required: true })
 type ResumeRange = Pick<ResumeTexError, 'start' | 'end'>
 const emit = defineEmits<{ locate: [range: ResumeRange] }>()
@@ -31,19 +34,21 @@ const sourceOptions: { value: ResumeExportSource; label: string }[] = [
   { value: 'save-first', label: '先保存再导出' },
 ]
 const exportContent = computed(() => resumeExportContent(source.value, props.content, props.savedContent))
-// shortcut: HTML/PDF still render images as text until #128 lands; then derive this from the renderer.
-const imagesEmbedded = false
+const omitImages = ref(false)
+const embeddedImageCount = ref<number>()
 const imageCount = computed(() => resumeImageCount(exportContent.value))
+const imageOptions = computed(() => ({
+  imageCount: imageCount.value, includeImages: !omitImages.value, embeddedImageCount: embeddedImageCount.value,
+}))
 const summary = computed(() => resumeExportSummary({
   source: source.value, dirty: props.dirty, savedContent: props.savedContent,
-  title: props.title, imageCount: imageCount.value, imagesEmbedded,
+  title: props.title, ...imageOptions.value,
 }))
 const sourceReason = (value: ResumeExportSource) =>
   resumeExportUnavailableReason(value, { dirty: props.dirty, savedContent: props.savedContent })
-const localLoss = computed(() => resumeExportLossNotes('html', { imageCount: imageCount.value, imagesEmbedded }))
-const markdownLoss = computed(() => resumeExportLossNotes('markdown', { imageCount: imageCount.value, imagesEmbedded }))
-const docxLoss = computed(() => resumeExportLossNotes('docx', { imageCount: imageCount.value, imagesEmbedded }))
-const externalLoss = computed(() => resumeExportLossNotes('external', { imageCount: imageCount.value, imagesEmbedded }))
+const markdownLoss = computed(() => resumeExportLossNotes('markdown', imageOptions.value))
+const docxLoss = computed(() => resumeExportLossNotes('docx', imageOptions.value))
+const externalLoss = computed(() => resumeExportLossNotes('external', imageOptions.value))
 const texTemplate = ref<ResumeTexTemplateId>('basic')
 const texBlocks = computed(() => resumePreview(exportContent.value))
 const texInspection = computed(() => texTemplate.value === 'basic'
@@ -60,12 +65,14 @@ function resetLocalExport() {
   texErrors.value = []
   texWarnings.value = []
   htmlError.value = ''
+  embeddedImageCount.value = undefined
   sourceFallback.value = undefined
   cancelHtml()
 }
 
 watch(open, () => {
   source.value = 'current'
+  omitImages.value = false
   accepted.value = false
   error.value = ''
   resultUrl.value = null
@@ -73,6 +80,8 @@ watch(open, () => {
   cancelExternal()
   resetLocalExport()
 }, { flush: 'sync' })
+
+watch(omitImages, () => { embeddedImageCount.value = undefined })
 
 watch(source, () => {
   accepted.value = false
@@ -136,6 +145,7 @@ async function exportHtml(output: 'html' | 'pdf', withMath = true) {
   const job = Symbol()
   htmlJob.value = job
   htmlError.value = ''
+  embeddedImageCount.value = undefined
   sourceFallback.value = undefined
   try {
     const blocks = resumePreview(content)
@@ -155,11 +165,20 @@ async function exportHtml(output: 'html' | 'pdf', withMath = true) {
         return rendered
       }
     }
-    const html = resumeHtml(title, blocks, renderMath)
+    const withImages = !omitImages.value
+    const names = withImages ? resumeAssetNames(blocks) : []
+    let images: Record<string, string> | undefined
+    if (names.length) {
+      const loaded = await Promise.all(names.map(async name => [name, await props.loadImage(name)] as const))
+      if (htmlJob.value !== job) return
+      images = Object.fromEntries(loaded.filter((entry): entry is readonly [string, string] => entry[1] !== undefined))
+    }
+    const html = resumeHtml(title, blocks, renderMath, { images, includeImages: withImages })
     if (invalidMath) {
       htmlError.value = '至少有一处公式无法渲染。请修正公式后重试，或下载 Markdown 原文。'
       return
     }
+    if (images) embeddedImageCount.value = Object.keys(images).length
     if (output === 'pdf') printResume(html)
     else download(title, html, 'html', 'text/html;charset=utf-8')
   } finally {
@@ -269,7 +288,7 @@ async function submit() {
       <dl aria-label="导出来源摘要" class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-y py-2 text-sm">
         <dt class="text-muted-foreground">来源</dt><dd>{{ summary.source }}</dd>
         <dt class="text-muted-foreground">未保存</dt><dd>{{ summary.unsaved }}</dd>
-        <dt class="text-muted-foreground">图片</dt><dd>{{ summary.images }}</dd>
+        <dt class="text-muted-foreground">打印 / HTML 图片</dt><dd aria-live="polite">{{ summary.images }}</dd>
         <dt class="text-muted-foreground">文件名</dt><dd class="wrap-anywhere">{{ summary.fileName }}</dd>
       </dl>
       <UiField>
@@ -288,10 +307,13 @@ async function submit() {
         <h3 id="local-resume-export" class="font-medium">本地导出</h3>
         <p class="text-sm text-muted-foreground">文件在浏览器中生成。</p>
         <ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          <li v-for="note in localLoss" :key="note">{{ note }}</li>
           <li v-for="note in markdownLoss" :key="note">{{ note }}</li>
           <li v-for="note in docxLoss" :key="note">{{ note }}</li>
         </ul>
+        <label v-if="imageCount" class="flex items-center gap-2 text-sm">
+          <input v-model="omitImages" :disabled="htmlBusy" type="checkbox">
+          导出不含图片（ATS）
+        </label>
         <div class="flex flex-wrap gap-2">
           <UiButton type="button" variant="outline" :disabled="htmlBusy" @click="exportHtml('pdf')">打印 / 另存为 PDF</UiButton>
           <UiButton type="button" variant="outline" :disabled="htmlBusy" @click="exportHtml('html')">下载 HTML</UiButton>
