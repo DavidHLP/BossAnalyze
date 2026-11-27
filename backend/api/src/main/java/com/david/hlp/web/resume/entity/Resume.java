@@ -1,5 +1,6 @@
 package com.david.hlp.web.resume.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
@@ -51,6 +52,13 @@ public class Resume implements Serializable {
 
     @Field("head_commit")
     private String headCommit;
+
+    @Field("workspace_revision")
+    private long workspaceRevision;
+
+    @JsonIgnore
+    @Field("published_commit_id")
+    private String publishedCommitId;
 
     @Field("repository_id")
     private String repositoryId;
