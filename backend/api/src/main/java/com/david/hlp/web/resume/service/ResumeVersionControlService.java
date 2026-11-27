@@ -558,24 +558,6 @@ public class ResumeVersionControlService {
         return result;
     }
 
-    /**
-     * 修复重复的提交ID问题
-     */
-    public Map<String, Object> fixDuplicateCommitIds(String resumeId, Long userId, Long expectedRevision) {
-        return write(resumeId, userId, expectedRevision, resume -> {
-            List<Resume> commits = getCommitHistory(resume);
-            Set<String> ids = new HashSet<>();
-            for (Resume commit : commits) {
-                if (!ids.add(commit.getId())) {
-                    // MongoDB enforces unique _id on the supported standalone topology.
-                    throw new BusinessException(500, "发现重复提交ID，请联系管理员处理");
-                }
-            }
-            return Map.of("success", true, "message", "没有发现重复的提交ID",
-                    "actions", List.of("找到 " + commits.size() + " 个提交"));
-        });
-    }
-
     void deleteResume(String resumeId, Long userId, Long expectedRevision) {
         withLock(resumeId, () -> {
             Resume resume = getResumeById(resumeId, userId);

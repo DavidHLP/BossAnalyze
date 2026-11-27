@@ -44,7 +44,7 @@ type ResumeWrite =
   | ['merge', { source: string; target: string }]
   | ['checkout' | 'reset' | 'revert', { commitId: string }]
   | ['stash', { content: string }]
-  | ['stash/pop' | 'fix-duplicate-ids']
+  | ['stash/pop']
 
 function resource(id: string) {
   if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('Invalid resume ID')
@@ -126,11 +126,7 @@ export async function changeResumeVersion(id: string, ...[action, data, workspac
     ? data
     : { ...((data ?? {}) as Record<string, unknown>), workspaceRevision: String(workspaceRevision) }
   const result: unknown = await request.post(resource(id) + '/version/' + action, body)
-  if (action === 'fix-duplicate-ids') {
-    if (!result || typeof result !== 'object' || !('success' in result) || result.success !== true) {
-      throw new Error('Repair was not confirmed')
-    }
-  } else if (action === 'commit' || action === 'merge' || action === 'revert') {
+  if (action === 'commit' || action === 'merge' || action === 'revert') {
     if (typeof result !== 'string' || !result.trim()) throw new Error('Missing commit ID')
   } else if (action === 'stash/pop') {
     if (typeof result === 'string') return result

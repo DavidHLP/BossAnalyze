@@ -6,7 +6,6 @@ import com.david.hlp.web.resume.entity.Resume;
 import com.david.hlp.web.resume.service.ResumeVersionControlService;
 import lombok.RequiredArgsConstructor;
 import com.david.hlp.web.common.exception.BusinessException;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +16,6 @@ import java.util.Map;
 /**
  * 简历版本控制API控制器
  */
-@Slf4j
 @Validated
 @RestController
 @RequestMapping("/api/resume/{resumeId}/version")
@@ -361,29 +359,6 @@ public class ResumeVersionController extends BaseController {
             throw e;
         } catch (Exception e) {
             return Result.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
-        }
-    }
-
-    /**
-     * 检查重复提交 ID
-     */
-    @PostMapping("/fix-duplicate-ids")
-    public Result<Map<String, Object>> fixDuplicateIds(@PathVariable String resumeId,
-            @RequestBody(required = false) Map<String, String> request) {
-        Long userId = getCurrentUserId();
-        if (userId == null) {
-            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
-        }
-
-        try {
-            Map<String, Object> result = versionControlService.fixDuplicateCommitIds(resumeId, userId,
-                    workspaceRevision(request));
-            return Result.success(result);
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("修复重复ID失败: {}", e.getMessage(), e);
-            return Result.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "修复失败: " + e.getMessage());
         }
     }
 
