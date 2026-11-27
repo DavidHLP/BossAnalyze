@@ -466,7 +466,7 @@ onUnmounted(() => {
     <UiDialog v-model:open="checkOpen">
       <UiAlert v-if="loadError || writeError || headUnavailable" variant="destructive" role="alert">
         <UiAlertDescription class="flex flex-wrap items-center gap-2">
-          {{ writeError || loadError || '暂时无法核对当前版本。重新读取会保留编辑中的正文和备注。' }}
+          {{ writeError || loadError || '暂时无法核对当前版本。重新读取会保留编辑中的正文和说明。' }}
           <DialogTrigger v-if="checkOffered" as-child>
             <UiButton variant="outline" size="sm">核对最新版本</UiButton>
           </DialogTrigger>
