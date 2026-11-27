@@ -533,6 +533,10 @@ for (const editor of [
       props.open = true
       await nextTick()
       assert.equal(hasDirtyDraft(), false)
+      if (editor.name === 'resume') {
+        click(button('高级 Markdown'))
+        await nextTick()
+      }
       for (const [id, value] of Object.entries(editor.fields ?? {})) fill(id, value)
       fill(editor.field, '未保存更改')
       await flushView()
