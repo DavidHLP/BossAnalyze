@@ -5,7 +5,7 @@ import { RiAddLine, RiRefreshLine } from '@remixicon/vue'
 import { createResume, deleteResume, listResumes, renameResume, type ResumeRecord } from '@/api/resume/resume'
 import { useSession } from '@/composables/useSession'
 import { mutationResultUnknown, restoreActionFocus } from '@/lib/rbac-mutations'
-import { resumeListReadback, resumeReadMessage, resumeTime, shortCommit, type ResumeListChange } from '@/lib/resumes'
+import { resumeListReadback, resumeReadMessage, resumeStamp, resumeTime, shortCommit, type ResumeListChange } from '@/lib/resumes'
 
 const router = useRouter()
 const session = useSession()
@@ -22,7 +22,7 @@ const results = computed(() => resumes.value
   .filter(item => item.title.toLowerCase().includes(applied.value.query.toLowerCase()) &&
     (!applied.value.branch || applied.value.branch === item.currentBranch))
   .sort((a, b) => applied.value.sort === 'title' ? a.title.localeCompare(b.title, 'zh-CN') :
-    (b.updatedAt ?? b.createdAt ?? '').localeCompare(a.updatedAt ?? a.createdAt ?? '')))
+    resumeStamp(b.updatedAt ?? b.createdAt) - resumeStamp(a.updatedAt ?? a.createdAt)))
 const dialog = ref<'create' | 'rename' | 'delete' | null>(null)
 const selected = ref<ResumeRecord | null>(null)
 const title = ref('')
