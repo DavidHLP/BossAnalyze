@@ -16,7 +16,6 @@ const state = (overrides = {}) => ({
   savedContent: '# 服务器正文',
   title: '我的简历',
   imageCount: 0,
-  imagesEmbedded: false,
   ...overrides,
 })
 
@@ -53,22 +52,26 @@ test('builds the fixed summary line for source, unsaved state, images and file n
   assert.deepEqual(resumeExportSummary(state({ source: 'current', dirty: true, imageCount: 2 })), {
     source: '当前内容（含未保存修改）',
     unsaved: '有未保存修改',
-    images: '2 张图片，未嵌入',
+    images: '2 张图片待处理，可用图片将嵌入，失败时保留文字占位。',
     fileName: '我的简历.pdf / .html / .md / .tex',
   })
-  assert.deepEqual(resumeExportSummary(state({ source: 'saved', dirty: true, imagesEmbedded: true, imageCount: 1 })), {
+  assert.deepEqual(resumeExportSummary(state({ source: 'saved', dirty: true, embeddedImageCount: 1, imageCount: 1 })), {
     source: '服务器正文（不含编辑区未保存修改）',
     unsaved: '不含未保存修改',
-    images: '1 张图片，已嵌入',
+    images: '1 张图片已嵌入。',
     fileName: '我的简历.pdf / .html / .md / .tex',
   })
-  assert.equal(resumeExportSummary(state()).images, '无图片')
+  assert.equal(resumeExportSummary(state()).images, '无图片。')
+  assert.equal(resumeExportSummary(state({ imageCount: 2, embeddedImageCount: 1 })).images,
+    '已嵌入 1 张图片，另有 1 张保留文字占位。')
+  assert.equal(resumeExportSummary(state({ imageCount: 2, includeImages: false })).images,
+    '已选择省略全部图片和占位文字。')
 })
 
 test('states per-format losses truthfully, including images, DOCX and .tex compilation', () => {
-  const withImage = { imageCount: 2, imagesEmbedded: false }
-  assert.deepEqual(resumeExportLossNotes('html', withImage), ['2 张图片以文字占位，未嵌入导出文件。'])
-  assert.deepEqual(resumeExportLossNotes('pdf', { imageCount: 2, imagesEmbedded: true }), ['2 张图片已嵌入导出文件。'])
+  const withImage = { imageCount: 2, embeddedImageCount: 0 }
+  assert.deepEqual(resumeExportLossNotes('html', withImage), ['2 张图片加载失败，已保留文字占位。'])
+  assert.deepEqual(resumeExportLossNotes('pdf', { imageCount: 2, embeddedImageCount: 2 }), ['2 张图片已嵌入。'])
   assert.deepEqual(resumeExportLossNotes('markdown', withImage), ['Markdown 保留公式源码与图片引用，不嵌入图片文件。'])
   assert.match(resumeExportLossNotes('tex', withImage).join(''), /XeLaTeX/)
   assert.match(resumeExportLossNotes('docx', withImage).join(''), /公式.*图片|图片.*公式/)
