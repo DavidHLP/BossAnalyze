@@ -366,11 +366,13 @@ Nitro 在路由规则代理前执行 `request` hook，剥离传入的 `Forwarded
 | GET | `/api/resume/{resumeId}/version/diff` | query `fromCommit,toCommit` → 两提交间记录列表 |
 | GET | `/api/resume/{resumeId}/version/debug/commit/{commitId}` | 单提交诊断 Map |
 | GET | `/api/resume/{resumeId}/version/debug/validate` | 仓库指针、提交等校验 Map |
-| POST | `/api/resume/{resumeId}/version/fix-duplicate-ids` | 修复 Map，可含 `success,message,actions,error` 和重建信息 |
+| PATCH | `/api/resume/{resumeId}/appearance` | `{themeId}`（`basic\|modern`）→ 只改外观，不产生 commit、不动 `workspaceRevision` |
 | POST | `/api/image/upload` | multipart `file` → `Result<ImageResponse>` |
 | GET | `/api/image/view/{fileName}` | 文件流，成功含内容类型、缓存与安全响应头 |
 | DELETE | `/api/image/delete` | query `fileName` → 按当前用户键前缀校验，`Result<ImageResponse>` |
 | GET | `/api/image/url/{fileName}` | `Result<ImageResponse>`，含相对查看 URL |
+
+所有工作区写入口（`save`、`commit`、`branch`、`switch`、`stash`、`stash/pop`、`checkout`、`reset`、`revert`、`merge`）都接受可选 `workspaceRevision`；基线不一致时返回 409 并带当前 revision 与 HEAD，写操作不落库。
 
 依据 `backend/api/src/main/java/com/david/hlp/web/resume/controller/{ResumeController,ResumeVersionController}.java` 与 [图片控制器 · `backend/api/src/main/java/com/david/hlp/web/minio/controller/ImageController.java`](../../backend/api/src/main/java/com/david/hlp/web/minio/controller/ImageController.java)。
 
