@@ -47,7 +47,8 @@ async function resumeScript(file, bindings, names) {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
   })
   return new Function('bindings', `with (bindings) { ${outputText.replace(/^export \{\};$/m, '')}\nreturn { ${names.join(',')} } }`)({
-    ...vue, ...await import('../src/lib/resumes.ts'), ...await import('../src/lib/resume-theme.ts'),
+    ...vue, ...await import('../src/lib/resumes.ts'), ...await import('../src/lib/resume-copy.ts'),
+    ...await import('../src/lib/resume-theme.ts'),
     env: {}, onMounted() {}, onUnmounted() {}, onBeforeRouteLeave() {}, onBeforeRouteUpdate() {},
     useResumeImages: () => ({ images: vue.ref({}) }),
     ...bindings,
@@ -79,7 +80,7 @@ async function resumeEditor() {
       id: 'fixture', title: '原简历', content: '# 已保存', currentBranch: 'main',
       headCommit: 'head-a', workspaceRevision: 3, stashStack: [],
     },
-    reads: 0, writes: [], copies: [], pushed: null,
+    reads: 0, writes: [], copies: [], pushed: null, list: [], lostCopy: false,
   }
   const editor = await resumeScript('pages/resumes/edit', {
     useRoute: () => ({ params: { id: 'fixture' } }),
@@ -90,10 +91,17 @@ async function resumeEditor() {
     }),
     window: { sessionStorage: storage },
     document: { getElementById: () => null },
+    mutationResultUnknown: cause => Boolean(cause && typeof cause === 'object' && 'resultUnknown' in cause && cause.resultUnknown),
     getResume: async () => { server.reads++; return server.item },
     resumeHistory: async () => [],
+    listResumes: async () => server.list,
     createResume: async (title, content) => {
       server.copies.push({ title, content })
+      if (server.lostCopy) {
+        server.lostCopy = false
+        server.list.push({ id: 'copy-new', title, content })
+        throw Object.assign(new Error('create response lost'), { resultUnknown: true })
+      }
       return { id: 'copy-1', title, content, workspaceRevision: 0, headCommit: null }
     },
     changeResumeVersion: async (resumeId, action, data, revision) => {
@@ -128,6 +136,7 @@ async function resumeEditor() {
     'load', 'write', 'markdown', 'message', 'record', 'dirty', 'localDraft', 'feedback', 'writeError', 'writeLocked',
     'pendingAction', 'conflictOpen', 'conflictState', 'conflictPending', 'conflictError',
     'resolveConflictWithServer', 'saveConflictCopy', 'flushDraft',
+    'openCopy', 'createCopy', 'copyOpen', 'copyUnverified', 'copyError', 'copyNote',
   ])
   await editor.load(true)
   return { editor, server, store }
@@ -227,6 +236,19 @@ test('saving the conflict as a copy creates an independent resume and leaves the
   assert.equal(store.read(), null)
 })
 
+test('a lost copy reply skips an older same-title copy and confirms the new one', async () => {
+  const { editor, server } = await resumeEditor()
+  server.list = [{ id: 'older-copy', title: '原简历（副本）', content: '# 已保存' }]
+  server.lostCopy = true
+
+  editor.openCopy()
+  await editor.createCopy()
+
+  assert.equal(server.copies.length, 1)
+  assert.equal(editor.copyUnverified.value, false)
+  assert.equal(server.pushed, '/resumes/copy-new/edit')
+})
+
 test('closing the conflict dialog does not lock editing and a retry conflicts again', async () => {
   const { editor, server } = await resumeEditor()
   editor.markdown.value = '# 我的修改'
@@ -241,4 +263,86 @@ test('closing the conflict dialog does not lock editing and a retry conflicts ag
   assert.equal(server.writes.at(-1).revision, 3)
   assert.equal(editor.markdown.value, '# 我再改一次')
   assert.equal(editor.writeLocked.value, false)
+})
+
+async function resumeVersions() {
+  const { ref } = await import('vue')
+  const owner = { token: 'versions-token', timestamp: '100' }
+  const server = {
+    record: {
+      id: 'fixture', title: '简历', content: '# 已保存', currentBranch: 'main',
+      headCommit: 'head-a', workspaceRevision: 4,
+      branches: { main: 'head-a', feature: 'head-b' }, stashStack: [],
+    },
+    commits: [
+      { id: 'head-a', content: '# 已保存', message: '初始', branch: 'main', parentCommits: [] },
+      { id: 'head-b', content: '# 分支', message: '分支', branch: 'feature', parentCommits: [] },
+    ],
+    calls: [], fail: null, pushed: null,
+  }
+  const page = await resumeScript('pages/resumes/versions', {
+    useRoute: () => ({ params: { id: 'fixture' } }),
+    useRouter: () => ({ push: async path => { server.pushed = path } }),
+    useSession: () => ({ state: ref({ invalidated: false }), capture: () => owner, owns: () => true }),
+    useMediaQuery: () => ref(false),
+    useResumeImages: () => ({ images: ref({}) }),
+    getResume: async () => server.record,
+    resumeHistory: async () => server.commits,
+    inspectResume: async () => ({}),
+    inspectCommit: async () => ({}),
+    changeResumeVersion: async (resumeId, action, data, revision) => {
+      server.calls.push({ action, data, revision })
+      if (server.fail) throw server.fail
+      if (action === 'checkout') server.record = { ...server.record, headCommit: data.commitId }
+      if (action === 'merge') {
+        server.record = { ...server.record, branches: { ...server.record.branches, [data.target]: 'merged' } }
+        return 'merged'
+      }
+      if (action === 'stash') {
+        server.record = { ...server.record, stashStack: [...server.record.stashStack, { content: data.content }] }
+      }
+      if (action === 'revert') return 'reverted'
+      return undefined
+    },
+  }, [
+    'refresh', 'submit', 'operation', 'selection', 'record', 'detailError', 'feedback', 'writeLocked', 'stashCount',
+    'source', 'target', 'confirmed', 'draft', 'branchName',
+  ])
+  await page.refresh(true)
+  return { page, server }
+}
+
+test('version actions send the current workspace revision', async () => {
+  const { page, server } = await resumeVersions()
+  page.operation.value = 'checkout'
+  page.selection.value = server.commits[1]
+  await page.submit()
+  assert.deepEqual(server.calls.at(-1), { action: 'checkout', data: { commitId: 'head-b' }, revision: 4 })
+  assert.equal(page.detailError.value, '')
+  assert.equal(page.operation.value, null)
+
+  page.operation.value = 'merge'
+  page.source.value = 'feature'
+  page.target.value = 'main'
+  page.confirmed.value = true
+  await page.submit()
+  assert.deepEqual(server.calls.at(-1), { action: 'merge', data: { source: 'feature', target: 'main' }, revision: 4 })
+
+  page.operation.value = 'stash'
+  page.draft.value = '# 草稿'
+  await page.submit()
+  assert.deepEqual(server.calls.at(-1), { action: 'stash', data: { content: '# 草稿' }, revision: 4 })
+})
+
+test('a stale version write reports the conflict instead of overwriting silently', async () => {
+  const { page, server } = await resumeVersions()
+  server.fail = { code: 409, data: { data: { workspaceRevision: 5, headCommit: 'head-c' } } }
+  page.operation.value = 'reset'
+  page.selection.value = server.commits[0]
+  await page.submit()
+  assert.equal(server.calls.length, 1)
+  assert.equal(server.calls[0].revision, 4)
+  assert.match(page.detailError.value, /另一个标签页或设备已保存新版本/)
+  assert.equal(page.operation.value, null)
+  assert.equal(page.writeLocked.value, false)
 })

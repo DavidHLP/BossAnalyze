@@ -66,7 +66,7 @@ const copyError = ref('')
 const copyNote = ref('')
 const copyTitle = ref('')
 const copyUnverified = ref(false)
-const copyCheck = shallowRef<{ title: string; content: string; id: string | null } | null>(null)
+const copyCheck = shallowRef<{ title: string; content: string; id: string | null; previousIds: ReadonlySet<string> | null } | null>(null)
 const copyPreview = computed(() => resumeCopyContent(record.value?.content ?? ''))
 const copySource = computed(() => resumeCopySourceLabel(dirty.value))
 const account = computed(() => {
@@ -617,8 +617,10 @@ async function verifyCopy(check: NonNullable<typeof copyCheck.value>, owner: Ret
       if (!session.owns(owner) || !resumeCopyVerified(item, check.title, check.content, commits)) return false
     } else {
       // Without an ID the create reply was lost, so confirm through the server list.
+      // Only resumes that appeared after the baseline can be this copy, never an older same-title copy.
+      if (!check.previousIds) return false
       const items = await listResumes()
-      const match = items.find(item => item.id !== id.value &&
+      const match = items.find(item => !check.previousIds!.has(item.id) && item.id !== id.value &&
         item.title === check.title && (item.content ?? '') === check.content)
       if (!session.owns(owner) || !match) return false
       target = match.id
@@ -641,12 +643,20 @@ async function createCopy() {
     copyError.value = '请输入副本标题。'
     return
   }
-  const check = { title: name, content: resumeCopyContent(current.content ?? '').content, id: null as string | null }
+  const check = {
+    title: name, content: resumeCopyContent(current.content ?? '').content,
+    id: null as string | null, previousIds: null as ReadonlySet<string> | null,
+  }
   copyCheck.value = check
   copyPending.value = true
   copyError.value = ''
   const owner = session.capture()
   try {
+    try {
+      check.previousIds = new Set((await listResumes()).map(item => item.id))
+    } catch {
+      // A missing baseline only limits readback of a lost create reply; creation itself can proceed.
+    }
     try {
       check.id = (await createResume(check.title, check.content)).id
     } catch (cause) {
