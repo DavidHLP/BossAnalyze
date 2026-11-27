@@ -34,6 +34,7 @@ pnpm start
 
 - `/register` 使用现有邮箱注册接口。验证码发送需要 SMTP 配置。
 - `/resumes` 提供本人简历列表、编辑及版本历史。默认关闭私有图片素材接口。只有在后端已对图片查看和地址查询执行对象所有者校验的环境，才设置 `VITE_RESUME_PRIVATE_IMAGES=true`。
+- Word 导出默认关闭。隔离验收环境可在构建或启动 Vite 前设置 `VITE_RESUME_DOCX_EXPORT=true`。Word 与 WPS 均通过打开、编辑、打印验收，且中文可选中、正文顺序与列表正确后，才在发布构建启用。
 - 简历预览用结构化 Markdown 渲染标题、列表、分割线、表格、代码、加粗、斜体、链接和 `asset:` 图片引用。原始 HTML 按文本显示，链接仅接受 `https://`、`http://` 和 `mailto:`。
 - 数学公式用 `$...$` 写在同一行，用单行 `$$...$$` 或独占行的 `$$` 包围块级公式。Pandoc 货币守卫要求开 `$` 后和闭 `$` 前没有空白，闭 `$` 后不能紧跟 ASCII 数字，所以 `$100-$200` 仍是普通文本。用 `\$` 输入字面的美元符号。在线预览、本地 HTML 和打印按需加载 KaTeX，并统一输出 MathML。
 - 编辑器在当前标签页的 `sessionStorage` 按账号、登录会话和简历分开暂存正文及提交备注。刷新后可选择恢复或清除。已确认保存、储藏和主动丢弃会清理暂存，离开登录会话会使旧草稿失效。服务端储藏仍可在版本历史中取回。
@@ -57,3 +58,5 @@ node --test --test-concurrency=1 tests/resume-interactions.browser.mjs
 ```
 
 本仓库未内置上述审计 Mock 服务。各套测试所需的 Mock 地址和浏览器配置见对应脚本。
+
+验收 Word 导出时，在测试命令中也设置 `VITE_RESUME_DOCX_EXPORT=true`，以运行懒加载、取消、失败重试和下载用例。

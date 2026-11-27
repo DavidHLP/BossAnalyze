@@ -52,6 +52,7 @@ async function editor(t, { content = '# 已提交正文', mobile = false, colorS
   const path = '/resumes/' + resume.id
   const resource = '/api/resume/' + resume.id
   await page.goto(path + '/edit')
+  await page.getByRole('button', { name: '高级 Markdown' }).click()
   const body = page.getByRole('textbox', { name: '简历正文' })
   await body.waitFor()
   return { page, body, path, resume, resource, api }
@@ -229,6 +230,72 @@ test('a failed math chunk allows an explicit HTML download with formula source',
   assert.ok(!html.includes('<math'))
   assert.deepEqual(downloads, [resume.title + '.html'])
 })
+
+for (const mobile of [false, true]) {
+  test('Word export lazy-loads, cancels and retries locally on ' + (mobile ? 'mobile' : 'desktop'), {
+    skip: process.env.VITE_RESUME_DOCX_EXPORT !== 'true' && 'Enable Word export on the isolated QA frontend',
+  }, async t => {
+    const { page, resume } = await editor(t, {
+      content: '# 陈小明\n\n- 负责项目',
+      mobile,
+      colorScheme: mobile ? 'dark' : 'light',
+    })
+    const chunk = /\/resume-docx-worker(?:-[^/?]+)?\.(?:ts|js)(?:\?|$)/
+    const release = Promise.withResolvers()
+    t.after(() => release.resolve())
+    const requests = []
+    page.on('request', request => requests.push(request.url()))
+    const downloads = []
+    page.on('download', download => downloads.push(download.suggestedFilename()))
+    const origin = new URL(baseURL).origin
+    await page.getByRole('button', { name: '导出', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '导出简历' })
+    await dialog.getByText(/表格逐行转为文字.*图片保留文字占位.*公式保留源码/).waitFor()
+    assert.equal(await page.evaluate(pattern => performance.getEntriesByType('resource')
+      .some(entry => new RegExp(pattern).test(entry.name)), String.raw`/(?:resume-docx(?:-worker)?|docx)[-.]`), false)
+
+    await page.route(chunk, async route => {
+      await release.promise
+      await route.continue()
+    })
+    const word = dialog.getByRole('button', { name: '导出 Word (.docx)', exact: true })
+    const firstRequest = page.waitForRequest(chunk)
+    await word.press('Enter')
+    await firstRequest
+    await dialog.getByRole('button', { name: '取消 Word 导出' }).click()
+    assert.equal(await word.isEnabled(), true)
+    assert.equal(await word.evaluate(button => button === document.activeElement), true)
+    release.resolve()
+
+    // Simulate a browser download handoff failure after generation.
+    await page.evaluate(() => {
+      const create = URL.createObjectURL
+      URL.createObjectURL = blob => {
+        if (blob.type.endsWith('wordprocessingml.document')) {
+          URL.createObjectURL = create
+          throw new Error('Simulated download failure')
+        }
+        return create(blob)
+      }
+    })
+    await word.click()
+    await dialog.getByRole('alert').getByText(/Word 导出失败/).waitFor()
+    assert.deepEqual(downloads, [])
+    const downloaded = page.waitForEvent('download')
+    await word.click()
+    const file = await downloaded
+    assert.equal(file.suggestedFilename(), resume.title + '.docx')
+    const bytes = await readFile(await file.path())
+    assert.equal(bytes.subarray(0, 4).toString('hex'), '504b0304')
+    assert.deepEqual(downloads, [resume.title + '.docx'])
+    assert.ok(requests.some(url => chunk.test(url)))
+    assert.deepEqual(requests.filter(url => {
+      const resource = new URL(url)
+      return resource.origin !== origin || resource.pathname.startsWith('/api/')
+    }), [])
+    await shot(page, mobile ? 'resume-word-mobile' : 'resume-word-desktop')
+  })
+}
 
 for (const activation of ['desktop pointer', 'desktop keyboard', 'mobile viewport']) {
   test('native undo removes only toolbar bold with ' + activation, async t => {

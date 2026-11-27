@@ -74,8 +74,13 @@ test('states per-format losses truthfully, including images, DOCX and .tex compi
   assert.deepEqual(resumeExportLossNotes('pdf', { imageCount: 2, embeddedImageCount: 2 }), ['2 张图片已嵌入。'])
   assert.deepEqual(resumeExportLossNotes('markdown', withImage), ['Markdown 保留公式源码与图片引用，不嵌入图片文件。'])
   assert.match(resumeExportLossNotes('tex', withImage).join(''), /XeLaTeX/)
-  assert.match(resumeExportLossNotes('docx', withImage).join(''), /公式.*图片|图片.*公式/)
+  assert.match(resumeExportLossNotes('docx', withImage).join(''), /单栏 A4.*表格逐行转为文字.*图片保留文字占位.*公式保留源码/)
   assert.match(resumeExportLossNotes('external', withImage).join(''), /只发送.*标题.*正文/)
+})
+
+test('lists Word in the filename summary when Word export is enabled', () => {
+  assert.equal(resumeExportSummary(state({ title: '简历/甲', docxEnabled: true })).fileName,
+    '简历_甲.pdf / .html / .md / .tex / .docx')
 })
 
 test('uses a safe download base name instead of an empty or path-like title', () => {

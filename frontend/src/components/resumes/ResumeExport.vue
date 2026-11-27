@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { FieldDescription, FieldTitle } from '@/components/ui/field'
 import {
   exportDestination, resumeAssetNames, resumeExportContent, resumeExportFileBase, resumeExportLossNotes, resumeExportResult,
@@ -18,6 +18,7 @@ const open = defineModel<boolean>('open', { required: true })
 type ResumeRange = Pick<ResumeTexError, 'start' | 'end'>
 const emit = defineEmits<{ locate: [range: ResumeRange] }>()
 const destination = exportDestination(import.meta.env.VITE_EXPORT_URL, import.meta.env.DEV && import.meta.env.VITE_BOSS_MOCK_PREVIEW === '1')
+const docxEnabled = import.meta.env.VITE_RESUME_DOCX_EXPORT === 'true'
 const accepted = ref(false)
 const format = ref('PDF')
 const pending = ref(false)
@@ -27,6 +28,8 @@ const htmlJob = ref<symbol>()
 const sourceFallback = ref<'html' | 'pdf'>()
 const printing = ref(false)
 const htmlBusy = computed(() => !!htmlJob.value || printing.value)
+const docxWorker = shallowRef<Worker>()
+const docxError = ref('')
 const source = ref<ResumeExportSource>('current')
 const sourceOptions: { value: ResumeExportSource; label: string }[] = [
   { value: 'current', label: '导出当前内容' },
@@ -42,7 +45,7 @@ const imageOptions = computed(() => ({
 }))
 const summary = computed(() => resumeExportSummary({
   source: source.value, dirty: props.dirty, savedContent: props.savedContent,
-  title: props.title, ...imageOptions.value,
+  title: props.title, docxEnabled, ...imageOptions.value,
 }))
 const sourceReason = (value: ResumeExportSource) =>
   resumeExportUnavailableReason(value, { dirty: props.dirty, savedContent: props.savedContent })
@@ -65,9 +68,11 @@ function resetLocalExport() {
   texErrors.value = []
   texWarnings.value = []
   htmlError.value = ''
+  docxError.value = ''
   embeddedImageCount.value = undefined
   sourceFallback.value = undefined
   cancelHtml()
+  cancelDocx()
 }
 
 watch(open, () => {
@@ -101,15 +106,62 @@ watch([() => props.dirty, () => props.savedContent], () => {
 }, { flush: 'sync' })
 
 function download(title: string, content: string, extension: 'html' | 'md' | 'tex', type: string) {
-  const blob = new Blob([content], { type })
+  downloadBlob(title, new Blob([content], { type }), extension)
+}
+
+function downloadBlob(title: string, blob: Blob, extension: 'html' | 'md' | 'tex' | 'docx') {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = resumeExportFileBase(title) + '.' + extension
   document.body.append(link)
-  link.click()
-  link.remove()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+  try {
+    link.click()
+  } finally {
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+  }
+}
+
+function cancelDocx() {
+  docxWorker.value?.terminate()
+  docxWorker.value = undefined
+}
+
+async function cancelDocxFromDialog() {
+  cancelDocx()
+  await nextTick()
+  document.getElementById('resume-word-export')?.focus()
+}
+
+function exportDocx() {
+  if (!open.value || !docxEnabled || docxWorker.value) return
+  const { title } = props
+  docxError.value = ''
+  const fail = () => {
+    cancelDocx()
+    docxError.value = 'Word 导出失败。请再次选择导出 Word 重试。'
+  }
+  try {
+    const worker = new Worker(new URL('../../lib/resume-docx-worker.ts', import.meta.url), { type: 'module' })
+    docxWorker.value = worker
+    const failCurrent = () => { if (docxWorker.value === worker) fail() }
+    worker.onerror = failCurrent
+    worker.onmessageerror = failCurrent
+    worker.onmessage = ({ data }: MessageEvent<Blob | null>) => {
+      if (docxWorker.value !== worker) return
+      if (!data) return fail()
+      try {
+        downloadBlob(title, data, 'docx')
+        cancelDocx()
+      } catch {
+        fail()
+      }
+    }
+    worker.postMessage(exportContent.value)
+  } catch {
+    fail()
+  }
 }
 
 function downloadLatex() {
@@ -241,6 +293,7 @@ function printResume(html: string) {
 
 onUnmounted(() => {
   cancelHtml()
+  cancelDocx()
   cancelExternal()
 })
 
@@ -308,17 +361,24 @@ async function submit() {
         <p class="text-sm text-muted-foreground">文件在浏览器中生成。</p>
         <ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
           <li v-for="note in markdownLoss" :key="note">{{ note }}</li>
-          <li v-for="note in docxLoss" :key="note">{{ note }}</li>
         </ul>
+        <div id="resume-word-export-hint" class="text-sm text-muted-foreground">
+          <p v-for="note in docxLoss" :key="note">{{ note }}</p>
+          <p v-if="!docxEnabled">待 Word / WPS 人工验收。</p>
+        </div>
         <label v-if="imageCount" class="flex items-center gap-2 text-sm">
           <input v-model="omitImages" :disabled="htmlBusy" type="checkbox">
-          导出不含图片（ATS）
+          打印 / HTML 不含图片（ATS）
         </label>
         <div class="flex flex-wrap gap-2">
           <UiButton type="button" variant="outline" :disabled="htmlBusy" @click="exportHtml('pdf')">打印 / 另存为 PDF</UiButton>
           <UiButton type="button" variant="outline" :disabled="htmlBusy" @click="exportHtml('html')">下载 HTML</UiButton>
           <UiButton type="button" variant="outline" @click="download(title, exportContent, 'md', 'text/markdown;charset=utf-8')">下载 Markdown</UiButton>
+          <UiButton id="resume-word-export" type="button" variant="outline" :disabled="!docxEnabled" :aria-disabled="Boolean(docxWorker)" aria-describedby="resume-word-export-hint" @click="exportDocx">导出 Word (.docx)</UiButton>
+          <UiButton v-if="docxWorker" type="button" variant="outline" @click="cancelDocxFromDialog">取消 Word 导出</UiButton>
         </div>
+        <p v-if="docxWorker" role="status" class="text-sm text-muted-foreground">正在生成 Word 文件…</p>
+        <p v-if="docxError" role="alert" class="text-sm text-destructive">{{ docxError }}</p>
         <UiField>
           <FieldTitle id="resume-tex-template">LaTeX (.tex) 模板</FieldTitle>
           <UiRadioGroup v-model="texTemplate" aria-labelledby="resume-tex-template" aria-describedby="resume-tex-template-description" class="flex flex-wrap gap-2">
