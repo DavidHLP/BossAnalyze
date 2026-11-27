@@ -183,13 +183,14 @@ function* inlineMathSpans(text: string, offset: number): Generator<InlineSpan> {
       : literal)
   let opener = -1
   for (const match of scan.matchAll(/\$+/g)) {
-    const start = match.index!
-    const end = start + match[0].length
+    const first = match.index!
+    const start = isEscaped(text, first) ? first + 1 : first
+    const end = first + match[0].length
+    if (start === end) continue
     if (end - start !== 1) {
       opener = -1
       continue
     }
-    if (isEscaped(text, start)) continue
 
     if (opener !== -1 && /\S/.test(text[start - 1] ?? '') && !/[0-9]/.test(text[end] ?? '')) {
       yield { kind: 'math', start: offset + opener, end: offset + end }
@@ -200,13 +201,19 @@ function* inlineMathSpans(text: string, offset: number): Generator<InlineSpan> {
   }
 }
 
-function* inlineSpans(text: string): Generator<InlineSpan> {
-  let end = 0
+function* codeSpans(text: string): Generator<InlineSpan> {
   for (const match of text.matchAll(/(?<!`)`[^`]+`(?!`)/g)) {
     const start = match.index!
-    yield* inlineMathSpans(text.slice(end, start), end)
-    end = start + match[0].length
-    yield { kind: 'code', start, end }
+    yield { kind: 'code', start, end: start + match[0].length }
+  }
+}
+
+function* inlineSpans(text: string): Generator<InlineSpan> {
+  let end = 0
+  for (const span of codeSpans(text)) {
+    yield* inlineMathSpans(text.slice(end, span.start), end)
+    yield span
+    end = span.end
   }
   yield* inlineMathSpans(text.slice(end), end)
 }
@@ -307,7 +314,7 @@ function tableCells(line: SourceLine): SourceLine[] {
     }
   }
   let plainStart = 0
-  for (const span of inlineSpans(text)) {
+  for (const span of codeSpans(text)) {
     split(plainStart, span.start)
     plainStart = span.end
   }

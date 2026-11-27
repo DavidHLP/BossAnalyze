@@ -89,7 +89,7 @@ export function validateLatexMath(tex: string): string | null {
 type MathScope = { scripts: string } & (
   | { kind: 'group'; text: boolean; remaining: number }
   | { kind: 'delimiter' }
-  | { kind: 'environment'; name: string }
+  | { kind: 'environment'; name: string; hasColumnSeparator: boolean }
 )
 
 function validateMathTokens(tokens: readonly string[]): string | null {
@@ -141,7 +141,11 @@ function validateMathTokens(tokens: readonly string[]): string | null {
     }
     if (!token.startsWith('\\')) {
       if (text ? /[&#_^~]/.test(token) : !/^[A-Za-z0-9+*/=()[\]<>.,:;!?|'-]$/.test(token)) {
-        if (!text && token === '&' && scope?.kind === 'environment') continue
+        if (!text && token === '&' && scope?.kind === 'environment') {
+          if (scope.name === 'cases' && scope.hasColumnSeparator) return 'cases 环境每行最多两列。'
+          scope.hasColumnSeparator = true
+          continue
+        }
         return `公式${text ? '文本' : ''}中不允许字符 ${token}。`
       }
       continue
@@ -152,6 +156,7 @@ function validateMathTokens(tokens: readonly string[]): string | null {
     if (command === '\\') {
       if (scope?.kind !== 'environment') return '换行命令只能用于允许的数学环境。'
       if (peek() === '[' || peek() === '*') return '数学换行命令不接受修饰符。'
+        scope.hasColumnSeparator = false
       continue
     }
     if (escapedChars.has(command) || (text && textCommands.has(command))) continue
@@ -166,7 +171,7 @@ function validateMathTokens(tokens: readonly string[]): string | null {
         if (!environments.has(name)) return `不允许数学环境 ${name || token}。`
         if (command === 'begin') {
           if (name === 'aligned' && peek() === '[') return 'aligned 环境不接受可选参数。'
-          scopes.push({ kind: 'environment', name, scripts: '' })
+          scopes.push({ kind: 'environment', name, scripts: '', hasColumnSeparator: false })
         } else {
           if (scope?.kind !== 'environment' || scope.name !== name) return `数学环境 ${name} 未正确配对。`
           scopes.pop()
