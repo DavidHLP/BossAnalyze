@@ -34,7 +34,7 @@ export function resumeReadMessage(cause: unknown) {
 }
 
 export type ResumeListChange =
-  | { kind: 'create'; id?: string; title: string; content: string; previousIds: ReadonlySet<string> }
+  | { kind: 'create'; id?: string; title: string; content: string; previousIds: ReadonlySet<string>; copy?: boolean }
   | { kind: 'rename'; id: string; title: string }
   | { kind: 'delete'; id: string }
 

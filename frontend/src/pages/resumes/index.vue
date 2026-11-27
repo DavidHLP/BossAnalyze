@@ -5,6 +5,7 @@ import { RiAddLine, RiRefreshLine } from '@remixicon/vue'
 import { createResume, deleteResume, listResumes, renameResume, resumeHistory, type ResumeRecord } from '@/api/resume/resume'
 import { useSession } from '@/composables/useSession'
 import { mutationResultUnknown, restoreActionFocus } from '@/lib/rbac-mutations'
+import { resumeCopyContent, resumeCopyTitle } from '@/lib/resume-copy'
 import { importResumeText, resumeBlank, resumeSkeleton } from '@/lib/resume-import'
 import { resumeListReadback, resumeReadMessage, resumeStamp, resumeTime, shortCommit, type ResumeListChange } from '@/lib/resumes'
 
@@ -24,8 +25,11 @@ const results = computed(() => resumes.value
     (!applied.value.branch || applied.value.branch === item.currentBranch))
   .sort((a, b) => applied.value.sort === 'title' ? a.title.localeCompare(b.title, 'zh-CN') :
     resumeStamp(b.updatedAt ?? b.createdAt) - resumeStamp(a.updatedAt ?? a.createdAt)))
-const dialog = ref<'create' | 'rename' | 'delete' | null>(null)
+const dialog = ref<'create' | 'copy' | 'rename' | 'delete' | null>(null)
 const selected = ref<ResumeRecord | null>(null)
+const copyPreview = computed(() => selected.value
+  ? resumeCopyContent(selected.value.content ?? '')
+  : { content: '', imageCount: 0 })
 const title = ref('')
 const entry = ref<'blank' | 'skeleton' | 'paste'>('blank')
 const importSource = ref('')
@@ -34,7 +38,9 @@ const committing = ref(false)
 const unverified = shallowRef<ResumeListChange | null>(null)
 const writeDisabled = computed(() => pending.value || committing.value || Boolean(loadError.value || unverified.value))
 const dialogError = ref('')
-const dialogTitle = computed(() => dialog.value === 'delete' ? '删除简历' : dialog.value === 'rename' ? '重命名简历' : '新建简历')
+const dialogTitle = computed(() => dialog.value === 'delete' ? '删除简历'
+  : dialog.value === 'rename' ? '重命名简历'
+  : dialog.value === 'copy' ? '复制简历' : '新建简历')
 const entries = [
   { value: 'blank', label: '空白' },
   { value: 'skeleton', label: '标准骨架' },
@@ -81,8 +87,8 @@ async function load() {
 onMounted(load)
 onUnmounted(() => { mounted = false; loadingVersion++ })
 
-const operationLabel = { create: '创建简历', rename: '重命名简历', delete: '删除简历' }
-const writeConfirmed = { create: '简历已创建。', rename: '简历已重命名。', delete: '简历已删除。' }
+const operationLabel = { create: '创建简历', copy: '复制简历', rename: '重命名简历', delete: '删除简历' }
+const writeConfirmed = { create: '简历已创建。', copy: '简历副本已创建。', rename: '简历已重命名。', delete: '简历已删除。' }
 
 async function refreshList() {
   if (pending.value || committing.value) return
@@ -93,9 +99,9 @@ async function refreshList() {
   const confirmed = resumeListReadback(change, items)
   if (change.kind === 'create') {
     notice.value = confirmed
-      ? (change.id ? writeConfirmed.create : '已刷新列表，发现标题和正文一致的简历。请在列表中核对并打开。')
+      ? (change.id ? writeConfirmed[change.copy ? 'copy' : 'create'] : '已刷新列表，发现标题和正文一致的简历。请在列表中核对并打开。')
       : '已刷新列表，暂未发现标题和正文一致的简历。请核对后再创建。'
-    if (confirmed) resetCreateDraft()
+    if (confirmed && !change.copy) resetCreateDraft()
   } else {
     notice.value = confirmed
       ? writeConfirmed[change.kind]
@@ -118,7 +124,7 @@ function open(kind: NonNullable<typeof dialog.value>, event: MouseEvent, row?: R
   trigger = event.currentTarget as HTMLElement
   selected.value = row ?? null
   // Keep an unconfirmed create draft: the write may have succeeded even when its reply was lost.
-  if (kind !== 'create') title.value = row?.title ?? ''
+  if (kind !== 'create') title.value = kind === 'copy' && row ? resumeCopyTitle(row.title) : row?.title ?? ''
   dialogError.value = ''
   dialog.value = kind
 }
@@ -149,6 +155,11 @@ async function confirm() {
   if (operation === 'create') {
     change = {
       kind: 'create', title: name, content: createContent(name),
+      previousIds: new Set(resumes.value.map(item => item.id)),
+    }
+  } else if (operation === 'copy') {
+    change = {
+      kind: 'create', copy: true, title: name, content: resumeCopyContent(row!.content ?? '').content,
       previousIds: new Set(resumes.value.map(item => item.id)),
     }
   } else {
@@ -191,10 +202,12 @@ async function confirm() {
       return
     }
     notice.value = writeConfirmed[operation]
+    if (operation === 'create') resetCreateDraft()
     if (change.kind === 'create' && change.id) {
-      resetCreateDraft()
       await router.push('/resumes/' + change.id + '/edit').catch(() => {
-        if (active()) notice.value = '简历已创建。请从列表打开编辑器。'
+        if (active()) notice.value = operation === 'copy'
+          ? '简历副本已创建。请从列表打开编辑器。'
+          : '简历已创建。请从列表打开编辑器。'
       })
     }
   } finally {
@@ -268,6 +281,7 @@ async function confirm() {
               <UiTableCell>
                 <div class="flex justify-end gap-1">
                   <UiButton as-child variant="ghost" size="sm"><RouterLink :to="'/resumes/' + item.id + '/versions'">版本历史</RouterLink></UiButton>
+                  <UiButton variant="ghost" size="sm" :disabled="writeDisabled" @click="open('copy', $event, item)">复制简历</UiButton>
                   <UiButton variant="ghost" size="sm" :disabled="writeDisabled" @click="open('rename', $event, item)">重命名</UiButton>
                   <UiButton variant="ghost" size="sm" :disabled="writeDisabled" @click="open('delete', $event, item)">删除</UiButton>
                 </div>
@@ -285,6 +299,7 @@ async function confirm() {
           </p>
           <div class="flex flex-wrap gap-1">
             <UiButton as-child variant="outline" size="sm"><RouterLink :to="'/resumes/' + item.id + '/versions'">版本历史</RouterLink></UiButton>
+            <UiButton variant="ghost" size="sm" :disabled="writeDisabled" @click="open('copy', $event, item)">复制简历</UiButton>
             <UiButton variant="ghost" size="sm" :disabled="writeDisabled" @click="open('rename', $event, item)">重命名</UiButton>
             <UiButton variant="ghost" size="sm" :disabled="writeDisabled" @click="open('delete', $event, item)">删除</UiButton>
           </div>
@@ -297,9 +312,16 @@ async function confirm() {
       <UiDialogContent @interact-outside.prevent @escape-key-down="committing && $event.preventDefault()" @close-auto-focus="restoreActionFocus($event, trigger, mainHeading)">
         <UiDialogHeader>
           <UiDialogTitle>{{ dialogTitle }}</UiDialogTitle>
-          <UiDialogDescription>{{ dialog === 'delete' ? '将永久删除「' + selected?.title + '」及其全部版本，无法恢复。' : dialog === 'create' ? '选择起步方式，创建后进入编辑器；只生成一条初始版本。' : '新标题会与当前内容一起保存为一个版本。' }}</UiDialogDescription>
+          <UiDialogDescription>{{ dialog === 'delete' ? '将永久删除「' + selected?.title + '」及其全部版本，无法恢复。' : dialog === 'create' ? '选择起步方式，创建后进入编辑器；只生成一条初始版本。' : dialog === 'copy' ? '以服务器已保存正文创建一份独立简历和一条初始版本，原记录不变。' : '新标题会与当前内容一起保存为一个版本。' }}</UiDialogDescription>
         </UiDialogHeader>
         <form class="flex flex-col gap-4" @submit.prevent="confirm">
+          <UiAlert v-if="dialog === 'copy'">
+            <UiAlertDescription>
+              复制来源：「{{ selected?.title }}」的服务器正文。
+              <template v-if="copyPreview.imageCount">{{ copyPreview.imageCount }} 张图片不会随副本复制，正文中保留文字占位。</template>
+              <template v-else>图片素材不会随副本复制。</template>
+            </UiAlertDescription>
+          </UiAlert>
           <UiField v-if="dialog === 'create'">
             <p id="resume-entry-label" class="text-sm font-medium">起步方式</p>
             <UiRadioGroup v-model="entry" aria-labelledby="resume-entry-label" class="flex flex-wrap gap-x-4 gap-y-2">
@@ -330,7 +352,7 @@ async function confirm() {
           <UiDialogFooter>
             <UiButton type="button" variant="outline" :disabled="committing" @click="close(false)">取消</UiButton>
             <UiButton type="submit" :variant="dialog === 'delete' ? 'destructive' : 'default'" :disabled="writeDisabled">
-              {{ committing ? '正在处理…' : dialog === 'delete' ? '永久删除' : dialog === 'rename' ? '保存标题' : '创建简历' }}
+              {{ committing ? '正在处理…' : dialog === 'delete' ? '永久删除' : dialog === 'rename' ? '保存标题' : dialog === 'copy' ? '创建副本' : '创建简历' }}
             </UiButton>
           </UiDialogFooter>
         </form>
