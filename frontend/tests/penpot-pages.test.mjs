@@ -165,10 +165,12 @@ test('local resume drafts are confined to the current login and resume and can b
 async function resumeScript(file, bindings, names) {
   const vue = await import('vue')
   const ts = await import('typescript')
-  const source = await readFile(new URL(`../src/${file}.vue`, import.meta.url), 'utf8')
+  const url = new URL(`../src/${file}.vue`, import.meta.url)
+  const source = await readFile(url, 'utf8')
   const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
     .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
     .replaceAll('import.meta.env', 'env')
+    .replaceAll('import.meta.url', JSON.stringify(url.href))
   const { outputText } = ts.transpileModule(script, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
   })

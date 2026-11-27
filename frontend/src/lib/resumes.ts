@@ -543,12 +543,13 @@ export function resumeExportSummary(input: ResumeExportImages & {
   dirty: boolean
   savedContent: string | null
   title: string
+  docxEnabled?: boolean
 }) {
   return {
     source: resumeExportSourceLabel(input.source, input.dirty),
     unsaved: input.source === 'current' && input.dirty ? '有未保存修改' : '不含未保存修改',
     images: resumeExportLossNotes('html', input)[0],
-    fileName: resumeExportFileBase(input.title) + '.pdf / .html / .md / .tex',
+    fileName: resumeExportFileBase(input.title) + '.pdf / .html / .md / .tex' + (input.docxEnabled ? ' / .docx' : ''),
   }
 }
 
@@ -570,7 +571,7 @@ export function resumeExportLossNotes(
     case 'tex':
       return ['需要用本机 XeLaTeX 编译，并禁用 --shell-escape；不含图片，且无法回导版本库。']
     case 'docx':
-      return ['DOCX 导出尚未开放；开放后公式与图片仅以文字占位。']
+      return ['Word 使用单栏 A4，表格逐行转为文字，图片保留文字占位，公式保留源码。']
     case 'external':
       return ['外部导出只发送标题与 Markdown 正文，图片不会发送；版式由对方服务决定。']
   }
