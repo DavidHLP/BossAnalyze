@@ -15,6 +15,7 @@ import {
   assetMarkdown, resumeAssetNames, resumeConflictCopyTitle, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime,
   resumeWriteConflict, shortCommit, type ResumeConflictState, type ResumeDraft,
 } from '@/lib/resumes'
+import { analyzeResumeQuality } from '@/lib/resume-quality'
 import { DialogClose, DialogTrigger } from '@/components/ui/dialog'
 import ResumeAssets from '@/components/resumes/ResumeAssets.vue'
 import ResumeExport from '@/components/resumes/ResumeExport.vue'
@@ -93,6 +94,18 @@ const assets = computed(() => {
   return [...new Set([...keys, ...staged.value])].filter(key =>
     userId.value !== undefined && ownsResumeAsset(userId.value, key) && !hidden.value.includes(key))
 })
+const qualityOpen = ref(false)
+const ignoredQuality = ref<string[]>([])
+const quality = computed(() => analyzeResumeQuality(markdown.value))
+const qualityItems = computed(() => quality.value.items.filter(item => !ignoredQuality.value.includes(item.id)))
+
+function ignoreQuality(id: string) {
+  if (!ignoredQuality.value.includes(id)) ignoredQuality.value = [...ignoredQuality.value, id]
+}
+
+function locateQuality(item: { start: number; end: number }) {
+  void locateResumeRange(item)
+}
 const { enabled: canUseImages, images, loadImage, forgetImage } = useResumeImages(assets)
 let loadRevision = 0
 let checkRevision = 0
@@ -207,6 +220,7 @@ watch(account, () => {
   conflictError.value = ''
   conflictPending.value = null
   assetsOpen.value = exportOpen.value = checkOpen.value = false
+  ignoredQuality.value = []
   if (account.value) void load(true)
 }, { flush: 'sync' })
 
@@ -700,6 +714,7 @@ watch(id, () => {
   conflictError.value = ''
   conflictPending.value = null
   savedAt.value = ''
+  ignoredQuality.value = []
   void load(true)
 })
 let unregisterDraft: (() => void) | undefined
@@ -939,6 +954,39 @@ onUnmounted(() => {
               <span class="font-mono">当前版本 {{ shortCommit(record.headCommit) }}</span>
             </p>
           </div>
+          <UiCollapsible v-model:open="qualityOpen" class="border-t">
+            <UiCollapsibleTrigger as-child>
+              <UiButton variant="ghost" class="w-full justify-between rounded-none px-4 py-3">
+                <span class="font-medium">可补充项</span>
+                <span class="text-xs font-normal text-muted-foreground">
+                  {{ !quality.hasContent ? '等待填写' : qualityItems.length ? qualityItems.length + ' 条' : '暂无' }}
+                </span>
+              </UiButton>
+            </UiCollapsibleTrigger>
+            <UiCollapsibleContent>
+              <div class="flex flex-col gap-3 px-4 pb-4">
+                <p v-if="!quality.hasContent" class="text-sm text-muted-foreground">
+                  正文还是空的。填入内容后，这里会按章节给出可补充项；它不会阻止保存或导出。
+                </p>
+                <template v-else>
+                  <p v-if="!qualityItems.length" class="text-sm text-muted-foreground">暂时没有可补充项。</p>
+                  <ul v-else class="flex flex-col gap-3">
+                    <li v-for="item in qualityItems" :key="item.id" class="flex flex-col gap-1">
+                      <p class="text-sm">{{ item.message }}</p>
+                      <div class="flex flex-wrap gap-2">
+                        <UiButton type="button" size="sm" variant="outline" @click="locateQuality(item)">定位</UiButton>
+                        <UiButton type="button" size="sm" variant="ghost" @click="ignoreQuality(item.id)">忽略</UiButton>
+                      </div>
+                    </li>
+                  </ul>
+                  <p class="text-xs text-muted-foreground">
+                    字数口径：汉字 {{ quality.wordCount.han }} + 英文词 {{ quality.wordCount.words }} =
+                    {{ quality.wordCount.total }}，不计标点、Markdown 符号、代码与链接；标点 {{ quality.wordCount.punctuation }}。
+                  </p>
+                </template>
+              </div>
+            </UiCollapsibleContent>
+          </UiCollapsible>
         </div>
         <div class="min-w-0 border bg-muted/40" :class="{ 'max-md:hidden': mode === 'edit' }">
           <div class="flex justify-between gap-2 border-b bg-card px-4 py-3">
