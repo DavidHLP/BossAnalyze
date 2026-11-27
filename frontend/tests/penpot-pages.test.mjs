@@ -142,7 +142,7 @@ test('local resume drafts are confined to the current login and resume and can b
     setItem: (key, value) => items.set(key, value),
     removeItem: key => items.delete(key),
   }
-  const draft = { content: '# 未保存正文', message: '备注' }
+  const draft = { content: '# 未保存正文', message: '备注', baseHeadCommit: null }
   resumeDraftStore(storage, 'alice@example.invalid', '1', 'a').write(draft)
   assert.equal(resumeDraftStore(storage, 'alice@example.invalid', '1', 'b').read(), null)
   const same = resumeDraftStore(storage, 'alice@example.invalid', '1', 'a')
@@ -152,7 +152,8 @@ test('local resume drafts are confined to the current login and resume and can b
   same.write(draft)
   assert.equal(resumeDraftStore(storage, 'bob@example.invalid', '2', 'a').read(), null)
   assert.equal(resumeDraftStore(storage, 'alice@example.invalid', '3', 'a').read(), null)
-  assert.equal(items.size, 0)
+  // Reading another scope must not delete the remaining draft.
+  assert.equal(items.size, 1)
 })
 
 async function resumeScript(file, bindings, names) {
@@ -174,10 +175,10 @@ async function resumeScript(file, bindings, names) {
 
 const stashEntry = (content, timestamp = 1) => ({ content, branch: 'main', head: 'head', timestamp })
 
-async function resumeEditor(savedDraft, stashStack = [stashEntry('# 旧储藏')]) {
+async function resumeEditor(savedDraft, stashStack = [stashEntry('# 旧储藏')], options = {}) {
   const { ref } = await import('vue')
   const values = new Map()
-  const storage = {
+  const storage = options.storage ?? {
     get length() { return values.size },
     key: index => [...values.keys()][index] ?? null,
     getItem: key => values.get(key) ?? null,
@@ -186,12 +187,13 @@ async function resumeEditor(savedDraft, stashStack = [stashEntry('# 旧储藏')]
   }
   const { resumeDraftStore } = await import('../src/lib/resumes.ts')
   const store = resumeDraftStore(storage, 'id:1', '100', 'fixture')
-  if (savedDraft) store.write(savedDraft)
+  if (savedDraft) store.write({ baseHeadCommit: null, ...savedDraft })
   const crossTabChanged = ref(null)
   const owner = { token: 'fixture-token', timestamp: '100' }
   const server = {
     item: { id: 'fixture', content: '# 已保存', currentBranch: 'main', headCommit: 'head', stashStack },
     writes: [],
+    failRead: false,
   }
   const editor = await resumeScript('pages/resumes/edit', {
     useRoute: () => ({ params: { id: 'fixture' } }),
@@ -201,20 +203,32 @@ async function resumeEditor(savedDraft, stashStack = [stashEntry('# 旧储藏')]
     }),
     window: { sessionStorage: storage },
     document: { getElementById: () => null },
-    getResume: async () => server.item,
+    getResume: async () => {
+      if (server.failRead) throw { code: 503 }
+      return server.item
+    },
     resumeHistory: async () => [],
-    changeResumeVersion: async (...args) => { server.writes.push(args) },
-  }, ['load', 'write', 'resolveLocalDraft', 'markdown', 'message', 'localDraft', 'writeError', 'writeLocked', 'feedback'])
+    changeResumeVersion: async (...args) => {
+      server.writes.push(args)
+      if (args[1] === 'commit') {
+        server.item = { ...server.item, content: args[2].content, headCommit: 'commit-1' }
+        return 'commit-1'
+      }
+    },
+  }, ['load', 'write', 'resolveLocalDraft', 'markdown', 'message', 'localDraft', 'writeError', 'writeLocked',
+    'feedback', 'flushDraft', 'draftSavedAt', 'draftUnavailable', 'savedAt', 'savedCommit',
+    'restoreServerContent', 'restoreError', 'restorePending'])
   await editor.load(true)
   return { editor, server, store, crossTabChanged }
 }
 
 test('unrelated new stashes and an existing match leave the editor draft locked', async () => {
-  const draft = { content: '# 未保存正文', message: '备注' }
+  const draft = { content: '# 未保存正文', message: '备注', baseHeadCommit: 'head' }
   const existing = stashEntry(draft.content)
   const { editor, server, store } = await resumeEditor(undefined, [existing])
   editor.markdown.value = draft.content
   editor.message.value = draft.message
+  editor.flushDraft()
   server.item = { ...server.item, stashStack: [
     stashEntry('# 其他正文', 2),
     { ...stashEntry(draft.content, 3), branch: 'other' },
@@ -256,7 +270,7 @@ test('the editor offers the remaining commit remark after reloading a successful
   assert.equal(editor.message.value, remark)
   await editor.load(true)
 
-  assert.deepEqual(editor.localDraft.value, { content: '# 已保存', message: remark })
+  assert.deepEqual(editor.localDraft.value, { content: '# 已保存', message: remark, baseHeadCommit: 'head' })
 })
 
 test('renaming a resume cancels local HTML and print jobs waiting for the math renderer', async () => {
@@ -284,7 +298,7 @@ test('renaming a resume cancels local HTML and print jobs waiting for the math r
 })
 
 test('a stale tab can recover or clear the offered local draft while both writes stay blocked', async () => {
-  const draft = { content: '# 本地正文', message: '本地备注' }
+  const draft = { content: '# 本地正文', message: '本地备注', baseHeadCommit: null }
   for (const restore of [true, false]) {
     const { editor, server, store, crossTabChanged } = await resumeEditor(draft)
     crossTabChanged.value = 'changed'
@@ -297,6 +311,64 @@ test('a stale tab can recover or clear the offered local draft while both writes
     await editor.write('stash')
     assert.deepEqual(server.writes, [])
   }
+})
+
+test('the editor debounces local drafts and reports only successful writes', async () => {
+  const { editor, store } = await resumeEditor()
+  editor.markdown.value = '# 新正文'
+  assert.equal(store.read(), null)
+  assert.equal(editor.draftSavedAt.value, '')
+  editor.flushDraft()
+  assert.deepEqual(store.read(), { content: '# 新正文', message: '', baseHeadCommit: 'head' })
+  assert.match(editor.draftSavedAt.value, /^\d{2}:\d{2}$/)
+})
+
+test('blocked session storage reports drafts unavailable while editing continues', async () => {
+  const blocked = {
+    get length() { return 0 },
+    key: () => null,
+    getItem: () => { throw new Error('blocked') },
+    setItem: () => { throw new Error('blocked') },
+    removeItem: () => { throw new Error('blocked') },
+  }
+  const { editor } = await resumeEditor(undefined, [stashEntry('# 旧储藏')], { storage: blocked })
+  assert.equal(editor.draftUnavailable.value, true)
+  editor.markdown.value = '# 仍可编辑'
+  editor.flushDraft()
+  assert.equal(editor.markdown.value, '# 仍可编辑')
+  assert.equal(editor.draftSavedAt.value, '')
+})
+
+test('the editor shows saved status and clears the draft only after readback', async () => {
+  const { editor, store } = await resumeEditor()
+  editor.markdown.value = '# 待提交正文'
+  editor.message.value = '备注'
+  editor.flushDraft()
+  assert.ok(store.read())
+  await editor.write('save')
+  assert.equal(editor.savedCommit.value, 'commit-1')
+  assert.match(editor.savedAt.value, /^\d{2}:\d{2}$/)
+  assert.equal(store.read(), null)
+  assert.equal(editor.localDraft.value, null)
+})
+
+test('restoring server content keeps the input when the read fails', async () => {
+  const { editor, server, store } = await resumeEditor()
+  editor.markdown.value = '# 本地修改'
+  editor.flushDraft()
+  server.failRead = true
+  await editor.restoreServerContent(false)
+  assert.equal(editor.markdown.value, '# 本地修改')
+  assert.match(editor.restoreError.value, /暂时无法读取简历/)
+  assert.ok(store.read())
+
+  server.failRead = false
+  server.item = { ...server.item, content: '# 服务器正文' }
+  await editor.restoreServerContent(false)
+  assert.equal(editor.markdown.value, '# 服务器正文')
+  assert.equal(editor.restoreError.value, '')
+  assert.deepEqual(server.writes, [])
+  assert.equal(store.read(), null)
 })
 
 async function versionsPage({ getResume, resumeHistory }) {

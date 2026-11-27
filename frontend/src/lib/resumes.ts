@@ -49,40 +49,52 @@ export function resumeListReadback(change: ResumeListChange, items: { id: string
 export interface ResumeDraft {
   content: string
   message: string
+  baseHeadCommit: string | null
 }
 
 export function resumeDraftStore(storage: Storage, account: string, sessionStart: string, resumeId: string) {
-  const prefix = 'bossanalyze:resume-draft:'
-  const scope = prefix + JSON.stringify([account, sessionStart]) + ':'
-  const key = scope + resumeId
-  try {
-    for (let i = storage.length - 1; i >= 0; i--) {
-      const previous = storage.key(i)
-      if (previous?.startsWith(prefix) && !previous.startsWith(scope)) storage.removeItem(previous)
-    }
-  } catch {
-    // A blocked store cannot prevent editing or server saves.
-  }
+  const key = 'bossanalyze:resume-draft:v2:' +
+    [account, sessionStart, resumeId].map(encodeURIComponent).join(':')
   return {
     read(): ResumeDraft | null {
+      // Storage access and quota errors surface so the editor can report drafts as unavailable.
+      const raw = storage.getItem(key)
+      if (raw === null) return null
+      let value: unknown
       try {
-        const raw = storage.getItem(key)
-        if (raw === null) return null
-        const value: unknown = JSON.parse(raw)
-        if (value && typeof value === 'object' && 'content' in value && 'message' in value &&
-          typeof value.content === 'string' && typeof value.message === 'string') {
-          return { content: value.content, message: value.message }
-        }
+        value = JSON.parse(raw)
       } catch {
-        // Malformed or unavailable local storage leaves the server copy in place.
+        storage.removeItem(key)
+        return null
       }
-      return null
+      if (!value || typeof value !== 'object' ||
+        !('account' in value) || value.account !== account ||
+        !('resumeId' in value) || value.resumeId !== resumeId ||
+        !('content' in value) || typeof value.content !== 'string' ||
+        !('message' in value) || typeof value.message !== 'string' ||
+        ('baseHeadCommit' in value && value.baseHeadCommit !== null && typeof value.baseHeadCommit !== 'string')) {
+        storage.removeItem(key)
+        return null
+      }
+      return {
+        content: value.content,
+        message: value.message,
+        baseHeadCommit: 'baseHeadCommit' in value && typeof value.baseHeadCommit === 'string'
+          ? value.baseHeadCommit
+          : null,
+      }
     },
     write(draft: ResumeDraft) {
-      try { storage.setItem(key, JSON.stringify(draft)) } catch { /* The editor still holds the draft. */ }
+      storage.setItem(key, JSON.stringify({
+        account,
+        resumeId,
+        content: draft.content,
+        message: draft.message,
+        baseHeadCommit: draft.baseHeadCommit ?? null,
+      }))
     },
     clear() {
-      try { storage.removeItem(key) } catch { /* A blocked store cannot be cleared. */ }
+      storage.removeItem(key)
     },
   }
 }
