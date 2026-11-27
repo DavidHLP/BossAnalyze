@@ -227,7 +227,7 @@ test('unrelated new stashes and an existing match leave the editor draft locked'
   assert.equal(editor.markdown.value, draft.content)
   assert.equal(editor.message.value, draft.message)
   assert.equal(editor.feedback.value, '')
-  assert.match(editor.writeError.value, /储藏结果未确认，请先核对储藏记录/)
+  assert.match(editor.writeError.value, /暂存结果未确认，请先核对暂存记录/)
   assert.equal(editor.writeLocked.value, true)
   await editor.write('stash')
   assert.equal(server.writes.length, 1)
@@ -242,7 +242,7 @@ test('the editor confirms a new matching stash after another tab pops the previo
   await editor.write('stash')
   assert.equal(store.read(), null)
   assert.equal(editor.markdown.value, '# 已保存')
-  assert.match(editor.feedback.value, /草稿已储藏/)
+  assert.match(editor.feedback.value, /草稿已暂存/)
 })
 
 test('the editor offers the remaining commit remark after reloading a successful stash', async () => {
