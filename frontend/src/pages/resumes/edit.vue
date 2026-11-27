@@ -294,7 +294,11 @@ async function write(action: 'save' | 'stash') {
       : record.value?.headCommit === commitId && record.value?.content === content) {
       if (action === 'stash') markdown.value = record.value?.content ?? ''
       else message.value = ''
-      clearLocalDraft()
+      if (action === 'stash' && message.value.trim() && draftOwner && session.owns(draftOwner)) {
+        draftStore?.write({ content: markdown.value, message: message.value })
+      } else {
+        clearLocalDraft()
+      }
       feedback.value = action === 'stash' ? '草稿已储藏，可在版本历史中取回。' : '简历已保存并提交。'
     } else {
       writeError.value = action === 'stash'

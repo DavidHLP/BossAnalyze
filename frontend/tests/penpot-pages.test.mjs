@@ -213,12 +213,26 @@ test('the editor keeps the draft until readback shows a larger stash stack', asy
   assert.equal(editor.feedback.value, '')
   assert.match(editor.writeError.value, /储藏结果未确认，请先核对储藏记录/)
 
+  editor.message.value = '  '
   server.item = { ...server.item, stashStack: ['previous', 'new'] }
   await editor.write('stash')
   assert.equal(store.read(), null)
   assert.equal(editor.markdown.value, '# 已保存')
-  assert.equal(editor.message.value, draft.message)
   assert.match(editor.feedback.value, /草稿已储藏/)
+})
+
+test('the editor offers the remaining commit remark after reloading a successful stash', async () => {
+  const { editor, server } = await resumeEditor()
+  const remark = ' 本地备注 '
+  editor.markdown.value = '# 未保存正文'
+  editor.message.value = remark
+  server.item = { ...server.item, stashStack: ['previous', 'new'] }
+
+  await editor.write('stash')
+  assert.equal(editor.message.value, remark)
+  await editor.load(true)
+
+  assert.deepEqual(editor.localDraft.value, { content: '# 已保存', message: remark })
 })
 
 test('a stale tab can recover or clear the offered local draft while both writes stay blocked', async () => {
