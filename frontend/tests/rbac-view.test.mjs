@@ -405,7 +405,7 @@ for (const editor of [
     props: {
       mode: 'create', user: null, roles: [{ id: 901, roleName: '测试角色', status: 1 }],
       listedEmailInUse: async () => false, reloadRoles: async () => [], rolesUnavailable: false,
-      rolePending: false, roleRestricted: false, writeUnconfirmed: false, listPending: false, listFailed: false,
+      rolePending: false, roleRestricted: false, writeUnconfirmed: false, listMissingTarget: false, listPending: false, listFailed: false,
     },
     fields: { 'user-email': 'fixture@example.test', 'user-password': 'fixture-password', 'user-role': '901' },
   },
@@ -647,7 +647,7 @@ test('uncertain user writes stay locked across reopening, while code 1006 permit
   }
 })
 
-test('uncertain user edits are read back from the first page without the previous filters', async (t) => {
+test('uncertain user edits stay locked until a refreshed page contains the affected id', async (t) => {
   const vite = await viewServer(t)
   const { default: Users } = await vite.ssrLoadModule('/src/pages/console/users.vue.view-test.ts')
   const { default: request } = await vite.ssrLoadModule('/src/utils/request/request.ts')
@@ -662,7 +662,9 @@ test('uncertain user edits are read back from the first page without the previou
     if (config.url === '/api/user/getUserManageInfo') {
       const params = JSON.parse(config.data)
       reads.push(params)
-      const content = !renamed ? [target] : params.query.name ? [] : [{ ...target, name: '更新后用户' }]
+      const content = !renamed ? [target] : params.number === 11 && !params.query.name
+        ? [{ ...target, name: '更新后用户' }]
+        : [fixture.content[1]]
       return { config, status: 200, data: { data: { ...fixture, content, totalElements: 22 } } }
     }
     if (config.url === '/api/role/getRoleList?roleName=')
@@ -688,7 +690,23 @@ test('uncertain user edits are read back from the first page without the previou
   await click(button('刷新列表核对'))
   await flushView()
   assert.deepEqual(reads.at(-1), { number: 1, size: 10, query: {} })
+  assert.equal(button('新增用户').props.disabled, true)
+  assert.equal(byId('user-name').props.modelValue, '更新后用户')
+  assert.match(elementText(byId('user-write-unconfirmed')), /调整筛选条件或页码/)
+  assert.equal(byLabel('编辑更新后用户'), undefined)
+
+  click(button('取消'))
+  await nextTick()
+  click(button('放弃修改'))
+  await nextTick()
+  byLabel('用户列表分页').props['onUpdate:page'](2)
+  await flushView()
+  assert.equal(button('新增用户').props.disabled, true)
+  await click(button('刷新列表核对'))
+  await flushView()
+  assert.deepEqual(reads.at(-1), { number: 11, size: 10, query: {} })
   assert.ok(byLabel('编辑更新后用户'))
+  assert.equal(button('新增用户').props.disabled, false)
   assert.ok(find((element) => element.props.role === 'status' &&
-    elementText(element).includes('已清空筛选并刷新用户列表，请核对实际状态')))
+    elementText(element).includes('已刷新用户列表，请核对实际状态')))
 })

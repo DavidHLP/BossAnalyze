@@ -305,13 +305,30 @@ async function insertAsset(name: string) {
   replaceSelection(input, start, start, line, start + line.length)
 }
 
+function stashReadback(before: ResumeRecord | null, after: ResumeRecord | null, content: string) {
+  if (!Array.isArray(before?.stashStack) || !Array.isArray(after?.stashStack)) return false
+  function matchingTimestamps(stack: unknown[]) {
+    return stack.flatMap(entry => {
+      if (!entry || typeof entry !== 'object' || !('content' in entry) || entry.content !== content) return []
+      if (before?.currentBranch !== undefined && 'branch' in entry && entry.branch !== before.currentBranch) return []
+      if (before?.headCommit !== undefined && 'head' in entry && entry.head !== before.headCommit) return []
+      const timestamp = 'timestamp' in entry ? entry.timestamp : undefined
+      return [typeof timestamp === 'string' || typeof timestamp === 'number' ? timestamp : null]
+    })
+  }
+  const previous = matchingTimestamps(before.stashStack)
+  const current = matchingTimestamps(after.stashStack)
+  return current.length > previous.length || (previous.every(time => time !== null) &&
+    current.some(time => time !== null && !previous.includes(time)))
+}
+
 async function write(action: 'save' | 'stash') {
   const owner = draftOwner
   if (!owner || !session.owns(owner)) return
   if (!(action === 'save' ? canSave.value : dirty.value) || localDraft.value || pendingAction.value || writeLocked.value) return
   const key = id.value
   const content = markdown.value
-  const beforeStashCount = record.value?.stashStack?.length ?? 0
+  const beforeWrite = record.value
   pendingAction.value = action
   feedback.value = writeError.value = ''
   checkOffered.value = false
@@ -326,7 +343,7 @@ async function write(action: 'save' | 'stash') {
       writeLocked.value = true
       writeError.value = '操作已被接收，但暂时无法确认最新状态。'
     } else if (action === 'stash'
-      ? (record.value?.stashStack?.length ?? 0) > beforeStashCount
+      ? stashReadback(beforeWrite, record.value, content)
       : record.value?.headCommit === commitId && record.value?.content === content) {
       if (action === 'stash') markdown.value = record.value?.content ?? ''
       else message.value = ''
@@ -337,6 +354,7 @@ async function write(action: 'save' | 'stash') {
       }
       feedback.value = action === 'stash' ? '草稿已储藏，可在版本历史中取回。' : '简历已保存并提交。'
     } else {
+      writeLocked.value = action === 'stash'
       writeError.value = action === 'stash'
         ? '储藏结果未确认，请先核对储藏记录。'
         : '最新版本与本次提交不同，草稿仍保留。请核对后再操作。'
@@ -345,7 +363,7 @@ async function write(action: 'save' | 'stash') {
     if (session.owns(owner) && key === id.value) {
       await load()
       if (!session.owns(owner) || key !== id.value) return
-      writeLocked.value = Boolean(loadError.value)
+      writeLocked.value = action === 'stash' || Boolean(loadError.value)
       writeError.value = action === 'save'
         ? '提交结果未确认，当前正文和备注仍保留。请先核对最新版本。'
         : '储藏结果未确认，当前正文仍保留。请先核对储藏记录。'

@@ -48,7 +48,7 @@ watch(open, () => {
   resetLocalExport()
 }, { flush: 'sync' })
 
-watch(() => props.content, () => {
+watch([() => props.content, () => props.title], () => {
   locateOnClose = undefined
   resetLocalExport()
 }, { flush: 'sync' })

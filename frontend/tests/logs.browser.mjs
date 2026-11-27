@@ -117,7 +117,11 @@ test('读取日志区分初次延迟、同一快照、读取失败、空缓存�
           return route.fulfill({ status: 503, json: { code: 503 } })
         }
         let data
-        if (dashboard) data = { generatedAt: time, weekdayStatistics: { weekdayStats: { 6: { count: 0 } } } }
+        if (dashboard) data = {
+          generatedAt: time,
+          overview: { totalVisits: phase === 'zero' ? 0 : 13 },
+          weekdayStatistics: { weekdayStats: { 6: { count: 0 } } },
+        }
         else if (totals) data = { totalVisits: phase === 'zero' ? 0 : 13, uniqueIps: phase === 'zero' ? 0 : 6 }
         else if (path.endsWith('/heatmap')) data = { hourHeatmap: {}, minuteHeatmap: {} }
         else if (path.endsWith('/ip-statistics')) data = { ipStats: {} }
