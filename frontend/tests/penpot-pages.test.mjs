@@ -203,6 +203,7 @@ async function resumeEditor(savedDraft, stashStack = [stashEntry('# 旧储藏')]
   }
   const editor = await resumeScript('pages/resumes/edit', {
     useRoute: () => ({ params: { id: 'fixture' } }),
+    useRouter: () => ({ push: async () => {} }),
     useSession: () => ({
       state: ref({ user: { id: 1 } }), crossTabChanged,
       capture: () => owner, owns: () => !crossTabChanged.value,
@@ -242,7 +243,7 @@ test('unrelated new stashes and an existing match leave the editor draft locked'
     { ...existing },
   ] }
   await editor.write('stash')
-  assert.deepEqual(server.writes, [['fixture', 'stash', { content: draft.content }]])
+  assert.deepEqual(server.writes, [['fixture', 'stash', { content: draft.content }, undefined]])
   assert.deepEqual(store.read(), draft)
   assert.equal(editor.markdown.value, draft.content)
   assert.equal(editor.message.value, draft.message)
