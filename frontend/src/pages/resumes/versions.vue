@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useMediaQuery } from '@vueuse/core'
 import { RiAddLine, RiArrowLeftLine } from '@remixicon/vue'
@@ -8,23 +8,24 @@ import {
   type ResumeCommit, type ResumeRecord, type ResumeValidation,
 } from '@/api/resume/resume'
 import { useSession } from '@/composables/useSession'
+import { useResumeImages } from '@/composables/useResumeImages'
 import { restoreActionFocus } from '@/lib/rbac-mutations'
 import {
-  countDuplicateCommits, resumeFirstParentRelation, resumeLineDiff, resumeMainline, resumeReadMessage, resumeTime, shortCommit,
+  countDuplicateCommits, resumeAssetNames, resumeFirstParentRelation, resumeLineDiff, resumeMainline, resumePreview, resumeReadMessage, resumeTime,
+  resumeWriteConflict, shortCommit,
 } from '@/lib/resumes'
 import ResumePreview from '@/components/resumes/ResumePreview.vue'
 
-type Action = 'branch' | 'switch' | 'merge' | 'stash' | 'stash/pop' | 'checkout' | 'reset' | 'revert' | 'fix-duplicate-ids'
+type Action = 'branch' | 'switch' | 'merge' | 'stash' | 'stash/pop' | 'checkout' | 'reset' | 'revert'
 const actions: Record<Action, { title: string; description: string; destructive?: boolean }> = {
-  branch: { title: '新建分支', description: '新分支将从当前 HEAD 建立。' },
-  switch: { title: '切换分支', description: '工作区内容将更新为目标分支的最新快照。' },
-  merge: { title: '合并分支', description: '使用源分支快照创建双父提交并更新目标指针。系统不会自动合并正文冲突。' },
-  stash: { title: '新增储藏', description: '下方已填入当前工作区正文。可在储藏前编辑，储藏不会创建版本提交。' },
-  'stash/pop': { title: '弹出最新储藏', description: '将从储藏栈移除最新快照并恢复到工作区。HEAD 会保留当前版本，直至你提交恢复后的正文。' },
-  checkout: { title: '检出历史快照', description: '此操作会用所选快照替换当前工作区内容。' },
-  reset: { title: '重置分支', description: '将当前分支指针和工作区回退至所选提交。后续历史可能不再出现在当前分支。', destructive: true },
-  revert: { title: '创建回滚提交', description: '用所选提交的第一父快照创建一个新提交，保留原有历史。' },
-  'fix-duplicate-ids': { title: '去重重建仓库', description: '将永久删除旧历史、清空分支与储藏，并使用当前内容重建 main。', destructive: true },
+  branch: { title: '新建版本线', description: '新版本线将从当前版本建立。' },
+  switch: { title: '切换版本线', description: '编辑区内容将更新为目标版本线的最新内容。' },
+  merge: { title: '合并版本线', description: '使用源版本线内容创建合并版本并更新目标版本线。系统不会自动合并正文冲突。' },
+  stash: { title: '暂存草稿', description: '下方已填入当前编辑区正文。可在暂存前编辑，暂存不会创建新版本。' },
+  'stash/pop': { title: '取回最近暂存', description: '将取回最近暂存的正文到编辑区。当前版本保持不变，直至你保存取回后的正文。' },
+  checkout: { title: '恢复到此版本', description: '此操作会用所选版本的内容替换当前编辑区内容。' },
+  reset: { title: '回退到此版本', description: '将当前版本线和编辑区回退至所选版本。后续版本可能不再出现在当前版本线上，且会改变版本记录。', destructive: true },
+  revert: { title: '以该版本内容新建保存', description: '用所选版本的正文创建一个新版本，保留原有版本记录。' },
 }
 const route = useRoute()
 const router = useRouter()
@@ -41,6 +42,9 @@ const validation = shallowRef<ResumeValidation | null>(null)
 const debug = shallowRef<Record<string, unknown> | null>(null)
 const selection = shallowRef<ResumeCommit | null>(null)
 const panel = ref<'snapshot' | 'inspect' | null>(null)
+const snapshotImageNames = computed(() => panel.value === 'snapshot'
+  ? resumeAssetNames(resumePreview(selection.value?.content ?? '')) : [])
+const { images } = useResumeImages(snapshotImageNames)
 const operation = ref<Action | null>(null)
 const action = computed(() => operation.value ? actions[operation.value] : null)
 const from = ref('')
@@ -51,10 +55,12 @@ const draft = ref('')
 const branchName = ref('')
 const filter = ref('')
 const mode = ref<'all' | 'recent'>('all')
+const advancedOpen = ref(false)
+const rangeForm = ref<HTMLElement | null>(null)
 const busy = ref('')
 const loadError = ref('')
 const detailError = ref('')
-const recentReadError = '无法读取最近提交，请重试。'
+const recentReadError = '无法读取最近版本，请重试。'
 const feedback = ref('')
 const confirmed = ref(false)
 const mainHeading = ref<HTMLElement | null>(null)
@@ -90,7 +96,6 @@ const canConfirm = computed(() => {
   if (operation.value === 'merge') return !!sourceSnapshot.value && !!target.value && target.value !== source.value && confirmed.value
   if (operation.value === 'reset') return canReset.value
   if (operation.value === 'revert') return !!revertSnapshot.value && !!record.value?.headCommit
-  if (operation.value === 'fix-duplicate-ids') return duplicates.value > 0 && confirmed.value
   return true
 })
 
@@ -189,7 +194,7 @@ async function readRange() {
     const commits = await resumeHistory(key, false, { fromCommit: start.id, toCommit: end.id })
     if (generation === revision && key === id.value && session.owns(owner)) range.value = commits
   } catch {
-    if (generation === revision) detailError.value = '暂时无法读取区间提交。'
+    if (generation === revision) detailError.value = '暂时无法读取版本区间。'
   } finally {
     if (generation === revision) busy.value = ''
   }
@@ -232,6 +237,17 @@ function showSnapshot(commit: ResumeCommit, event: MouseEvent) {
   panel.value = 'snapshot'
 }
 
+function pickCompare(commit: ResumeCommit) {
+  if (from.value === commit.id) return
+  if (!from.value || to.value) {
+    from.value = commit.id
+    to.value = ''
+  } else {
+    to.value = commit.id
+  }
+  void nextTick(() => rangeForm.value?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }))
+}
+
 function open(kind: Action, event: MouseEvent, commit?: ResumeCommit) {
   if (busy.value || writeLocked.value) return
   trigger = event.currentTarget as HTMLElement
@@ -253,15 +269,15 @@ async function submit() {
   const owner = session.capture()
   const previous = record.value
   const previousStash = stashCount.value
+  const revision = record.value?.workspaceRevision
   let result: string | undefined
   try {
-    if (command === 'branch') await changeResumeVersion(key, 'branch', { name: branchName.value.trim() })
-    else if (command === 'switch') await changeResumeVersion(key, 'switch', { branch: target.value })
-    else if (command === 'merge') result = await changeResumeVersion(key, 'merge', { source: source.value, target: target.value })
-    else if (command === 'stash') await changeResumeVersion(key, 'stash', { content: draft.value })
-    else if (command === 'stash/pop') result = await changeResumeVersion(key, 'stash/pop')
-    else if (command === 'fix-duplicate-ids') await changeResumeVersion(key, 'fix-duplicate-ids')
-    else if (commit) result = await changeResumeVersion(key, command, { commitId: commit.id })
+    if (command === 'branch') await changeResumeVersion(key, 'branch', { name: branchName.value.trim() }, revision)
+    else if (command === 'switch') await changeResumeVersion(key, 'switch', { branch: target.value }, revision)
+    else if (command === 'merge') result = await changeResumeVersion(key, 'merge', { source: source.value, target: target.value }, revision)
+    else if (command === 'stash') await changeResumeVersion(key, 'stash', { content: draft.value }, revision)
+    else if (command === 'stash/pop') result = await changeResumeVersion(key, 'stash/pop', undefined, revision)
+    else if (commit) result = await changeResumeVersion(key, command, { commitId: commit.id }, revision)
     if (key !== id.value || !session.owns(owner)) return
     operation.value = null
     mode.value = 'all'
@@ -283,18 +299,20 @@ async function submit() {
         case 'checkout': return current.headCommit === commit?.id
         case 'reset': return current.headCommit === commit?.id && current.branches?.[current.currentBranch ?? ''] === commit?.id
         case 'revert': return current.headCommit === result
-        case 'fix-duplicate-ids': return !duplicates.value && current.currentBranch === 'main'
         default: return false
       }
     })()
     if (verified) feedback.value = '操作成功，已重新读取版本状态。'
     else detailError.value = '操作已被接收，重读时未能确认预期结果。请核对版本状态。'
-  } catch {
+  } catch (cause) {
     if (key === id.value && session.owns(owner)) {
+      const conflict = resumeWriteConflict(cause)
       range.value = validation.value = null
       await read()
       operation.value = null
-      detailError.value = '操作结果未确认，已尝试重读版本。请核对后再操作。'
+      detailError.value = conflict
+        ? '另一个标签页或设备已保存新版本，本次操作未执行。请核对最新版本后重试。'
+        : '操作结果未确认，已尝试重读版本。请核对后再操作。'
     }
   } finally {
     busy.value = ''
@@ -304,18 +322,41 @@ async function submit() {
 
 <template>
   <section class="flex min-w-0 flex-col gap-5" aria-labelledby="resume-versions-title">
-    <header class="flex flex-wrap items-start justify-between gap-3">
-      <div class="flex min-w-0 flex-col gap-2">
-        <UiButton as-child variant="ghost" size="sm" class="self-start"><RouterLink :to="editPath"><RiArrowLeftLine data-icon="inline-start" />返回编辑器</RouterLink></UiButton>
-        <h1 id="resume-versions-title" ref="mainHeading" tabindex="-1" class="text-3xl font-semibold tracking-tight">版本历史</h1>
-        <p v-if="record" class="break-words text-sm text-muted-foreground">{{ record.title }}</p>
-      </div>
-      <div v-if="record" class="flex flex-wrap gap-2">
-        <UiButton variant="outline" :disabled="Boolean(busy) || writeLocked" @click="open('merge', $event)">合并分支</UiButton>
-        <UiButton variant="outline" :disabled="Boolean(busy)" @click="inspect(undefined, $event)">仓库校验</UiButton>
-        <UiButton :disabled="Boolean(busy) || writeLocked" @click="open('branch', $event)"><RiAddLine data-icon="inline-start" />新建分支</UiButton>
-      </div>
+    <header class="flex min-w-0 flex-col gap-2">
+      <UiButton as-child variant="ghost" size="sm" class="self-start"><RouterLink :to="editPath"><RiArrowLeftLine data-icon="inline-start" />返回编辑器</RouterLink></UiButton>
+      <h1 id="resume-versions-title" ref="mainHeading" tabindex="-1" class="text-3xl font-semibold tracking-tight">版本历史</h1>
+      <p v-if="record" class="break-words text-sm text-muted-foreground">{{ record.title }}</p>
+      <p v-if="record" class="text-xs text-muted-foreground">当前版本 {{ shortCommit(record.headCommit) }}</p>
     </header>
+
+    <UiCollapsible v-if="record" v-model:open="advancedOpen" class="border bg-card">
+      <UiCollapsibleTrigger as-child>
+        <UiButton variant="ghost" class="w-full justify-between"><span>高级版本操作</span><span class="text-xs text-muted-foreground">{{ advancedOpen ? '收起' : '展开' }}</span></UiButton>
+      </UiCollapsibleTrigger>
+      <UiCollapsibleContent>
+        <div class="flex flex-col gap-4 border-t p-4">
+          <div class="flex flex-col gap-2">
+            <h2 class="font-medium">版本线</h2>
+            <p class="text-sm text-muted-foreground">当前版本线：<UiBadge variant="secondary">{{ record.currentBranch ?? '—' }}</UiBadge></p>
+            <div class="flex flex-wrap gap-2">
+              <UiButton variant="outline" :disabled="Boolean(busy) || branches.length < 2 || writeLocked" @click="open('switch', $event)">切换版本线</UiButton>
+              <UiButton variant="outline" :disabled="Boolean(busy) || writeLocked" @click="open('merge', $event)">合并版本线</UiButton>
+              <UiButton :disabled="Boolean(busy) || writeLocked" @click="open('branch', $event)"><RiAddLine data-icon="inline-start" />新建版本线</UiButton>
+              <UiButton variant="outline" :disabled="Boolean(busy)" @click="inspect(undefined, $event)">检查版本完整性</UiButton>
+            </div>
+          </div>
+          <UiSeparator />
+          <div class="flex flex-col gap-2">
+            <h2 class="font-medium">暂存草稿</h2>
+            <p class="text-sm text-muted-foreground">已暂存 {{ stashCount }} 项，暂存不会创建新版本。</p>
+            <div class="flex flex-wrap gap-2">
+              <UiButton variant="outline" :disabled="Boolean(busy) || writeLocked" @click="open('stash', $event)">暂存当前正文</UiButton>
+              <UiButton variant="outline" :disabled="Boolean(busy) || !stashCount || writeLocked" @click="open('stash/pop', $event)">取回最近暂存</UiButton>
+            </div>
+          </div>
+        </div>
+      </UiCollapsibleContent>
+    </UiCollapsible>
 
     <UiAlert v-if="loadError || detailError" variant="destructive" role="alert">
       <UiAlertDescription class="flex flex-wrap items-center gap-2">
@@ -325,75 +366,64 @@ async function submit() {
     </UiAlert>
     <p v-if="feedback" role="status" class="text-sm text-muted-foreground">{{ feedback }}</p>
     <UiSkeleton v-if="busy === 'load' && !record" role="status" aria-label="正在读取版本历史" class="h-64" />
-    <div v-if="record" class="grid min-w-0 items-start gap-4 xl:grid-cols-[16rem_minmax(0,1fr)_17rem]">
-      <aside class="flex min-w-0 flex-col gap-4 border bg-card p-4">
-        <div class="flex flex-col gap-2">
-          <h2 class="font-medium">当前分支 / HEAD</h2>
-          <p class="flex flex-wrap items-center gap-2 text-sm"><UiBadge variant="secondary">{{ record.currentBranch ?? '—' }}</UiBadge><span class="font-mono">{{ shortCommit(record.headCommit) }}</span></p>
-          <UiButton variant="outline" :disabled="Boolean(busy) || branches.length < 2 || writeLocked" @click="open('switch', $event)">切换分支</UiButton>
-        </div>
-        <UiSeparator />
-        <div class="flex flex-col gap-2">
-          <h2 class="font-medium">储藏栈</h2>
-          <p class="text-sm text-muted-foreground">已储藏 {{ stashCount }} 项</p>
-          <UiButton variant="outline" :disabled="Boolean(busy) || writeLocked" @click="open('stash', $event)">新增储藏</UiButton>
-          <UiButton variant="outline" :disabled="Boolean(busy) || !stashCount || writeLocked" @click="open('stash/pop', $event)">弹出最新储藏</UiButton>
-        </div>
-      </aside>
-
+    <div v-if="record" class="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <section aria-labelledby="commit-list-title" class="flex min-w-0 flex-col gap-3 border bg-card">
         <header class="flex flex-wrap items-center justify-between gap-3 p-4 pb-0">
-          <h2 id="commit-list-title" class="font-semibold">提交历史 <span class="text-sm tabular-nums text-muted-foreground">{{ items.length }} 条</span></h2>
+          <h2 id="commit-list-title" class="font-semibold">版本记录 <span class="text-sm tabular-nums text-muted-foreground">{{ items.length }} 个</span></h2>
           <UiButton variant="ghost" size="sm" :disabled="Boolean(busy)" @click="refresh()">刷新</UiButton>
         </header>
         <div class="flex flex-wrap items-center gap-2 px-4 text-sm">
-          <UiButton variant="outline" size="sm" :aria-pressed="mode === 'all'" :disabled="Boolean(busy)" @click="mode = 'all'">全部历史</UiButton>
-          <UiButton variant="outline" size="sm" :aria-pressed="mode === 'recent'" :disabled="Boolean(busy)" @click="readRecent">最近 10 次</UiButton>
-          <select v-model="filter" aria-label="筛选提交分支" class="h-8 border bg-background px-2">
-            <option value="">全部分支</option><option v-for="name in branches" :key="name">{{ name }}</option>
+          <UiButton variant="outline" size="sm" :aria-pressed="mode === 'all'" :disabled="Boolean(busy)" @click="mode = 'all'">全部版本</UiButton>
+          <UiButton variant="outline" size="sm" :aria-pressed="mode === 'recent'" :disabled="Boolean(busy)" @click="readRecent">最近 10 个版本</UiButton>
+          <select v-if="advancedOpen" v-model="filter" aria-label="筛选版本线" class="h-8 border bg-background px-2">
+            <option value="">全部版本线</option><option v-for="name in branches" :key="name">{{ name }}</option>
           </select>
         </div>
-        <p v-if="!items.length" class="border-t p-4 text-sm text-muted-foreground">没有匹配的提交。</p>
+        <p v-if="!items.length" class="border-t p-4 text-sm text-muted-foreground">没有匹配的版本。</p>
         <ol v-else class="divide-y border-t">
           <li v-for="(item, index) in items" :key="item.id + '-' + index" class="flex min-w-0 flex-col gap-2 p-4">
             <div class="flex flex-wrap items-center gap-2">
-              <button type="button" class="break-words text-left font-medium hover:underline" @click="showSnapshot(item, $event)">{{ item.message || '无提交备注' }}</button>
-              <UiBadge v-if="item.id === record.headCommit">HEAD</UiBadge>
-              <UiBadge v-if="item.commitType === 'merge'" variant="secondary">双父提交</UiBadge>
+              <button type="button" class="break-words text-left font-medium hover:underline" @click="showSnapshot(item, $event)">{{ item.message || '无修改说明' }}</button>
+              <UiBadge v-if="item.id === record.headCommit">当前版本</UiBadge>
+              <UiBadge v-if="item.commitType === 'merge'" variant="secondary">合并版本</UiBadge>
             </div>
             <p class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span class="font-mono">{{ shortCommit(item.id) }}</span><span>{{ item.branch ?? '—' }}</span>
+              <span class="font-mono">版本 {{ shortCommit(item.id) }}</span>
+              <span v-if="advancedOpen">{{ item.branch ?? '—' }}</span>
               <span v-if="item.author">{{ item.author }}</span><span class="tabular-nums">{{ resumeTime(item.commitTime) }}</span>
             </p>
             <div class="flex flex-wrap gap-1">
-              <UiButton variant="outline" size="sm" @click="showSnapshot(item, $event)">查看快照</UiButton>
-              <UiButton variant="ghost" size="sm" :disabled="Boolean(busy) || writeLocked" @click="open('checkout', $event, item)">检出</UiButton>
-              <UiButton variant="ghost" size="sm" :disabled="Boolean(busy) || !item.parentCommits?.length || writeLocked" @click="open('revert', $event, item)">回滚</UiButton>
-              <UiButton variant="ghost" size="sm" :disabled="Boolean(busy) || writeLocked || !mainline.has(item.id)" @click="open('reset', $event, item)">重置</UiButton>
-              <UiButton variant="ghost" size="sm" :disabled="Boolean(busy)" @click="inspect(item, $event)">诊断</UiButton>
+              <UiButton variant="outline" size="sm" :disabled="Boolean(busy) || writeLocked" @click="open('checkout', $event, item)">恢复到此版本</UiButton>
+              <UiButton variant="outline" size="sm" :disabled="Boolean(busy)" :aria-pressed="from === item.id || to === item.id" @click="pickCompare(item)">比较</UiButton>
+              <template v-if="advancedOpen">
+                <UiButton variant="ghost" size="sm" @click="showSnapshot(item, $event)">查看内容</UiButton>
+                <UiButton variant="ghost" size="sm" :disabled="Boolean(busy) || !item.parentCommits?.length || writeLocked" @click="open('revert', $event, item)">以该版本内容新建保存</UiButton>
+                <UiButton variant="ghost" size="sm" :disabled="Boolean(busy) || writeLocked || !mainline.has(item.id)" @click="open('reset', $event, item)">回退到此版本</UiButton>
+                <UiButton variant="ghost" size="sm" :disabled="Boolean(busy)" @click="inspect(item, $event)">版本诊断</UiButton>
+              </template>
             </div>
           </li>
         </ol>
       </section>
 
-      <form aria-labelledby="commit-range-title" class="flex min-w-0 flex-col gap-3 border bg-card p-4" @submit.prevent="readRange">
+      <form ref="rangeForm" aria-labelledby="commit-range-title" class="flex min-w-0 flex-col gap-3 border bg-card p-4" @submit.prevent="readRange">
         <div class="flex flex-col gap-1">
-          <h2 id="commit-range-title" class="font-medium">区间提交记录</h2>
-          <p class="text-xs text-muted-foreground">比较所选快照的正文，提交列表从结束提交沿第一父链回溯。</p>
+          <h2 id="commit-range-title" class="font-medium">比较版本</h2>
+          <p class="text-xs text-muted-foreground">选择两个版本查看正文差异。也可以先点版本旁的“比较”，再点另一个版本。</p>
         </div>
         <UiField>
-          <UiFieldLabel for="range-from">起始提交</UiFieldLabel>
-          <select id="range-from" v-model="from" :disabled="Boolean(busy)" class="min-w-0 border bg-background p-2 text-sm"><option value="">选择提交</option><option v-for="(item, index) in history" :key="index" :value="item.id">{{ shortCommit(item.id) }}</option></select>
+          <UiFieldLabel for="range-from">较早版本</UiFieldLabel>
+          <select id="range-from" v-model="from" :disabled="Boolean(busy)" class="min-w-0 border bg-background p-2 text-sm"><option value="">选择版本</option><option v-for="(item, index) in history" :key="index" :value="item.id">{{ shortCommit(item.id) }} · {{ item.message }}</option></select>
         </UiField>
         <UiField>
-          <UiFieldLabel for="range-to">结束提交</UiFieldLabel>
-          <select id="range-to" v-model="to" :disabled="Boolean(busy)" class="min-w-0 border bg-background p-2 text-sm"><option value="">选择提交</option><option v-for="(item, index) in history" :key="index" :value="item.id">{{ shortCommit(item.id) }}</option></select>
+          <UiFieldLabel for="range-to">较晚版本</UiFieldLabel>
+          <select id="range-to" v-model="to" :disabled="Boolean(busy)" class="min-w-0 border bg-background p-2 text-sm"><option value="">选择版本</option><option v-for="(item, index) in history" :key="index" :value="item.id">{{ shortCommit(item.id) }} · {{ item.message }}</option></select>
         </UiField>
-        <UiButton type="submit" variant="outline" :disabled="Boolean(busy) || !from || !to || from === to">查询区间</UiButton>
-        <p v-if="rangeRelation === 'separate'" role="status" class="text-sm">两次提交不在同一条第一父链上。下方仍可比较正文。</p>
-        <p v-else-if="rangeRelation === 'reverse'" role="status" class="text-sm">结束提交是起始提交的第一父链祖先。交换起止提交可查看区间记录。</p>
+        <UiButton type="submit" variant="outline" :disabled="Boolean(busy) || !from || !to || from === to">比较</UiButton>
+        <p v-if="rangeRelation === 'separate'" role="status" class="text-sm">两个版本不在同一条版本线上。下方仍可比较正文。</p>
+        <p v-else-if="rangeRelation === 'reverse'" role="status" class="text-sm">较晚版本是较早版本的前序版本。交换两个版本可查看区间记录。</p>
         <div v-if="range" role="status" class="flex flex-col gap-2 text-sm">
-          共 {{ range.length }} 条提交
+          共 {{ range.length }} 个版本
           <ul class="flex flex-col gap-1 text-xs text-muted-foreground">
             <li v-for="(item, index) in range" :key="index" class="break-words">{{ shortCommit(item.id) }} · {{ item.message }}</li>
           </ul>
@@ -416,21 +446,21 @@ async function submit() {
     <UiSheet :open="panel !== null" @update:open="!$event && (panel = null)">
       <UiSheetContent :side="mobile ? 'bottom' : 'right'" class="max-h-[85dvh] w-full overflow-auto sm:max-w-xl" @close-auto-focus="restoreActionFocus($event, panelTrigger, mainHeading)">
         <UiSheetHeader>
-          <UiSheetTitle>{{ panel === 'snapshot' ? '查看历史快照' : selection ? '提交诊断' : '仓库完整性校验' }}</UiSheetTitle>
-          <UiSheetDescription>{{ selection ? shortCommit(selection.id) + ' · ' + (selection.message ?? '') : '检查 HEAD、当前分支及提交引用。' }}</UiSheetDescription>
+          <UiSheetTitle>{{ panel === 'snapshot' ? '查看版本内容' : selection ? '版本诊断' : '完整性检查' }}</UiSheetTitle>
+          <UiSheetDescription>{{ selection ? shortCommit(selection.id) + ' · ' + (selection.message ?? '') : '检查当前版本、版本线及版本引用。' }}</UiSheetDescription>
         </UiSheetHeader>
         <div class="flex flex-col gap-4 px-4 pb-6">
-          <ResumePreview v-if="panel === 'snapshot' && selection" :content="selection.content ?? ''" />
+          <ResumePreview v-if="panel === 'snapshot' && selection" :content="selection.content ?? ''" :images="images" :theme-id="record?.themeId" />
           <dl v-else-if="selection && debug" class="flex flex-col gap-2 text-sm">
-            <div>提交存在 · {{ debug.commitExists === true ? '是' : '否' }}</div>
-            <div>父提交数 · {{ typeof debug.parentCount === 'number' ? debug.parentCount : '—' }}</div>
-            <div>当前分支 · {{ typeof debug.currentBranch === 'string' ? debug.currentBranch : '—' }}</div>
-            <div>HEAD · {{ typeof debug.headCommit === 'string' ? shortCommit(debug.headCommit) : '—' }}</div>
+            <div>版本存在 · {{ debug.commitExists === true ? '是' : '否' }}</div>
+            <div>前序版本数 · {{ typeof debug.parentCount === 'number' ? debug.parentCount : '—' }}</div>
+            <div>当前版本线 · {{ typeof debug.currentBranch === 'string' ? debug.currentBranch : '—' }}</div>
+            <div>当前版本 · {{ typeof debug.headCommit === 'string' ? shortCommit(debug.headCommit) : '—' }}</div>
           </dl>
           <template v-else-if="validation">
-            <UiAlert :variant="validation.isValid ? 'default' : 'destructive'"><UiAlertDescription>{{ validation.isValid ? '未发现完整性错误。' : '检测到完整性异常，请核对分支和引用。' }}</UiAlertDescription></UiAlert>
+            <UiAlert :variant="validation.isValid ? 'default' : 'destructive'"><UiAlertDescription>{{ validation.isValid ? '未发现完整性错误。' : '检测到完整性异常，请核对版本线和版本引用。' }}</UiAlertDescription></UiAlert>
             <ul class="flex flex-col gap-2 text-sm">
-              <li>分支数 · {{ validation.branchCount ?? '—' }}</li><li>孤立提交 · {{ validation.orphanCommits ?? '—' }}</li><li>重复提交 ID · {{ duplicates }}</li>
+              <li>版本线数 · {{ validation.branchCount ?? '—' }}</li><li>孤立版本 · {{ validation.orphanCommits ?? '—' }}</li><li>重复版本 ID · {{ duplicates }}</li>
             </ul>
             <div v-if="validation.errors?.length" class="text-sm">
               <h3 class="font-medium text-destructive">错误</h3>
@@ -442,7 +472,6 @@ async function submit() {
             </div>
             <div class="flex flex-wrap gap-2">
               <UiButton variant="outline" :disabled="Boolean(busy)" @click="inspect()">重新校验</UiButton>
-              <UiButton v-if="duplicates" variant="destructive" :disabled="Boolean(busy) || writeLocked" @click="open('fix-duplicate-ids', $event)">去重重建</UiButton>
             </div>
           </template>
         </div>
@@ -456,43 +485,43 @@ async function submit() {
         </UiDialogHeader>
         <form class="flex flex-col gap-3" @submit.prevent="submit">
           <UiField v-if="operation === 'branch'">
-            <UiFieldLabel for="new-resume-branch">分支名称</UiFieldLabel><UiInput id="new-resume-branch" v-model="branchName" maxlength="80" :disabled="Boolean(busy)" required />
+            <UiFieldLabel for="new-resume-branch">版本线名称</UiFieldLabel><UiInput id="new-resume-branch" v-model="branchName" maxlength="80" :disabled="Boolean(busy)" required />
           </UiField>
           <UiField v-if="operation === 'merge'">
-            <UiFieldLabel for="merge-source">源分支</UiFieldLabel>
-            <select id="merge-source" v-model="source" :disabled="Boolean(busy)" class="h-8 border bg-background px-2"><option value="">选择源分支</option><option v-for="name in branches" :key="name">{{ name }}</option></select>
+            <UiFieldLabel for="merge-source">源版本线</UiFieldLabel>
+            <select id="merge-source" v-model="source" :disabled="Boolean(busy)" class="h-8 border bg-background px-2"><option value="">选择源版本线</option><option v-for="name in branches" :key="name">{{ name }}</option></select>
           </UiField>
           <UiField v-if="operation === 'merge' || operation === 'switch'">
-            <UiFieldLabel for="version-target">目标分支</UiFieldLabel>
+            <UiFieldLabel for="version-target">目标版本线</UiFieldLabel>
             <select id="version-target" v-model="target" :disabled="Boolean(busy)" class="h-8 border bg-background px-2"><option v-for="name in branches" :key="name">{{ name }}</option></select>
           </UiField>
           <details v-if="operation === 'merge' && sourceSnapshot" class="border p-2 text-sm">
-            <summary>核对源快照 · {{ shortCommit(sourceSnapshot.id) }} → {{ shortCommit(branchTips[target]) }}</summary>
+            <summary>核对源内容 · {{ shortCommit(sourceSnapshot.id) }} → {{ shortCommit(branchTips[target]) }}</summary>
             <pre class="mt-2 max-h-44 overflow-auto whitespace-pre-wrap break-words">{{ sourceSnapshot.content }}</pre>
           </details>
-          <label v-if="operation === 'merge' || operation === 'fix-duplicate-ids'" class="flex items-start gap-2 text-sm">
+          <label v-if="operation === 'merge'" class="flex items-start gap-2 text-sm">
             <input v-model="confirmed" type="checkbox" :disabled="Boolean(busy)" class="mt-1">
-            {{ operation === 'merge' ? '我已核对源快照，确认合并' : '我已核对重复提交并确认永久重建' }}
+            我已核对源内容，确认合并
           </label>
           <UiField v-if="operation === 'stash'">
-            <UiFieldLabel for="version-stash">要储藏的正文</UiFieldLabel><UiTextarea id="version-stash" v-model="draft" :disabled="Boolean(busy)" />
+            <UiFieldLabel for="version-stash">要暂存的正文</UiFieldLabel><UiTextarea id="version-stash" v-model="draft" :disabled="Boolean(busy)" />
           </UiField>
-          <p v-if="selection && operation !== 'fix-duplicate-ids'" class="font-mono text-xs text-muted-foreground">{{ shortCommit(selection.id) }} · {{ selection.message }}</p>
+          <p v-if="selection" class="font-mono text-xs text-muted-foreground">{{ shortCommit(selection.id) }} · {{ selection.message }}</p>
           <p v-if="operation === 'checkout'" class="text-sm wrap-anywhere">
-            <template v-if="checkoutBranches.length === 1">HEAD 将切到「{{ checkoutBranches[0] }}」的尖端，下一次保存会推进该分支。</template>
-            <template v-else-if="checkoutBranches.length > 1">这是多个分支的尖端（{{ checkoutBranches.join('、') }}）。服务器选定其中一个作为当前分支，下一次保存会推进该分支。</template>
-            <template v-else>HEAD 将分离到所选提交，当前分支指针暂时保留。下一次保存会基于所选提交创建新版本并移动当前分支指针，原先的部分历史可能从该分支脱离。</template>
+            <template v-if="checkoutBranches.length === 1">当前版本线将指向「{{ checkoutBranches[0] }}」的最新版本，下一次保存会推进该版本线。</template>
+            <template v-else-if="checkoutBranches.length > 1">这是多个版本线的最新版本（{{ checkoutBranches.join('、') }}）。服务器会选定其中一个作为当前版本线，下一次保存会推进该版本线。</template>
+            <template v-else>编辑区将基于所选版本更新，当前版本线暂时保留。下一次保存会基于所选版本创建新版本并移动当前版本线，原先的部分版本可能从该版本线脱离。</template>
           </p>
           <div v-if="operation === 'revert'" class="flex flex-col gap-2 text-sm">
             <template v-if="revertSnapshot">
-              <p class="font-medium">将恢复的第一父快照 · {{ shortCommit(revertSnapshot.id) }}</p>
-              <pre tabindex="0" aria-label="第一父快照正文" class="max-h-40 overflow-auto whitespace-pre-wrap wrap-anywhere border p-2">{{ revertSnapshot.content || '（正文为空）' }}</pre>
+              <p class="font-medium">将恢复的前序版本 · {{ shortCommit(revertSnapshot.id) }}</p>
+              <pre tabindex="0" aria-label="前序版本正文" class="max-h-40 overflow-auto whitespace-pre-wrap wrap-anywhere border p-2">{{ revertSnapshot.content || '（正文为空）' }}</pre>
             </template>
-            <p v-else>找不到第一父快照，无法回滚。</p>
+            <p v-else>找不到前序版本，无法新建保存。</p>
           </div>
           <div v-if="operation === 'reset' && selection" class="flex flex-col gap-2 text-sm">
-            <p class="font-medium">目标快照摘要</p>
-            <pre tabindex="0" aria-label="目标快照摘要" class="max-h-32 overflow-auto whitespace-pre-wrap wrap-anywhere border p-2">{{ selection.content ? selection.content.slice(0, 400) + (selection.content.length > 400 ? '…' : '') : '（正文为空）' }}</pre>
+            <p class="font-medium">目标版本摘要</p>
+            <pre tabindex="0" aria-label="目标版本摘要" class="max-h-32 overflow-auto whitespace-pre-wrap wrap-anywhere border p-2">{{ selection.content ? selection.content.slice(0, 400) + (selection.content.length > 400 ? '…' : '') : '（正文为空）' }}</pre>
           </div>
           <UiDialogFooter>
             <UiButton type="button" variant="outline" :disabled="Boolean(busy)" @click="operation = null">取消</UiButton>

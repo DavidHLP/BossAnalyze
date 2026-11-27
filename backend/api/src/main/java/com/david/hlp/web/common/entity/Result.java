@@ -83,10 +83,15 @@ public class Result<T> extends ResponseEntity<ResultBody<T>> {
     }
 
     public static <T> Result<T> error(Integer code, String message) {
+        return error(code, message, null);
+    }
+
+    public static <T> Result<T> error(Integer code, String message, T data) {
         return new Result<>(
                 ResultBody.<T>builder()
                         .code(code)
                         .message(message)
+                        .data(data)
                         .timestamp(System.currentTimeMillis())
                         .build(),
                 errorStatus(code));

@@ -1,6 +1,9 @@
 package com.david.hlp.web.resume.service;
 
+import com.david.hlp.commons.utils.RedisLockUtil;
+import com.david.hlp.web.common.enums.RedisLockKeyEnum;
 import com.david.hlp.web.resume.entity.Resume;
+import com.david.hlp.web.resume.exception.ResumeWorkspaceConflictException;
 import lombok.RequiredArgsConstructor;
 import com.david.hlp.web.common.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
@@ -8,12 +11,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * 简历版本控制服务
@@ -24,27 +29,22 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ResumeVersionControlService {
 
-    private final MongoTemplate mongoTemplate;
+    private static final String COMMIT = "commit";
+    private static final String PENDING_COMMIT = "pending_commit";
 
-    /**
-     * 创建提交，这是版本控制的核心操作
-     */
-    public String createCommit(String resumeId, Long userId, String message,
-            String content, String branch, List<String> parentCommits, String commitType) {
-        if (getResumeById(resumeId, userId) == null) {
-            throw new BusinessException(404, "简历不存在");
-        }
+    private final MongoTemplate mongoTemplate;
+    private final RedisLockUtil redisLockUtil;
+
+    private String stageCommit(Resume resume, String message, String content, String branch,
+            List<String> parentCommits, String commitType) {
         for (String parentId : parentCommits) {
-            getCommitById(resumeId, userId, parentId);
+            getCommitById(resume, parentId);
         }
         Resume commit = new Resume();
-        String commitId = generateCommitId();
-        commit.setId(commitId);
-        commit.setDocType("commit");
-        log.info("🚀 创建提交 - ID: {}, 简历: {}, 用户: {}, 消息: {}", commitId, resumeId, userId, message);
-
-        commit.setResumeId(resumeId);
-        commit.setUserId(userId);
+        commit.setId(generateCommitId());
+        commit.setDocType(PENDING_COMMIT);
+        commit.setResumeId(resume.getId());
+        commit.setUserId(resume.getUserId());
         commit.setMessage(message);
         commit.setContent(content);
         commit.setBranch(branch);
@@ -54,337 +54,258 @@ public class ResumeVersionControlService {
         commit.setTreeHash(generateContentHash(content));
 
         mongoTemplate.insert(commit);
-        log.info("✅ 提交保存成功 - ID: {}", commitId);
+        resume.setPublishedCommitId(commit.getId());
         return commit.getId();
     }
 
-    /**
-     * 提交更改
-     */
-    public String commit(String resumeId, Long userId, String message, String content) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            throw new RuntimeException("简历不存在");
-        }
+    Resume initialize(Resume resume) {
+        String initialCommitId = stageCommit(resume, "Initial commit", resume.getContent(), "main", List.of(), "normal");
+        resume.setHeadCommit(initialCommitId);
+        resume.setRepositoryId(UUID.randomUUID().toString());
+        resume.getBranches().put("main", initialCommitId);
+        return mongoTemplate.insert(resume);
+    }
 
+    public String commit(String resumeId, Long userId, String message, String content, Long expectedRevision) {
+        return write(resumeId, userId, expectedRevision, resume -> commit(resume, message, content));
+    }
+
+    Resume updateResume(String resumeId, Long userId, String title, String content, Long expectedRevision) {
+        return write(resumeId, userId, expectedRevision, resume -> {
+            commit(resume, "Updated via basic save", content == null ? resume.getContent() : content);
+            if (title != null) {
+                resume.setTitle(title);
+            }
+            return resume;
+        });
+    }
+
+    private String commit(Resume resume, String message, String content) {
         String currentBranch = resume.getCurrentBranch();
-        List<String> parentCommits = new ArrayList<>();
-        if (resume.getHeadCommit() != null) {
-            parentCommits.add(resume.getHeadCommit());
-        }
+        List<String> parents = resume.getHeadCommit() == null ? List.of() : List.of(resume.getHeadCommit());
+        String commitId = stageCommit(resume, message, content, currentBranch, parents, "normal");
 
-        String commitId = createCommit(resumeId, userId, message, content,
-                currentBranch, parentCommits, "normal");
-
-        // 更新简历的HEAD和分支指针
         resume.setHeadCommit(commitId);
         resume.getBranches().put(currentBranch, commitId);
-        resume.setContent(content); // 更新主文档的最新内容
-
-        mongoTemplate.save(resume);
+        resume.setContent(content);
         return commitId;
     }
 
     /**
      * 创建分支
      */
-    public void createBranch(String resumeId, Long userId, String branchName) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            throw new RuntimeException("简历不存在");
-        }
+    public void createBranch(String resumeId, Long userId, String branchName, Long expectedRevision) {
+        write(resumeId, userId, expectedRevision, resume -> {
+            if (resume.getBranches().containsKey(branchName)) {
+                throw new RuntimeException("分支已存在: " + branchName);
+            }
 
-        if (resume.getBranches().containsKey(branchName)) {
-            throw new RuntimeException("分支已存在: " + branchName);
-        }
-
-        // 从当前HEAD创建新分支
-        resume.getBranches().put(branchName, resume.getHeadCommit());
-        mongoTemplate.save(resume);
+            // 从当前HEAD创建新分支
+            resume.getBranches().put(branchName, resume.getHeadCommit());
+            return null;
+        });
     }
 
     /**
      * 切换分支
      */
-    public void switchBranch(String resumeId, Long userId, String branchName) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            throw new RuntimeException("简历不存在");
-        }
+    public void switchBranch(String resumeId, Long userId, String branchName, Long expectedRevision) {
+        write(resumeId, userId, expectedRevision, resume -> {
+            if (!resume.getBranches().containsKey(branchName)) {
+                throw new RuntimeException("分支不存在: " + branchName);
+            }
 
-        if (!resume.getBranches().containsKey(branchName)) {
-            throw new RuntimeException("分支不存在: " + branchName);
-        }
+            String commitId = resume.getBranches().get(branchName);
+            if (commitId == null) {
+                throw new RuntimeException("分支 " + branchName + " 没有关联的提交");
+            }
 
-        String commitId = resume.getBranches().get(branchName);
-        if (commitId == null) {
-            throw new RuntimeException("分支 " + branchName + " 没有关联的提交");
-        }
+            Resume commit = getCommitById(resume, commitId);
 
-        Resume commit = getCommitById(resumeId, userId, commitId);
-        if (commit == null) {
-            throw new RuntimeException("提交 " + commitId + " 不存在");
-        }
-
-        resume.setCurrentBranch(branchName);
-        resume.setHeadCommit(commitId);
-        resume.setContent(commit.getContent());
-        mongoTemplate.save(resume);
+            resume.setCurrentBranch(branchName);
+            resume.setHeadCommit(commitId);
+            resume.setContent(commit.getContent());
+            return null;
+        });
     }
 
     /**
      * 合并分支
      */
-    public String mergeBranch(String resumeId, Long userId, String sourceBranch, String targetBranch) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            throw new RuntimeException("简历不存在");
-        }
+    public String mergeBranch(String resumeId, Long userId, String sourceBranch, String targetBranch, Long expectedRevision) {
+        return write(resumeId, userId, expectedRevision, resume -> {
+            String sourceCommitId = resume.getBranches().get(sourceBranch);
+            String targetCommitId = resume.getBranches().get(targetBranch);
 
-        String sourceCommitId = resume.getBranches().get(sourceBranch);
-        String targetCommitId = resume.getBranches().get(targetBranch);
+            if (sourceCommitId == null || targetCommitId == null) {
+                throw new RuntimeException("源分支或目标分支不存在");
+            }
 
-        if (sourceCommitId == null || targetCommitId == null) {
-            throw new RuntimeException("源分支或目标分支不存在");
-        }
+            Resume sourceCommit = getCommitById(resume, sourceCommitId);
 
-        Resume sourceCommit = getCommitById(resumeId, userId, sourceCommitId);
-        Resume targetCommit = getCommitById(resumeId, userId, targetCommitId);
+            // 简单合并策略：使用源分支的内容
+            String mergeMessage = String.format("Merge branch '%s' into %s", sourceBranch, targetBranch);
+            List<String> parentCommits = Arrays.asList(targetCommitId, sourceCommitId);
 
-        if (sourceCommit == null) {
-            throw new RuntimeException("源分支的提交不存在: " + sourceCommitId);
-        }
-        if (targetCommit == null) {
-            throw new RuntimeException("目标分支的提交不存在: " + targetCommitId);
-        }
+            String mergeCommitId = stageCommit(resume, mergeMessage,
+                    sourceCommit.getContent(), targetBranch, parentCommits, "merge");
 
-        // 简单合并策略：使用源分支的内容
-        String mergeMessage = String.format("Merge branch '%s' into %s", sourceBranch, targetBranch);
-        List<String> parentCommits = Arrays.asList(targetCommitId, sourceCommitId);
+            // 更新目标分支指针
+            resume.getBranches().put(targetBranch, mergeCommitId);
+            if (resume.getCurrentBranch().equals(targetBranch)) {
+                resume.setHeadCommit(mergeCommitId);
+                resume.setContent(sourceCommit.getContent());
+            }
 
-        String mergeCommitId = createCommit(resumeId, userId, mergeMessage,
-                sourceCommit.getContent(), targetBranch, parentCommits, "merge");
-
-        // 更新目标分支指针
-        resume.getBranches().put(targetBranch, mergeCommitId);
-        if (resume.getCurrentBranch().equals(targetBranch)) {
-            resume.setHeadCommit(mergeCommitId);
-            resume.setContent(sourceCommit.getContent());
-        }
-
-        mongoTemplate.save(resume);
-        return mergeCommitId;
+            return mergeCommitId;
+        });
     }
 
     /**
      * 获取提交历史
      */
     public List<Resume> getCommitHistory(String resumeId, Long userId) {
-        Query query = new Query(Criteria.where("resume_id").is(resumeId)
-                .and("user_id").is(userId)
-                .and("doc_type").is("commit"));
-        query.with(Sort.by(Sort.Direction.DESC, "commit_time"));
-        return mongoTemplate.find(query, Resume.class);
+        return getCommitHistory(requireResume(resumeId, userId));
+    }
+
+    private List<Resume> getCommitHistory(Resume resume) {
+        Query query = new Query(snapshotOwner(resume).andOperator(visibleSnapshot(resume)))
+                .with(Sort.by(Sort.Direction.DESC, "commit_time"));
+        List<Resume> commits = mongoTemplate.find(query, Resume.class);
+        commits.forEach(commit -> commit.setDocType(COMMIT));
+        return commits;
     }
 
     /**
      * 检出到指定提交
      */
-    public void checkout(String resumeId, Long userId, String commitId) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            throw new RuntimeException("简历不存在");
-        }
+    public void checkout(String resumeId, Long userId, String commitId, Long expectedRevision) {
+        write(resumeId, userId, expectedRevision, resume -> {
+            Resume commit = getCommitById(resume, commitId);
 
-        Resume commit = getCommitById(resumeId, userId, commitId);
-        if (commit == null) {
-            throw new RuntimeException("提交不存在: " + commitId);
-        }
+            resume.setHeadCommit(commitId);
+            resume.setContent(commit.getContent());
 
-        resume.setHeadCommit(commitId);
-        resume.setContent(commit.getContent());
+            // 检查是否是某个分支的HEAD
+            String branchName = resume.getBranches().entrySet().stream()
+                    .filter(entry -> entry.getValue().equals(commitId))
+                    .map(Map.Entry::getKey)
+                    .findFirst()
+                    .orElse(null);
 
-        // 检查是否是某个分支的HEAD
-        String branchName = resume.getBranches().entrySet().stream()
-                .filter(entry -> entry.getValue().equals(commitId))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse(null);
+            if (branchName != null) {
+                resume.setCurrentBranch(branchName);
+            } else {
+                // 如果不是任何分支的HEAD，保持当前分支但处于分离HEAD状态
+                log.warn("检出到分离HEAD状态: {}", commitId);
+            }
 
-        if (branchName != null) {
-            resume.setCurrentBranch(branchName);
-        } else {
-            // 如果不是任何分支的HEAD，保持当前分支但处于分离HEAD状态
-            log.warn("检出到分离HEAD状态: {}", commitId);
-        }
-
-        mongoTemplate.save(resume);
+            return null;
+        });
     }
 
     /**
      * 储藏当前更改
      */
-    public void stash(String resumeId, Long userId, String content) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            throw new RuntimeException("简历不存在");
-        }
+    public void stash(String resumeId, Long userId, String content, Long expectedRevision) {
+        write(resumeId, userId, expectedRevision, resume -> {
+            if (resume.getHeadCommit() == null) {
+                throw new RuntimeException("当前分支没有提交历史，无法储藏");
+            }
 
-        if (resume.getHeadCommit() == null) {
-            throw new RuntimeException("当前分支没有提交历史，无法储藏");
-        }
+            Map<String, Object> stashEntry = new HashMap<>();
+            stashEntry.put("message", String.format("WIP on %s: %s",
+                    resume.getCurrentBranch(),
+                    resume.getHeadCommit().substring(0, Math.min(7, resume.getHeadCommit().length()))));
+            stashEntry.put("content", content);
+            stashEntry.put("branch", resume.getCurrentBranch());
+            stashEntry.put("head", resume.getHeadCommit());
+            stashEntry.put("timestamp", new Date());
 
-        Map<String, Object> stashEntry = new HashMap<>();
-        stashEntry.put("message", String.format("WIP on %s: %s",
-                resume.getCurrentBranch(),
-                resume.getHeadCommit().substring(0, Math.min(7, resume.getHeadCommit().length()))));
-        stashEntry.put("content", content);
-        stashEntry.put("branch", resume.getCurrentBranch());
-        stashEntry.put("head", resume.getHeadCommit());
-        stashEntry.put("timestamp", new Date());
-
-        resume.getStashStack().add(0, stashEntry); // 添加到栈顶
-        mongoTemplate.save(resume);
+            resume.getStashStack().add(0, stashEntry); // 添加到栈顶
+            return null;
+        });
     }
 
     /**
      * 弹出储藏
      */
-    public String stashPop(String resumeId, Long userId) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null || resume.getStashStack().isEmpty()) {
-            throw new RuntimeException("没有储藏条目");
-        }
+    public String stashPop(String resumeId, Long userId, Long expectedRevision) {
+        return write(resumeId, userId, expectedRevision, resume -> {
+            if (resume.getStashStack().isEmpty()) {
+                throw new RuntimeException("没有储藏条目");
+            }
 
-        Map<String, Object> stashEntry = resume.getStashStack().remove(0);
-        String content = (String) stashEntry.get("content");
+            Map<String, Object> stashEntry = resume.getStashStack().remove(0);
+            String content = (String) stashEntry.get("content");
 
-        resume.setContent(content);
-        mongoTemplate.save(resume);
+            resume.setContent(content);
 
-        return content;
+            return content;
+        });
     }
 
     /**
      * 重置到指定提交（Hard Reset）
      * 这会将当前分支指针和内容都重置到指定提交
      */
-    public void resetToCommit(String resumeId, Long userId, String commitId) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            throw new RuntimeException("简历不存在");
-        }
+    public void resetToCommit(String resumeId, Long userId, String commitId, Long expectedRevision) {
+        write(resumeId, userId, expectedRevision, resume -> {
+            Resume targetCommit = getCommitById(resume, commitId);
 
-        Resume targetCommit = getCommitById(resumeId, userId, commitId);
-        if (targetCommit == null) {
-            throw new RuntimeException("目标提交不存在: " + commitId);
-        }
+            // 验证目标提交是否在当前分支的历史中
+            if (!isCommitInBranchHistory(resume, commitId)) {
+                throw new RuntimeException("目标提交不在当前分支的历史中，无法重置");
+            }
 
-        // 验证目标提交是否在当前分支的历史中
-        if (!isCommitInBranchHistory(resumeId, userId, resume.getCurrentBranch(), commitId)) {
-            throw new RuntimeException("目标提交不在当前分支的历史中，无法重置");
-        }
+            // 重置分支指针
+            resume.getBranches().put(resume.getCurrentBranch(), commitId);
+            resume.setHeadCommit(commitId);
+            resume.setContent(targetCommit.getContent());
 
-        // 重置分支指针
-        resume.getBranches().put(resume.getCurrentBranch(), commitId);
-        resume.setHeadCommit(commitId);
-        resume.setContent(targetCommit.getContent());
-
-        mongoTemplate.save(resume);
-        log.info("重置分支 {} 到提交 {}", resume.getCurrentBranch(), commitId);
+            log.info("重置分支 {} 到提交 {}", resume.getCurrentBranch(), commitId);
+            return null;
+        });
     }
 
     /**
      * 回滚指定提交（创建一个新提交来撤销指定提交的更改）
      */
-    public String revertCommit(String resumeId, Long userId, String commitId) {
-        log.info("开始回滚操作 - 简历: {}, 用户: {}, 提交: {}", resumeId, userId, commitId);
+    public String revertCommit(String resumeId, Long userId, String commitId, Long expectedRevision) {
+        return write(resumeId, userId, expectedRevision, resume -> {
+            if (resume.getHeadCommit() == null) {
+                throw new BusinessException(400, "HEAD提交为空，无法执行回滚操作");
+            }
 
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            log.error("简历不存在 - resumeId: {}, userId: {}", resumeId, userId);
-            throw new RuntimeException("简历不存在");
-        }
+            Resume targetCommit = getCommitById(resume, commitId);
+            if (targetCommit.getParentCommits().isEmpty()) {
+                throw new BusinessException(400, "无法回滚初始提交，初始提交没有父提交可以回溯到");
+            }
 
-        if (resume.getHeadCommit() == null) {
-            log.error("HEAD提交为空 - resumeId: {}", resumeId);
-            throw new RuntimeException("HEAD提交为空，无法执行回滚操作");
-        }
-
-        Resume targetCommit = getCommitById(resumeId, userId, commitId);
-        if (targetCommit == null) {
-            log.error("要回滚的提交不存在 - commitId: {}", commitId);
-            throw new RuntimeException("要回滚的提交不存在: " + commitId);
-        }
-
-        log.info("找到目标提交 - 消息: {}, 分支: {}, 父提交数量: {}",
-                targetCommit.getMessage(), targetCommit.getBranch(), targetCommit.getParentCommits().size());
-
-        // 检查是否为初始提交
-        if (targetCommit.getParentCommits().isEmpty()) {
-            log.warn("尝试回滚初始提交 - commitId: {}, 消息: {}", commitId, targetCommit.getMessage());
-            throw new RuntimeException("无法回滚初始提交，初始提交没有父提交可以回溯到");
-        }
-
-        String parentCommitId = targetCommit.getParentCommits().get(0);
-        log.info("获取父提交 - parentCommitId: {}", parentCommitId);
-
-        Resume parentCommit = getCommitById(resumeId, userId, parentCommitId);
-        if (parentCommit == null) {
-            log.error("父提交不存在 - parentCommitId: {}, targetCommitId: {}", parentCommitId, commitId);
-            throw new RuntimeException("父提交数据损坏，无法执行回滚操作。父提交ID: " + parentCommitId);
-        }
-
-        log.info("找到父提交 - 消息: {}, 分支: {}", parentCommit.getMessage(), parentCommit.getBranch());
-
-        // 创建回滚提交
-        String revertMessage = String.format("Revert \"%s\"\n\nThis reverts commit %s.",
-                targetCommit.getMessage(), commitId.substring(0, 8));
-
-        List<String> parentCommits = new ArrayList<>();
-        parentCommits.add(resume.getHeadCommit());
-
-        log.info("创建回滚提交 - 当前HEAD: {}, 回滚消息: {}", resume.getHeadCommit(), revertMessage);
-
-        try {
-            String revertCommitId = createCommit(resumeId, userId, revertMessage,
-                    parentCommit.getContent(), resume.getCurrentBranch(), parentCommits, "revert");
-
-            log.info("回滚提交创建成功 - revertCommitId: {}", revertCommitId);
-
-            // 更新分支指针
-            resume.getBranches().put(resume.getCurrentBranch(), revertCommitId);
-            resume.setHeadCommit(revertCommitId);
-            resume.setContent(parentCommit.getContent());
-
-            mongoTemplate.save(resume);
-            log.info("回滚操作完成 - 原提交: {}, 新提交: {}, 分支: {}",
-                    commitId, revertCommitId, resume.getCurrentBranch());
-            return revertCommitId;
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("创建回滚提交失败 - resumeId: {}, commitId: {}, error: {}",
-                    resumeId, commitId, e.getMessage(), e);
-            throw new RuntimeException("创建回滚提交失败: " + e.getMessage(), e);
-        }
+            Resume parent = getCommitById(resume, targetCommit.getParentCommits().get(0));
+            String message = String.format("Revert \"%s\"\n\nThis reverts commit %s.", targetCommit.getMessage(),
+                    commitId.substring(0, Math.min(8, commitId.length())));
+            String newId = stageCommit(resume, message, parent.getContent(), resume.getCurrentBranch(),
+                    List.of(resume.getHeadCommit()), "revert");
+            resume.getBranches().put(resume.getCurrentBranch(), newId);
+            resume.setHeadCommit(newId);
+            resume.setContent(parent.getContent());
+            return newId;
+        });
     }
 
     /**
      * 快速回溯到最近的N次提交
      */
     public List<Resume> getRecentCommits(String resumeId, Long userId, int limit) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null) {
-            throw new RuntimeException("简历不存在");
-        }
+        Resume resume = requireResume(resumeId, userId);
 
         // 从当前HEAD开始获取最近的提交
         List<Resume> recentCommits = new ArrayList<>();
         String currentCommitId = resume.getHeadCommit();
 
         while (currentCommitId != null && recentCommits.size() < limit) {
-            Resume commit = getCommitById(resumeId, userId, currentCommitId);
+            Resume commit = getCommitById(resume, currentCommitId);
             if (commit == null)
                 break;
 
@@ -405,14 +326,15 @@ public class ResumeVersionControlService {
      * 获取指定分支的提交差异
      */
     public List<Resume> getCommitsBetween(String resumeId, Long userId, String fromCommitId, String toCommitId) {
-        getCommitById(resumeId, userId, fromCommitId);
-        getCommitById(resumeId, userId, toCommitId);
+        Resume resume = requireResume(resumeId, userId);
+        getCommitById(resume, fromCommitId);
+        getCommitById(resume, toCommitId);
         List<Resume> commits = new ArrayList<>();
         Set<String> visited = new HashSet<>();
         String currentCommitId = toCommitId;
 
         while (currentCommitId != null && !currentCommitId.equals(fromCommitId) && visited.add(currentCommitId)) {
-            Resume commit = getCommitById(resumeId, userId, currentCommitId);
+            Resume commit = getCommitById(resume, currentCommitId);
             if (commit == null)
                 break;
 
@@ -432,12 +354,8 @@ public class ResumeVersionControlService {
     /**
      * 检查提交是否在指定分支的历史中
      */
-    private boolean isCommitInBranchHistory(String resumeId, Long userId, String branchName, String commitId) {
-        Resume resume = getResumeById(resumeId, userId);
-        if (resume == null)
-            return false;
-
-        String branchHead = resume.getBranches().get(branchName);
+    private boolean isCommitInBranchHistory(Resume resume, String commitId) {
+        String branchHead = resume.getBranches().get(resume.getCurrentBranch());
         if (branchHead == null)
             return false;
 
@@ -451,7 +369,7 @@ public class ResumeVersionControlService {
             }
 
             visited.add(currentCommitId);
-            Resume commit = getCommitById(resumeId, userId, currentCommitId);
+            Resume commit = getCommitById(resume, currentCommitId);
             if (commit == null || commit.getParentCommits().isEmpty()) {
                 break;
             }
@@ -488,17 +406,12 @@ public class ResumeVersionControlService {
         Map<String, Object> debugInfo = new HashMap<>();
 
         try {
-            Resume resume = getResumeById(resumeId, userId);
-            debugInfo.put("resumeExists", resume != null);
-            if (resume != null) {
-                debugInfo.put("currentBranch", resume.getCurrentBranch());
-                debugInfo.put("headCommit", resume.getHeadCommit());
-            } else {
-                debugInfo.put("currentBranch", null);
-                debugInfo.put("headCommit", null);
-            }
+            Resume resume = requireResume(resumeId, userId);
+            debugInfo.put("resumeExists", true);
+            debugInfo.put("currentBranch", resume.getCurrentBranch());
+            debugInfo.put("headCommit", resume.getHeadCommit());
 
-            Resume commit = getCommitById(resumeId, userId, commitId);
+            Resume commit = getCommitById(resume, commitId);
             debugInfo.put("commitExists", commit != null);
 
             if (commit != null) {
@@ -514,7 +427,7 @@ public class ResumeVersionControlService {
                 List<Map<String, Object>> parentInfo = new ArrayList<>();
                 for (String parentId : commit.getParentCommits()) {
                     Map<String, Object> pInfo = new HashMap<>();
-                    Resume parentCommit = getCommitById(resumeId, userId, parentId);
+                    Resume parentCommit = getCommitById(resume, parentId);
                     pInfo.put("parentId", parentId);
                     pInfo.put("parentExists", parentCommit != null);
                     if (parentCommit != null) {
@@ -557,7 +470,7 @@ public class ResumeVersionControlService {
             if (resume.getHeadCommit() == null) {
                 errors.add("HEAD提交为空");
             } else {
-                Resume headCommit = getCommitById(resumeId, userId, resume.getHeadCommit());
+                Resume headCommit = getCommitById(resume, resume.getHeadCommit());
                 if (headCommit == null) {
                     errors.add("HEAD提交不存在: " + resume.getHeadCommit());
                 }
@@ -576,7 +489,7 @@ public class ResumeVersionControlService {
                         continue;
                     }
 
-                    Resume commit = getCommitById(resumeId, userId, commitId);
+                    Resume commit = getCommitById(resume, commitId);
                     if (commit == null) {
                         errors.add("分支 " + branchName + " 的提交不存在: " + commitId);
                     }
@@ -591,7 +504,7 @@ public class ResumeVersionControlService {
             }
 
             // 获取所有提交并检查完整性
-            List<Resume> allCommits = getCommitHistory(resumeId, userId);
+            List<Resume> allCommits = getCommitHistory(resume);
             result.put("totalCommits", allCommits.size());
 
             int orphanCommits = 0;
@@ -600,7 +513,7 @@ public class ResumeVersionControlService {
             for (Resume commit : allCommits) {
                 // 检查父提交是否存在
                 for (String parentId : commit.getParentCommits()) {
-                    Resume parent = getCommitById(resumeId, userId, parentId);
+                    Resume parent = getCommitById(resume, parentId);
                     if (parent == null) {
                         corruptedCommits++;
                         warnings.add("提交 " + commit.getId() + " 的父提交不存在: " + parentId);
@@ -645,101 +558,133 @@ public class ResumeVersionControlService {
         return result;
     }
 
-    /**
-     * 修复重复的提交ID问题
-     */
-    public Map<String, Object> fixDuplicateCommitIds(String resumeId, Long userId) {
-        Map<String, Object> result = new HashMap<>();
-        List<String> actions = new ArrayList<>();
-
-        try {
+    void deleteResume(String resumeId, Long userId, Long expectedRevision) {
+        withLock(resumeId, () -> {
             Resume resume = getResumeById(resumeId, userId);
-            if (resume == null) {
-                throw new RuntimeException("简历不存在");
+            if (resume == null && expectedRevision == null) {
+                return null;
+            }
+            checkRevision(resume, expectedRevision);
+            if (mongoTemplate.remove(atRevision(resume), Resume.class).getDeletedCount() == 0) {
+                throw new ResumeWorkspaceConflictException(requireResume(resumeId, userId));
             }
 
-            // 获取所有提交
-            List<Resume> allCommits = getCommitHistory(resumeId, userId);
-            actions.add("找到 " + allCommits.size() + " 个提交");
+            // Without metadata even already-published snapshots are inaccessible.
+            mongoTemplate.remove(new Query(snapshotOwner(resume).and("doc_type").in(COMMIT, PENDING_COMMIT)),
+                    Resume.class);
+            return null;
+        });
+    }
 
-            // 检查是否有重复ID
-            Map<String, Integer> idCount = new HashMap<>();
-            for (Resume commit : allCommits) {
-                idCount.put(commit.getId(), idCount.getOrDefault(commit.getId(), 0) + 1);
+    private <T> T write(String resumeId, Long userId, Long expectedRevision, Function<Resume, T> operation) {
+        return withLock(resumeId, () -> {
+            Resume resume = requireResume(resumeId, userId);
+            checkRevision(resume, expectedRevision);
+            Query baseline = atRevision(resume);
+            finalizePublishedSnapshot(resume);
+
+            T result = operation.apply(resume);
+            resume.setWorkspaceRevision(Math.incrementExact(resume.getWorkspaceRevision()));
+            resume.setUpdatedAt(new Date());
+            Update change = new Update()
+                    .set("workspaceRevision", resume.getWorkspaceRevision())
+                    .set("publishedCommitId", resume.getPublishedCommitId())
+                    .set("title", resume.getTitle())
+                    .set("content", resume.getContent())
+                    .set("currentBranch", resume.getCurrentBranch())
+                    .set("headCommit", resume.getHeadCommit())
+                    .set("branches", resume.getBranches())
+                    .set("stashStack", resume.getStashStack())
+                    .set("updatedAt", resume.getUpdatedAt());
+            if (mongoTemplate.updateFirst(baseline, change, Resume.class).getMatchedCount() == 0) {
+                throw new ResumeWorkspaceConflictException(requireResume(resumeId, userId));
             }
+            return result;
+        });
+    }
 
-            List<String> duplicateIds = idCount.entrySet().stream()
-                    .filter(entry -> entry.getValue() > 1)
-                    .map(Map.Entry::getKey)
-                    .collect(Collectors.toList());
-
-            if (duplicateIds.isEmpty()) {
-                result.put("success", true);
-                result.put("message", "没有发现重复的提交ID");
-                result.put("actions", actions);
-                return result;
-            }
-
-            actions.add("发现重复ID: " + duplicateIds);
-
-            // 删除所有旧的提交
-            Query deleteQuery = new Query(Criteria.where("resume_id").is(resumeId).and("user_id").is(userId));
-            long deletedCount = mongoTemplate.remove(deleteQuery, Resume.class).getDeletedCount();
-            actions.add("删除了 " + deletedCount + " 个重复提交");
-
-            // 重新创建初始提交
-            String initialContent = resume.getContent() != null ? resume.getContent() : "# 新建简历\n\n在此处开始编辑...";
-            String initialCommitId = createCommit(resumeId, userId, "Initial commit",
-                    initialContent, "main", new ArrayList<>(), "normal");
-            actions.add("创建新的初始提交: " + initialCommitId);
-
-            // 更新简历的版本控制信息
-            resume.setCurrentBranch("main");
-            resume.setHeadCommit(initialCommitId);
-            resume.setRepositoryId(UUID.randomUUID().toString());
-            resume.getBranches().clear();
-            resume.getBranches().put("main", initialCommitId);
-            resume.getStashStack().clear();
-
-            mongoTemplate.save(resume);
-            actions.add("更新了简历的版本控制状态");
-
-            result.put("success", true);
-            result.put("message", "成功修复重复ID问题");
-            result.put("actions", actions);
-            result.put("initialCommitId", initialCommitId);
-            result.put("duplicateIdsCount", duplicateIds.size());
-
-            log.info("🔧 修复重复ID完成 - 简历: {}, 重复ID数量: {}, 新初始提交: {}",
-                    resumeId, duplicateIds.size(), initialCommitId);
-
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            result.put("success", false);
-            result.put("error", e.getMessage());
-            result.put("actions", actions);
-            log.error("修复重复ID失败", e);
+    private <T> T withLock(String resumeId, Supplier<T> operation) {
+        RedisLockKeyEnum config = RedisLockKeyEnum.RESUME_WORKSPACE_LOCK_KEY;
+        String key = config.getKey() + resumeId;
+        if (!redisLockUtil.tryLock(key, config.getWaitTime(), config.getLeaseTime(), config.getTimeUnit())) {
+            throw new BusinessException(503, "简历工作区暂不可写，请稍后重试");
         }
-
-        return result;
+        try {
+            return operation.get();
+        } finally {
+            redisLockUtil.unlock(key);
+        }
     }
 
-    // 辅助方法
+    private static void checkRevision(Resume resume, Long expectedRevision) {
+        if (resume == null) {
+            throw new BusinessException(404, "简历不存在");
+        }
+        if (expectedRevision != null && expectedRevision < 0) {
+            throw new BusinessException(400, "workspaceRevision 必须是非负整数");
+        }
+        if (expectedRevision != null && expectedRevision != resume.getWorkspaceRevision()) {
+            throw new ResumeWorkspaceConflictException(resume);
+        }
+    }
+
+    private static Criteria ownedResume(String resumeId, Long userId) {
+        return Criteria.where("id").is(resumeId).and("userId").is(userId).and("doc_type").is("meta");
+    }
+
+    private static Query atRevision(Resume resume) {
+        Criteria owner = ownedResume(resume.getId(), resume.getUserId());
+        Criteria revision = Criteria.where("workspaceRevision").is(resume.getWorkspaceRevision());
+        if (resume.getWorkspaceRevision() == 0) {
+            owner.andOperator(new Criteria().orOperator(revision, Criteria.where("workspaceRevision").exists(false)));
+        } else {
+            owner.andOperator(revision);
+        }
+        return new Query(owner);
+    }
+
     private Resume getResumeById(String resumeId, Long userId) {
-        Query query = new Query(Criteria.where("id").is(resumeId)
-                .and("userId").is(userId)
-                .and("doc_type").is("meta"));
-        return mongoTemplate.findOne(query, Resume.class);
+        return mongoTemplate.findOne(new Query(ownedResume(resumeId, userId)), Resume.class);
     }
 
-    private Resume getCommitById(String resumeId, Long userId, String commitId) {
-        Query query = new Query(Criteria.where("_id").is(commitId).and("doc_type").is("commit")
-                .and("resume_id").is(resumeId).and("user_id").is(userId));
+    private Resume requireResume(String resumeId, Long userId) {
+        Resume resume = getResumeById(resumeId, userId);
+        if (resume == null) {
+            throw new BusinessException(404, "简历不存在");
+        }
+        return resume;
+    }
+
+    private static Criteria snapshotOwner(Resume resume) {
+        return Criteria.where("resume_id").is(resume.getId()).and("user_id").is(resume.getUserId());
+    }
+
+    private static Criteria visibleSnapshot(Resume resume) {
+        Criteria committed = Criteria.where("doc_type").is(COMMIT);
+        if (resume.getPublishedCommitId() == null) {
+            return committed;
+        }
+        return new Criteria().orOperator(committed,
+                Criteria.where("doc_type").is(PENDING_COMMIT).and("_id").is(resume.getPublishedCommitId()));
+    }
+
+    private void finalizePublishedSnapshot(Resume resume) {
+        String published = resume.getPublishedCommitId();
+        if (published != null) {
+            // Keep the previous winner visible before its publication pointer is replaced.
+            Query query = new Query(snapshotOwner(resume).and("_id").is(published).and("doc_type").is(PENDING_COMMIT));
+            mongoTemplate.updateFirst(query, new Update().set("doc_type", COMMIT), Resume.class);
+            resume.setPublishedCommitId(null);
+        }
+    }
+
+    private Resume getCommitById(Resume resume, String commitId) {
+        Query query = new Query(snapshotOwner(resume).and("_id").is(commitId).andOperator(visibleSnapshot(resume)));
         Resume commit = mongoTemplate.findOne(query, Resume.class);
         if (commit == null) {
             throw new BusinessException(404, "提交不存在");
         }
+        commit.setDocType(COMMIT);
         return commit;
     }
 

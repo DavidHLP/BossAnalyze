@@ -1,15 +1,18 @@
 import request from '@/utils/request/request'
 import { requireMutationSuccess } from '@/lib/rbac-mutations'
+import type { ResumeThemeId } from '@/lib/resume-theme'
 
 export interface ResumeRecord {
   id: string
   userId: number
   title: string
   content: string | null
-  createdAt?: string
-  updatedAt?: string
+  createdAt?: string | number
+  updatedAt?: string | number
   currentBranch?: string
   headCommit?: string | null
+  workspaceRevision?: number
+  themeId?: ResumeThemeId
   branches?: Record<string, string | null>
   stashStack?: unknown[]
 }
@@ -22,7 +25,7 @@ export interface ResumeCommit {
   commitType?: string
   parentCommits?: string[]
   author?: string
-  commitTime?: string
+  commitTime?: string | number
 }
 
 export interface ResumeValidation {
@@ -41,7 +44,7 @@ type ResumeWrite =
   | ['merge', { source: string; target: string }]
   | ['checkout' | 'reset' | 'revert', { commitId: string }]
   | ['stash', { content: string }]
-  | ['stash/pop' | 'fix-duplicate-ids']
+  | ['stash/pop', undefined]
 
 function resource(id: string) {
   if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('Invalid resume ID')
@@ -68,6 +71,13 @@ export async function getResume(id: string) {
   return record(await request.get(resource(id)))
 }
 
+export async function updateResumeAppearance(id: string, themeId: ResumeThemeId) {
+  const result: unknown = await request.patch(resource(id) + '/appearance', { themeId })
+  if (!result || typeof result !== 'object' || !('themeId' in result) || result.themeId !== themeId) {
+    throw new Error('简历主题未确认')
+  }
+}
+
 function writtenRecord(value: unknown) {
   if (value && typeof value === 'object' && 'code' in value) requireMutationSuccess(value)
   try {
@@ -77,8 +87,8 @@ function writtenRecord(value: unknown) {
   }
 }
 
-export async function createResume(title: string) {
-  return writtenRecord(await request.post('/api/resume', { title, content: '# ' + title + '\n' }))
+export async function createResume(title: string, content: string) {
+  return writtenRecord(await request.post('/api/resume', { title, content }))
 }
 
 export async function renameResume(id: string, title: string) {
@@ -111,13 +121,12 @@ export function inspectCommit(id: string, commitId: string) {
   )
 }
 
-export async function changeResumeVersion(id: string, ...[action, data]: ResumeWrite) {
-  const result: unknown = await request.post(resource(id) + '/version/' + action, data)
-  if (action === 'fix-duplicate-ids') {
-    if (!result || typeof result !== 'object' || !('success' in result) || result.success !== true) {
-      throw new Error('Repair was not confirmed')
-    }
-  } else if (action === 'commit' || action === 'merge' || action === 'revert') {
+export async function changeResumeVersion(id: string, ...[action, data, workspaceRevision]: [...ResumeWrite, number?]) {
+  const body = workspaceRevision === undefined
+    ? data
+    : { ...((data ?? {}) as Record<string, unknown>), workspaceRevision: String(workspaceRevision) }
+  const result: unknown = await request.post(resource(id) + '/version/' + action, body)
+  if (action === 'commit' || action === 'merge' || action === 'revert') {
     if (typeof result !== 'string' || !result.trim()) throw new Error('Missing commit ID')
   } else if (action === 'stash/pop') {
     if (typeof result === 'string') return result

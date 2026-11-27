@@ -50,23 +50,39 @@ public class ResumeController extends BaseController {
     }
 
     @PutMapping("/{id}")
-    public Result<Resume> updateResume(@PathVariable String id, @RequestBody Resume resume) {
+    public Result<Resume> updateResume(@PathVariable String id, @RequestBody UpdateRequest resume) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
-        Resume updatedResume = resumeService.updateResume(id, resume, userId);
-        return updatedResume != null ? Result.success(updatedResume)
-                : Result.error(HttpStatus.NOT_FOUND.value(), "简历不存在");
+        return Result.success(resumeService.updateResume(id, userId, resume.title(), resume.content(),
+                ResumeVersionController.parseWorkspaceRevision(resume.workspaceRevision())));
     }
 
-    @DeleteMapping("/{id}")
-    public Result<Void> deleteResume(@PathVariable String id) {
+    public record UpdateRequest(String title, String content, String workspaceRevision) {}
+
+    @PatchMapping("/{id}/appearance")
+    public Result<Appearance> updateAppearance(@PathVariable String id, @RequestBody Appearance appearance) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
-        resumeService.deleteResume(id, userId);
+        if (!resumeService.updateAppearance(id, userId, appearance.themeId())) {
+            return Result.error(HttpStatus.FORBIDDEN.value(), "无权修改此简历的外观");
+        }
+        return Result.success(appearance);
+    }
+
+    public record Appearance(String themeId) {}
+
+    @DeleteMapping("/{id}")
+    public Result<Void> deleteResume(@PathVariable String id,
+            @RequestParam(required = false) Long workspaceRevision) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
+        }
+        resumeService.deleteResume(id, userId, workspaceRevision);
         return Result.success(null);
     }
 }

@@ -52,6 +52,7 @@ async function editor(t, { content = '# 已提交正文', mobile = false, colorS
   const path = '/resumes/' + resume.id
   const resource = '/api/resume/' + resume.id
   await page.goto(path + '/edit')
+  await page.getByRole('button', { name: '高级 Markdown' }).click()
   const body = page.getByRole('textbox', { name: '简历正文' })
   await body.waitFor()
   return { page, body, path, resume, resource, api }
@@ -63,6 +64,107 @@ async function shot(page, name) {
   }
 }
 
+test('resume themes roll back on failure and match the saved preview, HTML and print layout', async t => {
+  const { page, resource, resume } = await editor(t, {
+    content: '# 陈小明\n\n## 经历\n\n正文 [作品](https://example.invalid)\n\n---',
+  })
+  await page.setViewportSize({ width: 1920, height: 960 })
+  const preview = page.getByRole('article', { name: '简历预览' })
+  const themes = page.getByRole('group', { name: '简历主题' })
+  const modern = themes.getByRole('button', { name: '现代' })
+  const basic = themes.getByRole('button', { name: '简洁' })
+  const fail = Promise.withResolvers()
+  let savedTheme
+  let requests = 0
+  t.after(() => fail.resolve())
+  await page.route('**' + resource + '/appearance', async route => {
+    assert.equal(route.request().method(), 'PATCH')
+    assert.deepEqual(route.request().postDataJSON(), { themeId: 'modern' })
+    if (++requests === 1) {
+      await fail.promise
+      return route.fulfill({ status: 503, json: { code: 503 } })
+    }
+    savedTheme = 'modern'
+    return route.fulfill({ json: { code: 200, data: { themeId: savedTheme } } })
+  })
+  await page.route('**' + resource, route => route.fulfill({
+    json: { code: 200, data: { ...resume, themeId: savedTheme } },
+  }))
+  await page.route('**' + resource + '/version/history', route => route.fulfill({
+    json: { code: 200, data: [{ id: 'snapshot', content: resume.content, message: '测试版本' }] },
+  }))
+
+  await modern.click()
+  assert.equal(await modern.getAttribute('aria-pressed'), 'true')
+  assert.equal(await basic.isDisabled(), true)
+  assert.equal(await preview.getAttribute('data-resume-theme'), 'modern')
+  fail.resolve()
+  await page.getByRole('alert').filter({ hasText: /主题保存失败/ }).waitFor()
+  assert.equal(requests, 1)
+  assert.equal(await basic.getAttribute('aria-pressed'), 'true')
+  assert.equal(await preview.getAttribute('data-resume-theme'), null)
+
+  const saved = page.waitForResponse(response => response.url().endsWith(resource + '/appearance'))
+  await modern.click()
+  assert.equal((await saved).ok(), true)
+  assert.equal(requests, 2)
+  await page.reload()
+  await preview.waitFor()
+  assert.equal(await modern.getAttribute('aria-pressed'), 'true')
+
+  const layout = article => article.evaluate(element => {
+    const body = getComputedStyle(element)
+    const title = getComputedStyle(element.querySelector('h1'))
+    const section = getComputedStyle(element.querySelector('h2'))
+    return {
+      width: Math.round(parseFloat(body.width)), bodySize: body.fontSize, bodyLineHeight: body.lineHeight,
+      titleSize: title.fontSize, titleWeight: title.fontWeight,
+      headingColor: title.color, sectionTop: section.marginTop, sectionRule: section.borderBottomColor,
+      sectionRuleWidth: Math.round(parseFloat(section.borderBottomWidth)),
+      linkColor: getComputedStyle(element.querySelector('a')).color,
+    }
+  })
+  const expected = await layout(preview)
+  assert.equal(expected.width, 673)
+  assert.equal(Math.round(parseFloat(expected.bodySize)), 15)
+  assert.equal(expected.titleWeight, '700')
+  assert.equal(expected.headingColor, 'rgb(25, 79, 107)')
+  assert.equal(expected.sectionRuleWidth, 1)
+
+  await page.getByRole('button', { name: '导出', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '导出简历' })
+  const downloaded = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: '下载 HTML' }).click()
+  const html = await readFile(await (await downloaded).path(), 'utf8')
+  const exportPage = await page.context().newPage()
+  await exportPage.setContent(html)
+  assert.deepEqual(await layout(exportPage.locator('article')), expected)
+
+  await page.evaluate(() => {
+    const append = document.body.append.bind(document.body)
+    document.body.append = (...nodes) => {
+      for (const node of nodes) {
+        if (node instanceof HTMLIFrameElement && node.title === '简历打印视图') {
+          window.resumePrintHtml = node.srcdoc
+        }
+      }
+      append(...nodes)
+    }
+  })
+  await dialog.getByRole('button', { name: '打印 / 另存为 PDF' }).click()
+  const printHtml = await page.evaluate(() => window.resumePrintHtml)
+  assert.equal(printHtml, html)
+  await exportPage.setContent(printHtml)
+  await exportPage.emulateMedia({ media: 'print' })
+  assert.deepEqual(await layout(exportPage.locator('article')), expected)
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('link', { name: '版本历史' }).click()
+  await page.getByRole('button', { name: '测试版本' }).click()
+  await preview.waitFor()
+  assert.equal(await preview.getAttribute('data-resume-theme'), 'modern')
+})
+
 test('a rejected LaTeX download locates the formula in the mobile Markdown editor', async t => {
   const formula = '$x%$'
   const prefix = '# 公式验收\r\n' + '用于滚动核验的正文\r\n'.repeat(40) + '中文😀 '
@@ -70,7 +172,7 @@ test('a rejected LaTeX download locates the formula in the mobile Markdown edito
   await page.getByRole('button', { name: '预览', exact: true }).click()
   const downloads = []
   page.on('download', download => downloads.push(download.suggestedFilename()))
-  await page.getByRole('button', { name: '导出简历' }).click()
+  await page.getByRole('button', { name: '导出', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '导出简历' })
   await dialog.getByRole('button', { name: '下载 LaTeX (.tex)', exact: true }).click()
   const diagnostic = dialog.getByText('第 42 行第 6 列', { exact: true })
@@ -120,8 +222,9 @@ test('finishing a stash clears diagnostics and cancels HTML for the replaced dra
   const requested = page.waitForRequest(katexChunk)
   await body.fill('# 储藏草稿\n\n中文 $x%$')
   await requested
-  await page.getByRole('button', { name: '储藏', exact: true }).click()
-  await page.getByRole('button', { name: '导出简历' }).click()
+  await page.getByRole('button', { name: '更多', exact: true }).click()
+  await page.getByRole('menuitem', { name: '暂存草稿', exact: true }).click()
+  await page.getByRole('button', { name: '导出', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '导出简历' })
   const locate = dialog.getByRole('button', { name: '定位到公式' })
   const html = dialog.getByRole('button', { name: '下载 HTML' })
@@ -131,7 +234,7 @@ test('finishing a stash clears diagnostics and cancels HTML for the replaced dra
   assert.equal(await html.isDisabled(), true)
 
   releaseStash.resolve()
-  await page.getByText('草稿已储藏，可在版本历史中取回。', { exact: true }).waitFor()
+  await page.getByText('草稿已暂存，可在版本历史中取回。', { exact: true }).waitFor()
   assert.equal(await dialog.isVisible(), true)
   assert.equal(await locate.count(), 0)
   assert.equal(await html.isEnabled(), true)
@@ -150,7 +253,7 @@ test('local HTML and print wait for MathML and closing the dialog cancels the pe
   const { page, body, resume } = await editor(t)
   const requests = []
   page.on('request', request => { if (katexChunk.test(request.url())) requests.push(request.url()) })
-  const openExport = page.getByRole('button', { name: '导出简历' })
+  const openExport = page.getByRole('button', { name: '导出', exact: true })
   const dialog = page.getByRole('dialog', { name: '导出简历' })
   const html = dialog.getByRole('button', { name: '下载 HTML' })
   const print = dialog.getByRole('button', { name: '打印 / 另存为 PDF' })
@@ -215,7 +318,7 @@ test('a failed math chunk allows an explicit HTML download with formula source',
   const { page, body, resume } = await editor(t)
   await page.route(katexChunk, route => route.abort())
   await body.fill('速度 $a_1$')
-  await page.getByRole('button', { name: '导出简历' }).click()
+  await page.getByRole('button', { name: '导出', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '导出简历' })
   const downloads = []
   page.on('download', download => downloads.push(download.suggestedFilename()))
@@ -228,6 +331,72 @@ test('a failed math chunk allows an explicit HTML download with formula source',
   assert.ok(!html.includes('<math'))
   assert.deepEqual(downloads, [resume.title + '.html'])
 })
+
+for (const mobile of [false, true]) {
+  test('Word export lazy-loads, cancels and retries locally on ' + (mobile ? 'mobile' : 'desktop'), {
+    skip: process.env.VITE_RESUME_DOCX_EXPORT !== 'true' && 'Enable Word export on the isolated QA frontend',
+  }, async t => {
+    const { page, resume } = await editor(t, {
+      content: '# 陈小明\n\n- 负责项目',
+      mobile,
+      colorScheme: mobile ? 'dark' : 'light',
+    })
+    const chunk = /\/resume-docx-worker(?:-[^/?]+)?\.(?:ts|js)(?:\?|$)/
+    const release = Promise.withResolvers()
+    t.after(() => release.resolve())
+    const requests = []
+    page.on('request', request => requests.push(request.url()))
+    const downloads = []
+    page.on('download', download => downloads.push(download.suggestedFilename()))
+    const origin = new URL(baseURL).origin
+    await page.getByRole('button', { name: '导出', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '导出简历' })
+    await dialog.getByText(/表格逐行转为文字.*图片保留文字占位.*公式保留源码/).waitFor()
+    assert.equal(await page.evaluate(pattern => performance.getEntriesByType('resource')
+      .some(entry => new RegExp(pattern).test(entry.name)), String.raw`/(?:resume-docx(?:-worker)?|docx)[-.]`), false)
+
+    await page.route(chunk, async route => {
+      await release.promise
+      await route.continue()
+    })
+    const word = dialog.getByRole('button', { name: '导出 Word (.docx)', exact: true })
+    const firstRequest = page.waitForRequest(chunk)
+    await word.press('Enter')
+    await firstRequest
+    await dialog.getByRole('button', { name: '取消 Word 导出' }).click()
+    assert.equal(await word.isEnabled(), true)
+    assert.equal(await word.evaluate(button => button === document.activeElement), true)
+    release.resolve()
+
+    // Simulate a browser download handoff failure after generation.
+    await page.evaluate(() => {
+      const create = URL.createObjectURL
+      URL.createObjectURL = blob => {
+        if (blob.type.endsWith('wordprocessingml.document')) {
+          URL.createObjectURL = create
+          throw new Error('Simulated download failure')
+        }
+        return create(blob)
+      }
+    })
+    await word.click()
+    await dialog.getByRole('alert').getByText(/Word 导出失败/).waitFor()
+    assert.deepEqual(downloads, [])
+    const downloaded = page.waitForEvent('download')
+    await word.click()
+    const file = await downloaded
+    assert.equal(file.suggestedFilename(), resume.title + '.docx')
+    const bytes = await readFile(await file.path())
+    assert.equal(bytes.subarray(0, 4).toString('hex'), '504b0304')
+    assert.deepEqual(downloads, [resume.title + '.docx'])
+    assert.ok(requests.some(url => chunk.test(url)))
+    assert.deepEqual(requests.filter(url => {
+      const resource = new URL(url)
+      return resource.origin !== origin || resource.pathname.startsWith('/api/')
+    }), [])
+    await shot(page, mobile ? 'resume-word-mobile' : 'resume-word-desktop')
+  })
+}
 
 for (const activation of ['desktop pointer', 'desktop keyboard', 'mobile viewport']) {
   test('native undo removes only toolbar bold with ' + activation, async t => {
@@ -251,6 +420,23 @@ for (const activation of ['desktop pointer', 'desktop keyboard', 'mobile viewpor
     if (activation !== 'desktop keyboard') await shot(page, mobile ? 'undo-mobile' : 'undo-desktop')
   })
 }
+
+test('the mobile action bar keeps save reachable after scrolling to the end of a long draft', async t => {
+  const { page, body } = await editor(t, { mobile: true })
+  await body.fill('# 长文\n\n' + '正文段落\n\n'.repeat(200))
+  await body.evaluate(input => {
+    window.scrollTo(0, document.documentElement.scrollHeight)
+    input.scrollTop = input.scrollHeight
+  })
+  const save = page.getByRole('button', { name: '保存', exact: true })
+  await save.waitFor()
+  const box = await save.boundingBox()
+  assert.ok(box, 'save button is rendered')
+  assert.ok(box.y >= 0 && box.y + box.height <= 844, 'save stays inside the mobile viewport')
+  assert.equal(await save.isEnabled(), true)
+  await save.focus()
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), '保存')
+})
 
 test('inserting an image from mobile preview returns to the editor and preserves native undo', async t => {
   const { page, body, resume } = await editor(t, { mobile: true })
@@ -276,8 +462,9 @@ test('a popped stash can be committed after refresh while HEAD still points to V
   const recovered = '# 从储藏恢复的 V2'
   await api('POST', resource + '/version/stash', { content: recovered })
   await page.getByRole('link', { name: '版本历史' }).click()
-  await page.getByRole('button', { name: '弹出最新储藏', exact: true }).click()
-  await page.getByRole('dialog').getByRole('button', { name: '弹出最新储藏' }).click()
+  await page.getByRole('button', { name: '高级版本操作' }).click()
+  await page.getByRole('button', { name: '取回最近暂存', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: '取回最近暂存' }).click()
   await page.waitForURL(path + '/edit')
   await body.waitFor()
   assert.equal(await body.inputValue(), recovered)
@@ -287,7 +474,7 @@ test('a popped stash can be committed after refresh while HEAD still points to V
   await page.reload()
   await body.waitFor()
   assert.equal(await body.inputValue(), recovered)
-  const save = page.getByRole('button', { name: '保存并提交' })
+  const save = page.getByRole('button', { name: '保存', exact: true })
   assert.equal(await save.isDisabled(), true)
   await page.getByRole('button', { name: '重新读取', exact: true }).click({ timeout: 2500 })
   assert.equal(await body.inputValue(), recovered)
@@ -295,14 +482,14 @@ test('a popped stash can be committed after refresh while HEAD still points to V
   assert.equal(workspace.content, recovered)
   assert.equal(workspace.headCommit, resume.headCommit)
   assert.equal(workspace.stashStack.length, 0)
-  await page.getByText('已恢复到工作区，尚未提交').waitFor()
-  await page.getByText('HEAD ' + resume.headCommit.slice(0, 8)).waitFor()
+  await page.getByText('已恢复到编辑区，尚未保存').waitFor()
+  await page.getByText('当前版本 ' + resume.headCommit.slice(0, 8)).waitFor()
   assert.equal(await save.isEnabled(), true)
-  assert.equal(await page.getByRole('textbox', { name: '提交备注' }).inputValue(), '')
+  assert.equal(await page.getByRole('textbox', { name: '修改说明（可选）' }).inputValue(), '')
   await shot(page, 'stash-recovered-after-refresh')
 
   await save.click()
-  await page.getByText('简历已保存并提交。').waitFor()
+  await page.getByText('简历已保存。', { exact: true }).waitFor()
   await page.reload()
   await page.getByRole('link', { name: '版本历史' }).click()
   await page.getByText('更新简历', { exact: true }).waitFor()
@@ -317,14 +504,15 @@ test('the stash stack offers to add the current workspace text even when it cont
   const { page, resume, resource, api } = await editor(t)
   await api('POST', resource + '/version/stash', { content: '# 旧储藏正文' })
   await page.getByRole('link', { name: '版本历史' }).click()
-  await page.getByText('已储藏 1 项').waitFor()
-  await page.getByRole('button', { name: '新增储藏', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: '新增储藏' })
-  await dialog.getByText(/当前工作区正文/).waitFor()
-  assert.equal(await dialog.getByRole('textbox', { name: '要储藏的正文' }).inputValue(), resume.content)
+  await page.getByRole('button', { name: '高级版本操作' }).click()
+  await page.getByText('已暂存 1 项').waitFor()
+  await page.getByRole('button', { name: '暂存当前正文', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '暂存草稿' })
+  await dialog.getByText(/当前编辑区正文/).waitFor()
+  assert.equal(await dialog.getByRole('textbox', { name: '要暂存的正文' }).inputValue(), resume.content)
   await shot(page, 'stash-create-workspace')
-  await dialog.getByRole('button', { name: '新增储藏' }).click()
-  await page.getByText('已储藏 2 项').waitFor()
+  await dialog.getByRole('button', { name: '暂存草稿' }).click()
+  await page.getByText('已暂存 2 项').waitFor()
   const workspace = await api('GET', resource)
   assert.equal(workspace.headCommit, resume.headCommit)
   assert.deepEqual(workspace.stashStack.map(entry => entry.content), [resume.content, '# 旧储藏正文'])
@@ -336,7 +524,7 @@ for (const applied of [false, true]) {
     const { page, body, path, resume, resource, api } = await editor(t)
     const draft = '# 等待核对的草稿'
     const remark = '核对专用提交备注'
-    const note = page.getByRole('textbox', { name: '提交备注' })
+    const note = page.getByRole('textbox', { name: '修改说明（可选）' })
     await body.fill(draft)
     await note.fill(remark)
     await page.route('**' + resource + '/version/commit', async route => {
@@ -352,7 +540,7 @@ for (const applied of [false, true]) {
       nativeDialogs.push(dialog.type())
       await dialog.dismiss()
     })
-    await page.getByRole('button', { name: '保存并提交' }).click()
+    await page.getByRole('button', { name: '保存', exact: true }).click()
     const alert = page.getByRole('alert').filter({ hasText: /结果未确认/ })
     await alert.waitFor()
     const requests = []
@@ -365,7 +553,7 @@ for (const applied of [false, true]) {
     await check.click()
     const dialog = page.getByRole('dialog', { name: '核对最新版本' })
     const [latest] = await api('GET', resource + '/version/history')
-    await dialog.getByText('HEAD ' + latest.id.slice(0, 8)).waitFor()
+    await dialog.getByText('当前版本 ' + latest.id.slice(0, 8)).waitFor()
     await dialog.getByText(latest.message, { exact: true }).waitFor()
     await dialog.getByText(applied ? draft : resume.content, { exact: true }).waitFor()
     assert.equal(requests.length > 0 && requests.every(([method]) => method === 'GET'), true)
@@ -378,8 +566,8 @@ for (const applied of [false, true]) {
     assert.equal(await note.inputValue(), remark)
     assert.deepEqual(nativeDialogs, [])
     if (!applied) {
-      await page.getByRole('button', { name: '保存并提交' }).click()
-      await page.getByText('简历已保存并提交。').waitFor()
+      await page.getByRole('button', { name: '保存', exact: true }).click()
+      await page.getByText('简历已保存。', { exact: true }).waitFor()
     }
     const history = await api('GET', resource + '/version/history')
     assert.equal(history.length, 2)
@@ -440,7 +628,7 @@ test('continuing editing retains the caret and scroll, and only discarding leave
   await page.getByRole('link', { name: '返回编辑器' }).click()
   await body.waitFor()
   assert.equal(await body.inputValue(), resume.content)
-  await page.getByText('工作区正文对应当前 HEAD').waitFor()
+  await page.getByText('编辑区正文对应当前版本').waitFor()
   await shot(page, 'leave-draft-reopened')
 })
 
@@ -448,13 +636,13 @@ test('the leave dialog can stash the draft in place and keep its unsaved note', 
   const { page, body, path, resume, resource, api } = await editor(t)
   const draft = '# 从离开确认中储藏的正文'
   const remark = '备注仍在编辑页'
-  const note = page.getByRole('textbox', { name: '提交备注' })
+  const note = page.getByRole('textbox', { name: '修改说明（可选）' })
   await body.fill(draft)
   await note.fill(remark)
   await page.getByRole('link', { name: '版本历史' }).click()
   const dialog = page.getByRole('dialog', { name: '丢弃未保存的更改？' })
-  await dialog.getByRole('button', { name: '储藏正文' }).click()
-  await page.getByText('草稿已储藏，可在版本历史中取回。').waitFor()
+  await dialog.getByRole('button', { name: '暂存正文' }).click()
+  await page.getByText('草稿已暂存，可在版本历史中取回。').waitFor()
   assert.equal(new URL(page.url()).pathname, path + '/edit')
   assert.equal(await note.inputValue(), remark)
   assert.equal(await body.inputValue(), resume.content)

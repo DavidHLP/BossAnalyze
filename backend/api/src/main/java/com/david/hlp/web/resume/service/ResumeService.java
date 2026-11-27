@@ -1,24 +1,21 @@
 package com.david.hlp.web.resume.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.stereotype.Service;
+import com.david.hlp.web.common.exception.BusinessException;
 import com.david.hlp.web.resume.entity.Resume;
+import lombok.RequiredArgsConstructor;
+import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
-import java.util.ArrayList;
-import java.util.UUID;
 
 /**
  * 简历服务类，处理简历的CRUD操作
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ResumeService {
@@ -32,12 +29,24 @@ public class ResumeService {
     }
 
     public Resume getResumeById(String id, Long userId) {
-        Query query = new Query(Criteria.where("id").is(id).and("userId").is(userId).and("docType").is("meta"));
-        return mongoTemplate.findOne(query, Resume.class);
+        return mongoTemplate.findOne(ownedResume(id, userId), Resume.class);
+    }
+
+    public boolean updateAppearance(String id, Long userId, String themeId) {
+        if (!"basic".equals(themeId) && !"modern".equals(themeId)) {
+            throw new BusinessException("themeId 必须是 basic 或 modern");
+        }
+        return mongoTemplate.updateFirst(ownedResume(id, userId), new Update().set("themeId", themeId), Resume.class)
+                .getMatchedCount() > 0;
+    }
+
+    private static Query ownedResume(String id, Long userId) {
+        return new Query(Criteria.where("id").is(id).and("userId").is(userId).and("docType").is("meta"));
     }
 
     public Resume createResume(Resume request, Long userId) {
         Resume resume = new Resume();
+        resume.setId(new ObjectId().toHexString());
         resume.setTitle(request.getTitle());
         resume.setContent(request.getContent());
         resume.setDocType("meta");
@@ -46,59 +55,18 @@ public class ResumeService {
         resume.setUpdatedAt(new Date());
 
         // 自动初始化版本控制
-        String initialContent = resume.getContent() != null ? resume.getContent() : "# 新建简历\n\n在此处开始编辑...";
-        if (resume.getContent() == null)
-            resume.setContent(initialContent);
+        if (resume.getContent() == null) {
+            resume.setContent("# 新建简历\n\n在此处开始编辑...");
+        }
 
-        // 先保存一次以获取ID
-        mongoTemplate.insert(resume);
-
-        // 创建初始提交
-        String initialCommitId = versionControlService.createCommit(
-                resume.getId(),
-                userId,
-                "Initial commit",
-                initialContent,
-                "main",
-                new ArrayList<>(),
-                "normal");
-
-        // 更新简历的版本控制元数据
-        resume.setCurrentBranch("main");
-        resume.setHeadCommit(initialCommitId);
-        resume.setRepositoryId(UUID.randomUUID().toString());
-        resume.getBranches().put("main", initialCommitId);
-
-        return mongoTemplate.save(resume);
+        return versionControlService.initialize(resume);
     }
 
-    public Resume updateResume(String id, Resume resumeDetails, Long userId) {
-        Resume existingResume = getResumeById(id, userId);
-        if (existingResume == null) {
-            return null; // or throw exception
-        }
-        String newContent = resumeDetails.getContent() != null ? resumeDetails.getContent() : existingResume.getContent();
-        existingResume.setUpdatedAt(new Date());
-
-        String message = "Updated via basic save";
-        versionControlService.commit(id, userId, message, newContent);
-        if (resumeDetails.getTitle() != null) {
-            Query query = new Query(Criteria.where("id").is(id).and("userId").is(userId).and("docType").is("meta"));
-            mongoTemplate.updateFirst(query, new Update().set("title", resumeDetails.getTitle()), Resume.class);
-        }
-
-        return getResumeById(id, userId);
+    public Resume updateResume(String id, Long userId, String title, String content, Long expectedRevision) {
+        return versionControlService.updateResume(id, userId, title, content, expectedRevision);
     }
 
-    public void deleteResume(String id, Long userId) {
-        Resume existingResume = getResumeById(id, userId);
-        if (existingResume != null) {
-            // 同时删除所有关联的commit
-            Query commitsQuery = new Query(Criteria.where("resume_id").is(id).and("user_id").is(userId).and("doc_type").is("commit"));
-            mongoTemplate.remove(commitsQuery, Resume.class);
-
-            // 删除简历元数据
-            mongoTemplate.remove(existingResume);
-        }
+    public void deleteResume(String id, Long userId, Long expectedRevision) {
+        versionControlService.deleteResume(id, userId, expectedRevision);
     }
 }

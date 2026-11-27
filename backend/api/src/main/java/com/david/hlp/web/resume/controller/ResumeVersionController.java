@@ -6,7 +6,6 @@ import com.david.hlp.web.resume.entity.Resume;
 import com.david.hlp.web.resume.service.ResumeVersionControlService;
 import lombok.RequiredArgsConstructor;
 import com.david.hlp.web.common.exception.BusinessException;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +16,6 @@ import java.util.Map;
 /**
  * 简历版本控制API控制器
  */
-@Slf4j
 @Validated
 @RestController
 @RequestMapping("/api/resume/{resumeId}/version")
@@ -45,7 +43,7 @@ public class ResumeVersionController extends BaseController {
                 return Result.error(HttpStatus.BAD_REQUEST.value(), "提交信息不能为空");
             }
 
-            String commitId = versionControlService.commit(resumeId, userId, message, content);
+            String commitId = versionControlService.commit(resumeId, userId, message, content, workspaceRevision(request));
             return Result.success(commitId, "提交成功");
         } catch (BusinessException e) {
             throw e;
@@ -71,7 +69,7 @@ public class ResumeVersionController extends BaseController {
                 return Result.error(HttpStatus.BAD_REQUEST.value(), "分支名称不能为空");
             }
 
-            versionControlService.createBranch(resumeId, userId, branchName);
+            versionControlService.createBranch(resumeId, userId, branchName, workspaceRevision(request));
             return Result.success(null);
         } catch (BusinessException e) {
             throw e;
@@ -93,7 +91,7 @@ public class ResumeVersionController extends BaseController {
 
         try {
             String branchName = request.get("branch");
-            versionControlService.switchBranch(resumeId, userId, branchName);
+            versionControlService.switchBranch(resumeId, userId, branchName, workspaceRevision(request));
             return Result.success(null);
         } catch (BusinessException e) {
             throw e;
@@ -117,7 +115,8 @@ public class ResumeVersionController extends BaseController {
             String sourceBranch = request.get("source");
             String targetBranch = request.get("target");
 
-            String mergeCommitId = versionControlService.mergeBranch(resumeId, userId, sourceBranch, targetBranch);
+            String mergeCommitId = versionControlService.mergeBranch(resumeId, userId, sourceBranch, targetBranch,
+                    workspaceRevision(request));
             return Result.success(mergeCommitId, "合并成功");
         } catch (BusinessException e) {
             throw e;
@@ -159,7 +158,7 @@ public class ResumeVersionController extends BaseController {
 
         try {
             String commitId = request.get("commitId");
-            versionControlService.checkout(resumeId, userId, commitId);
+            versionControlService.checkout(resumeId, userId, commitId, workspaceRevision(request));
             return Result.success(null);
         } catch (BusinessException e) {
             throw e;
@@ -181,7 +180,7 @@ public class ResumeVersionController extends BaseController {
 
         try {
             String content = request.get("content");
-            versionControlService.stash(resumeId, userId, content);
+            versionControlService.stash(resumeId, userId, content, workspaceRevision(request));
             return Result.success(null);
         } catch (BusinessException e) {
             throw e;
@@ -194,14 +193,15 @@ public class ResumeVersionController extends BaseController {
      * 弹出储藏
      */
     @PostMapping("/stash/pop")
-    public Result<String> stashPop(@PathVariable String resumeId) {
+    public Result<String> stashPop(@PathVariable String resumeId,
+            @RequestBody(required = false) Map<String, String> request) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
         }
 
         try {
-            String content = versionControlService.stashPop(resumeId, userId);
+            String content = versionControlService.stashPop(resumeId, userId, workspaceRevision(request));
             return Result.success(content, "恢复成功");
         } catch (BusinessException e) {
             throw e;
@@ -227,7 +227,7 @@ public class ResumeVersionController extends BaseController {
                 return Result.error(HttpStatus.BAD_REQUEST.value(), "提交ID不能为空");
             }
 
-            versionControlService.resetToCommit(resumeId, userId, commitId);
+            versionControlService.resetToCommit(resumeId, userId, commitId, workspaceRevision(request));
 
             // 记录重置操作
             versionControlService.recordRollbackOperation(resumeId, userId, "RESET",
@@ -258,7 +258,7 @@ public class ResumeVersionController extends BaseController {
                 return Result.error(HttpStatus.BAD_REQUEST.value(), "提交ID不能为空");
             }
 
-            String revertCommitId = versionControlService.revertCommit(resumeId, userId, commitId);
+            String revertCommitId = versionControlService.revertCommit(resumeId, userId, commitId, workspaceRevision(request));
 
             // 记录回滚操作
             versionControlService.recordRollbackOperation(resumeId, userId, "REVERT",
@@ -362,24 +362,18 @@ public class ResumeVersionController extends BaseController {
         }
     }
 
-    /**
-     * 清理并重新初始化版本控制（修复ID重复问题）
-     */
-    @PostMapping("/fix-duplicate-ids")
-    public Result<Map<String, Object>> fixDuplicateIds(@PathVariable String resumeId) {
-        Long userId = getCurrentUserId();
-        if (userId == null) {
-            return Result.error(HttpStatus.UNAUTHORIZED.value(), "用户未登录");
-        }
+    private static Long workspaceRevision(Map<String, String> request) {
+        return request == null ? null : parseWorkspaceRevision(request.get("workspaceRevision"));
+    }
 
+    static Long parseWorkspaceRevision(String revision) {
+        if (revision == null) {
+            return null;
+        }
         try {
-            Map<String, Object> result = versionControlService.fixDuplicateCommitIds(resumeId, userId);
-            return Result.success(result);
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("修复重复ID失败: {}", e.getMessage(), e);
-            return Result.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "修复失败: " + e.getMessage());
+            return Long.valueOf(revision);
+        } catch (NumberFormatException e) {
+            throw new BusinessException(400, "workspaceRevision 必须是非负整数");
         }
     }
 }
