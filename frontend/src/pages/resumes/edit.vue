@@ -567,7 +567,7 @@ onUnmounted(() => {
         </div>
       </div>
       <ResumeAssets v-model:open="assetsOpen" :enabled="canUseImages" :user-id="userId" :assets="assets" :images="images" @uploaded="uploaded" @removed="removed" @insert="insertAsset" />
-      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" @locate="locateResumeRange" />
+      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" :saved-content="record.content" :dirty="dirty" @locate="locateResumeRange" />
     </template>
     <div v-if="record" class="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden" role="group" aria-label="简历操作">
       <UiButton class="flex-1" :disabled="!canSave || Boolean(pendingAction) || submissionLocked" @click="write('save')"><RiSaveLine data-icon="inline-start" />{{ pendingAction === 'save' ? '正在保存…' : '保存' }}</UiButton>
