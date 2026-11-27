@@ -23,6 +23,15 @@ export function resumeCopyContent(content: string) {
   return { content: text, imageCount }
 }
 
+export async function resumeCopyFromServer(
+  id: string,
+  read: (id: string) => Promise<{ content?: string | null }>,
+) {
+  // A list response is a snapshot; the copy must start from the latest server body.
+  const record = await read(id)
+  return resumeCopyContent(record.content ?? '')
+}
+
 export function resumeCopySourceLabel(dirty: boolean) {
   return dirty ? '服务器已保存正文（不含编辑区未保存修改）' : '服务器已保存正文'
 }

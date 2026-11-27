@@ -2,10 +2,10 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { RiAddLine, RiRefreshLine } from '@remixicon/vue'
-import { createResume, deleteResume, listResumes, renameResume, resumeHistory, type ResumeRecord } from '@/api/resume/resume'
+import { createResume, deleteResume, getResume, listResumes, renameResume, resumeHistory, type ResumeRecord } from '@/api/resume/resume'
 import { useSession } from '@/composables/useSession'
 import { mutationResultUnknown, restoreActionFocus } from '@/lib/rbac-mutations'
-import { resumeCopyContent, resumeCopyTitle } from '@/lib/resume-copy'
+import { resumeCopyContent, resumeCopyFromServer, resumeCopyTitle } from '@/lib/resume-copy'
 import { importResumeText, resumeBlank, resumeSkeleton } from '@/lib/resume-import'
 import { resumeListReadback, resumeReadMessage, resumeStamp, resumeTime, shortCommit, type ResumeListChange } from '@/lib/resumes'
 
@@ -158,9 +158,16 @@ async function confirm() {
       previousIds: new Set(resumes.value.map(item => item.id)),
     }
   } else if (operation === 'copy') {
-    change = {
-      kind: 'create', copy: true, title: name, content: resumeCopyContent(row!.content ?? '').content,
-      previousIds: new Set(resumes.value.map(item => item.id)),
+    try {
+      const copied = await resumeCopyFromServer(row!.id, getResume)
+      change = {
+        kind: 'create', copy: true, title: name, content: copied.content,
+        previousIds: new Set(resumes.value.map(item => item.id)),
+      }
+    } catch {
+      if (active()) dialogError.value = '无法读取最新服务器正文，尚未创建副本。请重试。'
+      committing.value = false
+      return
     }
   } else {
     change = operation === 'rename' ? { kind: 'rename', id: row!.id, title: name } : { kind: 'delete', id: row!.id }

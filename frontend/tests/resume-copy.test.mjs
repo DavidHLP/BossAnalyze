@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   resumeCopyContent,
+  resumeCopyFromServer,
   resumeCopySourceLabel,
   resumeCopyTitle,
   resumeCopyVerified,
@@ -42,6 +43,16 @@ test('uses the decoded file name when an asset has no alt text and counts each r
   const copied = resumeCopyContent('![](asset:a%20b.png)\n![](asset:c.png)')
   assert.equal(copied.content, '［图片：a b.png（副本未包含图片素材）］\n［图片：c.png（副本未包含图片素材）］')
   assert.equal(copied.imageCount, 2)
+})
+
+test('reads the copy body from the server even when the list snapshot is stale', async () => {
+  const snapshot = { id: 'resume-1', content: '# 旧的列表正文' }
+  const copied = await resumeCopyFromServer(snapshot.id, async id => {
+    assert.equal(id, 'resume-1')
+    return { content: '# 最新的服务器正文\n![旧图](asset:a.png)' }
+  })
+  assert.equal(copied.content, '# 最新的服务器正文\n［图片：旧图（副本未包含图片素材）］')
+  assert.equal(copied.imageCount, 1)
 })
 
 test('states that the copy source is the saved server body, never editor-only changes', () => {
