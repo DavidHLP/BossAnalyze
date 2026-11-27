@@ -36,13 +36,17 @@ export function resumeReadMessage(cause: unknown) {
 }
 
 export type ResumeListChange =
-  | { kind: 'create'; id?: string; title: string; previousIds: ReadonlySet<string> }
+  | { kind: 'create'; id?: string; title: string; content: string; previousIds: ReadonlySet<string> }
   | { kind: 'rename'; id: string; title: string }
   | { kind: 'delete'; id: string }
 
-export function resumeListReadback(change: ResumeListChange, items: { id: string; title: string }[]) {
-  if (change.kind === 'create' && !change.id) {
-    return items.some(item => item.title === change.title && !change.previousIds.has(item.id))
+export function resumeListReadback(change: ResumeListChange, items: { id: string; title: string; content?: string | null }[]) {
+  if (change.kind === 'create') {
+    const matches = (item: { title: string; content?: string | null } | undefined) =>
+      Boolean(item) && item!.title === change.title && item!.content === change.content
+    return change.id
+      ? matches(items.find(item => item.id === change.id))
+      : items.some(item => matches(item) && !change.previousIds.has(item.id))
   }
   const item = items.find(item => item.id === change.id)
   return change.kind === 'delete' ? !item : item?.title === change.title
@@ -51,40 +55,52 @@ export function resumeListReadback(change: ResumeListChange, items: { id: string
 export interface ResumeDraft {
   content: string
   message: string
+  baseHeadCommit: string | null
 }
 
 export function resumeDraftStore(storage: Storage, account: string, sessionStart: string, resumeId: string) {
-  const prefix = 'bossanalyze:resume-draft:'
-  const scope = prefix + JSON.stringify([account, sessionStart]) + ':'
-  const key = scope + resumeId
-  try {
-    for (let i = storage.length - 1; i >= 0; i--) {
-      const previous = storage.key(i)
-      if (previous?.startsWith(prefix) && !previous.startsWith(scope)) storage.removeItem(previous)
-    }
-  } catch {
-    // A blocked store cannot prevent editing or server saves.
-  }
+  const key = 'bossanalyze:resume-draft:v2:' +
+    [account, sessionStart, resumeId].map(encodeURIComponent).join(':')
   return {
     read(): ResumeDraft | null {
+      // Storage access and quota errors surface so the editor can report drafts as unavailable.
+      const raw = storage.getItem(key)
+      if (raw === null) return null
+      let value: unknown
       try {
-        const raw = storage.getItem(key)
-        if (raw === null) return null
-        const value: unknown = JSON.parse(raw)
-        if (value && typeof value === 'object' && 'content' in value && 'message' in value &&
-          typeof value.content === 'string' && typeof value.message === 'string') {
-          return { content: value.content, message: value.message }
-        }
+        value = JSON.parse(raw)
       } catch {
-        // Malformed or unavailable local storage leaves the server copy in place.
+        storage.removeItem(key)
+        return null
       }
-      return null
+      if (!value || typeof value !== 'object' ||
+        !('account' in value) || value.account !== account ||
+        !('resumeId' in value) || value.resumeId !== resumeId ||
+        !('content' in value) || typeof value.content !== 'string' ||
+        !('message' in value) || typeof value.message !== 'string' ||
+        ('baseHeadCommit' in value && value.baseHeadCommit !== null && typeof value.baseHeadCommit !== 'string')) {
+        storage.removeItem(key)
+        return null
+      }
+      return {
+        content: value.content,
+        message: value.message,
+        baseHeadCommit: 'baseHeadCommit' in value && typeof value.baseHeadCommit === 'string'
+          ? value.baseHeadCommit
+          : null,
+      }
     },
     write(draft: ResumeDraft) {
-      try { storage.setItem(key, JSON.stringify(draft)) } catch { /* The editor still holds the draft. */ }
+      storage.setItem(key, JSON.stringify({
+        account,
+        resumeId,
+        content: draft.content,
+        message: draft.message,
+        baseHeadCommit: draft.baseHeadCommit ?? null,
+      }))
     },
     clear() {
-      try { storage.removeItem(key) } catch { /* A blocked store cannot be cleared. */ }
+      storage.removeItem(key)
     },
   }
 }
@@ -255,12 +271,35 @@ function appendInlineText(tokens: ResumeInline[], text: string) {
   if (end < text.length) tokens.push({ kind: 'text', text: text.slice(end) })
 }
 
+function maskedEscapes(text: string) {
+  const values: string[] = []
+  const masked = text.replace(/\\([*|#.`_[\]{}()>+\-!])/g, (literal: string, char: string) => {
+    if (values.length >= 0x6400) return literal
+    values.push(char)
+    return String.fromCharCode(0xe000 + values.length - 1)
+  })
+  return {
+    text: masked,
+    restore: (value: string) => values.length
+      ? value.replace(/[\uE000-\uF8FF]/g, marker => values[marker.charCodeAt(0) - 0xe000] ?? marker)
+      : value,
+  }
+}
+
 function resumeInline(text: string, baseOffset: number, inTable = false): ResumeInline[] {
   const tokens: ResumeInline[] = []
   let plainStart = 0
   const unescapePipes = (value: string) => inTable ? value.replaceAll('\\|', '|') : value
-  const appendPlain = (end: number) => appendInlineText(tokens, unescapePipes(text.slice(plainStart, end))
-    .replace(/\\+(\$)?/g, (literal, dollar) => dollar && literal.length % 2 === 0 ? literal.slice(1) : literal))
+  const appendPlain = (end: number) => {
+    const escaped = maskedEscapes(unescapePipes(text.slice(plainStart, end))
+      .replace(/\\+(\$)?/g, (literal, dollar) => dollar && literal.length % 2 === 0 ? literal.slice(1) : literal))
+    const start = tokens.length
+    appendInlineText(tokens, escaped.text)
+    for (let i = start; i < tokens.length; i++) {
+      const token = tokens[i]!
+      if ('text' in token) token.text = escaped.restore(token.text)
+    }
+  }
   for (const { kind, start, end } of inlineSpans(text)) {
     appendPlain(start)
     const body = text.slice(start + 1, end - 1)

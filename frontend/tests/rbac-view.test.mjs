@@ -33,7 +33,10 @@ test('role authorization renders the checked state of a nested action', async (t
 })
 
 function renderView(component, props, location = {}) {
-  const node = (tag, text = '') => ({ tag, text, props: {}, style: {}, children: [], parent: null, focus() {} })
+  const node = (tag, text = '') => ({
+    tag, text, props: {}, style: {}, children: [], parent: null, focus() {},
+    addEventListener() {}, removeEventListener() {}, options: [], value: '',
+  })
   const root = node('root')
   const detach = (child) => {
     if (!child.parent) return
@@ -59,9 +62,15 @@ function renderView(component, props, location = {}) {
   })
   const app = renderer.createApp({ render: () => h(component, props) })
   const currentRoute = { value: { path: '/console', fullPath: '/console' } }
-  const router = { currentRoute, async replace(path) {
-    if (typeof path === 'string') currentRoute.value = { path, fullPath: path }
-  } }
+  const router = {
+    currentRoute,
+    async replace(path) {
+      if (typeof path === 'string') currentRoute.value = { path, fullPath: path }
+    },
+    async push(path) {
+      if (typeof path === 'string') currentRoute.value = { path, fullPath: path }
+    },
+  }
   app.provide(routerKey, router)
   app.provide(routeLocationKey, { query: {}, ...location })
   app.provide(matchedRouteKey, { value: { leaveGuards: new Set(), updateGuards: new Set() } })
@@ -73,6 +82,7 @@ function renderView(component, props, location = {}) {
     'UiAvatar', 'UiAvatarFallback', 'UiCombobox', 'UiComboboxAnchor', 'UiComboboxEmpty', 'UiComboboxInput',
     'UiComboboxItem', 'UiComboboxList', 'UiComboboxViewport',
     'UiDialog', 'UiDialogContent', 'UiDialogDescription', 'UiDialogFooter', 'UiDialogHeader', 'UiDialogTitle',
+    'UiDropdownMenu', 'UiDropdownMenuTrigger', 'UiDropdownMenuContent', 'UiDropdownMenuItem', 'UiDropdownMenuSeparator',
     'UiPagination', 'UiPaginationContent', 'UiPaginationEllipsis', 'UiPaginationItem',
     'UiPaginationNext', 'UiPaginationPrevious', 'RouterLink',
     'UiSkeleton', 'UiTable', 'UiTableBody', 'UiTableCaption', 'UiTableCell',
@@ -115,6 +125,7 @@ async function viewServer(t) {
           else if (id === './RolePicker.vue') id = '/src/components/users/RolePicker.vue.view-test.ts'
           else if (id === './PermissionBranch.vue') id = '/src/components/roles/PermissionBranch.vue.view-test.ts'
           else if (id === './ResumePreviewInline.vue') id = '/src/components/resumes/ResumePreviewInline.vue.view-test.ts'
+          else if (id === '/src/pages/resumes/index.vue') id = '/src/pages/resumes/index.vue.view-test.ts'
         }
         if (id.startsWith('/src/') && id.endsWith('.vue.view-test.ts'))
           return fileURLToPath(new URL(`..${id}`, import.meta.url))
@@ -145,7 +156,9 @@ function mockBrowser(t) {
   const localStorage = storage({ token: 'test-session', token_timestamp: String(Date.now()) })
   const sessionStorage = storage()
   const window = Object.assign(new EventTarget(), { sessionStorage, location: { reload: t.mock.fn() } })
-  const document = { querySelector: () => null, getElementById: () => null }
+  const document = Object.assign(new EventTarget(), {
+    querySelector: () => null, getElementById: () => null, visibilityState: 'visible',
+  })
   for (const [name, value] of Object.entries({ window, localStorage, sessionStorage, document })) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, name)
     Object.defineProperty(globalThis, name, { configurable: true, value })
@@ -204,6 +217,60 @@ function viewControls(find) {
     click: (element) => element.props.onClick({ currentTarget: element }),
   }
 }
+
+test('pasted resume text is previewed and edited before a single create request', async (t) => {
+  const vite = await viewServer(t)
+  const { default: Resumes } = await vite.ssrLoadModule('/src/pages/resumes/index.vue.view-test.ts')
+  const { default: request } = await vite.ssrLoadModule('/src/utils/request/request.ts')
+  mockBrowser(t)
+  const writes = []
+  let created = null
+  request.defaults.adapter = async (config) => {
+    let data
+    if (config.url === '/api/resume' && config.method === 'get') {
+      data = created ? [created] : []
+    } else if (config.url === '/api/resume' && config.method === 'post') {
+      const body = JSON.parse(config.data)
+      writes.push(body)
+      created = { id: 'created', userId: 7, title: body.title, content: body.content }
+      return { config, status: 200, data: { code: 200, data: created } }
+    } else if (config.url === '/api/resume/created/version/recent') {
+      data = [{ id: 'initial', content: created.content }]
+    } else {
+      assert.fail(config.method + ' ' + config.url)
+    }
+    return { config, status: 200, data: { code: 200, data } }
+  }
+  const view = renderView(Resumes, {})
+  t.after(() => view.app.unmount())
+  await flushView()
+  const { byId, button, click } = viewControls(view.find)
+  click(button('新建简历'))
+  await nextTick()
+  byId('resume-title').props['onUpdate:modelValue']('张三')
+  const group = view.find((element) => element.props['aria-labelledby'] === 'resume-entry-label')
+  group.props['onUpdate:modelValue']('paste')
+  await nextTick()
+  byId('resume-import-source').props['onUpdate:modelValue']('张三\n\n教育经历\n• 某某大学')
+  await nextTick()
+  assert.equal(byId('resume-import-preview').props.modelValue, '# 张三\n\n## 教育经历\n- 某某大学')
+  assert.equal(writes.length, 0, 'typing and previewing must not create a resume')
+
+  const edited = '# 张三\n\n## 教育经历\n- 某某大学（已修改）'
+  byId('resume-import-preview').props['onUpdate:modelValue'](edited)
+  await nextTick()
+  assert.equal(writes.length, 0, 'editing the preview must not create a resume')
+
+  const contains = (element, id) => element.props?.id === id ||
+    element.children.some((child) => contains(child, id))
+  const form = view.find((element) => element.tag === 'form' && contains(element, 'resume-title'))
+  await form.props.onSubmit(new Event('submit', { cancelable: true }))
+  await flushView()
+  await flushView()
+
+  assert.deepEqual(writes, [{ title: '张三', content: edited }])
+  assert.equal(view.router.currentRoute.value.path, '/resumes/created/edit')
+})
 
 test('confirmed menu changes and manual readback refresh navigation without losing credentials on failure', async (t) => {
   const vite = await viewServer(t)
@@ -477,7 +544,7 @@ for (const editor of [
       if (editor.form) {
         await byId(editor.form).props.onSubmit(new Event('submit', { cancelable: true }))
       } else {
-        for (const label of ['保存并提交', '储藏']) {
+        for (const label of ['保存']) {
           const action = button(label)
           assert.equal(action.props.disabled, true)
           await click(action)

@@ -77,8 +77,8 @@ function writtenRecord(value: unknown) {
   }
 }
 
-export async function createResume(title: string) {
-  return writtenRecord(await request.post('/api/resume', { title, content: '# ' + title + '\n' }))
+export async function createResume(title: string, content: string) {
+  return writtenRecord(await request.post('/api/resume', { title, content }))
 }
 
 export async function renameResume(id: string, title: string) {
