@@ -13,6 +13,7 @@ import {
 import { DialogClose, DialogTrigger } from '@/components/ui/dialog'
 import ResumeAssets from '@/components/resumes/ResumeAssets.vue'
 import ResumeExport from '@/components/resumes/ResumeExport.vue'
+import ResumeForm from '@/components/resumes/ResumeForm.vue'
 import ResumePreview from '@/components/resumes/ResumePreview.vue'
 
 const route = useRoute()
@@ -53,6 +54,7 @@ const account = computed(() => {
 let draftStore: ReturnType<typeof resumeDraftStore> | undefined
 let draftOwner: ReturnType<typeof session.capture> | undefined
 const mode = ref<'edit' | 'preview'>('edit')
+const editorMode = ref<'form' | 'markdown'>('form')
 const assetsOpen = ref(false)
 const exportOpen = ref(false)
 const staged = ref<string[]>([])
@@ -282,6 +284,7 @@ function scrollToResumeSelection(input: HTMLTextAreaElement, start: number) {
 async function locateResumeRange({ start, end }: { start: number; end: number }) {
   exportOpen.value = false
   mode.value = 'edit'
+  editorMode.value = 'markdown'
   await nextTick()
   const input = selection()
   if (!input) return
@@ -319,6 +322,7 @@ function insert(before: string, after = '', defaultText = '') {
 async function insertAsset(name: string) {
   if (pendingAction.value || localDraft.value) return
   mode.value = 'edit'
+  editorMode.value = 'markdown'
   await nextTick()
   const input = selection()
   if (!input) return
@@ -631,19 +635,29 @@ onUnmounted(() => {
       <div class="grid min-w-0 gap-4 md:grid-cols-2">
         <div class="min-w-0 border bg-card" :class="{ 'max-md:hidden': mode === 'preview' }">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-            <h2 class="font-medium">Markdown 编辑</h2><span class="text-xs text-muted-foreground">纯文本 · UTF-8</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="font-medium">简历编辑</h2>
+              <div class="flex gap-1" role="group" aria-label="编辑方式">
+                <UiButton size="sm" variant="outline" :aria-pressed="editorMode === 'form'" @click="editorMode = 'form'">表单</UiButton>
+                <UiButton size="sm" variant="outline" :aria-pressed="editorMode === 'markdown'" @click="editorMode = 'markdown'">高级 Markdown</UiButton>
+              </div>
+            </div>
+            <span class="text-xs text-muted-foreground">{{ editorMode === 'form' ? '基本信息 · 教育 · 工作' : '纯文本 · UTF-8' }}</span>
           </div>
-          <fieldset :disabled="localDraft !== null" class="flex flex-wrap gap-1 border-b px-3 py-2" aria-label="Markdown 工具栏">
-            <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('## ', '', '小节标题')">标题</UiButton>
-            <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('**', '**', '加粗文字')">加粗</UiButton>
-            <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('- ', '', '列表项')">列表</UiButton>
-            <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('\n---\n')">分割线</UiButton>
-            <UiButton size="sm" variant="ghost" @click="assetsOpen = true">插入图片</UiButton>
-          </fieldset>
-          <UiField class="p-3">
-            <UiFieldLabel for="resume-markdown" class="sr-only">简历正文</UiFieldLabel>
-            <UiTextarea id="resume-markdown" v-model="markdown" class="min-h-[24rem] font-mono leading-relaxed" :readonly="Boolean(pendingAction || localDraft)" spellcheck="false" @focus="rememberDraftFocus" />
-          </UiField>
+          <ResumeForm v-if="editorMode === 'form'" v-model="markdown" :disabled="Boolean(pendingAction || localDraft)" />
+          <template v-else>
+            <fieldset :disabled="localDraft !== null" class="flex flex-wrap gap-1 border-b px-3 py-2" aria-label="Markdown 工具栏">
+              <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('## ', '', '小节标题')">标题</UiButton>
+              <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('**', '**', '加粗文字')">加粗</UiButton>
+              <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('- ', '', '列表项')">列表</UiButton>
+              <UiButton size="sm" variant="ghost" :disabled="Boolean(pendingAction)" @mousedown.prevent @click="insert('\n---\n')">分割线</UiButton>
+              <UiButton size="sm" variant="ghost" @click="assetsOpen = true">插入图片</UiButton>
+            </fieldset>
+            <UiField class="p-3">
+              <UiFieldLabel for="resume-markdown" class="sr-only">简历正文</UiFieldLabel>
+              <UiTextarea id="resume-markdown" v-model="markdown" class="min-h-[24rem] font-mono leading-relaxed" :readonly="Boolean(pendingAction || localDraft)" spellcheck="false" @focus="rememberDraftFocus" />
+            </UiField>
+          </template>
           <div class="flex flex-col gap-3 border-t p-3">
             <UiField>
               <UiFieldLabel for="resume-message">修改说明（可选）</UiFieldLabel>
