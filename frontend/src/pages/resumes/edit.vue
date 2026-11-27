@@ -699,7 +699,7 @@ onUnmounted(() => {
         </div>
       </div>
       <ResumeAssets v-model:open="assetsOpen" :enabled="canUseImages" :user-id="userId" :assets="assets" :images="images" @uploaded="uploaded" @removed="removed" @insert="insertAsset" />
-      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" @locate="locateResumeRange" />
+      <ResumeExport v-model:open="exportOpen" :title="record.title" :content="markdown" :saved-content="record.content" :dirty="dirty" @locate="locateResumeRange" />
     </template>
   </section>
 </template>
