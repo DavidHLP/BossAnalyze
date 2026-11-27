@@ -123,10 +123,16 @@ test('snapshot comparison follows first parents and preserves added, removed and
 
 test('resume list readback confirms the exact write and ignores pre-existing namesakes', async () => {
   const { resumeListReadback } = await import('../src/lib/resumes.ts')
-  const list = [{ id: 'old', title: '简历' }, { id: 'new', title: '简历' }]
-  const unknown = { kind: 'create', title: '简历', previousIds: new Set(['old']) }
+  const content = '# 简历\n\n正文'
+  const list = [
+    { id: 'old', title: '简历', content: '# 旧简历' },
+    { id: 'new', title: '简历', content },
+  ]
+  const unknown = { kind: 'create', title: '简历', content, previousIds: new Set(['old']) }
   assert.equal(resumeListReadback(unknown, list.slice(0, 1)), false)
   assert.equal(resumeListReadback(unknown, list), true)
+  assert.equal(resumeListReadback(unknown, [{ ...list[1], content: '# 其他正文' }]), false)
+  assert.equal(resumeListReadback({ ...unknown, id: 'new' }, list), true)
   assert.equal(resumeListReadback({ ...unknown, id: 'expected' }, list), false)
   assert.equal(resumeListReadback({ kind: 'rename', id: 'new', title: '新标题' }, list), false)
   assert.equal(resumeListReadback({ kind: 'delete', id: 'new' }, list.slice(0, 1)), true)
