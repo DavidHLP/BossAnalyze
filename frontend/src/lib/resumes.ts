@@ -2,9 +2,28 @@ export function shortCommit(id: string | null | undefined) {
   return id?.slice(0, 8) || '—'
 }
 
-export function resumeTime(value: string | undefined) {
+export function resumeStamp(value: string | number | undefined) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (!value) return 0
+  const text = value.trim()
+  if (/^\d+$/.test(text)) {
+    const epoch = Number(text)
+    return Number.isFinite(epoch) ? epoch : 0
+  }
+  const stamp = Date.parse(text)
+  return Number.isNaN(stamp) ? 0 : stamp
+}
+
+function resumeClock(value: Date) {
+  return Number.isNaN(value.getTime()) ? '—' : value.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+export function resumeTime(value: string | number | undefined) {
+  if (typeof value === 'number') return resumeClock(new Date(value))
   if (!value) return '—'
-  return value.replace('T', ' ').slice(0, 19)
+  const text = value.trim()
+  if (/^\d+$/.test(text)) return resumeClock(new Date(Number(text)))
+  return Number.isNaN(Date.parse(text)) ? '—' : text.replace('T', ' ').slice(0, 19)
 }
 
 export function resumeReadMessage(cause: unknown) {
