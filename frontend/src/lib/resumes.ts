@@ -1,4 +1,4 @@
-import { isResumeImageDataUrl, resumeLayoutCss, resumePageMargin } from './resume-render.ts'
+import { isResumeImageDataUrl, resumeCompactClass, resumeLayoutCss, resumePageMargin } from './resume-render.ts'
 
 export function shortCommit(id: string | null | undefined) {
   return id?.slice(0, 8) || '—'
@@ -404,7 +404,9 @@ function tableCells(line: SourceLine): SourceLine[] {
   return cells
 }
 
-export function resumePreview(markdown: string): PreviewBlock[] {
+export type ResumeSourceRange = { start: number; end: number }
+
+export function resumePreview(markdown: string, onBlock?: (block: PreviewBlock, range: ResumeSourceRange) => void): PreviewBlock[] {
   // shortcut: this flat résumé Markdown subset omits nested blocks and reference links.
   const lines: SourceLine[] = []
   let lineStart = 0
@@ -415,6 +417,12 @@ export function resumePreview(markdown: string): PreviewBlock[] {
   }
   lines.push({ text: markdown.slice(lineStart), offset: lineStart })
   const blocks: PreviewBlock[] = []
+  function append(block: PreviewBlock, start: number, lastLine: number) {
+    blocks.push(block)
+    if (!onBlock) return
+    const last = lines[Math.min(lastLine, lines.length - 1)]!
+    onBlock(block, { start, end: last.offset + last.text.length })
+  }
   for (let i = 0; i < lines.length; i++) {
     const { text: line, offset } = lines[i]!
     if (!line.trim()) continue
@@ -423,33 +431,37 @@ export function resumePreview(markdown: string): PreviewBlock[] {
       const close = new RegExp('^\\s*' + fence[1]![0] + '{' + fence[1]!.length + ',}\\s*$')
       const body: string[] = []
       while (++i < lines.length && !close.test(lines[i]!.text)) body.push(lines[i]!.text)
-      blocks.push({ kind: 'code', text: body.join('\n') })
+      append({ kind: 'code', text: body.join('\n') }, offset, i)
       continue
     }
     const math = mathBlock(markdown, lines, i)
     if (math) {
-      blocks.push(math.node)
+      append(math.node, offset, math.lastLine)
       i = math.lastLine
       continue
     }
     const title = /^(#{1,3})\s+(.+)$/.exec(line)
     if (title) {
       const content = title[2]!
-      blocks.push({ kind: 'heading', level: title[1]!.length as 1 | 2 | 3,
-        inline: resumeInline(content, offset + line.length - content.length) })
+      append({ kind: 'heading', level: title[1]!.length as 1 | 2 | 3,
+        inline: resumeInline(content, offset + line.length - content.length) }, offset, i)
       continue
     }
     if (/^\s*---+\s*$/.test(line)) {
-      blocks.push({ kind: 'rule' })
+      append({ kind: 'rule' }, offset, i)
       continue
     }
     const asset = /^!\[([^\]]*)\]\(asset:([^)]+)\)$/.exec(line.trim())
     if (asset) {
+      let fileName: string | undefined
       try {
-        blocks.push({ kind: 'asset', text: asset[1]!, fileName: decodeURIComponent(asset[2]!) })
-        continue
+        fileName = decodeURIComponent(asset[2]!)
       } catch {
         // A malformed private image reference remains plain text.
+      }
+      if (fileName !== undefined) {
+        append({ kind: 'asset', text: asset[1]!, fileName }, offset, i)
+        continue
       }
     }
     const bullet = listItem.exec(line)
@@ -465,7 +477,7 @@ export function resumePreview(markdown: string): PreviewBlock[] {
         const nextContent = next[3]!
         items.push(resumeInline(nextContent, nextLine.offset + nextLine.text.length - nextContent.length))
       }
-      blocks.push({ kind: 'list', start: ordered ? Number(bullet[2]) : null, items })
+      append({ kind: 'list', start: ordered ? Number(bullet[2]) : null, items }, offset, i)
       continue
     }
     const headers = tableCells(lines[i]!)
@@ -482,10 +494,10 @@ export function resumePreview(markdown: string): PreviewBlock[] {
         i++
         rows.push(headers.map((_, index) => parseCell(cells[index])))
       }
-      blocks.push({ kind: 'table', headers: headers.map(parseCell), rows })
+      append({ kind: 'table', headers: headers.map(parseCell), rows }, offset, i)
       continue
     }
-    blocks.push({ kind: 'text', inline: resumeInline(line, offset) })
+    append({ kind: 'text', inline: resumeInline(line, offset) }, offset, i)
   }
   return blocks
 }
@@ -622,7 +634,9 @@ function inlineHtml(tokens: ResumeInline[], renderMath?: ResumeMathRender) {
 }
 
 export function resumeHtml(title: string, content: string | PreviewBlock[], renderMath?: ResumeMathRender,
-  { images, includeImages = true }: { images?: Readonly<Record<string, string>>; includeImages?: boolean } = {}): string {
+  { images, includeImages = true, compact = false }: {
+    images?: Readonly<Record<string, string>>; includeImages?: boolean; compact?: boolean
+  } = {}): string {
   const blocks = typeof content === 'string' ? resumePreview(content) : content
   const renderInline = (tokens: ResumeInline[]) => inlineHtml(tokens, renderMath)
   const body = blocks.map(block => {
@@ -667,7 +681,7 @@ export function resumeHtml(title: string, content: string | PreviewBlock[], rend
   ${resumeLayoutCss}
   @media print { body { padding: 0; } }
 </style>
-<body><article class="resume-body">${body}</article></body></html>`
+<body><article class="resume-body${compact ? ' ' + resumeCompactClass : ''}">${body}</article></body></html>`
 }
 
 type CommitParents = { id: string; parentCommits?: string[] }[]

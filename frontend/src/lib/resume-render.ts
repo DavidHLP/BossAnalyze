@@ -1,9 +1,12 @@
 const pageWidthMm = 210
+const pageHeightMm = 297
 const pageMarginMm = 16
 
 export const resumePageWidth = `${pageWidthMm}mm`
-export const resumePageHeight = '297mm'
+export const resumePageHeight = `${pageHeightMm}mm`
 export const resumePageMargin = `${pageMarginMm}mm`
+export const resumePageContentHeightPx = (pageHeightMm - pageMarginMm * 2) * 96 / 25.4
+export const resumeCompactClass = 'resume-body-compact'
 
 export const resumeLayoutCss = `
   .resume-body {
@@ -12,6 +15,7 @@ export const resumeLayoutCss = `
     font: 11pt/1.5 system-ui, sans-serif;
     overflow-wrap: anywhere;
   }
+  .resume-body.${resumeCompactClass} { font-size: 10pt; line-height: 1.35; }
   .resume-body :is(h1, h2, h3) { margin: 0 0 0.4em; font-weight: 600; break-after: avoid; }
   .resume-body h1 { font-size: 18pt; line-height: 1.33; letter-spacing: -0.025em; }
   .resume-body :is(h2, h3) { margin-top: 0.8em; border-bottom: 1px solid #9996; padding-bottom: 0.2em; }
@@ -29,6 +33,7 @@ export const resumeLayoutCss = `
   .resume-body pre { white-space: pre-wrap; padding: 0.5em; background: #9992; }
   .resume-body code { font: 1em ui-monospace, monospace; }
   .resume-body table { width: 100%; border-collapse: collapse; }
+  .resume-body thead { break-inside: avoid; }
   .resume-body :is(th, td) { border: 1px solid #9998; padding: 0.25em 0.5em; text-align: left; }
   .resume-body th { background: #9992; font-weight: 600; }
   .resume-body a { color: inherit; text-decoration: underline; }

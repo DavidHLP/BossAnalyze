@@ -11,7 +11,7 @@ import { inspectResumeTexTemplate, resumeLatex, type ResumeTexError } from '@/li
 import { resumeTexTemplates, type ResumeTexTemplateId } from '@/lib/resume-tex-templates'
 
 const props = defineProps<{
-  title: string; content: string; savedContent: string | null; dirty: boolean
+  title: string; content: string; savedContent: string | null; dirty: boolean; compact?: boolean
   loadImage: (name: string) => Promise<string | undefined>
 }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -91,7 +91,7 @@ watch(source, () => {
   resetLocalExport()
 }, { flush: 'sync' })
 
-watch([() => props.content, () => props.title, () => props.savedContent], () => {
+watch([() => props.content, () => props.title, () => props.savedContent, () => props.compact], () => {
   locateOnClose = undefined
   resetLocalExport()
 }, { flush: 'sync' })
@@ -140,7 +140,7 @@ function returnToEditor(event: Event) {
 
 async function exportHtml(output: 'html' | 'pdf', withMath = true) {
   if (!open.value || htmlBusy.value) return
-  const { title } = props
+  const { title, compact } = props
   const content = exportContent.value
   const job = Symbol()
   htmlJob.value = job
@@ -173,7 +173,7 @@ async function exportHtml(output: 'html' | 'pdf', withMath = true) {
       if (htmlJob.value !== job) return
       images = Object.fromEntries(loaded.filter((entry): entry is readonly [string, string] => entry[1] !== undefined))
     }
-    const html = resumeHtml(title, blocks, renderMath, { images, includeImages: withImages })
+    const html = resumeHtml(title, blocks, renderMath, { images, includeImages: withImages, compact })
     if (invalidMath) {
       htmlError.value = '至少有一处公式无法渲染。请修正公式后重试，或下载 Markdown 原文。'
       return

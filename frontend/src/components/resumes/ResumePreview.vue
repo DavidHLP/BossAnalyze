@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch } from 'vue'
-import { useStyleTag } from '@vueuse/core'
+import { computed, shallowRef, useTemplateRef, watch } from 'vue'
+import { useEventListener, useResizeObserver, useStyleTag } from '@vueuse/core'
 import { loadResumeMath, type ResumeMathEngine } from '@/lib/resume-math'
-import { resumeLayoutCss, resumePageHeight, resumePageMargin, resumePageWidth } from '@/lib/resume-render'
+import { measureResumePagination, type ResumePagination } from '@/lib/resume-pagination'
+import { resumeCompactClass, resumeLayoutCss, resumePageHeight, resumePageMargin, resumePageWidth } from '@/lib/resume-render'
 import { resumeHasMath, resumePreview } from '@/lib/resumes'
 import MathNode from './MathNode.vue'
 import ResumePreviewInline from './ResumePreviewInline.vue'
 
-const props = defineProps<{ content: string; images?: Record<string, string> }>()
+const props = defineProps<{ content: string; images?: Record<string, string>; compact?: boolean; estimatePages?: boolean }>()
+const emit = defineEmits<{ pagination: [result: ResumePagination | null] }>()
 const blocks = computed(() => resumePreview(props.content))
+const textOnly = computed(() => blocks.value.every(block => {
+  if (block.kind === 'heading' || block.kind === 'text') return block.inline.every(token => token.kind === 'text')
+  return block.kind === 'list' && block.items.every(item => item.every(token => token.kind === 'text'))
+}))
+const article = useTemplateRef('article')
 useStyleTag(resumeLayoutCss, { id: 'resume-layout' })
 const math = shallowRef({ mathEngine: null as ResumeMathEngine | null, mathLoading: false, mathLoadFailed: false })
 
@@ -24,12 +31,23 @@ watch(() => resumeHasMath(blocks.value), async (hasMath, _, onCleanup) => {
     if (active) math.value = { mathEngine: null, mathLoading: false, mathLoadFailed: true }
   }
 }, { immediate: true })
+
+function updatePagination() {
+  if (!props.estimatePages || !article.value) return
+  emit('pagination', measureResumePagination(article.value, textOnly.value))
+}
+
+watch([article, blocks, () => props.compact, () => props.images, math], updatePagination, { flush: 'post' })
+useResizeObserver(() => props.estimatePages ? article.value : null, updatePagination)
+useEventListener(() => props.estimatePages ? globalThis.document?.fonts : undefined,
+  ['loading', 'loadingdone', 'loadingerror'], updatePagination)
 </script>
 
 <template>
   <div class="resume-viewport">
     <div class="resume-sheet bg-background shadow-sm ring-1 ring-border">
-      <article aria-label="简历预览" class="resume-body">
+      <article ref="article" aria-label="简历预览" class="resume-body" :class="{ [resumeCompactClass]: compact }"
+        @load.capture="updatePagination" @error.capture="updatePagination">
         <p v-if="!blocks.length" class="text-muted-foreground">此版本没有正文。</p>
         <template v-for="(block, index) in blocks" :key="index">
           <component :is="'h' + block.level" v-if="block.kind === 'heading'"><ResumePreviewInline v-bind="math" :tokens="block.inline" /></component>

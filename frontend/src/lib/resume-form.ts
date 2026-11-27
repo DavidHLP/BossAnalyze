@@ -88,7 +88,7 @@ export function resumeFormValues(doc: ResumeFormDocument): ResumeFormValues {
   }
 }
 
-function sectionKind(label: string): ResumeFormSection | null {
+export function resumeFormSectionKind(label: string): ResumeFormSection | null {
   const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ')
   for (const kind of ['basics', 'education', 'work'] as const) {
     if (SECTION_LABELS[kind].has(normalized)) return kind
@@ -205,7 +205,7 @@ export function parseResumeForm(markdown: string): ResumeFormDocument {
         index,
         level: heading[1].length,
         label: heading[2].trim(),
-        kind: sectionKind(heading[2]),
+        kind: resumeFormSectionKind(heading[2]),
       })
     }
   }
