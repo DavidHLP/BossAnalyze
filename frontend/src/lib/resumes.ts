@@ -28,6 +28,27 @@ export function resumeTime(value: string | number | undefined) {
   return Number.isNaN(Date.parse(text)) ? '—' : text.replace('T', ' ').slice(0, 19)
 }
 
+export interface ResumeConflictState {
+  workspaceRevision: number | null
+  headCommit: string | null
+}
+
+export function resumeWriteConflict(cause: unknown): ResumeConflictState | null {
+  if (!cause || typeof cause !== 'object' || !('code' in cause) || cause.code !== 409) return null
+  const body = 'data' in cause ? cause.data : undefined
+  const state = body && typeof body === 'object' && 'data' in body ? body.data : body
+  const revision = state && typeof state === 'object' && 'workspaceRevision' in state ? state.workspaceRevision : undefined
+  const head = state && typeof state === 'object' && 'headCommit' in state ? state.headCommit : null
+  return {
+    workspaceRevision: typeof revision === 'number' && Number.isInteger(revision) && revision >= 0 ? revision : null,
+    headCommit: typeof head === 'string' ? head : null,
+  }
+}
+
+export function resumeConflictCopyTitle(title: string) {
+  return (title.trim() || '简历') + '（冲突副本）'
+}
+
 export function resumeReadMessage(cause: unknown) {
   const code = cause && typeof cause === 'object' && 'code' in cause ? cause.code : undefined
   if (code === 403) return '当前账号无法访问这份简历。'

@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { RiArrowLeftLine, RiHistoryLine, RiSaveLine } from '@remixicon/vue'
-import { changeResumeVersion, getResume, resumeHistory, type ResumeCommit, type ResumeRecord } from '@/api/resume/resume'
+import {
+  changeResumeVersion, createResume, getResume, resumeHistory, type ResumeCommit, type ResumeRecord,
+} from '@/api/resume/resume'
 import { ownsResumeAsset } from '@/api/resume/assets'
 import { useResumeImages } from '@/composables/useResumeImages'
 import { useSession } from '@/composables/useSession'
 import { registerDirtyDraft } from '@/composables/session-events'
 import {
-  assetMarkdown, resumeAssetNames, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime, shortCommit, type ResumeDraft,
+  assetMarkdown, resumeAssetNames, resumeConflictCopyTitle, resumeDraftStore, resumePreview, resumeReadMessage, resumeTime,
+  resumeWriteConflict, shortCommit, type ResumeConflictState, type ResumeDraft,
 } from '@/lib/resumes'
 import { DialogClose, DialogTrigger } from '@/components/ui/dialog'
 import ResumeAssets from '@/components/resumes/ResumeAssets.vue'
@@ -17,6 +20,7 @@ import ResumeForm from '@/components/resumes/ResumeForm.vue'
 import ResumePreview from '@/components/resumes/ResumePreview.vue'
 
 const route = useRoute()
+const router = useRouter()
 const session = useSession()
 const { crossTabChanged } = session
 const userId = computed(() => session.state.value.user?.id)
@@ -46,6 +50,10 @@ const savedCommit = ref('')
 const restoreOpen = ref(false)
 const restorePending = ref(false)
 const restoreError = ref('')
+const conflictOpen = ref(false)
+const conflictState = shallowRef<ResumeConflictState | null>(null)
+const conflictPending = ref<'server' | 'copy' | null>(null)
+const conflictError = ref('')
 const account = computed(() => {
   const user = session.state.value.user
   if (user?.id !== undefined) return 'id:' + user.id
@@ -183,6 +191,10 @@ watch(account, () => {
   restoreOpen.value = false
   restoreError.value = ''
   restorePending.value = false
+  conflictOpen.value = false
+  conflictState.value = null
+  conflictError.value = ''
+  conflictPending.value = null
   assetsOpen.value = exportOpen.value = checkOpen.value = false
   if (account.value) void load(true)
 }, { flush: 'sync' })
@@ -350,18 +362,25 @@ function stashReadback(before: ResumeRecord | null, after: ResumeRecord | null, 
 
 async function write(action: 'save' | 'stash') {
   const owner = draftOwner
-  if (!owner || !session.owns(owner)) return
-  if (!(action === 'save' ? canSave.value : dirty.value) || localDraft.value || pendingAction.value || writeLocked.value) return
+  if (!owner || !session.owns(owner)) return false
+  if (!(action === 'save' ? canSave.value : dirty.value) || localDraft.value || pendingAction.value || writeLocked.value) return false
   const key = id.value
   const content = markdown.value
   const beforeWrite = record.value
+  const revision = record.value?.workspaceRevision
+  let confirmed = false
   pendingAction.value = action
   feedback.value = writeError.value = savedAt.value = ''
   checkOffered.value = false
   try {
     let commitId: string | undefined
-    if (action === 'save') commitId = await changeResumeVersion(key, 'commit', { message: message.value.trim() || '更新简历', content })
-    else await changeResumeVersion(key, 'stash', { content })
+    if (action === 'save') {
+      commitId = await changeResumeVersion(key, 'commit', {
+        message: message.value.trim() || '更新简历', content,
+      }, revision)
+    } else {
+      await changeResumeVersion(key, 'stash', { content }, revision)
+    }
     if (!session.owns(owner) || key !== id.value) return
     await load()
     if (!session.owns(owner) || key !== id.value) return
@@ -383,25 +402,36 @@ async function write(action: 'save' | 'stash') {
         savedCommit.value = shortCommit(commitId ?? record.value?.headCommit)
       }
       feedback.value = action === 'stash' ? '草稿已暂存，可在版本历史中取回。' : '简历已保存。'
+      confirmed = true
     } else {
       writeLocked.value = action === 'stash'
       writeError.value = action === 'stash'
         ? '暂存结果未确认，请先核对暂存记录。'
         : '当前版本与本次保存不同，草稿仍保留。请核对后再操作。'
     }
-  } catch {
+  } catch (cause) {
     if (session.owns(owner) && key === id.value) {
-      await load()
-      if (!session.owns(owner) || key !== id.value) return
-      writeLocked.value = action === 'stash' || Boolean(loadError.value)
-      writeError.value = action === 'save'
-        ? '保存结果未确认，当前正文和说明仍保留。请先核对当前版本。'
-        : '暂存结果未确认，当前正文仍保留。请先核对暂存记录。'
+      const conflict = resumeWriteConflict(cause)
+      if (conflict) {
+        // Keep the editor and draft untouched; the user decides how to reconcile.
+        conflictState.value = conflict
+        conflictError.value = ''
+        conflictOpen.value = true
+        persistDraft()
+      } else {
+        await load()
+        if (!session.owns(owner) || key !== id.value) return
+        writeLocked.value = action === 'stash' || Boolean(loadError.value)
+        writeError.value = action === 'save'
+          ? '保存结果未确认，当前正文和说明仍保留。请先核对当前版本。'
+          : '暂存结果未确认，当前正文仍保留。请先核对暂存记录。'
+      }
     }
   } finally {
     checkOffered.value = action === 'save' && Boolean(writeError.value) && session.owns(owner) && key === id.value
     pendingAction.value = null
   }
+  return confirmed
 }
 
 function openRestore() {
@@ -418,19 +448,21 @@ async function restoreServerContent(stashFirst: boolean) {
   restoreError.value = ''
   try {
     if (stashFirst) {
-      await write('stash')
+      const stashed = await write('stash')
       if (!session.owns(owner) || key !== id.value) return
-      if (writeError.value || writeLocked.value) {
+      if (!stashed) {
         restoreError.value = '当前修改未能暂存，编辑区保持不变。'
         return
       }
     }
-    // Reading the server workspace replaces only the editor, never the version store.
-    const item = await getResume(key)
+    // Reload metadata with the body so the next write uses the revision that was just read.
+    await load()
     if (!session.owns(owner) || key !== id.value) return
-    const current = record.value
-    if (current) record.value = { ...current, content: item.content }
-    markdown.value = item.content ?? ''
+    if (loadError.value) {
+      restoreError.value = loadError.value
+      return
+    }
+    markdown.value = record.value?.content ?? ''
     savedAt.value = ''
     clearLocalDraft()
     if (hasDraft.value) persistDraft()
@@ -439,6 +471,61 @@ async function restoreServerContent(stashFirst: boolean) {
     if (session.owns(owner) && key === id.value) restoreError.value = resumeReadMessage(cause)
   } finally {
     restorePending.value = false
+  }
+}
+
+async function resolveConflictWithServer(stashFirst: boolean) {
+  if (conflictPending.value || pendingAction.value) return
+  const owner = session.capture()
+  const key = id.value
+  const revision = conflictState.value?.workspaceRevision
+  conflictPending.value = 'server'
+  conflictError.value = ''
+  try {
+    if (stashFirst && revision != null) {
+      // Rebasing the baseline first lets the readback confirm the new stash entry.
+      const item = await getResume(key)
+      if (!session.owns(owner) || key !== id.value) return
+      record.value = item
+    }
+    await restoreServerContent(stashFirst && revision != null)
+    if (!session.owns(owner) || key !== id.value) return
+    if (restoreError.value) {
+      conflictError.value = restoreError.value
+      return
+    }
+    conflictOpen.value = false
+    conflictState.value = null
+  } finally {
+    conflictPending.value = null
+  }
+}
+
+async function saveConflictCopy() {
+  if (conflictPending.value || pendingAction.value) return
+  const owner = session.capture()
+  const key = id.value
+  const title = resumeConflictCopyTitle(record.value?.title ?? '')
+  conflictPending.value = 'copy'
+  conflictError.value = ''
+  try {
+    const copy = await createResume(title, markdown.value)
+    if (!session.owns(owner) || key !== id.value) return
+    conflictOpen.value = false
+    conflictState.value = null
+    clearLocalDraft()
+    message.value = ''
+    // The copy holds this text now; do not ask the leave guard about it.
+    if (record.value) record.value = { ...record.value, content: markdown.value }
+    await router.push('/resumes/' + copy.id + '/edit')
+  } catch (cause) {
+    if (session.owns(owner) && key === id.value) {
+      conflictError.value = cause && typeof cause === 'object' && 'resultUnknown' in cause && cause.resultUnknown
+        ? '副本创建结果未确认，请先刷新简历列表核对，正文仍保留在编辑区。'
+        : '另存副本失败，请重试或选择使用服务器版本。'
+    }
+  } finally {
+    conflictPending.value = null
   }
 }
 
@@ -492,6 +579,10 @@ watch(id, () => {
   restoreOpen.value = false
   restoreError.value = ''
   restorePending.value = false
+  conflictOpen.value = false
+  conflictState.value = null
+  conflictError.value = ''
+  conflictPending.value = null
   savedAt.value = ''
   void load(true)
 })
@@ -577,6 +668,35 @@ onUnmounted(() => {
         <UiDialogFooter>
           <UiButton v-if="checkError" variant="outline" @click="checkLatestVersion">重新核对</UiButton>
           <DialogClose as-child><UiButton variant="outline">返回编辑</UiButton></DialogClose>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
+    <UiDialog v-model:open="conflictOpen">
+      <UiDialogContent>
+        <UiDialogHeader>
+          <UiDialogTitle>保存冲突</UiDialogTitle>
+          <UiDialogDescription>
+            另一个标签页或设备已保存新版本。你的正文和修改说明仍保留在编辑区和本地草稿中，请选择如何处理。
+          </UiDialogDescription>
+        </UiDialogHeader>
+        <p v-if="conflictState?.headCommit" class="text-xs text-muted-foreground">
+          服务器最新版本 <span class="font-mono">{{ shortCommit(conflictState.headCommit) }}</span>
+        </p>
+        <p v-if="conflictError" role="alert">{{ conflictError }}</p>
+        <UiDialogFooter class="flex flex-wrap justify-end gap-2">
+          <UiButton variant="outline" :disabled="Boolean(conflictPending)" @click="conflictOpen = false">继续编辑</UiButton>
+          <UiButton variant="outline" :disabled="Boolean(conflictPending)" @click="saveConflictCopy">
+            {{ conflictPending === 'copy' ? '正在另存…' : '保留我的修改并另存为副本' }}
+          </UiButton>
+          <UiButton
+            v-if="dirty && !submissionLocked && conflictState?.workspaceRevision != null"
+            variant="outline"
+            :disabled="Boolean(conflictPending)"
+            @click="resolveConflictWithServer(true)"
+          >暂存我的修改并使用服务器版本</UiButton>
+          <UiButton :disabled="Boolean(conflictPending)" @click="resolveConflictWithServer(false)">
+            {{ conflictPending === 'server' ? '正在读取…' : '查看并使用服务器版本' }}
+          </UiButton>
         </UiDialogFooter>
       </UiDialogContent>
     </UiDialog>

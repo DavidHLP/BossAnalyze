@@ -10,6 +10,7 @@ export interface ResumeRecord {
   updatedAt?: string | number
   currentBranch?: string
   headCommit?: string | null
+  workspaceRevision?: number
   branches?: Record<string, string | null>
   stashStack?: unknown[]
 }
@@ -111,8 +112,11 @@ export function inspectCommit(id: string, commitId: string) {
   )
 }
 
-export async function changeResumeVersion(id: string, ...[action, data]: ResumeWrite) {
-  const result: unknown = await request.post(resource(id) + '/version/' + action, data)
+export async function changeResumeVersion(id: string, ...[action, data, workspaceRevision]: [...ResumeWrite, number?]) {
+  const body = workspaceRevision === undefined
+    ? data
+    : { ...((data ?? {}) as Record<string, unknown>), workspaceRevision: String(workspaceRevision) }
+  const result: unknown = await request.post(resource(id) + '/version/' + action, body)
   if (action === 'fix-duplicate-ids') {
     if (!result || typeof result !== 'object' || !('success' in result) || result.success !== true) {
       throw new Error('Repair was not confirmed')
